@@ -650,8 +650,17 @@ _n00b_new(n00b_type_t *type, ...)
     va_list          args;
     n00b_dt_info_t   *tinfo     = n00b_type_get_data_type_info(type);
     uint64_t         alloc_len = tinfo->alloc_len;
-    n00b_vtable_entry init_fn   = tinfo->vtable->methods[N00B_BI_CONSTRUCTOR];
-    n00b_vtable_entry scan_fn   = tinfo->vtable->methods[N00B_BI_GC_MAP];
+
+    if (!tinfo->vtable) {
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+      return _n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL, file, line);
+#else
+      return n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL);
+#endif
+    }
+
+    n00b_vtable_entry init_fn = tinfo->vtable->methods[N00B_BI_CONSTRUCTOR];
+    n00b_vtable_entry scan_fn = tinfo->vtable->methods[N00B_BI_GC_MAP];
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
