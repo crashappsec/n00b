@@ -1,0 +1,15 @@
+"""
+Basic test for generic types; the integer should end up boxed, where
+the string should not be.
+
+Now, this also is the first save/restore test. It should run the same
+entry point twice.
+"""
+"""#sub/resume_pt2.n00b:12
+$output:
+Second entry point test succeeded.
+"""
+print("hello, world!")
+const x = 3
+assert 4 - 1 == x
+print(x)

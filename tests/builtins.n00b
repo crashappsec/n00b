@@ -1,0 +1,17 @@
+"""
+Some basic builtins.
+"""
+"""
+$output:
+"Hello, world!"
+Hello, world!
+13
+"""
+
+x = "[h1]Hello, world!"'r
+print(repr(x))
+print(str(x))
+print(len(x))
+# Test these manually for now.
+# print(osname())
+# print(arch())

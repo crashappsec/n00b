@@ -1,0 +1,27 @@
+"""
+More type tests
+"""
+"""
+$output:
+Numeric
+Numeric
+Word.
+$errors:
+empty_case
+"""
+func ex2(x: `t) {
+  typeof x {
+    case int, float:
+       print("Numeric")
+    case dict[string, string]:
+    case dict[`t, int]:
+       print("Word.")
+    else:
+       print("Voted none of the above.")
+  }
+}
+
+ex2(4)
+ex2(4.8)
+ex2({"foo" : 1})
+

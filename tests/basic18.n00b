@@ -1,0 +1,29 @@
+"""
+Initial tuple tests. Check construction, typing, indexing, unpacking.
+"""
+"""
+$output:
+(1, 2, "three", 4, 100)
+(1, 2, "three", 4, 100)
+(100, 4, "three", 2, 1)
+42
+three
+
+$errors:
+"""
+m = 0
+
+for i in 0 to 100 {
+  m = m + 1  
+}
+
+// The RHS is generating an unpack when it shouldn't.
+x = (1, 2, "three", 4, m)
+print(x)
+
+(a, b, c, d, e) = (1, 2, "three", 4, m)
+print((a, b, c, d, e))
+print((e, d, c, b, a))
+x[1] = 42
+print(x[1])
+print(x[2])

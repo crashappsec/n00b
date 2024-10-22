@@ -1,0 +1,23 @@
+"""
+Basic recursive popcount implementation.
+"""
+"""
+$output:
+16
+8
+1
+"""
+func popcount(n) {
+  if (n == 0) {
+     return 0
+  }
+  if !(n % 2) {
+     return 0 + popcount(n >> 1)
+  }
+
+  return popcount(n >> 1) + 1
+}
+
+print(popcount(0xffff))
+print(popcount(0xcccc))
+print(popcount(1 << 12))

@@ -1,0 +1,52 @@
+"""
+Syntax testing for extern function decls.
+"""
+"""
+$errors:
+invalid_redeclaration
+invalid_redeclaration
+invalid_redeclaration
+dupe_hold
+bad_alloc_name
+invalid_redeclaration
+"""
+
+extern callecho(ptr) -> ptr {
+  local: echo(x: string) -> void
+  pure: false
+}
+
+extern echoanint(cint) -> cvoid {
+  local: echo(x: int) -> void
+  pure: false
+}
+
+extern exit(cint) -> cvoid {
+  local: exit(x: int) -> void
+  pure: false
+}
+
+extern abort() -> cvoid {
+  local: abort() -> void
+  pure: false
+}
+
+extern splitwrap(cstring, cstring) -> ptr {
+  local: split(x: string, y, x: string) -> list[string]
+  pure: true
+}
+
+// TODO: can't do varargs in a local; fix that.
+extern whatever(ptr) -> ptr {
+  local: something(a : int, b, x: dict[`a, int]) -> (int, *bool) -> string
+}
+
+extern callecho2(ptr, ptr) -> ptr {
+  local: echo(x: string) -> void
+  pure: false
+  holds: x, x
+  allocs: b, return
+}
+
+func foo (x : int, y, *z : int) {
+}

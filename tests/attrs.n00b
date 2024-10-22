@@ -1,0 +1,19 @@
+"""
+Simple test for attribute functionality.
+"""
+"""
+$output:
+hello
+goodbye
+2
+4
+"""
+
+foo.bar = "hello"
+print(foo.bar)
+foo.bar = "goodbye"
+print(foo.bar)
+boo.hoo = [0,1,2,3]
+print(boo.hoo[2])
+boo.hoo[2] = 4
+print(boo.hoo[2])

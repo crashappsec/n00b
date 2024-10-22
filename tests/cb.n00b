@@ -1,0 +1,25 @@
+"""
+In progress.
+"""
+"""
+$output:
+func somethingcool(int) -> bool
+func lower(string) -> string
+true
+$errors:
+unused_param
+"""
+
+func somethingcool(x: int) {
+  return true
+}
+
+x = func somethingcool(int) -> bool
+y = func lower
+
+print(repr(x))
+print(repr(y))
+print(x(2))
+
+# TODO: need to look up func lits without types immediately, and
+#  complain if we don't see them.

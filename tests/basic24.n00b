@@ -1,0 +1,9 @@
+"""
+Make sure lex phase produces errors properly.
+"""
+"""
+$errors:
+eof_in_str_lit
+"""
+
+x = "

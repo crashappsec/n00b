@@ -1,0 +1,14 @@
+"""
+Just print a random value; basic idea is to test proper behavior of the
+test harness if 'output' key is not provided.
+
+Also tests FFI with 0 arguments.
+"""
+"""
+$errors:
+"""
+extern n00b_rand64() -> i64 {
+  local: r() -> int
+}
+
+print(r())

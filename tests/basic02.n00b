@@ -1,0 +1,10 @@
+"""
+Initial test for const declaration; asm was manually inspected to make
+sure the value was pushed as an immediate, instead of being stored in
+the const pool.
+"""
+"""
+$output:
+"""
+const x = 3
+assert 4 - 1 == x

@@ -1,0 +1,29 @@
+"""
+Ensure slice semantics match Python's.
+"""
+"""
+$output:
+[0, 1, 2, 3, 4, 5]
+[0, 1, 2]
+[0, 1, 2]
+[3, 4, 5]
+[3, 4]
+[0, 1, 2, 3]
+[4, 3, 2, 1, 5]
+foob
+
+"""
+x = [0, 1, 2, 3, 4, 5]
+
+print(x[:])
+print(x[0:3])
+print(x[:3])
+print(x[3:])
+print(x[-3:-1])
+print(x[:-2])
+x[:-1] = [4, 3, 2, 1]
+print(x)
+
+
+s = "foobar"
+print(s[:-2])

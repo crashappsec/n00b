@@ -1,0 +1,369 @@
+#!/bin/bash
+
+N00B_DEV_CFG="--buildtype=debug -Duse_memcheck=on -Ddev_mode=true"
+N00B_RELEASE_CFG="--buildtype=release"
+N00B_DEBUG_EXTRA="-Dshow_preprocessor_config=enabled -Dforkless_tests=enabled -Duse_memcheck=on -Dexception_traces=enabled"
+N00B_SANITIZE_EXTRA="-Duse_ubsan=enabled -Duse_asan=enabled -Dshow_preprocessor_config=enabled -Dforkless_tests=enabled"
+N00B_TEST_CFG=${N00B_DEV_CFG}
+
+
+N00B_MESON_STATE_FILE=.meson_last
+N00B_TEST_EXE=n00btest
+
+function color {
+    case $1 in
+        black)   CODE=0 ;;
+        red)     CODE=1 ;; RED)     CODE=9 ;;
+        green)   CODE=2 ;; GREEN)   CODE=10 ;;
+        yellow)  CODE=3 ;; YELLOW)  CODE=11 ;;
+        blue)    CODE=4 ;; BLUE)    CODE=12 ;;
+        magenta) CODE=5 ;; MAGENTA) CODE=13 ;;
+        cyan)    CODE=6 ;; CYAN)    CODE=14 ;;
+        white)   CODE=7 ;; WHITE)   CODE=15 ;;
+        grey)    CODE=8 ;; *)       CODE=$1 ;;
+    esac
+    shift
+
+    echo -n $(tput setaf ${CODE})$@$(tput op)
+}
+
+OS=$(uname -o 2>/dev/null)
+ARCH=$(uname -m 2>/dev/null)
+PWD=$(pwd)
+
+if [[ $? -ne 0 ]] ; then
+    # Older macOS/OSX versions of uname don't support -o
+    OS=$(uname -s)
+fi
+
+function log {
+    echo $(color blue "[-- n00b --]" $@)
+}
+
+function ensure_env_setup {
+    export LIBRARY_PATH=/usr/local/lib:${PWD}/deps/${OS}-${ARCH}/:~/.local/c0/libs
+    export LD_LIBRARY_PATH=${LIBRARY_PATH}
+    log "OS="$(color green ${OS})
+    log "ARCH="$(color green ${ARCH})
+    log "LIBRARY_PATH="$(color green ${LIBRARY_PATH})
+}
+
+function cur_exe_loc {
+    echo ${N00B_BUILD_DIR}/${N00B_TEST_EXE}
+}
+
+function meson_hatrack {
+    if [[ ! -d ${1} ]]; then
+        if [[ -f ${1} ]]; then
+            rm -rf ${1}
+        fi
+        log Creating meson target ${1}
+        meson setup -Dbuild_hatrack=enable ${1}
+    fi
+    cd ${1}
+
+    log Compiling meson target ${1}
+
+    if [[ ${OS} = "Darwin" ]] ; then
+        meson compile hash
+    else
+        CC=musl-gcc meson compile hash
+    fi
+
+    CODE=$?
+    if [[ $CODE -eq 0 ]] ; then
+        log "Done!"
+    else
+        log "Build FAILED"
+    fi
+
+    cd ..
+    if [[ ${1} != "debug" ]]; then
+        exit $CODE
+    fi
+
+    if [[ $CODE -ne 0 ]]; then
+        exit $CODE
+    fi
+}
+
+function n00b_dev_usage {
+    echo $(color YELLOW "Usage: ./dev [ profile | build | run | debug | rebuild | clean | hash ]")
+    echo $(color CYAN "   profile [arg]") "          Sets the current profile, or shows without arguments."
+    echo "                         Valid profiles are: " $(color blue "dev debug release test")
+    echo $(color CYAN "   build [meson_options]") "  Builds the current profile, passing any additional options to" $(color blue "meson setup") "if provided."
+    echo $(color CYAN "  run") "                    Ensures the current profile is built, and if so, runs the test suite. "
+    echo "                         If not, attempts to compile it first."
+    echo $(color CYAN "  debug") "                  Runs the current profile's test binary in the debugger."
+    echo $(color CYAN " rebuild [meson_options]") "Same as " $(color blue "build") "except it forces a rebuild."
+    echo $(color CYAN " clean [all | profile]") "  Completely wipes the specified profile(s), or the current profile if no argument."
+    echo $(color CYAN " hash") "                   Does a build of libhatrack only."
+
+    exit 1
+}
+
+function ensure_directory {
+
+    if [[ ! -d ${N00B_BUILD_DIR} ]]; then
+        mkdir ${N00B_BUILD_DIR}
+    fi
+}
+
+function ensure_project {
+    # Return 1 if the project was just setup, 0 if not.
+    meson introspect ${N00B_BUILD_DIR} > /dev/null
+
+    if [[ $? -ne 0 ]] ; then
+        shift
+        log Setting up target: $(color green ${N00B_BUILD_TARGET})
+        meson setup ${N00B_BUILD_DIR} ${N00B_MESON_CONF} ${N00B_PASTHROUGH_ARGS}
+        if [[ $? -ne 0 ]] ; then
+            log Setup for target ${N00B_BUILD_TARGET} $(color FAILED.)
+            exit -1
+        fi
+        log Setup for target ${N00B_BUILD_TARGET}: $(color GREEN SUCCESS)
+    fi
+}
+
+function configure_target {
+    if [[ $# -ne 0 ]] ; then
+        meson configure ${N00B_BUILD_DIR} ${N00B_PASSTHROUGH_ARGS}
+    fi
+}
+
+function build_target {
+    meson compile ${N00B_BUILD_DIR}
+}
+
+function rebuild_target {
+    meson compile --clean
+}
+
+function set_profile {
+    if [[ $# -eq 0 ]] ; then
+        if [[ -f ${N00B_MESON_STATE_FILE} ]]; then
+            WRITE_TARGET_FILE=0
+            export N00B_BUILD_TARGET=$(cat ${N00B_MESON_STATE_FILE})
+        else
+            WRITE_TARGET_FILE=1
+            export N00B_BUILD_TARGET=dev
+        fi
+    else
+        WRITE_TARGET_FILE=1
+        export N00B_BUILD_TARGET=${1}
+        shift
+        export N00B_PASSTHROUGH_ARGS=${@}
+    fi
+
+
+    case ${N00B_BUILD_TARGET} in
+        dev)
+            export N00B_MESON_CONF="${N00B_DEV_CFG}"
+            ;;
+        sanitize)
+            export N00B_MESON_CONF="${N00B_DEV_CFG} ${N00B_SANITIZE_EXTRA}"
+            ;;
+        debug)
+            export N00B_MESON_CONF="${N00B_DEV_CFG} ${N00B_DEBUG_EXTRA}"
+            ;;
+        release)
+            export N00B_MESON_CONF="${N00B_RELEASE_CFG}"
+            ;;
+        test)
+            export N00B_MESON_CONF="${N00B_TEST_CFG}"
+            ;;
+        *)
+            echo $(color RED "[-- n00b --] ") Invalid profile: $(color RED ${N00B_BUILD_TARGET})
+            echo $(color blue "Valid targets are: dev, debug, release, sanitize, test")
+            return -1
+            ;;
+    esac
+
+    if [[ ${WRITE_TARGET_FILE} -eq 1 ]]; then
+        log "Setting the current profile to:" $(color green ${N00B_BUILD_TARGET})
+        echo ${N00B_BUILD_TARGET} > ${N00B_MESON_STATE_FILE}
+    else
+        log "Current profile is: " $(color YELLOW ${N00B_BUILD_TARGET})
+    fi
+
+    export N00B_BUILD_DIR="build_${N00B_BUILD_TARGET}"
+    log "Current meson build directory is:" $(color YELLOW ${N00B_BUILD_DIR})
+
+    return 0
+
+}
+
+function clean_one_target {
+    TARGET=build_${1}
+    if [[ -d ${TARGET} ]] ; then
+        log Cleaning: ${1}
+        rm -rf ${TARGET}
+    else
+        log Nothing to clean for ${1}
+    fi
+}
+
+function n00b_clean {
+    if [[ "$1" == "all" ]] ; then
+        for TARGET in dev sanitize debug release test ; do
+            clean_one_target ${TARGET}
+        done
+        if [[ -f ${N00B_MESON_STATE_FILE} ]]; then
+            rm ${N00B_MESON_STATE_FILE}
+        fi
+    else
+        if [[ $# -ne 0 ]]; then
+            for arg in $@ ; do
+                set_profile ${arg}
+                if [[ $? -eq 0 ]] ; then
+                    clean_one_target ${N00B_BUILD_TARGET}
+                fi
+            done
+        else
+            set_profile
+            clean_one_target ${N00B_BUILD_TARGET}
+        fi
+    fi
+}
+
+function n00b_set_profile {
+    if [[ $# -gt 1 ]]; then
+        n00b_dev_usage
+    fi
+
+    set_profile $@
+
+    if [[ $? -ne 0 ]]; then
+        exit -1
+    fi
+
+    log "Current profile is: " $(cat $N00B_MESON_STATE_FILE)
+
+    ensure_directory
+}
+
+function n00b_prebuild {
+    CONFIGURE=1
+    if [[ ${1} -eq 0 ]] ; then
+        shift
+        CONFIGURE=0
+    fi
+
+    if [[ $# -ne 0 ]]; then
+        case ${1} in
+            dev | debug | release | sanitize | test)
+                set_profile $@
+                shift
+                ;;
+            *)
+                set_profile
+                export N00B_PASSTHROUGH_ARGS=$@
+                ;;
+        esac
+    else
+        set_profile
+    fi
+
+    ensure_directory
+    ensure_project
+
+    if [[ CONFIGURE -ne 0 ]] ; then
+        configure_target
+    fi
+}
+
+function n00b_compile {
+    log "Compiling target: " $(color green ${N00B_BUILD_TARGET})
+    which musl-gcc > /dev/null
+
+    if [[ $? -eq 0 ]]; then
+        CC=musl-gcc meson compile -C ${N00B_BUILD_DIR}
+    else
+        meson compile -C ${N00B_BUILD_DIR}
+    fi
+
+
+    if [[ $? -ne 0 ]] ; then
+        log Compilation of target ${N00B_BUILD_TARGET} $(color RED "FAILED.")
+        exit -1
+    fi
+
+    if [[ ${OS} = "Darwin" ]] ; then
+        dsymutil $(cur_exe_loc)
+    fi
+}
+
+function n00b_run_tests {
+    log Running test exe for target: $(color yellow '[==' $N00B_BUILD_TARGET '==]') in directory: $(color YELLOW ${N00B_BUILD_DIR})
+
+    $(cur_exe_loc) ${N00B_PASSTHROUGH_ARGS}
+    EXIT=$?
+    log "Exit status: ${EXIT}"
+    exit ${EXIT}
+}
+
+function n00b_run {
+    n00b_prebuild 0 $@
+    n00b_compile
+
+    set -e
+    n00b_run_tests $@
+    CODE=$?
+    if [[ $CODE -eq 0 ]] ; then
+        log "CI/CD tests passed."
+    else
+        log "CI/CD Tests " $(color RED "FAILED.")
+        exit $CODE
+    fi
+}
+
+function debug_project {
+    n00b_prebuild $@
+    CUR_EXE=$(cur_exe_loc)
+
+    n00b_compile
+
+
+    DEBUGGER=$(which gdb)
+    DEBUGGER=${DEBUGGER:-$(which lldb)}
+    DEBUGGER=${DEBUGGER:-1}
+
+    if [[ ${DEBUGGER} -eq 1 ]] ; then
+        echo $(color RED ERROR: ) "no debugger found in your path."
+        exit -1
+    fi
+    log "Running debugger: ${DEBUGGER} for target:" $(color green '[==' $N00B_BUILD_TARGET '==]')
+
+    ${DEBUGGER} ${CUR_EXE} ${N00B_PASSTHROUGH_ARGS}
+}
+
+ensure_env_setup
+
+case ${1} in
+    clean)   shift
+             n00b_clean $@
+             ;;
+    build | compile) shift
+             n00b_prebuild $@
+             n00b_compile
+             ;;
+    rebuild) shift
+             n00b_prebuild $@
+             n00b_compile --clean
+             ;;
+    profile) shift
+             n00b_set_profile $@
+             ;;
+    debug)   shift
+             debug_project $@
+             ;;
+    run)     shift
+             n00b_run $@
+             ;;
+    hash)    shift
+             meson_hatrack hash $@
+             ;;
+    *)
+        n00b_dev_usage
+        ;;
+esac

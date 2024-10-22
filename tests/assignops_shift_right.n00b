@@ -1,0 +1,42 @@
+"""
+Basic test of augmented assignment operator: >>=
+"""
+"""
+$output:
+9223372036854775807
+9223372036854775807
+4611686018427387903
+15
+7
+1
+0
+0
+0
+"""
+
+x = 0x7fffffffffffffff
+print(x)
+
+x >>= 0
+print(x)
+
+x >>= 1
+print(x)
+
+x >>= 58
+print(x)
+
+x >>= 1
+print(x)
+
+x >>= 2
+print(x)
+
+x >>= 1
+print(x)
+
+x >>= 0
+print(x)
+
+x >>= 1
+print(x)

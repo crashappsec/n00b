@@ -1,0 +1,79 @@
+"""
+Was a syntax test, primarily for decls, but useful for initial
+CFG-based error reporting. Will need to be redone when we extend to
+do a dependency graph.
+"""
+"""
+$errors:
+unused_decl
+def_without_use
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+def_without_use
+use_no_def
+def_without_use
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+const_not_provided
+"""
+
+func testfn(f: int, g: int) {
+  return f + g
+}
+
+var noidea
+
+global const x: int
+const y = -12, z: int, abc : bool = true, xyz: int = 8000
+var a, b: int = 2, c = 4
+cxcsd
+foo: for moo, moo2 in { 1 : "foo", 2: "4" } {
+  n
+  break foo
+}
+x
+for lololo from 1 to 2 {
+  m
+  break;
+}
+
+for zzzz in qwerty {
+  dsflkjfslkdj
+}
+
+# Re
+# AWS module
+
+var bar = 2, boz = 5
+
+testfn(bar, boz);
+
+oopsie = xyz + y
+
+if (noidea == 2) {
+  noidea += 1
+}
+if (2 < foo) {
+   x = - 18
+}
+
+index_test = foobar[2]
+
+foobar = [1,2]
+
+assert(foobar == [4])
+//assert(foobar == [index_test])

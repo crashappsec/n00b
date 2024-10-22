@@ -1,0 +1,52 @@
+"""
+Basic test of augmented assignment operator: <<=
+"""
+"""
+$output:
+0
+0
+1
+2
+8
+4611686018427387904
+-1
+-2
+-2305843009213693952
+-4611686018427387904
+"""
+
+x = 0
+
+x <<= 0
+print(x)
+
+x <<= 1
+print(x)
+
+x = 1
+
+x <<= 0
+print(x)
+
+x <<= 1
+print(x)
+
+x <<= 2
+print(x)
+
+x <<= 59
+print(x)
+
+x = -1
+
+x <<= 0
+print(x)
+
+x <<= 1
+print(x)
+
+x <<= 60
+print(x)
+
+x <<= 1
+print(x)

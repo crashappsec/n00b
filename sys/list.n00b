@@ -1,0 +1,23 @@
+extern n00b_list_resize(ptr, u32) -> void {
+  local: set_size(l: list[`t], s: uint) -> void
+}
+
+extern n00b_list_append(ptr, ptr) -> void {
+  local: append(l: list[`t], n: `t) -> void
+  box_values: false
+}
+
+extern n00b_list_sort(ptr, ptr) -> void {
+  local: sort(l: list[`t], f: (`t, `t) -> i32) -> void
+}
+extern n00b_list_pop(ptr) -> ptr {
+  """
+  This needs to convert to return a maybe[`t]
+  """
+  local: pop(x: list[`t]) -> `t
+}
+
+extern n00b_list_contains(ptr, ptr) -> bool {
+  local: contains(l: list[`t], item: `t) -> bool
+  box_values: false
+}

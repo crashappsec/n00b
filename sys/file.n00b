@@ -1,0 +1,7 @@
+extern n00b_read_utf8_file(ptr) -> ptr {
+  local: read_file_utf8(string) -> string
+}
+
+extern n00b_read_binary_file(ptr) -> ptr {
+  local: read_file_binary(string) -> buffer
+}

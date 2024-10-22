@@ -1,0 +1,22 @@
+"""
+Basic switch test using fib()
+"""
+"""
+$output:
+5
+"""
+
+func fib(x) {
+  switch x {
+    case 0:
+        return 1
+    case 1:
+        return 1
+    else:
+        return fib(x - 2) + fib(x - 1)
+  }
+}
+
+y = fib(4)
+print(y)
+

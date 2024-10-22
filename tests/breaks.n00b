@@ -1,0 +1,17 @@
+"""
+Make sure statements cannot persist over more than 1 newline, including
+a multi-line comment.
+"""
+"""
+$errors:
+bad_expression_start
+"""
+
+x = 12
+x = x +
+/* Some
+Long
+Comment */
+y = x
+
+print(y)

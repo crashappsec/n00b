@@ -1,0 +1,65 @@
+"""
+Basic test of ranged loops, and the magic loop variables ($i and $last).
+
+Currently, there's a bug here where the block scope of the loop index
+should be limited to loop bodies, but is not.
+
+This results in warnings, that we're currently accepting. So in the
+long term, this test will change, as it actually should not warn.
+"""
+"""
+$output: 
+5
+6
+7
+8
+9
+---
+0
+1
+2
+3
+4
+---
+5
+5
+5
+5
+5
+---
+100
+5
+100
+5
+100
+5
+100
+5
+100
+5
+
+$errors:
+"""
+
+for i in 5 to 10 {
+    print(i)
+}
+
+print("---")
+
+for i in 5 to 10 {
+    print($i)
+}
+
+print "---"
+
+for i in 5 to 10 {
+    print($last)
+}
+
+print "---"
+
+for i in 100 to 105 {
+    print(i - $i)
+    print($last)
+}

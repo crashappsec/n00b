@@ -1,0 +1,6 @@
+.DS_Store
+subprojects/*/
+.meson_last
+.vscode
+.cache
+deps/local

@@ -1,0 +1,24 @@
+"""
+Dumb recursion test.
+"""
+"""
+$output:
+4181
+"""
+
+func n(m: int) -> int {
+
+if m == 1 {
+    return 1
+  }
+  elif m == 0 {
+    return 1
+  }
+  elif m > 1 {
+    return n(m - 1) + n(m - 2)
+  }
+  else {
+    return -1;
+  }
+}
+print(n(18))

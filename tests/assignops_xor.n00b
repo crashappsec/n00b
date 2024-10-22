@@ -1,0 +1,32 @@
+"""
+Basic test of augmented assignment operator: ^=
+"""
+"""
+$output:
+2
+0
+-2
+-4
+-4
+3
+"""
+
+x = 3
+
+x ^= 1
+print(x)
+
+x ^= 2
+print(x)
+
+x ^= -2
+print(x)
+
+x ^= 2
+print(x)
+
+x ^= 0
+print(x)
+
+x ^= -1
+print(x)

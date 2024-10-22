@@ -1,0 +1,14 @@
+"""
+Test of print(void)
+"""
+"""
+$errors:
+void_print
+"""
+
+func f() {
+  print("***")
+}
+
+print(f())
+

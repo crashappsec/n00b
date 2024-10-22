@@ -1,0 +1,40 @@
+extern n00b_wrapper_hostname() -> ptr {
+  local: hostname() -> string
+}
+
+extern n00b_wrapper_osname() -> ptr {
+  local: osname() -> string
+}
+
+extern n00b_wrapper_arch() -> ptr {
+  local: arch() -> string
+}
+
+extern n00b_len(ptr) -> i64 {
+  local: len(s: `x) -> int
+}
+
+/*
+extern n00b_wrapper_coerce(ptr, ptr) -> ptr {
+  local: coerce(o: `t, t: typespec) -> `v
+}
+*/
+
+extern n00b_copy(ptr) -> ptr {
+  local: copy(o: `t) -> `t
+  box_values: false
+}
+
+extern n00b_get_c_backtrace() -> ptr {
+  local: c_backtrace() -> grid
+}
+
+# These should eventually move to a styling specific module
+
+extern n00b_lookup_color(ptr) -> i64 {
+  local: get_color_by_name(s: string) -> int
+}
+
+extern n00b_to_vga(i64) -> i64 {
+  local: truecolor_to_vga(int) -> int
+}

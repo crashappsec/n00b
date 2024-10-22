@@ -1,0 +1,21 @@
+"""
+Size matters.
+"""
+"""
+$output:
+10 MiB 3 Bytes
+10 Mb 1 Bytes
+1 Kb 23 Bytes
+"""
+s1 = "10485763 b"'sz
+s2 = "10000001 bytes"'sz
+s3 = "10000001bYtes"'sz
+
+
+print(s1)
+print(s2)
+
+assert(s2 == s3)
+
+# - for sizes is a difference op, not pure subtraction.
+print(23'sz - 1046'sz)

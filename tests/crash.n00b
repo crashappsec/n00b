@@ -1,0 +1,12 @@
+"""
+Make sure stack traces do something.
+"""
+"""
+$output:
+maximum call depth reached
+"""
+func crasher(x) {
+ return crasher(x + 1)
+}
+
+crasher(1)

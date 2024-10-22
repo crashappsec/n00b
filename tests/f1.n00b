@@ -1,0 +1,15 @@
+"""
+Basic float tests.
+"""
+"""
+$output:
+4.2
+13.44
+56.448
+"""
+
+x = 4.2
+y = x * 3.2
+print(x)
+print(y)
+print(x*y)

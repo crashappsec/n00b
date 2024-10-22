@@ -1,0 +1,63 @@
+"""
+Uhhh...
+"""
+"""
+$errors:
+unused_param
+$output:
+176
+info
+warn
+"""
+func somethingcool(y: string, x: int) {
+      return y
+}
+
+confspec {
+
+  singleton test {
+    "Test short."
+    """
+Test long.
+"""
+    user_def_ok: true
+    validator: func somethingcool
+
+    field audit_id {
+      type:   int
+      default: 176
+      range: 0, 100
+      validator: func somethingcool
+    }
+
+  }
+
+  named test2 {
+    "Test2 short."
+    "Test2 long."
+    field audit_location {
+      type:   string
+      default: "test 1"
+      validator: func somethingcool
+    }
+  }
+
+  root {
+    "Welcome to the config file docs."
+    "..."
+    allow:   test
+    require: test2
+
+    field log_level {
+     type:    string
+     default: "info"
+     choices: ["trace", "info", "warn", "error", "fatal"]
+     exclude: somethingnotfound
+    }
+  }
+}
+
+print(test.audit_id)
+print(log_level)
+log_level = "warn"
+print(log_level)

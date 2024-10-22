@@ -1,0 +1,10 @@
+"""
+Make sure shift right on a signed integer works as expected.
+"""
+"""
+$output:
+-1
+"""
+x = -1
+x >>= 0
+print(x)

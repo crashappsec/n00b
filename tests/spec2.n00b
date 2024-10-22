@@ -1,0 +1,53 @@
+"""
+Syntax test.
+"""
+"""
+$errors:
+range_type
+inconsistent_field
+inconsistent_field
+inconsistent_field
+"""
+
+func f(x: int) {
+  return x != 0
+}
+
+confspec {
+
+  singleton test {  
+    user_def_ok: true
+
+    field max {
+      type: int
+      default: 0xffffffffffffffff
+      lock: true      
+    }
+    
+    field audit_id {
+      type:   string
+      default: "foo"
+      range: "please", "fail"
+    }
+  }
+  
+  named test2 {
+    field audit_location {
+      type:   string
+      default: "test 1"
+      validator: func f(int) -> bool
+    }
+  }
+
+  root {
+    allow: test
+    allow: test2
+    
+    field log_level {
+     type:    string
+     default: 7
+     choices: ["trace", "info", "warn", "error", "fatal"]
+    }
+  }
+}
+

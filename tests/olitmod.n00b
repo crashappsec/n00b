@@ -1,0 +1,16 @@
+"""
+Ensure type checking is good.
+"""
+"""
+$errors:
+inconsistent_type
+"""
+
+shouldwork = "2 gb"'sz
+
+var shouldnt: Duration
+
+shouldnt = "2 gb"'sz
+
+print(shouldwork)
+print(shouldnt)

@@ -1,0 +1,14 @@
+"""
+Test of basic array item reads / writes for ints.
+"""
+"""
+$output:
+5
+[0, 1, 5, 3, 4, 5]
+"""
+
+l = [0, 1, 2, 3, 4, 5]
+l[2] = 5
+x = l[2]
+print(x)
+print(l)

@@ -1,0 +1,38 @@
+"""
+C'mon get this working.
+"""
+"""
+$errors:
+type_overlap
+$output:
+Int!
+Bool!
+List of int.
+String!
+List of something else.
+Something else.
+"""
+
+func typeoftest(x) {
+    typeof x {
+        case int:
+           print("Int!");
+        case bool:
+           print("Bool!");
+        case string:
+           print("String!");
+        case list[int]:
+           print("List of int.");
+        case list[`x]:
+           print("List of something else.");
+        else:
+           print("Something else.");
+    }
+}
+
+typeoftest(8)
+typeoftest(true)
+typeoftest([1,2,3])
+typeoftest("hi")
+typeoftest(["foo"])
+typeoftest({1: 2})

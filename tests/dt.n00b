@@ -1,0 +1,22 @@
+"""
+Date / time basics.
+
+Also, canonical repr probably should add TZ info when we have it.
+"""
+"""
+$output:
+1974-01-07
+12:31:00
+2024-07-22T18:01:25
+"""
+var date : Date;
+var time : Time;
+var dt : Datetime;
+
+date = "Jan 7, 1974";
+time = "12:31pm";
+dt = "22 Jul 24 18:01:25 -0400";
+
+print(date)
+print(time)
+print(dt)

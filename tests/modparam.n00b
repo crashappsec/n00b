@@ -1,0 +1,42 @@
+"""
+Initial test for module parameters.
+"""
+"""
+$output:
+Required parameter example.two didn't have a value when entering module /Users/viega/dev/n00b.
+"""
+
+func value_provider() {
+  "Provide a value."
+  return 101
+}
+
+func example_checker(x) {
+  result = ""
+
+  if (x % 2) != 0 {
+    result = "Parameter value must be even."
+  }
+  elif (x % 7) != 3 {
+    result = "I guess"
+  }
+  else {
+    result = "still empty"
+  }
+}
+
+parameter var example1 {
+  "This should be some documentation."
+  "Also this (e1)."
+  default:  100
+  validator: func example_checker(int) -> string
+}
+
+parameter example.two {
+  "This should be some documentation."
+  "Also this."
+  validator: func example_checker(int) -> string
+}
+
+print(example1)
+print(example.two)

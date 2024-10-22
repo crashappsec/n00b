@@ -1,0 +1,15 @@
+"""
+Initial test of an external function.
+"""
+"""
+$output:
+4
+"""
+
+extern n00b_clz(u64) -> i32 {
+  local: clz(x: uint) -> int
+}
+
+var x: uint = 0x0fffffffffffffff
+
+print(clz(x))

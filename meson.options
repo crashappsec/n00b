@@ -1,0 +1,137 @@
+option(
+    'minimum_render_width',
+    type: 'integer',
+    min: 20,
+    value: 80,
+    description: 'Render width if not available from terminal',
+)
+
+option(
+    'keep_alloc_locations',
+    type: 'boolean',
+    value: 'false',
+    description: 'Allocs keep source file/line info',
+)
+
+option(
+    'use_frame_intrinsic',
+    type: 'feature',
+    value: 'disabled',
+    description: 'I do not think this works right.',
+)
+
+option(
+    'build_hatrack',
+    type: 'feature',
+    value: 'auto',
+    description: 'Build the optional libhatrack.a',
+)
+
+option(
+    'build_n00b_dll',
+    type: 'feature',
+    value: 'auto',
+    description: 'Build the optional n00b.a',
+)
+
+option(
+    'use_gc_ptr_hooks',
+    type: 'feature',
+    value: 'auto',
+    description: 'Turn off to scan all memory for pointers, not just likely pointer locations',
+)
+
+option(
+    'show_preprocessor_config',
+    type: 'feature',
+    value: 'auto',
+    description: 'Show key compile flags set during compilation.',
+)
+
+option(
+    'dev_mode',
+    type: 'boolean',
+    value: true,
+    description: 'Enable (below) debugging options',
+)
+
+option(
+    'exception_traces',
+    type: 'feature',
+    value: 'auto',
+    description: 'Enable C stack traces on uncaught internal exceptions if possible',
+)
+
+option(
+    'show_gc_stats',
+    type: 'feature',
+    value: 'auto',
+    description: 'Print stats after collections',
+)
+
+option(
+    'use_memcheck',
+    type: 'combo',
+    choices: ['off', 'on', 'strict'],
+    value: 'off',
+    description: 'Enable internal lightweight heap checks',
+)
+
+option(
+    'memcheck_show_allocs',
+    type: 'integer',
+    min: 0,
+    value: 2000,
+    description: 'On a memcheck guard error, # of subsequent allocs to show',
+)
+
+option(
+    'gc_tracing',
+    type: 'combo',
+    choices: ['off', 'minimal', 'full'],
+    value: 'off',
+    description: 'Print GC disagnostics to console',
+)
+
+option(
+    'warn_on_zero_allocs',
+    type: 'boolean',
+    value: false,
+    description: 'Give console warning to see 0-length allocs',
+)
+
+option(
+    'vm_debug',
+    type: 'combo',
+    choices: ['default on', 'default off', 'always off'],
+    value: 'always off',
+    description: 'At runtime, show instructions and stack',
+)
+
+option(
+    'use_asan',
+    type: 'feature',
+    value: 'auto',
+    description: 'Use address sanitizer',
+)
+
+option(
+    'use_ubsan',
+    type: 'feature',
+    value: 'auto',
+    description: 'Use undefined behavior sanitizer',
+)
+
+option(
+    'forkless_tests',
+    type: 'feature',
+    value: 'auto',
+    description: 'Run test suite without forking',
+)
+
+option(
+    'static_ffi_binding',
+    type: 'feature',
+    value: 'auto',
+    description: 'Whether to statically bind native builtins in std library',
+)

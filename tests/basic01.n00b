@@ -1,0 +1,8 @@
+"""
+Initial hello world test, covers basic int operators and the assert statement.
+Should not produce output.
+"""
+"""
+$output:
+"""
+assert 4 - 1 == 3

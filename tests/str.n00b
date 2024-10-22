@@ -1,0 +1,19 @@
+"""
+This not only tests extern, but auto-importing of string routines from
+the system directory.
+"""
+"""
+$output:
+foo       
+this is a test
+THIS IS A TEST
+["this", "is", "a", "test"]
+"""
+
+
+print(pad("foo", 10))
+s = ["this", "is", "a", "test"]
+l = join(s, " ")
+print(l)
+print(upper(l))
+print(split(join(s, " "), " "))

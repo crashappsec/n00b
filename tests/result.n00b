@@ -1,0 +1,26 @@
+"""
+Make sure that $result and result are interchangable and generate
+working code.
+"""
+"""
+$output:
+1
+4
+4
+"""
+func test(x: int) -> int
+{
+  result = 4
+
+  if (x % 2) {
+     $result = 1
+  }
+
+  if (x % 3) {
+    return
+  }
+}
+
+print(test(1))
+print(test(2))
+print(test(6))

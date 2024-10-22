@@ -1,0 +1,9 @@
+"""
+Proof of life for IPs.
+"""
+"""
+$output:
+128.164.0.1
+"""
+x = "128.164.0.1"'ip
+print(x)

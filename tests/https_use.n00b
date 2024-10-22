@@ -1,0 +1,9 @@
+"""
+Test loading modules via 'use' remotely.
+"""
+"""
+$output:
+hello, world!
+"""
+
+use basic03 from "https://raw.githubusercontent.com/crashappsec/n00b/main/tests/"

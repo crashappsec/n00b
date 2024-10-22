@@ -1,0 +1,10 @@
+"""
+Basic test to see if attribute locking works.
+"""
+"""
+$output: attribute is locked: foo.bar
+"""
+
+~foo.bar = "hello"
+foo.bar = "goodbye"
+

@@ -1,0 +1,13 @@
+"""
+Test of initializing a list after a variable, then printing both.
+"""
+"""
+$output:
+1
+[2]
+"""
+
+x = 1
+l = [2]
+print(x)
+print(l)

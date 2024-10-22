@@ -1,0 +1,34 @@
+"""
+Syntax test 1 for sections.  
+"""
+"""
+$output:
+2
+"""
+
+foo = 2
+
+hello {}
+hello world {}
+hello "world" {}
+hello {
+  world : 2
+}
+
+hello {
+  world {
+        y = foo
+  }
+}
+
+# These no longer work, as it is too easy to do this on accident.
+# But the error probably should be improved.
+// hello world
+// hello "world"
+
+print(hello.world.y)
+
+
+
+
+

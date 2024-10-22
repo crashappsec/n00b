@@ -1,0 +1,19 @@
+"""
+This has gone on too long.
+"""
+"""
+$output:
+2 days, 4 minutes, 1 second
+1 day, 5 minutes
+23 hours, 59 minutes, 1 second
+"""
+var d1: Duration
+
+d1 = "2 days, 4 mins 1s"
+d2 = "1 day, 5 min"'duration
+
+print(d1)
+print(d2)
+
+# The '-' here is a difference op, not subtraction.
+print(d2 - d1)

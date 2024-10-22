@@ -1,0 +1,28 @@
+"""
+Test extern list functions like append() that don't want a box when
+the type is concrete.
+
+The wrap now happens in the standard library.
+"""
+"""
+$output:
+190
+"""
+func f(n) {
+  total = 0
+  l = []
+  i = 0
+  
+  while (i < n) {
+    append(l, i)
+    i += 1
+  }
+
+  for x in 0 to n {
+    total += l[x]
+  }
+  
+  return total
+}
+
+print(f(20))

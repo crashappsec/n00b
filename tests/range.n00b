@@ -1,0 +1,27 @@
+"""
+Tests a ranged for with an inner container.
+"""
+"""
+$output:
+hello
+hi
+How are you?
+hello
+hi
+How are you?
+hello
+hi
+How are you?
+hello
+hi
+How are you?
+hello
+hi
+How are you?
+"""
+
+for i in 0 to 5 {
+  for x in ["hello", "hi", "How [em]are[/] you?"'r] {
+    print(x)
+  }
+}

@@ -1,0 +1,12 @@
+"""
+Bad URL test.
+"""
+"""
+$errors:
+malformed_url
+"""
+good_url = "http://foo.bar.com/hello?x=2"'url
+old_url = "ftp:///foo.bar.com/blah"'url
+bad_url = "http:foo.bar.com"'url
+print(good_url)
+print(bad_url)

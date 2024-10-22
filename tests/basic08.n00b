@@ -1,0 +1,12 @@
+# Note that, because of the kludge for capturing output here,
+# ANSI don't currently show up in our stream.
+
+"""
+Basic test of rich string literals and literal modifiers.
+"""
+"""
+$output:
+Hello, world!
+"""
+
+print("[h2]Hello,[/] [h5]world!"'r)

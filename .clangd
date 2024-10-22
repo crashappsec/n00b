@@ -1,0 +1,4 @@
+If:
+  PathExclude: .*/hatrack/.*
+Diagnostics:
+  UnusedIncludes: None

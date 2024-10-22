@@ -1,0 +1,3 @@
+extern n00b_rand64() -> i64 {
+  local: random() -> int
+}

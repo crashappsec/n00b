@@ -1,0 +1,20 @@
+"""
+Augmented assignment for containers.
+"""
+"""
+$output:
+blah
+100
+4
+"""
+tup = (1, "too")
+
+tup[1] = "blah"
+print(tup[1])
+tup[0] = 100
+print(tup[0])
+
+d = {1 : 2}
+d[1] = 4
+
+print(d[1])

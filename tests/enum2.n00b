@@ -1,0 +1,34 @@
+"""
+Basic enum value test.
+"""
+"""
+$output:
+0
+1
+foo
+bar
+ay
+bee
+see
+3
+1
+2
+"""
+enum { E1, E2 }
+enum strenum { C1 = "foo", C2 = "bar" }
+enum strenum2 { C3 = "ay", C4 = "bee", C5 = "see", }
+// todo: local is broke
+enum global intenum {
+  X = 3, Y = 1, Z = 2
+}
+
+print(E1)
+print(E2)
+print(C1)
+print(C2)
+print(C3)
+print(C4)
+print(C5)
+print(X)
+print(Y)
+print(Z)

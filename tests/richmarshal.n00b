@@ -1,0 +1,10 @@
+"""
+Initial test for rich strings, to make sure they work.
+"""
+"""
+$output:
+Hello, world! Yay!
+"""
+r = "[h2]Hello, world! "'r + "[h4]Yay!"'r
+
+print(r)

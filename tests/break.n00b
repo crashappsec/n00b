@@ -1,0 +1,24 @@
+"""
+Just making sure the break statement finds its outer label just fine
+(since it isn't when there's an encompassing switch at the moment).
+"""
+"""
+$output:
+100
+"""
+
+i = 0
+
+foo:
+  while (true) {
+
+    while (true) {
+       if i == 100 {
+         break foo;
+       }
+
+      i += 1
+   }
+}
+
+print(i)

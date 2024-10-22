@@ -1,0 +1,27 @@
+extern n00b_str_upper(ptr) -> ptr {
+  local: upper(s: string) -> string
+}
+
+extern n00b_str_lower(ptr) -> ptr {
+  local: lower(s: string) -> string
+}
+
+extern n00b_wrapper_join(ptr, ptr) -> ptr {
+  local: join(l: list[string], s: string) -> string
+}
+
+extern n00b_str_split(ptr, ptr) -> ptr {
+  local: split(s1: string, s2: string) -> list[string]
+}
+
+extern n00b_str_pad(ptr, i64) -> ptr {
+  local: pad(s1: string, n: int) -> string
+}
+
+extern n00b_wrapper_repr(ptr) -> ptr {
+  local: repr(s: `x) -> string
+}
+
+extern n00b_wrapper_to_str(ptr) -> ptr {
+  local: str(s: `x) -> string
+}

@@ -1,0 +1,43 @@
+"""
+Initial tests for native function declaration and calls.
+
+`f()` should be generic, and thus the actuals should be properly boxed
+/ unboxed.
+
+The calls to `sum1` should not be boxed, and, because it is a `once`
+function, should be properly memoized, meaning it should always return
+the same thing.
+"""
+"""
+$errors:
+def_without_use
+
+$output:
+12
+12
+7
+7
+"""
+
+m = "foo"
+
+func f(x) {
+  print(x)
+  return x // Deleting this should cause an error on the assignment.
+}
+
+// once func also works.
+private once sum1(a, b, c)
+{
+    var m = a + b + c + 1
+    
+    return m 
+}
+
+y = f(12)
+
+print(y)
+print(sum1(1,2,3))
+# Should eventually give a warning about it being called w/
+# different arguments.
+print(sum1(4,5,6))

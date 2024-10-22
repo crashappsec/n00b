@@ -1,0 +1,69 @@
+"""
+Basic grid; no casting yet.
+"""
+"""
+$output:
+Hello, world! Here's emphasis for my table:
+┏┅┅┅┅┅┅┅┅┅┅┳┅┅┅┅┅┅┅┅┅┳┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┓
+┇ Name     ┇ Country ┇ City           ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ John     ┇ USA     ┇ NYC            ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Brandon  ┇ USA     ┇ NYC            ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Liming   ┇ USA     ┇ NYC            ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Miroslav ┇ USA     ┇ Lawn Guy Land  ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Rich     ┇ USA     ┇ Providence, RI ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Matt     ┇ USA     ┇ Orange         ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Mark     ┇ UK      ┇ Brighton       ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Hugo     ┇ UK      ┇ Brighton       ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ James    ┇ UK      ┇ Brighton       ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Max      ┇ UK      ┇ Brighton       ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Theo     ┇ Greece  ┇ Athens         ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ Thomas   ┇ Greece  ┇ Athens         ┇
+┣┅┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅╋┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┫
+┇ James II ┇ Germany ┇ Berlin         ┇
+┗┅┅┅┅┅┅┅┅┅┅┻┅┅┅┅┅┅┅┅┅┻┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┛
+"""
+
+extern n00b_snap_column(ptr, i64) -> void {
+  local: snap(g: grid, column: int) -> void
+}
+
+r = "[h2]Hello, world!"'r
+
+
+n =  [["Name",           "Country",   "City"],
+      ["[em]John"'r,     "USA",     "NYC"],
+      ["[em]Brandon"'r,  "USA",     "NYC"],
+      ["[em]Liming"'r,   "USA",     "NYC"],
+      ["[em]Miroslav"'r, "USA",     "Lawn Guy Land"],
+      ["[em]Rich"'r,     "USA",     "Providence, RI"],
+      ["[em]Matt"'r,     "USA",     "Orange"],
+      ["[em]Mark"'r,     "UK",      "Brighton"],
+      ["[em]Hugo"'r,     "UK",      "Brighton"],
+      ["[em]James"'r,    "UK",      "Brighton"],
+      ["[em]Max"'r,      "UK",      "Brighton"],
+      ["[em]Theo"'r,     "Greece",  "Athens"],
+      ["[em]Thomas"'r,   "Greece",  "Athens"],
+      ["[em]James II"'r, "Germany", "Berlin"]]'table
+
+snap(n, 0)
+snap(n, 1)
+snap(n, 2)
+
+print(r + " Here's " + "[em]emphasis"'r + " for my table: ")
+print(n)
+
+# also if I try to put the litmod on the n, that shouldn't crash either.
+# Prob make 'em and 'h1 work.
+# Maybe get « » working too, for rich strings?  «[em] heya»

@@ -1,0 +1,18 @@
+extern n00b_now() -> ptr {
+  local: now() -> Duration
+}
+extern n00b_timestamp() -> ptr {
+  local: timestamp() -> Duration
+}
+extern n00b_process_cpu() -> ptr {
+  local: process_cpu() -> Duration
+}
+extern n00b_thread_cpu() -> ptr {
+  local: thread_cpu() -> Duration
+}
+extern n00b_uptime() -> ptr {
+  local: uptime() -> Duration
+}
+extern n00b_program_clock() -> ptr {
+  local: program_clock() -> Duration
+}

@@ -1,0 +1,10 @@
+"""
+Initial test of basic objects. Manually checked the generated code to
+make sure the string goes in the const pool properly.
+"""
+"""
+$output: 
+hello, world!
+"""
+
+print("hello, world!")

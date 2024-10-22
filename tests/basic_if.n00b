@@ -1,0 +1,36 @@
+"""
+Test basic functionality for varations of if statements.
+"""
+"""
+$output:
+12
+"""
+
+noidea = 11
+x = 100
+foo = 4
+
+if (noidea == 2) {
+  foo = 122
+}
+elif noidea == 1 {
+  x = 1
+}
+else {
+  noidea += 1
+}
+
+
+if (2 < foo) {
+   x = - 18
+} else {
+  noidea += 1
+}
+
+
+if (2 < foo) {
+   x -= - 18
+}
+
+foo = noidea + x
+print(foo)

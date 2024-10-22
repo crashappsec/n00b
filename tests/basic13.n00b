@@ -1,0 +1,22 @@
+"""
+Test basic unary operations.
+"""
+"""
+$output:
+100
+-100
+false
+"""
+
+x = 100
+
+print(x)
+
+if x % 2 {
+    print(x)
+}
+else {
+    print(-x)
+}
+
+print(not not 0 + 100 - 100)

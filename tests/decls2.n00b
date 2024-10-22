@@ -1,0 +1,71 @@
+"""
+Very similar nodes to decl1.
+"""
+"""
+$errors:
+range_type
+cannot_cmp
+unary_minus_type
+inconsistent_type
+unused_decl
+def_without_use
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+def_without_use
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+use_no_def
+const_not_provided
+"""
+
+func testfn(f: int, g: int) {
+  return f + g
+}
+
+var noidea
+
+global const x: int
+const y = -12, z: int, abc : bool = true, xyz: int = 8000
+var a, b: int = 2, c = 4
+cxcsd
+foo: for moo, moo2 in { 1 : "foo", 2: "4" } {
+  n
+  break foo
+}
+x
+for lololo from 1 to "oops" {
+  m
+  break;
+}
+
+for zzzz in qwerty {
+  dsflkjfslkdj
+}
+
+# Re
+# AWS module
+
+
+var bar = 2, boz = 5
+
+testfn(bar, boz);
+
+oopsie = xyz + y
+
+if (noidea == 2) {
+  noidea += 1
+}
+if (2 < "foo") {
+   x = - "foo"
+}
