@@ -337,33 +337,25 @@ threads = dependency('threads')
 
 math = cc.find_library('m', required: false)
 
-crypto = cc.find_library('crypto')
-ssl = cc.find_library('ssl')
-
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
 backtrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
 ffi = subproject('libffi').get_variable('libffi_dep')
 libcurl = subproject('libcurl').get_variable('libcurl_dep')
+openssl = subproject('openssl').get_variable('openssl_dep')
 unibreak = subproject('libunibreak').get_variable('libunibreak_dep')
 utf8proc = subproject('libutf8proc').get_variable('utf8proc_dep')
 
-if not crypto.found()
-    openssl = subproject('openssl').get_variable('openssl_dep')
-endif
-
 #zlib = cc.find_library('z')
-
 #if not zlib.found()
 # zlib = subproject('zlib').get_variable('zlib_dep')
 #endif
-
 
 if get_option('show_preprocessor_config').enabled()
     c_args = c_args + ['-DN00B_SHOW_PREPROC_CONFIG']
 endif
 
-deps = [unibreak, utf8proc, threads, ffi, backtrace, libcurl, ssl]
-opts = [math, crypto]
+deps = [unibreak, utf8proc, threads, ffi, backtrace, libcurl, openssl]
+opts = [math]
 
 if using_glibc
     opts = opts + [cc.find_library('atomic')]
