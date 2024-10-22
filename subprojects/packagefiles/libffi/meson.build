@@ -2,8 +2,8 @@ project(
   'libffi',
   'c',
   version : '3.4.6',
-    default_options: ['c_std=c2x',
-                      'prefer_static=true'],
+  default_options: ['c_std=c2x',
+                    'prefer_static=true'],
   meson_version : '>=1.5.0')
 
 module = import('unstable-external_project')
