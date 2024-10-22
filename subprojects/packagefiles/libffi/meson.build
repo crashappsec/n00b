@@ -11,5 +11,7 @@ project = module.add_project(
     'configure',
     verbose : true,
     configure_options : ['--disable-docs', ])
+
 libffi_dep = project.dependency('ffi')
+# needs override as its external project
 meson.override_dependency('ffi', libffi_dep)

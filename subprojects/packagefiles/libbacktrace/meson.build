@@ -12,4 +12,5 @@ project = module.add_project(
     verbose : true,)
 
 libbacktrace_dep = project.dependency('backtrace')
+# needs override as its external project
 meson.override_dependency('backtrace', libbacktrace_dep)

@@ -1,5 +1,6 @@
 .DS_Store
 subprojects/*/
+!subprojects/packagefiles/
 .meson_last
 .vscode
 .cache

@@ -332,34 +332,29 @@ test_src = [
     'src/harness/n00b_base/results.c',
 ]
 
+# baked into meson - guaranteed to be present hence not a subproject
 threads = dependency('threads')
 
 math = cc.find_library('m', required: false)
 
-
-unibreak = dependency('libunibreak')
-utf8proc = dependency('libutf8proc')
-
-libcurl = cc.find_library('curl', required: false)
-if not libcurl.found()
-  libcurl  = dependency('libcurl', fallback: ['curl'])
-endif
-
 crypto = cc.find_library('crypto')
 ssl = cc.find_library('ssl')
 
-if not crypto.found()
-    openssl  = dependency('openssl', fallback: ['openssl'])
-endif
-
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
-ffi = subproject('libffi').get_variable('libffi_dep')
 backtrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
+ffi = subproject('libffi').get_variable('libffi_dep')
+libcurl = subproject('libcurl').get_variable('libcurl_dep')
+unibreak = subproject('libunibreak').get_variable('libunibreak_dep')
+utf8proc = subproject('libutf8proc').get_variable('utf8proc_dep')
+
+if not crypto.found()
+    openssl = subproject('openssl').get_variable('openssl_dep')
+endif
 
 #zlib = cc.find_library('z')
 
 #if not zlib.found()
-#    zlib      = dependency('zlib')
+# zlib = subproject('zlib').get_variable('zlib_dep')
 #endif
 
 
