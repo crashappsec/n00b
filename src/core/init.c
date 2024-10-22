@@ -157,6 +157,7 @@ n00b_init_path(void)
     // Going to have info on the VM type too.
     n00b_extensions = n00b_dict(n00b_type_utf8(), n00b_type_int());
 
+    hatrack_dict_add(n00b_extensions, n00b_new_utf8("n"), 0);
     hatrack_dict_add(n00b_extensions, n00b_new_utf8("n00b"), 0);
 
     n00b_utf8_t *extra = n00b_get_env(n00b_new_utf8("N00B_SRC_EXTENSIONS"));
