@@ -358,11 +358,8 @@ if not ffi.found()
                           fallback: ['libffi', 'libffi_dep'])
 endif
 
-backtrace = cc.find_library('backtrace')
-if not backtrace.found()
-    backtrace = dependency('backtrace',
-                       fallback: ['libbacktrace', 'libbacktrace_dep'])
-endif
+backtrace = dependency('libbacktrace',
+                   fallback: ['libbacktrace', 'libbacktrace_dep'])
 
 #zlib = cc.find_library('z')
 
