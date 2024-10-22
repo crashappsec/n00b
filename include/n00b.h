@@ -1,4 +1,6 @@
 #pragma once
+// #define _XOPEN_SOURCE 700
+// #define _POSIX_C_SOURCE 200809L
 #include "n00b/config.h"
 // Useful options (mainly for dev) are commented out here.
 // The logic below (and into the relevent header files) sets up defaults.

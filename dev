@@ -1,5 +1,7 @@
 #!/bin/bash
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 N00B_DEV_CFG="--buildtype=debug -Duse_memcheck=on -Ddev_mode=true"
 N00B_RELEASE_CFG="--buildtype=release"
 N00B_DEBUG_EXTRA="-Dshow_preprocessor_config=enabled -Dforkless_tests=enabled -Duse_memcheck=on -Dexception_traces=enabled"
@@ -29,7 +31,6 @@ function color {
 
 OS=$(uname -o 2>/dev/null)
 ARCH=$(uname -m 2>/dev/null)
-PWD=$(pwd)
 
 if [[ $? -ne 0 ]] ; then
     # Older macOS/OSX versions of uname don't support -o
@@ -41,8 +42,17 @@ function log {
 }
 
 function ensure_env_setup {
-    export LIBRARY_PATH=/usr/local/lib:${PWD}/deps/${OS}-${ARCH}/:~/.local/c0/libs
+    SUBPROJECTS=$(
+        paste -s -d: <(
+            find "${ROOT}" -name '*.dylib' \
+                | rev \
+                | cut -d/ -f2- \
+                | rev \
+            ) \
+    )
+    export LIBRARY_PATH=/usr/local/lib:${SUBPROJECTS}:${ROOT}/deps/${OS}-${ARCH}/:~/.local/c0/libs
     export LD_LIBRARY_PATH=${LIBRARY_PATH}
+    export DYLD_FALLBACK_LIBRARY_PATH=${LIBRARY_PATH}
     log "OS="$(color green ${OS})
     log "ARCH="$(color green ${ARCH})
     log "LIBRARY_PATH="$(color green ${LIBRARY_PATH})
@@ -103,7 +113,6 @@ function n00b_dev_usage {
 }
 
 function ensure_directory {
-
     if [[ ! -d ${N00B_BUILD_DIR} ]]; then
         mkdir ${N00B_BUILD_DIR}
     fi
@@ -118,7 +127,7 @@ function ensure_project {
         log Setting up target: $(color green ${N00B_BUILD_TARGET})
         meson setup ${N00B_BUILD_DIR} ${N00B_MESON_CONF} ${N00B_PASTHROUGH_ARGS}
         if [[ $? -ne 0 ]] ; then
-            log Setup for target ${N00B_BUILD_TARGET} $(color FAILED.)
+            log Setup for target ${N00B_BUILD_TARGET} $(color RED FAILED.)
             exit -1
         fi
         log Setup for target ${N00B_BUILD_TARGET}: $(color GREEN SUCCESS)
@@ -129,14 +138,6 @@ function configure_target {
     if [[ $# -ne 0 ]] ; then
         meson configure ${N00B_BUILD_DIR} ${N00B_PASSTHROUGH_ARGS}
     fi
-}
-
-function build_target {
-    meson compile ${N00B_BUILD_DIR}
-}
-
-function rebuild_target {
-    meson compile --clean
 }
 
 function set_profile {
@@ -155,27 +156,30 @@ function set_profile {
         export N00B_PASSTHROUGH_ARGS=${@}
     fi
 
+    export N00B_BUILD_DIR="build_${N00B_BUILD_TARGET}"
+    log "Current meson build directory is:" $(color YELLOW ${N00B_BUILD_DIR})
+    N00B_CFG="--prefix ${ROOT}/${N00B_BUILD_DIR}"
 
     case ${N00B_BUILD_TARGET} in
         dev)
-            export N00B_MESON_CONF="${N00B_DEV_CFG}"
+            export N00B_MESON_CONF="${N00B_CFG} ${N00B_DEV_CFG}"
             ;;
         sanitize)
-            export N00B_MESON_CONF="${N00B_DEV_CFG} ${N00B_SANITIZE_EXTRA}"
+            export N00B_MESON_CONF="${N00B_CFG} ${N00B_DEV_CFG} ${N00B_SANITIZE_EXTRA}"
             ;;
         debug)
-            export N00B_MESON_CONF="${N00B_DEV_CFG} ${N00B_DEBUG_EXTRA}"
+            export N00B_MESON_CONF="${N00B_CFG} ${N00B_DEV_CFG} ${N00B_DEBUG_EXTRA}"
             ;;
         release)
-            export N00B_MESON_CONF="${N00B_RELEASE_CFG}"
+            export N00B_MESON_CONF="${N00B_CFG} ${N00B_RELEASE_CFG}"
             ;;
         test)
-            export N00B_MESON_CONF="${N00B_TEST_CFG}"
+            export N00B_MESON_CONF="${N00B_CFG} ${N00B_TEST_CFG}"
             ;;
         *)
             echo $(color RED "[-- n00b --] ") Invalid profile: $(color RED ${N00B_BUILD_TARGET})
             echo $(color blue "Valid targets are: dev, debug, release, sanitize, test")
-            return -1
+            return 1
             ;;
     esac
 
@@ -185,9 +189,6 @@ function set_profile {
     else
         log "Current profile is: " $(color YELLOW ${N00B_BUILD_TARGET})
     fi
-
-    export N00B_BUILD_DIR="build_${N00B_BUILD_TARGET}"
-    log "Current meson build directory is:" $(color YELLOW ${N00B_BUILD_DIR})
 
     return 0
 
@@ -211,6 +212,7 @@ function n00b_clean {
         if [[ -f ${N00B_MESON_STATE_FILE} ]]; then
             rm ${N00B_MESON_STATE_FILE}
         fi
+        rm -rf subprojects/*-* || true
     else
         if [[ $# -ne 0 ]]; then
             for arg in $@ ; do
