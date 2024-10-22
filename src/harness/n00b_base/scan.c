@@ -282,7 +282,7 @@ identify_test_files(void)
     n00b_list_t *to_load   = n00b_list(n00b_type_utf8());
     n00b_utf8_t *test_dir  = n00b_get_env(n00b_new_utf8("N00B_TEST_DIR"));
     n00b_utf8_t *cur_dir   = n00b_get_current_directory();
-    n00b_utf8_t *ext       = n00b_new_utf8(".n00b");
+    n00b_utf8_t *ext       = n00b_new_utf8(".n");
     n00b_list_t *all_files = n00b_list(n00b_type_utf8());
 
     if (test_dir == NULL) {
