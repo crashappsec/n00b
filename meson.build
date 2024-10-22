@@ -352,14 +352,9 @@ if not crypto.found()
     openssl  = dependency('openssl', fallback: ['openssl'])
 endif
 
-ffi = cc.find_library('ffi')
-if not ffi.found()
-    ffi      = dependency('libffi',
-                          fallback: ['libffi', 'libffi_dep'])
-endif
-
-backtrace = dependency('libbacktrace',
-                   fallback: ['libbacktrace', 'libbacktrace_dep'])
+# https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
+ffi = subproject('libffi').get_variable('libffi_dep')
+backtrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
 
 #zlib = cc.find_library('z')
 

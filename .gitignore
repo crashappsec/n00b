@@ -4,3 +4,4 @@ subprojects/*/
 .vscode
 .cache
 deps/local
+tags
