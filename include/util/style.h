@@ -37,6 +37,7 @@ extern n00b_style_t n00b_apply_fg_color(n00b_style_t style, n00b_utf8_t *name);
 extern void        n00b_style_gaps(n00b_str_t *, n00b_style_t);
 extern void        n00b_str_layer_style(n00b_str_t *, n00b_style_t, n00b_style_t);
 
+#ifdef N00B_STYLE_DEBUG
 static inline void
 n00b_style_debug(char *prefix, const n00b_str_t *p)
 {
@@ -64,6 +65,7 @@ n00b_style_debug(char *prefix, const n00b_str_t *p)
                entry.end);
     }
 }
+#endif
 
 // The remaining 5 flags will currently be used for fonts. Might
 // add another word in for other bits, not sure.

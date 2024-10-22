@@ -206,6 +206,8 @@ n00b_parse_repr_item(n00b_grammar_t *g, n00b_pitem_t *item)
             return n00b_new_utf8("«AsciiLower»");
         case N00B_P_BIC_SPACE:
             return n00b_new_utf8("«WhiteSpace»");
+	default:
+	  return n00b_new_utf8("«?»");
         }
     case N00B_P_SET:;
         n00b_list_t *l = n00b_list(n00b_type_utf8());
@@ -222,6 +224,8 @@ n00b_parse_repr_item(n00b_grammar_t *g, n00b_pitem_t *item)
         return n00b_cstr_format("{}{}]",
                                n00b_new_utf8("["),
                                n00b_str_join(l, n00b_new_utf8("|")));
+    default:
+      n00b_unreachable();
     }
 }
 
@@ -278,6 +282,8 @@ op_to_string(n00b_earley_op op)
         return n00b_new_utf8("Item End");
     case N00B_EO_FIRST_GROUP_ITEM:
         return n00b_new_utf8("Start Group");
+    default:
+      n00b_unreachable();
     }
 }
 
@@ -299,6 +305,8 @@ repr_subtree_info(n00b_subtree_info_t si)
         return n00b_new_utf8("i⊤");
     case N00B_SI_GROUP_ITEM_END:
         return n00b_new_utf8("⊥i");
+    default:
+      n00b_unreachable();      
     }
 }
 
@@ -579,6 +587,8 @@ n00b_pitem_repr(n00b_grammar_t *g, n00b_pitem_t *item)
         return n00b_cstr_format("{}{}]",
                                n00b_new_utf8("["),
                                n00b_str_join(l, n00b_new_utf8("|")));
+    default:
+      n00b_unreachable();
     }
 }
 

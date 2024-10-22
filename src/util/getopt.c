@@ -832,13 +832,13 @@ add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
     }
 
     if (!n00b_dict_contains(spec->sub_commands, helpstr)) {
-        n00b_gopt_cspec *h = n00b_new(n00b_type_gopt_command(),
-                                    n00b_kw("context",
-                                           gctx,
-                                           "name",
-                                           helpstr,
-                                           "parent",
-                                           spec));
+      n00b_new(n00b_type_gopt_command(),
+	       n00b_kw("context",
+		       gctx,
+		       "name",
+		       helpstr,
+		       "parent",
+		       spec));
         n00b_gopt_add_subcommand(gctx, spec, n00b_new_utf8("(STR)* help"));
     }
 }
@@ -1166,18 +1166,20 @@ check_link:
         case N00B_GOAT_WORD:
             if (opt_type == N00B_GOAT_WORD || opt_type == N00B_GOAT_WORD_ALIAS) {
                 compat = true;
-                break;
+		break;
             }
+	    // fallthrough
         case N00B_GOAT_INT:
             if (opt_type == N00B_GOAT_INT || opt_type == N00B_GOAT_INT_ALIAS) {
                 compat = true;
                 break;
             }
+	    // fallthrough
         case N00B_GOAT_FLOAT:
             if (opt_type == N00B_GOAT_FLOAT || opt_type == N00B_GOAT_FLOAT_ALIAS) {
                 compat = true;
-                break;
             }
+	    break;
         case N00B_GOAT_CHOICE:
             switch (opt_type) {
             case N00B_GOAT_CHOICE:

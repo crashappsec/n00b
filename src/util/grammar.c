@@ -409,6 +409,8 @@ pitems_eq(n00b_pitem_t *p1, n00b_pitem_t *p2)
         return p1->contents.nonterm == p2->contents.nonterm;
     case N00B_P_GROUP:
         return p1->contents.group == p2->contents.group;
+    default:
+      n00b_unreachable();
     }
 }
 

@@ -132,7 +132,7 @@ ansi_render_style_start(uint64_t info, n00b_stream_t *outstream)
         }
         else {
             n00b_stream_puts(outstream, "38;5;");
-            int32_t toand = (int32_t)N00B_STY_BG_BITS >> N00B_OFFSET_BG_BLUE;
+            int32_t toand = (int32_t)((uint64_t)N00B_STY_BG_BITS >> N00B_OFFSET_BG_BLUE);
             n00b_stream_puti(outstream, n00b_to_vga(tmp & toand));
         }
     }
