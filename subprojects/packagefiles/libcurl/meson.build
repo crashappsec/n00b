@@ -7,6 +7,10 @@ project(
   version: '8.9.1',
   meson_version : '>=1.5.0')
 
+# deps
+libcrypto = subproject('openssl').get_variable('libcrypto_dep')
+libssl = subproject('openssl').get_variable('libssl_dep')
+
 module = import('unstable-external_project')
 project = module.add_project(
     'configure',
