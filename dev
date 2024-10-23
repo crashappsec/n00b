@@ -118,7 +118,7 @@ function ensure_project {
         log Setting up target: $(color green ${N00B_BUILD_TARGET})
         meson setup ${N00B_BUILD_DIR} ${N00B_MESON_CONF} ${N00B_PASTHROUGH_ARGS}
         if [[ $? -ne 0 ]] ; then
-            log Setup for target ${N00B_BUILD_TARGET} $(color FAILED.)
+            log Setup for target ${N00B_BUILD_TARGET} $(color RED FAILED.)
             exit -1
         fi
         log Setup for target ${N00B_BUILD_TARGET}: $(color GREEN SUCCESS)

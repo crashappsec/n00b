@@ -1,0 +1,6 @@
+services:
+  n00b:
+    build: .
+    working_dir: $PWD
+    volumes:
+      - .:$PWD

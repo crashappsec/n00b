@@ -333,18 +333,19 @@ test_src = [
 ]
 
 # baked into meson - guaranteed to be present hence not a subproject
-threads = dependency('threads')
+threads_dep = dependency('threads')
 
-math = cc.find_library('m', required: false)
+math_dep = cc.find_library('m', required: false)
 
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
-libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
-libcrypto = subproject('openssl').get_variable('libcrypto_dep')
-libcurl = subproject('libcurl').get_variable('libcurl_dep')
-libffi = subproject('libffi').get_variable('libffi_dep')
-libssl = subproject('openssl').get_variable('libssl_dep')
-libunibreak = subproject('libunibreak').get_variable('libunibreak_dep')
-libutf8proc = subproject('libutf8proc').get_variable('utf8proc_dep')
+# libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
+libcrypto_dep = subproject('openssl').get_variable('libcrypto_dep')
+libssl_dep = subproject('openssl').get_variable('libssl_dep')
+libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
+libcurl = subproject('libcurl').get_variable('libcurl')
+libffi_dep = subproject('libffi').get_variable('libffi_dep')
+libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
+libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
 
 #zlib = cc.find_library('z')
 #if not zlib.found()
@@ -356,38 +357,42 @@ if get_option('show_preprocessor_config').enabled()
 endif
 
 deps = [
-  libbacktrace,
-  libcrypto,
-  libcurl,
-  libffi,
-  libssl,
-  libunibreak,
-  libutf8proc,
-  threads,
+  # libbacktrace,
+  math_dep,
+  libcrypto_dep,
+  libffi_dep,
+  libssl_dep,
+  libunibreak_dep,
+  libutf8proc_dep,
+  threads_dep,
+  libcurl_dep,
 ]
-opts = [math]
+link_with = [
+  # libcurl,
+]
 
 if using_glibc
-    opts = opts + [cc.find_library('atomic')]
+    deps = deps + [cc.find_library('atomic')]
 endif
-all_deps = deps + opts
 
 n00b = static_library(
     'n00b',
     lib_src,
     include_directories: incdir,
-    dependencies: all_deps,
+    dependencies: deps,
     c_args: n00b_c_args,
     link_args: link_args,
+    link_with: link_with,
 )
 
+link_with = link_with + [n00b]
 
 if get_option('build_n00b_dll').enabled()
     library(
         'n00b-dll',
         lib_src,
         include_directories: incdir,
-        dependencies: all_deps,
+        dependencies: deps,
         c_args: n00b_c_args,
         link_args: link_args,
     )
@@ -397,10 +402,10 @@ executable(
     'n00btest',
     test_src,
     include_directories: incdir,
-    dependencies: [all_deps],
+    dependencies: deps,
     c_args: c_args,
     link_args: exe_link_args,
-    link_with: n00b,
+    link_with: link_with,
 )
 
 if get_option('build_hatrack').enabled()
@@ -416,9 +421,9 @@ if get_option('build_hatrack').enabled()
         'hash',
         hash_test_src,
         include_directories: incdir,
-        dependencies: all_deps,
+        dependencies: deps,
         link_args: exe_link_args,
-        link_with: libhat,
+        link_with: [libhat],
         c_args: exe_c_args,
     )
 endif

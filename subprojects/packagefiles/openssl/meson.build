@@ -2,7 +2,8 @@ project(
   'openssl',
   'c',
   version : '3.0.8',
-  meson_version : '>=1.5.0')
+  meson_version : '>=1.5.0',
+)
 
 module = import('unstable-external_project')
 project = module.add_project(
@@ -44,10 +45,25 @@ project = module.add_project(
       # 'no-uplink',
       # 'no-weak-ssl-ciphers',
       # 'no-zlib',
-    ])
+    ],
+)
 
-libcrypto_dep = project.dependency('crypto')
-libssl_dep = project.dependency('ssl')
+libcrypto = library(
+  'crypto',
+  dependencies : [project.dependency('crypto')],
+)
+libssl = library(
+  'ssl',
+  dependencies : [project.dependency('ssl')],
+)
+
+libcrypto_dep = declare_dependency(
+  link_with : [libcrypto],
+)
+libssl_dep = declare_dependency(
+  link_with : [libssl],
+)
+
 # needs override as its external project
-meson.override_dependency('crypto', libcrypto_dep)
-meson.override_dependency('ssl', libssl_dep)
+meson.override_dependency('libcrypto', libcrypto_dep)
+meson.override_dependency('libssl', libssl_dep)
