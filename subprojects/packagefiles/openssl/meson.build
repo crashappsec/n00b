@@ -48,21 +48,26 @@ project = module.add_project(
     ],
 )
 
-libcrypto = library(
-  'crypto',
-  dependencies : [project.dependency('crypto')],
-)
-libssl = library(
-  'ssl',
-  dependencies : [project.dependency('ssl')],
-)
+# libcrypto = library(
+#   'crypto',
+#   dependencies : [project.dependency('crypto')],
+# )
+# libssl = library(
+#   'ssl',
+#   dependencies : [project.dependency('ssl')],
+# )
 
-libcrypto_dep = declare_dependency(
-  link_with : [libcrypto],
-)
-libssl_dep = declare_dependency(
-  link_with : [libssl],
-)
+# libcrypto_dep = declare_dependency(
+#   # link_with : [libcrypto],
+#   dependencies : [project.dependency('crypto')],
+# )
+# libssl_dep = declare_dependency(
+#   # link_with : [libssl],
+#   dependencies : [project.dependency('ssl')],
+# )
+
+libcrypto_dep = project.dependency('crypto')
+libssl_dep = project.dependency('ssl')
 
 # needs override as its external project
 meson.override_dependency('libcrypto', libcrypto_dep)

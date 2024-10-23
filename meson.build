@@ -1,14 +1,16 @@
 project(
     'n00b',
     'c',
-    default_options: ['c_std=c2x',
-                      'default_library=static'],
+    default_options: [
+      'c_std=c2x',
+      'default_library=static',
+    ],
     version: '0.1.0',
     license: 'MIT',
 )
 
 cc = meson.get_compiler('c')
-incdir = include_directories('include')
+incdir = [include_directories('include'), include_directories('/usr/include')]
 using_osx = false
 
 glibc_check = '''
@@ -51,7 +53,7 @@ if (host_machine.system() == 'darwin')
 else
     using_osx = false
     link_args = []
-    c_args = c_args + ['-D_GNU_SOURCE']
+    c_args = c_args + ['-D_GNU_SOURCE', ]#'-Dssize_t="long int"',]
 
     # This doesn't seem to always work right on Linux so don't use it by default.
     if get_option('use_frame_intrinsic').enabled()
@@ -338,11 +340,11 @@ threads_dep = dependency('threads')
 math_dep = cc.find_library('m', required: false)
 
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
-# libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
+libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
 libcrypto_dep = subproject('openssl').get_variable('libcrypto_dep')
 libssl_dep = subproject('openssl').get_variable('libssl_dep')
-libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
-libcurl = subproject('libcurl').get_variable('libcurl')
+# libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
+# libcurl = subproject('libcurl').get_variable('libcurl')
 libffi_dep = subproject('libffi').get_variable('libffi_dep')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
@@ -357,7 +359,7 @@ if get_option('show_preprocessor_config').enabled()
 endif
 
 deps = [
-  # libbacktrace,
+  libbacktrace,
   math_dep,
   libcrypto_dep,
   libffi_dep,
@@ -365,7 +367,7 @@ deps = [
   libunibreak_dep,
   libutf8proc_dep,
   threads_dep,
-  libcurl_dep,
+  # libcurl_dep,
 ]
 link_with = [
   # libcurl,

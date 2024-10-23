@@ -2,7 +2,7 @@
 # and is generally pretty complicated meson.build script
 # whereas configure+make work just fine
 project(
-  'curl',
+  'libcurl',
   'c',
   version: '8.9.1',
   meson_version : '>=1.5.0',

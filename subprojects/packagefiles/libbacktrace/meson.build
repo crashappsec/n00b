@@ -2,8 +2,10 @@ project(
   'libbacktrace',
   'c',
   version : '1.0',
-  default_options: ['c_std=c2x',
-                    'prefer_static=true'],
+  default_options: [
+    # 'c_std=c2x',
+   'prefer_static=true',
+  ],
   meson_version : '>=1.5.0')
 
 module = import('unstable-external_project')
@@ -13,4 +15,4 @@ project = module.add_project(
 
 libbacktrace_dep = project.dependency('backtrace')
 # needs override as its external project
-meson.override_dependency('backtrace', libbacktrace_dep)
+meson.override_dependency('libbacktrace', libbacktrace_dep)
