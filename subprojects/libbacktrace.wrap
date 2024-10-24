@@ -1,7 +1,8 @@
-[wrap-git]
-directory = libbacktrace-1.0
-url = https://github.com/ianlancetaylor/libbacktrace.git
-revision = head
+[wrap-file]
+directory = libbacktrace-531aec7c52b66cd750a28a698f3c060f279b18b0
+source_url = https://github.com/ianlancetaylor/libbacktrace/archive/531aec7c52b66cd750a28a698f3c060f279b18b0.tar.gz
+source_filename = 531aec7c52b66cd750a28a698f3c060f279b18b0.tar.gz
+source_hash = 946e776d66d920acfbdd4b9d61c5643859ce8ff64108fad746ab92ecd68eccbd
 depth = 1
 patch_directory = libbacktrace
 
