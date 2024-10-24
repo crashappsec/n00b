@@ -341,18 +341,11 @@ math_dep = cc.find_library('m', required: false)
 
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
 libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
-libcrypto_dep = subproject('openssl').get_variable('libcrypto_dep')
-libssl_dep = subproject('openssl').get_variable('libssl_dep')
-# libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
-# libcurl = subproject('libcurl').get_variable('libcurl')
+libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
 libffi_dep = subproject('libffi').get_variable('libffi_dep')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
-
-#zlib = cc.find_library('z')
-#if not zlib.found()
-# zlib = subproject('zlib').get_variable('zlib_dep')
-#endif
+openssl_dep = subproject('openssl').get_variable('openssl_dep')
 
 if get_option('show_preprocessor_config').enabled()
     c_args = c_args + ['-DN00B_SHOW_PREPROC_CONFIG']
@@ -360,17 +353,15 @@ endif
 
 deps = [
   libbacktrace,
-  math_dep,
-  libcrypto_dep,
+  libcurl_dep,
   libffi_dep,
-  libssl_dep,
   libunibreak_dep,
   libutf8proc_dep,
+  math_dep,
+  openssl_dep,
   threads_dep,
-  # libcurl_dep,
 ]
 link_with = [
-  # libcurl,
 ]
 
 if using_glibc

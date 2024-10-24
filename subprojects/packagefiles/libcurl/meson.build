@@ -8,29 +8,37 @@ project(
   meson_version : '>=1.5.0',
 )
 
-# module = import('unstable-external_project')
-# project = module.add_project(
-#     'configure',
-#     verbose : true,
-#     configure_options : [
-#       '--with-openssl',
-#     ],
-# )
-# libcurl = project.dependency('curl')
+openssl_dep = subproject('openssl').get_variable('openssl_dep')
 
-libcrypto_dep = subproject('openssl').get_variable('libcrypto_dep')
-libssl_dep = subproject('openssl').get_variable('libssl_dep')
+i = run_command(
+  'sh',
+  '-exc',
+  '''
+[ -n "$(find -name libcurl.a)" ] && exit 0
+export CFLAGS="-I$(realpath ../openssl-*)/include $LDFLAGS"
+export LDFLAGS="-L$(realpath ../openssl-*)/ $LDFLAGS"
+./configure -v \
+  --with-openssl \
+  --disable-ntlm
+make
+  ''',
+  capture : true,
+  check : true,
+)
+message(i.stdout())
+message(i.stderr())
 
-libcurl = library(
-  'curl',
+libcurl_dep = declare_dependency(
   dependencies : [
-    libcrypto_dep,
-    libssl_dep,
+    openssl_dep,
+  ],
+  include_directories : [
+    include_directories('./include'),
+  ],
+  link_args : [
+    '-L' + meson.current_source_dir() + '/lib/.libs',
+    '-lcurl',
   ],
 )
 
-libcurl_dep = declare_dependency(
-  link_with : [libcurl],
-  include_directories : [include_directories('include')],
-)
 meson.override_dependency('libcurl', libcurl_dep)

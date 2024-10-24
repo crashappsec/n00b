@@ -7,11 +7,29 @@ project(
   meson_version: '>=0.59.0',
 )
 
-module = import('unstable-external_project')
-project = module.add_project(
-    'configure',
-    verbose : true,)
+i = run_command(
+  'sh',
+  '-exc',
+  '''
+[ -n "$(find -name libunibreak.a)" ] && exit 0
+./configure
+make
+  ''',
+  capture : true,
+  check : true,
+)
+message(i.stdout())
+message(i.stderr())
 
-libunibreak_dep = project.dependency('unibreak')
+libunibreak_dep = declare_dependency(
+  include_directories : [
+    include_directories('./src'),
+  ],
+  link_args : [
+    '-L' + meson.current_source_dir() + '/src/.libs',
+    '-lunibreak',
+  ],
+)
+
 # needs override as its external project
 meson.override_dependency('libunibreak', libunibreak_dep)
