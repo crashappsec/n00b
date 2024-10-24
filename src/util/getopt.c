@@ -702,6 +702,9 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
             if (words_add_space) {
                 return n00b_cstr_format("{} str*", s);
             }
+	    else {
+                return n00b_cstr_format("{}str*", s);	      
+	    }
         case (int64_t)N00B_GOG_LPAREN:
             if (words_add_space) {
                 s = n00b_cstr_format("{} (", s);
@@ -1198,6 +1201,7 @@ check_link:
             default:
                 break;
             }
+	    break;
         default:
             n00b_unreachable();
         }
@@ -1236,7 +1240,7 @@ check_link:
         N00B_CRAISE("Cannot add option that has already been added.");
     }
 
-    if (!link) {
+    if (!linked_option) {
         hatrack_dict_put(context->primary_options,
                          (void *)key,
                          option);

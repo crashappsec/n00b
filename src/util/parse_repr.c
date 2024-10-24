@@ -571,6 +571,8 @@ n00b_pitem_repr(n00b_grammar_t *g, n00b_pitem_t *item)
             return n00b_new_utf8("«AsciiLower»");
         case N00B_P_BIC_SPACE:
             return n00b_new_utf8("«WhiteSpace»");
+	default:
+	  n00b_unreachable();
         }
     case N00B_P_SET:;
         n00b_list_t *l = n00b_list(n00b_type_utf8());
