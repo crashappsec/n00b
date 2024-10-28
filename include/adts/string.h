@@ -123,3 +123,9 @@ extern const uint64_t n00b_pmap_str[2];
 #ifdef N00B_USE_INTERNAL_API
 extern void n00b_internal_utf8_set_codepoint_count(n00b_utf8_t *);
 #endif
+
+typedef enum {
+    LB_MUSTBREAK  = 0,
+    LB_ALLOWBREAK = 1,
+    LB_NOBREAK    = 2
+} lbreak_kind_t;

@@ -1,14 +1,16 @@
 project(
     'n00b',
     'c',
-    default_options: ['c_std=c2x',
-                      'default_library=static'],
+    default_options: [
+      'c_std=c2x',
+      'default_library=static',
+    ],
     version: '0.1.0',
     license: 'MIT',
 )
 
 cc = meson.get_compiler('c')
-incdir = include_directories('include')
+incdir = [include_directories('include')]
 using_osx = false
 
 glibc_check = '''
@@ -50,7 +52,7 @@ if (host_machine.system() == 'darwin')
 
 else
     using_osx = false
-    link_args = []
+    link_args = ['-static']
     c_args = c_args + ['-D_GNU_SOURCE']
 
     # This doesn't seem to always work right on Linux so don't use it by default.
@@ -167,7 +169,6 @@ endif
 
 exe_link_args = link_args + ['-flto', '-w']
 exe_c_args = c_args + ['-flto', '-DHATRACK_REFERENCE_ALGORITHMS']
-
 n00b_c_args = c_args
 
 
@@ -332,73 +333,59 @@ test_src = [
     'src/harness/n00b_base/results.c',
 ]
 
-threads = dependency('threads')
+# baked into meson - guaranteed to be present hence not a subproject
+libatomic_dep = cc.find_library('atomic', required : false)
+libmath_dep = cc.find_library('m', required : false)
+libthreads_dep = dependency('threads', required : true)
 
-math = cc.find_library('m', required: false)
-
-
-unibreak = dependency('libunibreak')
-utf8proc = dependency('libutf8proc')
-
-libcurl = cc.find_library('curl', required: false)
-if not libcurl.found()
-  libcurl  = dependency('libcurl', fallback: ['curl'])
-endif
-
-crypto = cc.find_library('crypto')
-ssl = cc.find_library('ssl')
-
-if not crypto.found()
-    openssl  = dependency('openssl', fallback: ['openssl'])
-endif
-
-ffi = cc.find_library('ffi')
-if not ffi.found()
-    ffi      = dependency('libffi',
-                          fallback: ['libffi', 'libffi_dep'])
-endif
-
-backtrace = cc.find_library('backtrace')
-if not backtrace.found()
-    backtrace = dependency('backtrace',
-                       fallback: ['libbacktrace', 'libbacktrace_dep'])
-endif
-
-#zlib = cc.find_library('z')
-
-#if not zlib.found()
-#    zlib      = dependency('zlib')
-#endif
-
+# https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
+libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
+libffi_dep = subproject('libffi').get_variable('libffi_dep')
+libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
+libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
+openssl_dep = subproject('openssl').get_variable('openssl_dep')
+# libcurl depends on openssl so override its dependency first
+libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
 
 if get_option('show_preprocessor_config').enabled()
     c_args = c_args + ['-DN00B_SHOW_PREPROC_CONFIG']
 endif
 
-deps = [unibreak, utf8proc, threads, ffi, backtrace, libcurl, ssl]
-opts = [math, crypto]
+deps = [
+  libbacktrace,
+  libcurl_dep,
+  libffi_dep,
+  libmath_dep,
+  libthreads_dep,
+  libunibreak_dep,
+  libutf8proc_dep,
+  openssl_dep,
+]
+link_with = [
+]
 
-if using_glibc
-    opts = opts + [cc.find_library('atomic')]
+if using_glibc and libatomic_dep.found()
+  deps = deps + [libatomic_dep]
 endif
-all_deps = deps + opts
 
 n00b = static_library(
     'n00b',
     lib_src,
     include_directories: incdir,
-    dependencies: all_deps,
+    dependencies: deps,
     c_args: n00b_c_args,
     link_args: link_args,
+    link_with: link_with,
 )
 
+link_with = link_with + [n00b]
 
 if get_option('build_n00b_dll').enabled()
     library(
         'n00b-dll',
         lib_src,
         include_directories: incdir,
-        dependencies: all_deps,
+        dependencies: deps,
         c_args: n00b_c_args,
         link_args: link_args,
     )
@@ -408,10 +395,10 @@ executable(
     'n00btest',
     test_src,
     include_directories: incdir,
-    dependencies: [all_deps],
+    dependencies: deps,
     c_args: c_args,
     link_args: exe_link_args,
-    link_with: n00b,
+    link_with: link_with,
 )
 
 if get_option('build_hatrack').enabled()
@@ -427,9 +414,9 @@ if get_option('build_hatrack').enabled()
         'hash',
         hash_test_src,
         include_directories: incdir,
-        dependencies: all_deps,
+        dependencies: deps,
         link_args: exe_link_args,
-        link_with: libhat,
+        link_with: [libhat],
         c_args: exe_c_args,
     )
 endif

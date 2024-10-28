@@ -1,18 +1,18 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b/test_harness.h"
 
-int           n00b_test_total_items       = 0;
-int           n00b_test_total_tests       = 0;
-int           n00b_non_tests              = 0;
-_Atomic int   n00b_test_number_passed     = 0;
-_Atomic int   n00b_test_number_failed     = 0;
-_Atomic int   n00b_test_next_test         = 0;
+int            n00b_test_total_items       = 0;
+int            n00b_test_total_tests       = 0;
+int            n00b_non_tests              = 0;
+_Atomic int    n00b_test_number_passed     = 0;
+_Atomic int    n00b_test_number_failed     = 0;
+_Atomic int    n00b_test_next_test         = 0;
 n00b_test_kat *n00b_test_info              = NULL;
-bool          n00b_give_malformed_warning = false;
-bool          n00b_dev_mode               = false;
-int           n00b_current_test_case      = 0;
-int           n00b_watch_case             = 5;
-size_t        n00b_term_width;
+bool           n00b_give_malformed_warning = false;
+bool           n00b_dev_mode               = false;
+int            n00b_current_test_case      = 0;
+int            n00b_watch_case             = 5;
+size_t         n00b_term_width;
 
 #ifdef N00B_FULL_MEMCHECK
 extern bool n00b_definite_memcheck_error;
@@ -25,7 +25,7 @@ add_static_test_symbols()
 {
     n00b_add_static_symbols();
     n00b_add_static_function(n00b_new_utf8("strndup"),
-                            strndup);
+                             strndup);
 }
 
 #if 0
@@ -74,14 +74,14 @@ void
 test_parsing(void)
 {
     n00b_grammar_t *grammar = n00b_new(n00b_type_grammar(),
-                                     n00b_kw("detect_errors",
-                                            n00b_ka(true)));
+                                       n00b_kw("detect_errors",
+                                               n00b_ka(true)));
     n00b_pitem_t   *add     = n00b_pitem_nonterm_raw(grammar,
-                                             n00b_new_utf8("Add"));
+                                               n00b_new_utf8("Add"));
     n00b_pitem_t   *mul     = n00b_pitem_nonterm_raw(grammar,
-                                             n00b_new_utf8("Mul"));
+                                               n00b_new_utf8("Mul"));
     n00b_pitem_t   *paren   = n00b_pitem_nonterm_raw(grammar,
-                                               n00b_new_utf8("Paren"));
+                                                 n00b_new_utf8("Paren"));
     n00b_pitem_t   *digit   = n00b_pitem_builtin_raw(N00B_P_BIC_DIGIT);
     n00b_nonterm_t *nt_a    = n00b_pitem_get_ruleset(grammar, add);
     n00b_nonterm_t *nt_m    = n00b_pitem_get_ruleset(grammar, mul);
@@ -156,7 +156,7 @@ test_parsing(void)
     one_parse(parser, " 1)");
 
     grammar->hide_penalty_rewrites = false;
-    n00b_grid_t *munged_grammar     = n00b_grammar_format(grammar);
+    n00b_grid_t *munged_grammar    = n00b_grammar_format(grammar);
 
     n00b_print(n00b_callout(n00b_rich_lit(
         "[lower white]Grammar used for above parses")));
@@ -189,7 +189,7 @@ show_gopt_results(n00b_gopt_ctx *gopt, n00b_list_t *all_parses)
         assert(res->args);
 
         n00b_utf8_t **arg_keys = (void *)hatrack_dict_keys_sort(res->args, &n);
-        bool         got_args = false;
+        bool          got_args = false;
 
         for (unsigned int j = 0; j < n; j++) {
             n00b_utf8_t *s    = arg_keys[j];
@@ -205,9 +205,9 @@ show_gopt_results(n00b_gopt_ctx *gopt, n00b_list_t *all_parses)
                 n00b_obj_t obj = n00b_clean_internal_list(args);
 
                 n00b_printf("[h3]{} args for [reverse]{}[/]: [em]{}[/]",
-                           n00b_list_len(args),
-                           s,
-                           obj);
+                            n00b_list_len(args),
+                            s,
+                            obj);
             }
         }
         if (!got_args) {
@@ -216,13 +216,13 @@ show_gopt_results(n00b_gopt_ctx *gopt, n00b_list_t *all_parses)
 
         int64_t *flag_info = (int64_t *)hatrack_dict_keys_sort(res->flags, &n);
         for (unsigned int j = 0; j < n; j++) {
-            int64_t          key    = flag_info[j];
+            int64_t           key    = flag_info[j];
             n00b_rt_option_t *option = hatrack_dict_get(res->flags,
-                                                       (void *)key,
-                                                       NULL);
+                                                        (void *)key,
+                                                        NULL);
             n00b_printf("[h3]Flag {}: [/] {}",
-                       option->spec->name,
-                       option->value);
+                        option->spec->name,
+                        option->value);
         }
     }
 }
@@ -236,223 +236,223 @@ _gopt_test(n00b_gopt_ctx *gopt, n00b_list_t *args)
     n00b_printf("[h1]Run command was: chalk {}", args);
 }
 
-#define gopt_test(g, ...)                       \
-    {                                           \
+#define gopt_test(g, ...)                         \
+    {                                             \
         n00b_list_t *l = n00b_c_map(__VA_ARGS__); \
-        _gopt_test(g, l);                       \
+        _gopt_test(g, l);                         \
     }
 
 n00b_gopt_ctx *
 setup_gopt_test(void)
 {
     n00b_gopt_ctx   *gopt  = n00b_new(n00b_type_gopt_parser(),
-                                 N00B_TOPLEVEL_IS_ARGV0);
+                                   N00B_TOPLEVEL_IS_ARGV0);
     n00b_gopt_cspec *chalk = n00b_new(n00b_type_gopt_command(),
-                                    n00b_kw("context", n00b_ka(gopt)));
+                                      n00b_kw("context", n00b_ka(gopt)));
 
     n00b_new(n00b_type_gopt_option(),
-            n00b_kw("name",
-                   n00b_new_utf8("color"),
-                   "linked_command",
-                   chalk,
-                   "opt_type",
-                   N00B_GOAT_BOOL_T_DEFAULT));
+             n00b_kw("name",
+                     n00b_new_utf8("color"),
+                     "linked_command",
+                     chalk,
+                     "opt_type",
+                     N00B_GOAT_BOOL_T_DEFAULT));
 
     n00b_new(n00b_type_gopt_option(),
-            n00b_kw("name",
-                   n00b_new_utf8("no-color"),
-                   "linked_command",
-                   chalk,
-                   "opt_type",
-                   N00B_GOAT_BOOL_F_DEFAULT));
+             n00b_kw("name",
+                     n00b_new_utf8("no-color"),
+                     "linked_command",
+                     chalk,
+                     "opt_type",
+                     N00B_GOAT_BOOL_F_DEFAULT));
 
     n00b_new(n00b_type_gopt_option(),
-            n00b_kw("name",
-                   n00b_new_utf8("testflag"),
-                   "linked_command",
-                   chalk,
-                   "opt_type",
-                   N00B_GOAT_WORD,
-                   "max_args",
-                   n00b_ka(0)));
+             n00b_kw("name",
+                     n00b_new_utf8("testflag"),
+                     "linked_command",
+                     chalk,
+                     "opt_type",
+                     N00B_GOAT_WORD,
+                     "max_args",
+                     n00b_ka(0)));
 
     n00b_gopt_cspec *insert = n00b_new(n00b_type_gopt_command(),
-                                     n00b_kw("context",
-                                            n00b_ka(gopt),
-                                            "name",
-                                            n00b_ka(n00b_new_utf8("insert")),
-                                            "parent",
-                                            n00b_ka(chalk)));
+                                       n00b_kw("context",
+                                               n00b_ka(gopt),
+                                               "name",
+                                               n00b_ka(n00b_new_utf8("insert")),
+                                               "parent",
+                                               n00b_ka(chalk)));
 
     n00b_gopt_add_subcommand(gopt, insert, n00b_new_utf8("(STR)*"));
 
     n00b_gopt_cspec *extract = n00b_new(n00b_type_gopt_command(),
-                                      n00b_kw("context",
-                                             n00b_ka(gopt),
-                                             "name",
-                                             n00b_ka(n00b_new_utf8("extract")),
-                                             "parent",
-                                             n00b_ka(chalk)));
+                                        n00b_kw("context",
+                                                n00b_ka(gopt),
+                                                "name",
+                                                n00b_ka(n00b_new_utf8("extract")),
+                                                "parent",
+                                                n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, extract, n00b_new_utf8("(str)*"));
 
     /*n00b_gopt_cspec *images     =*/n00b_new(n00b_type_gopt_command(),
-                                            n00b_kw("context",
-                                                   n00b_ka(gopt),
-                                                   "name",
-                                                   n00b_ka(n00b_new_utf8("images")),
-                                                   "parent",
-                                                   n00b_ka(extract)));
+                                              n00b_kw("context",
+                                                      n00b_ka(gopt),
+                                                      "name",
+                                                      n00b_ka(n00b_new_utf8("images")),
+                                                      "parent",
+                                                      n00b_ka(extract)));
     /*n00b_gopt_cspec *containers =*/n00b_new(n00b_type_gopt_command(),
-                                            n00b_kw("context",
-                                                   n00b_ka(gopt),
-                                                   "name",
-                                                   n00b_ka(n00b_new_utf8("containers")),
-                                                   "parent",
-                                                   n00b_ka(extract)));
+                                              n00b_kw("context",
+                                                      n00b_ka(gopt),
+                                                      "name",
+                                                      n00b_ka(n00b_new_utf8("containers")),
+                                                      "parent",
+                                                      n00b_ka(extract)));
 
     n00b_gopt_cspec *extract_all = n00b_new(n00b_type_gopt_command(),
-                                          n00b_kw("context",
-                                                 n00b_ka(gopt),
-                                                 "name",
-                                                 n00b_ka(n00b_new_utf8("all")),
-                                                 "parent",
-                                                 n00b_ka(extract)));
+                                            n00b_kw("context",
+                                                    n00b_ka(gopt),
+                                                    "name",
+                                                    n00b_ka(n00b_new_utf8("all")),
+                                                    "parent",
+                                                    n00b_ka(extract)));
     n00b_gopt_add_subcommand(gopt, extract_all, n00b_new_utf8("(str)*"));
 
     n00b_gopt_cspec *del = n00b_new(n00b_type_gopt_command(),
-                                  n00b_kw("context",
-                                         n00b_ka(gopt),
-                                         "name",
-                                         n00b_ka(n00b_new_utf8("delete")),
-                                         "parent",
-                                         n00b_ka(chalk)));
+                                    n00b_kw("context",
+                                            n00b_ka(gopt),
+                                            "name",
+                                            n00b_ka(n00b_new_utf8("delete")),
+                                            "parent",
+                                            n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, del, n00b_new_utf8("(str)*"));
 
     n00b_gopt_cspec *env = n00b_new(n00b_type_gopt_command(),
-                                  n00b_kw("context",
-                                         n00b_ka(gopt),
-                                         "name",
-                                         n00b_ka(n00b_new_utf8("env")),
-                                         "parent",
-                                         n00b_ka(chalk)));
+                                    n00b_kw("context",
+                                            n00b_ka(gopt),
+                                            "name",
+                                            n00b_ka(n00b_new_utf8("env")),
+                                            "parent",
+                                            n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, env, n00b_new_utf8("(str)*"));
 
     n00b_gopt_cspec *exec = n00b_new(n00b_type_gopt_command(),
-                                   n00b_kw("context",
-                                          n00b_ka(gopt),
-                                          "name",
-                                          n00b_ka(n00b_new_utf8("exec")),
-                                          "bad_opt_passthrough",
-                                          n00b_ka(true),
-                                          "parent",
-                                          n00b_ka(chalk)));
+                                     n00b_kw("context",
+                                             n00b_ka(gopt),
+                                             "name",
+                                             n00b_ka(n00b_new_utf8("exec")),
+                                             "bad_opt_passthrough",
+                                             n00b_ka(true),
+                                             "parent",
+                                             n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, exec, n00b_new_utf8("(str)*"));
 
     /*n00b_gopt_cspec *config =*/n00b_new(n00b_type_gopt_command(),
-                                        n00b_kw("context",
-                                               n00b_ka(gopt),
-                                               "name",
-                                               n00b_ka(n00b_new_utf8("config")),
-                                               "parent",
-                                               n00b_ka(chalk)));
+                                          n00b_kw("context",
+                                                  n00b_ka(gopt),
+                                                  "name",
+                                                  n00b_ka(n00b_new_utf8("config")),
+                                                  "parent",
+                                                  n00b_ka(chalk)));
 
     n00b_gopt_cspec *dump = n00b_new(n00b_type_gopt_command(),
-                                   n00b_kw("context",
-                                          n00b_ka(gopt),
-                                          "name",
-                                          n00b_ka(n00b_new_utf8("dump")),
-                                          "parent",
-                                          n00b_ka(chalk)));
+                                     n00b_kw("context",
+                                             n00b_ka(gopt),
+                                             "name",
+                                             n00b_ka(n00b_new_utf8("dump")),
+                                             "parent",
+                                             n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, dump, n00b_new_utf8("(str)?"));
 
     /*n00b_gopt_cspec *params =*/n00b_new(n00b_type_gopt_command(),
-                                        n00b_kw("context",
-                                               n00b_ka(gopt),
-                                               "name",
-                                               n00b_ka(n00b_new_utf8("params")),
-                                               "parent",
-                                               n00b_ka(dump)));
-    /*n00b_gopt_cspec *cache = */ n00b_new(n00b_type_gopt_command(),
-                                         n00b_kw("context",
-                                                n00b_ka(gopt),
-                                                "name",
-                                                n00b_ka(n00b_new_utf8("cache")),
-                                                "parent",
-                                                n00b_ka(dump)));
-    /*n00b_gopt_cspec *dump_all =*/n00b_new(n00b_type_gopt_command(),
                                           n00b_kw("context",
-                                                 n00b_ka(gopt),
-                                                 "name",
-                                                 n00b_ka(n00b_new_utf8("all")),
-                                                 "parent",
-                                                 n00b_ka(dump)));
+                                                  n00b_ka(gopt),
+                                                  "name",
+                                                  n00b_ka(n00b_new_utf8("params")),
+                                                  "parent",
+                                                  n00b_ka(dump)));
+    /*n00b_gopt_cspec *cache = */ n00b_new(n00b_type_gopt_command(),
+                                           n00b_kw("context",
+                                                   n00b_ka(gopt),
+                                                   "name",
+                                                   n00b_ka(n00b_new_utf8("cache")),
+                                                   "parent",
+                                                   n00b_ka(dump)));
+    /*n00b_gopt_cspec *dump_all =*/n00b_new(n00b_type_gopt_command(),
+                                            n00b_kw("context",
+                                                    n00b_ka(gopt),
+                                                    "name",
+                                                    n00b_ka(n00b_new_utf8("all")),
+                                                    "parent",
+                                                    n00b_ka(dump)));
     n00b_gopt_cspec *load = n00b_new(n00b_type_gopt_command(),
-                                   n00b_kw("context",
-                                          n00b_ka(gopt),
-                                          "name",
-                                          n00b_ka(n00b_new_utf8("load")),
-                                          "parent",
-                                          n00b_ka(chalk)));
+                                     n00b_kw("context",
+                                             n00b_ka(gopt),
+                                             "name",
+                                             n00b_ka(n00b_new_utf8("load")),
+                                             "parent",
+                                             n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, load, n00b_new_utf8("(str)?"));
 
     /*n00b_gopt_cspec *version =*/n00b_new(n00b_type_gopt_command(),
-                                         n00b_kw("context",
-                                                n00b_ka(gopt),
-                                                "name",
-                                                n00b_ka(n00b_new_utf8("version")),
-                                                "parent",
-                                                n00b_ka(chalk)));
+                                           n00b_kw("context",
+                                                   n00b_ka(gopt),
+                                                   "name",
+                                                   n00b_ka(n00b_new_utf8("version")),
+                                                   "parent",
+                                                   n00b_ka(chalk)));
 
     n00b_gopt_cspec *docker = n00b_new(n00b_type_gopt_command(),
-                                     n00b_kw("context",
-                                            n00b_ka(gopt),
-                                            "name",
-                                            n00b_ka(n00b_new_utf8("docker")),
-                                            "parent",
-                                            n00b_ka(chalk)));
+                                       n00b_kw("context",
+                                               n00b_ka(gopt),
+                                               "name",
+                                               n00b_ka(n00b_new_utf8("docker")),
+                                               "parent",
+                                               n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, docker, n00b_new_utf8("raw"));
 
     /*n00b_gopt_cspec *setup =*/n00b_new(n00b_type_gopt_command(),
-                                       n00b_kw("context",
+                                         n00b_kw("context",
+                                                 n00b_ka(gopt),
+                                                 "name",
+                                                 n00b_ka(n00b_new_utf8("setup")),
+                                                 "parent",
+                                                 n00b_ka(chalk)));
+
+    /*n00b_gopt_cspec *docgen =*/n00b_new(n00b_type_gopt_command(),
+                                          n00b_kw("context",
+                                                  n00b_ka(gopt),
+                                                  "name",
+                                                  n00b_ka(n00b_new_utf8("docgen")),
+                                                  "parent",
+                                                  n00b_ka(chalk)));
+    /*n00b_gopt_cspec *__ =*/n00b_new(n00b_type_gopt_command(),
+                                      n00b_kw("context",
                                               n00b_ka(gopt),
                                               "name",
-                                              n00b_ka(n00b_new_utf8("setup")),
+                                              n00b_ka(n00b_new_utf8("__")),
                                               "parent",
                                               n00b_ka(chalk)));
 
-    /*n00b_gopt_cspec *docgen =*/n00b_new(n00b_type_gopt_command(),
-                                        n00b_kw("context",
-                                               n00b_ka(gopt),
-                                               "name",
-                                               n00b_ka(n00b_new_utf8("docgen")),
-                                               "parent",
-                                               n00b_ka(chalk)));
-    /*n00b_gopt_cspec *__ =*/n00b_new(n00b_type_gopt_command(),
-                                    n00b_kw("context",
-                                           n00b_ka(gopt),
-                                           "name",
-                                           n00b_ka(n00b_new_utf8("__")),
-                                           "parent",
-                                           n00b_ka(chalk)));
-
     n00b_gopt_cspec *numtest = n00b_new(n00b_type_gopt_command(),
-                                      n00b_kw("context",
-                                             n00b_ka(gopt),
-                                             "name",
-                                             n00b_ka(n00b_new_utf8("num")),
-                                             "parent",
-                                             n00b_ka(chalk)));
+                                        n00b_kw("context",
+                                                n00b_ka(gopt),
+                                                "name",
+                                                n00b_ka(n00b_new_utf8("num")),
+                                                "parent",
+                                                n00b_ka(chalk)));
     n00b_gopt_add_subcommand(gopt, numtest, n00b_new_utf8("(float int) *"));
 
     n00b_new(n00b_type_gopt_option(),
-            n00b_kw("name",
-                   n00b_new_utf8("foobar"),
-                   "linked_command",
-                   numtest,
-                   "opt_type",
-                   N00B_GOAT_WORD,
-                   "max_args",
-                   n00b_ka(1)));
+             n00b_kw("name",
+                     n00b_new_utf8("foobar"),
+                     "linked_command",
+                     numtest,
+                     "opt_type",
+                     N00B_GOAT_WORD,
+                     "max_args",
+                     n00b_ka(1)));
 
     return gopt;
 }
@@ -544,8 +544,8 @@ main(int argc, char **argv, char **envp)
     n00b_run_expected_value_tests();
     n00b_run_other_test_files();
 
-    //    test_parsing();
-    //    test_getopt();
+    test_parsing();
+    test_getopt();
     test_markdown();
 
     n00b_report_results_and_exit();
