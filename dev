@@ -8,31 +8,38 @@ N00B_DEBUG_EXTRA="-Dshow_preprocessor_config=enabled -Dforkless_tests=enabled -D
 N00B_SANITIZE_EXTRA="-Duse_ubsan=enabled -Duse_asan=enabled -Dshow_preprocessor_config=enabled -Dforkless_tests=enabled"
 N00B_TEST_CFG=${N00B_DEV_CFG}
 
-
 N00B_MESON_STATE_FILE=.meson_last
 N00B_TEST_EXE=n00btest
 
 function color {
     case $1 in
-        black)   CODE=0 ;;
-        red)     CODE=1 ;; RED)     CODE=9 ;;
-        green)   CODE=2 ;; GREEN)   CODE=10 ;;
-        yellow)  CODE=3 ;; YELLOW)  CODE=11 ;;
-        blue)    CODE=4 ;; BLUE)    CODE=12 ;;
-        magenta) CODE=5 ;; MAGENTA) CODE=13 ;;
-        cyan)    CODE=6 ;; CYAN)    CODE=14 ;;
-        white)   CODE=7 ;; WHITE)   CODE=15 ;;
-        grey)    CODE=8 ;; *)       CODE=$1 ;;
+        black) CODE=0 ;;
+        red) CODE=1 ;;
+        RED) CODE=9 ;;
+        green) CODE=2 ;;
+        GREEN) CODE=10 ;;
+        yellow) CODE=3 ;;
+        YELLOW) CODE=11 ;;
+        blue) CODE=4 ;;
+        BLUE) CODE=12 ;;
+        magenta) CODE=5 ;;
+        MAGENTA) CODE=13 ;;
+        cyan) CODE=6 ;;
+        CYAN) CODE=14 ;;
+        white) CODE=7 ;;
+        WHITE) CODE=15 ;;
+        grey) CODE=8 ;;
+        *) CODE=$1 ;;
     esac
     shift
 
     echo -n $(tput setaf ${CODE})$@$(tput op)
 }
 
-OS=$(uname -o 2>/dev/null)
-ARCH=$(uname -m 2>/dev/null)
+OS=$(uname -o 2> /dev/null)
+ARCH=$(uname -m 2> /dev/null)
 
-if [[ $? -ne 0 ]] ; then
+if [[ $? -ne 0 ]]; then
     # Older macOS/OSX versions of uname don't support -o
     OS=$(uname -s)
 fi
@@ -47,8 +54,8 @@ function ensure_env_setup {
             find "${ROOT}" -name '*.dylib' \
                 | rev \
                 | cut -d/ -f2- \
-                | rev \
-            ) \
+                | rev
+        )
     )
     export LIBRARY_PATH=/usr/local/lib:${SUBPROJECTS}:${ROOT}/deps/${OS}-${ARCH}/:~/.local/c0/libs
     export LD_LIBRARY_PATH=${LIBRARY_PATH}
@@ -74,14 +81,14 @@ function meson_hatrack {
 
     log Compiling meson target ${1}
 
-    if [[ ${OS} = "Darwin" ]] ; then
+    if [[ ${OS} = "Darwin" ]]; then
         meson compile hash
     else
         CC=musl-gcc meson compile hash
     fi
 
     CODE=$?
-    if [[ $CODE -eq 0 ]] ; then
+    if [[ $CODE -eq 0 ]]; then
         log "Done!"
     else
         log "Build FAILED"
@@ -122,11 +129,11 @@ function ensure_project {
     # Return 1 if the project was just setup, 0 if not.
     meson introspect ${N00B_BUILD_DIR} > /dev/null
 
-    if [[ $? -ne 0 ]] ; then
+    if [[ $? -ne 0 ]]; then
         shift
         log Setting up target: $(color green ${N00B_BUILD_TARGET})
         meson setup ${N00B_BUILD_DIR} ${N00B_MESON_CONF} ${N00B_PASTHROUGH_ARGS}
-        if [[ $? -ne 0 ]] ; then
+        if [[ $? -ne 0 ]]; then
             log Setup for target ${N00B_BUILD_TARGET} $(color RED FAILED.)
             exit -1
         fi
@@ -135,13 +142,13 @@ function ensure_project {
 }
 
 function configure_target {
-    if [[ $# -ne 0 ]] ; then
+    if [[ $# -ne 0 ]]; then
         meson configure ${N00B_BUILD_DIR} ${N00B_PASSTHROUGH_ARGS}
     fi
 }
 
 function set_profile {
-    if [[ $# -eq 0 ]] ; then
+    if [[ $# -eq 0 ]]; then
         if [[ -f ${N00B_MESON_STATE_FILE} ]]; then
             WRITE_TARGET_FILE=0
             export N00B_BUILD_TARGET=$(cat ${N00B_MESON_STATE_FILE})
@@ -196,7 +203,7 @@ function set_profile {
 
 function clean_one_target {
     TARGET=build_${1}
-    if [[ -d ${TARGET} ]] ; then
+    if [[ -d ${TARGET} ]]; then
         log Cleaning: ${1}
         rm -rf ${TARGET}
     else
@@ -205,8 +212,8 @@ function clean_one_target {
 }
 
 function n00b_clean {
-    if [[ "$1" == "all" ]] ; then
-        for TARGET in dev sanitize debug release test ; do
+    if [[ "$1" == "all" ]]; then
+        for TARGET in dev sanitize debug release test; do
             clean_one_target ${TARGET}
         done
         if [[ -f ${N00B_MESON_STATE_FILE} ]]; then
@@ -215,9 +222,9 @@ function n00b_clean {
         rm -rf subprojects/*-* || true
     else
         if [[ $# -ne 0 ]]; then
-            for arg in $@ ; do
+            for arg in $@; do
                 set_profile ${arg}
-                if [[ $? -eq 0 ]] ; then
+                if [[ $? -eq 0 ]]; then
                     clean_one_target ${N00B_BUILD_TARGET}
                 fi
             done
@@ -246,7 +253,7 @@ function n00b_set_profile {
 
 function n00b_prebuild {
     CONFIGURE=1
-    if [[ ${1} -eq 0 ]] ; then
+    if [[ ${1} -eq 0 ]]; then
         shift
         CONFIGURE=0
     fi
@@ -269,7 +276,7 @@ function n00b_prebuild {
     ensure_directory
     ensure_project
 
-    if [[ CONFIGURE -ne 0 ]] ; then
+    if [[ CONFIGURE -ne 0 ]]; then
         configure_target
     fi
 }
@@ -284,13 +291,12 @@ function n00b_compile {
         meson compile -C ${N00B_BUILD_DIR}
     fi
 
-
-    if [[ $? -ne 0 ]] ; then
+    if [[ $? -ne 0 ]]; then
         log Compilation of target ${N00B_BUILD_TARGET} $(color RED "FAILED.")
         exit -1
     fi
 
-    if [[ ${OS} = "Darwin" ]] ; then
+    if [[ ${OS} = "Darwin" ]]; then
         dsymutil $(cur_exe_loc)
     fi
 }
@@ -311,7 +317,7 @@ function n00b_run {
     set -e
     n00b_run_tests $@
     CODE=$?
-    if [[ $CODE -eq 0 ]] ; then
+    if [[ $CODE -eq 0 ]]; then
         log "CI/CD tests passed."
     else
         log "CI/CD Tests " $(color RED "FAILED.")
@@ -325,13 +331,12 @@ function debug_project {
 
     n00b_compile
 
-
     DEBUGGER=$(which gdb)
     DEBUGGER=${DEBUGGER:-$(which lldb)}
     DEBUGGER=${DEBUGGER:-1}
 
-    if [[ ${DEBUGGER} -eq 1 ]] ; then
-        echo $(color RED ERROR: ) "no debugger found in your path."
+    if [[ ${DEBUGGER} -eq 1 ]]; then
+        echo $(color RED ERROR:) "no debugger found in your path."
         exit -1
     fi
     log "Running debugger: ${DEBUGGER} for target:" $(color green '[==' $N00B_BUILD_TARGET '==]')
@@ -342,29 +347,36 @@ function debug_project {
 ensure_env_setup
 
 case ${1} in
-    clean)   shift
-             n00b_clean $@
-             ;;
-    build | compile) shift
-             n00b_prebuild $@
-             n00b_compile
-             ;;
-    rebuild) shift
-             n00b_prebuild $@
-             n00b_compile --clean
-             ;;
-    profile) shift
-             n00b_set_profile $@
-             ;;
-    debug)   shift
-             debug_project $@
-             ;;
-    run)     shift
-             n00b_run $@
-             ;;
-    hash)    shift
-             meson_hatrack hash $@
-             ;;
+    clean)
+        shift
+        n00b_clean $@
+        ;;
+    build | compile)
+        shift
+        n00b_prebuild $@
+        n00b_compile
+        ;;
+    rebuild)
+        shift
+        n00b_prebuild $@
+        n00b_compile --clean
+        ;;
+    profile)
+        shift
+        n00b_set_profile $@
+        ;;
+    debug)
+        shift
+        debug_project $@
+        ;;
+    run)
+        shift
+        n00b_run $@
+        ;;
+    hash)
+        shift
+        meson_hatrack hash $@
+        ;;
     *)
         n00b_dev_usage
         ;;
