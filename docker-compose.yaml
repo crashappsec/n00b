@@ -1,6 +1,11 @@
 services:
   n00b:
-    build: .
+    build:
+      context: .
+      args:
+        BASE: ${BASE:-alpine}
     working_dir: $PWD
     volumes:
       - .:$PWD
+    environment:
+      CC: ${CC:-musl-gcc}

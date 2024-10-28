@@ -339,7 +339,12 @@ libmath_dep = cc.find_library('m', required : false)
 libthreads_dep = dependency('threads', required : true)
 
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
-libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
+if (host_machine.system() == 'darwin')
+  linuxheaders_dep = declare_dependency()
+else
+  linuxheaders_dep = subproject('linuxheaders').get_variable('linuxheaders_dep')
+endif
+libbacktrace_dep = subproject('libbacktrace').get_variable('libbacktrace_dep')
 libffi_dep = subproject('libffi').get_variable('libffi_dep')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
@@ -352,13 +357,14 @@ if get_option('show_preprocessor_config').enabled()
 endif
 
 deps = [
-  libbacktrace,
+  libbacktrace_dep,
   libcurl_dep,
   libffi_dep,
   libmath_dep,
   libthreads_dep,
   libunibreak_dep,
   libutf8proc_dep,
+  linuxheaders_dep,
   openssl_dep,
 ]
 link_with = [

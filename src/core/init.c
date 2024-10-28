@@ -323,6 +323,12 @@ extern void n00b_crash_init();
 __attribute__((constructor)) void
 n00b_init(int argc, char **argv, char **envp)
 {
+    // musl does not pass argv to attribute constructors
+    // https://www.openwall.com/lists/musl/2020/07/15/1
+    if (argv == NULL) {
+        return;
+    }
+
     static int inited = false;
 
     if (!inited) {
