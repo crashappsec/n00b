@@ -6,14 +6,14 @@ typedef struct nb_info_t {
     n00b_parse_node_t  *pnode;
     n00b_list_t        *opts;  // A set of all possible subtrees for this node.
     n00b_list_t        *slots; // Pre-muxed data.
-    int                num_kids;
+    int                 num_kids;
     // Realisticially this is more diagnostic.
     n00b_earley_item_t *bottom_item;
     n00b_earley_item_t *top_item;
     // This tracks when the subtree has been built but not post-processed.
     // Post-processing ignores it.
-    bool               cached;
-    bool               visiting;
+    bool                cached;
+    bool                visiting;
 } nb_info_t;
 
 static nb_info_t *
@@ -31,8 +31,8 @@ ptree(void *v, char *txt)
     n00b_printf("[h2]{}", n00b_new_utf8(txt));
 
     n00b_print(n00b_grid_tree_new(t,
-                                n00b_kw("callback",
-                                       n00b_ka(n00b_repr_parse_node))));
+                                  n00b_kw("callback",
+                                          n00b_ka(n00b_repr_parse_node))));
 }
 
 static inline n00b_utf8_t *
@@ -42,11 +42,11 @@ dei_base(n00b_parser_t *p, n00b_earley_item_t *ei)
     n00b_list_t *repr = n00b_repr_earley_item(p, ei, 0);
 
     return n00b_cstr_format(" [em]{}:{}[/] {} ({})  [reverse]{}[/]",
-                           ei->estate_id,
-                           ei->eitem_index,
-                           n00b_list_get(repr, 1, NULL),
-                           n00b_list_get(repr, 4, NULL),
-                           n00b_list_get(repr, 5, NULL));
+                            ei->estate_id,
+                            ei->eitem_index,
+                            n00b_list_get(repr, 1, NULL),
+                            n00b_list_get(repr, 4, NULL),
+                            n00b_list_get(repr, 5, NULL));
 }
 
 static void
@@ -90,8 +90,8 @@ n00b_parse_node_hash(n00b_tree_node_t *t)
     }
 
     n00b_sha_t *sha    = n00b_new(n00b_type_hash());
-    uint64_t   bounds = (uint64_t)pn->start;
-    uint64_t   other  = ((uint64_t)pn->penalty) << 32 | (uint64_t)pn->cost;
+    uint64_t    bounds = (uint64_t)pn->start;
+    uint64_t    other  = ((uint64_t)pn->penalty) << 32 | (uint64_t)pn->cost;
 
     bounds <<= 32;
     bounds |= (uint64_t)pn->end;
@@ -138,7 +138,7 @@ n00b_parse_node_hash(n00b_tree_node_t *t)
     }
 
     n00b_buf_t *buf = n00b_sha_finish(sha);
-    pn->hv         = ((uint64_t *)buf->data)[0];
+    pn->hv          = ((uint64_t *)buf->data)[0];
 
     return pn->hv;
 }
@@ -149,8 +149,8 @@ add_penalty_info(n00b_grammar_t    *g,
                  n00b_parse_rule_t *bad_rule)
 {
     n00b_pitem_t *pi = n00b_list_get(bad_rule->contents,
-                                   pn->penalty_location,
-                                   NULL);
+                                     pn->penalty_location,
+                                     NULL);
 
     if (pi->kind == N00B_P_NULL) {
         pn->missing = true;
@@ -160,7 +160,17 @@ add_penalty_info(n00b_grammar_t    *g,
     }
 
     if (bad_rule->penalty_rule) {
-        pn->info.name = n00b_repr_rule(g, bad_rule->link->contents, -1);
+        n00b_list_t *contents = NULL;
+
+        if (bad_rule->link) {
+            contents = bad_rule->link->contents;
+        }
+
+        if (!contents) {
+            contents = n00b_list(n00b_type_ref());
+            n00b_list_append(contents, n00b_new_pitem(N00B_P_NULL));
+        }
+        pn->info.name = n00b_repr_rule(g, contents, -1);
     }
 }
 
@@ -171,12 +181,12 @@ add_penalty_annotation(n00b_parse_node_t *pn)
 
     if (pn->missing) {
         s = n00b_cstr_format(" [em i](Missing token before position {})",
-                            (uint64_t)pn->penalty_location);
+                             (uint64_t)pn->penalty_location);
     }
 
     if (pn->bad_prefix) {
         s = n00b_cstr_format(" [em i](Unexpected token at position {})",
-                            (uint64_t)pn->penalty_location);
+                             (uint64_t)pn->penalty_location);
     }
 
     if (!s) {
@@ -200,7 +210,7 @@ n00b_clean_trees(n00b_parser_t *p, n00b_list_t *l)
 
     for (int i = 0; i < n; i++) {
         n00b_tree_node_t *t  = n00b_list_get(l, i, NULL);
-        uint64_t         hv = n00b_parse_node_hash(t);
+        uint64_t          hv = n00b_parse_node_hash(t);
 
         if (hatrack_set_contains(hashes, (void *)hv)) {
             continue;
@@ -248,7 +258,7 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
     }
 
     n00b_parse_node_t *pn = n00b_gc_alloc_mapped(n00b_parse_node_t,
-                                               N00B_GC_SCAN_ALL);
+                                                 N00B_GC_SCAN_ALL);
 
     result              = n00b_gc_alloc_mapped(nb_info_t, N00B_GC_SCAN_ALL);
     result->pnode       = pn;
@@ -275,8 +285,8 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
 
     if (b->subtree_info == N00B_SI_GROUP_END) {
         s1            = n00b_repr_nonterm(p->grammar,
-                              N00B_GID_SHOW_GROUP_LHS,
-                              false);
+                               N00B_GID_SHOW_GROUP_LHS,
+                               false);
         pn->group_top = true;
     }
     else {
@@ -321,7 +331,7 @@ static inline n00b_list_t *
 process_slot(n00b_parser_t *p, n00b_list_t *ni_options)
 {
     n00b_list_t *result = n00b_list(n00b_type_ref());
-    int         n      = n00b_list_len(ni_options);
+    int          n      = n00b_list_len(ni_options);
 
     for (int i = 0; i < n; i++) {
         nb_info_t *sub = n00b_list_get(ni_options, i, NULL);
@@ -335,9 +345,9 @@ process_slot(n00b_parser_t *p, n00b_list_t *ni_options)
 static inline n00b_list_t *
 score_filter(n00b_list_t *opts)
 {
-    uint32_t    penalty = ~0;
-    uint32_t    cost    = ~0;
-    int         n       = n00b_list_len(opts);
+    uint32_t     penalty = ~0;
+    uint32_t     cost    = ~0;
+    int          n       = n00b_list_len(opts);
     n00b_list_t *results = n00b_list(n00b_type_ref());
 
     // First, calculate the lowest penalty, cost tuple that we see.
@@ -372,7 +382,7 @@ static inline n00b_parse_node_t *
 copy_parse_node(n00b_parse_node_t *in)
 {
     n00b_parse_node_t *out = n00b_gc_alloc_mapped(n00b_parse_node_t,
-                                                N00B_GC_SCAN_ALL);
+                                                  N00B_GC_SCAN_ALL);
 
     memcpy(out, in, sizeof(n00b_parse_node_t));
 
@@ -383,13 +393,13 @@ static inline n00b_list_t *
 package_single_slot_options(nb_info_t *ni, n00b_list_t *t_opts)
 {
     n00b_list_t       *output_opts = n00b_list(n00b_type_ref());
-    int               n           = n00b_list_len(t_opts);
+    int                n           = n00b_list_len(t_opts);
     n00b_parse_node_t *pn;
 
     for (int i = 0; i < n; i++) {
         n00b_tree_node_t *kid_t = n00b_list_get(t_opts, i, NULL);
 
-        pn                       = copy_parse_node(ni->pnode);
+        pn                        = copy_parse_node(ni->pnode);
         n00b_parse_node_t *kid_pn = n00b_tree_get_contents(kid_t);
         n00b_tree_node_t  *t      = n00b_new_tree_node(n00b_type_ref(), pn);
 
@@ -433,7 +443,7 @@ parse_node_zipper(n00b_list_t *kid_sets, n00b_list_t *options)
 
         for (int j = 0; j < num_start_sets; j++) {
             n00b_list_t      *s1     = n00b_list_get(kid_sets, j, NULL);
-            int              slen   = n00b_list_len(s1);
+            int               slen   = n00b_list_len(s1);
             n00b_tree_node_t *prev_t = n00b_list_get(s1, slen - 1, NULL);
             if (!prev_t) {
                 continue;
@@ -458,9 +468,9 @@ static inline n00b_parse_node_t *
 new_epsilon_node(void)
 {
     n00b_parse_node_t *pn = n00b_gc_alloc_mapped(n00b_parse_node_t,
-                                               N00B_GC_SCAN_ALL);
-    pn->info.name        = n00b_new_utf8("ε");
-    pn->id               = N00B_EMPTY_STRING;
+                                                 N00B_GC_SCAN_ALL);
+    pn->info.name         = n00b_new_utf8("ε");
+    pn->id                = N00B_EMPTY_STRING;
 
     return pn;
 }
@@ -476,7 +486,7 @@ package_kid_sets(nb_info_t *ni, n00b_list_t *kid_sets)
         n00b_parse_node_t *copy        = copy_parse_node(ni->pnode);
         n00b_tree_node_t  *t           = n00b_new_tree_node(n00b_type_ref(), copy);
         n00b_parse_node_t *kpn         = NULL;
-        uint32_t          old_penalty = copy->penalty;
+        uint32_t           old_penalty = copy->penalty;
 
         copy->penalty = 0;
 
@@ -544,7 +554,7 @@ postprocess_subtree(n00b_parser_t *p, nb_info_t *ni)
     // If it's the ONLY slot, score and wrap. No need to zipper.
     if (ni->num_kids == 1) {
         n00b_list_t *result = package_single_slot_options(ni, slot_options);
-        ni->visiting       = false;
+        ni->visiting        = false;
         return result;
     }
 
@@ -554,7 +564,7 @@ postprocess_subtree(n00b_parser_t *p, nb_info_t *ni)
     // of kids.
 
     n00b_list_t *kid_sets = n00b_list(n00b_type_ref());
-    int         n        = n00b_list_len(slot_options);
+    int          n        = n00b_list_len(slot_options);
 
     for (int i = 0; i < n; i++) {
         t     = n00b_list_get(slot_options, i, NULL);
@@ -591,7 +601,7 @@ search_for_end_items(n00b_parser_t *p)
     n00b_earley_state_t *state   = p->current_state;
     n00b_list_t         *items   = state->items;
     n00b_list_t         *results = n00b_list(n00b_type_ref());
-    int                 n       = n00b_list_len(items);
+    int                  n       = n00b_list_len(items);
 
     if (!n00b_list_len(items)) {
         return results;
@@ -627,10 +637,10 @@ scan_group_items(n00b_parser_t *p, nb_info_t *group_ni, n00b_earley_item_t *end)
     //
     // So follow each path back seprately.
 
-    uint64_t            n;
+    uint64_t             n;
     n00b_earley_item_t **clist  = hatrack_set_items_sort(end->completors, &n);
-    uint32_t            minp   = ~0;
-    uint32_t            nitems = ~0;
+    uint32_t             minp   = ~0;
+    uint32_t             nitems = ~0;
 
     for (uint64_t i = 0; i < n; i++) {
         n00b_earley_item_t *cur = clist[i];
@@ -654,7 +664,7 @@ scan_group_items(n00b_parser_t *p, nb_info_t *group_ni, n00b_earley_item_t *end)
         group_ni->num_kids = cur->match_ct;
 
         while (cur && ix-- > 0) {
-            nb_info_t         *possible_node = populate_subtree(p, cur);
+            nb_info_t          *possible_node = populate_subtree(p, cur);
             n00b_earley_item_t *start         = cur->start_item;
             add_option(group_ni, ix, possible_node);
             cur = start->previous_scan;
@@ -668,9 +678,9 @@ static void
 add_token_node(n00b_parser_t *p, nb_info_t *node, n00b_earley_item_t *ei)
 {
     // For the moment, we wrap the parse node in a dummy nb_info_t.
-    nb_info_t          *ni = n00b_gc_alloc_mapped(nb_info_t, N00B_GC_SCAN_ALL);
+    nb_info_t           *ni = n00b_gc_alloc_mapped(nb_info_t, N00B_GC_SCAN_ALL);
     n00b_parse_node_t   *pn = n00b_gc_alloc_mapped(n00b_parse_node_t,
-                                               N00B_GC_SCAN_ALL);
+                                                 N00B_GC_SCAN_ALL);
     n00b_earley_state_t *s  = n00b_list_get(p->states, ei->estate_id, NULL);
 
     pn->start       = s->id;
@@ -689,7 +699,7 @@ static void
 add_epsilon_node(nb_info_t *node, n00b_earley_item_t *ei)
 {
     // For the moment, we wrap the parse node in a dummy nb_info_t.
-    nb_info_t        *ni = n00b_gc_alloc_mapped(nb_info_t, N00B_GC_SCAN_ALL);
+    nb_info_t         *ni = n00b_gc_alloc_mapped(nb_info_t, N00B_GC_SCAN_ALL);
     n00b_parse_node_t *pn = new_epsilon_node();
 
     pn->start       = ei->estate_id;
@@ -717,9 +727,9 @@ scan_rule_items(n00b_parser_t *p, nb_info_t *parent_ni, n00b_earley_item_t *end)
         assert(prev->cursor == cur->cursor + 1);
 
         n00b_pitem_t        *pi = n00b_list_get(start->rule->contents,
-                                       cur->cursor,
-                                       NULL);
-        uint64_t            n_bottoms;
+                                         cur->cursor,
+                                         NULL);
+        uint64_t             n_bottoms;
         n00b_earley_item_t **bottoms;
 
         switch (pi->kind) {
@@ -796,7 +806,7 @@ n00b_build_forest(n00b_parser_t *p)
     n00b_list_t *results = NULL;
     n00b_list_t *roots   = n00b_list(n00b_type_ref());
     n00b_list_t *ends    = search_for_end_items(p);
-    int         n       = n00b_list_len(ends);
+    int          n       = n00b_list_len(ends);
 
     p->grammar->suspend_penalty_hiding++;
 
@@ -822,7 +832,7 @@ n00b_build_forest(n00b_parser_t *p)
     // easily have have ambiguous subtrees, too.
 
     for (int i = 0; i < n; i++) {
-        nb_info_t  *ni        = n00b_list_get(roots, i, NULL);
+        nb_info_t   *ni        = n00b_list_get(roots, i, NULL);
         n00b_list_t *possibles = postprocess_subtree(p, ni);
 
         results = n00b_list_plus(results, possibles);

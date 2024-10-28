@@ -1519,7 +1519,7 @@ n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
     }
     if (num == 0) {
         n00b_printf("[em]Error:[/] parsing failed.");
-        n00b_getopt_show_usage(gopt, n00b_new_utf8(""));
+        // n00b_getopt_show_usage(gopt, n00b_new_utf8(""));
         return NULL;
     }
 
@@ -1527,7 +1527,7 @@ n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
     if (n00b_list_len(res->errors)) {
         n00b_printf("[em]Error when parsing:[/] {}",
                     n00b_list_get(res->errors, 0, NULL));
-        n00b_getopt_show_usage(gopt, res->cmd);
+        // n00b_getopt_show_usage(gopt, res->cmd);
         return NULL;
     }
 

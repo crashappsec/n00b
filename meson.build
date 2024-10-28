@@ -269,8 +269,11 @@ n00b_util = [
 
 n00b_crypto = ['src/crypto/sha.c']
 
-n00b_src = n00b_core + n00b_adts + n00b_io + n00b_compiler + n00b_util + n00b_crypto
+n00b_cmd = ['src/cmd/main.c']
 
+n00b_base = n00b_core + n00b_adts + n00b_io + n00b_compiler + n00b_util + n00b_crypto
+
+n00b_src = n00b_base + n00b_cmd
 
 hat_primary = [
     'src/hatrack/support/hatrack_common.c',
@@ -323,7 +326,7 @@ if not using_osx and not using_glibc
     hat_primary = hat_primary + quark_files
 endif
 
-lib_src = n00b_src + hat_primary
+lib_src = n00b_base + hat_primary
 
 test_src = [
     'src/harness/n00b_base/test.c',
@@ -394,6 +397,16 @@ endif
 executable(
     'n00btest',
     test_src,
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)
+
+executable(
+    'n00b',
+    n00b_src,
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,

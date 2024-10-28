@@ -1,5 +1,4 @@
 #pragma once
-#define N00B_GC_SHOW_COLLECT_STACK_TRACES
 // Home of anything remotely configurable. Don't change this file;
 // update the meson config.
 //
@@ -66,12 +65,8 @@
 #error "HATRACK_PER_INSTANCE_AUX must be defined for n00b to compile."
 #endif
 
-#if defined(N00B_GC_FULL_TRACE) && !defined(N00B_GC_STATS)
-#define N00B_GC_STATS
-#endif
-
-#if defined(N00B_FULL_MEMCHECK) && !defined(N00B_GC_STATS)
-#define N00B_GC_STATS
+#if defined(N00B_GC_STATS)
+#define N00B_GC_SHOW_COLLECT_STACK_TRACES
 #endif
 
 #if defined(HATRACK_ALLOC_PASS_LOCATION)
