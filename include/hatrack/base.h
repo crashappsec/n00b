@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include <stdalign.h>
 #include <stdatomic.h>
+#include <sys/types.h>
 
 // IWYU program: end_exports
 

@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     gcc-14 \
     make \
+    musl-tools \
     ninja-build \
     pipx \
     wget
