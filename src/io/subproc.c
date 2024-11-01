@@ -490,9 +490,16 @@ n00b_subproc_do_exec(n00b_subproc_t *ctx)
     else {
         execv(ctx->cmd, ctx->argv);
     }
-    // If we get past the exec, kill the subproc, which will
-    // tear down the switchboard.
-    abort();
+    // If we get past the exec, kill the subproc with non-zero exit code,
+    // which will tear down the switchboard and print to stderr the
+    // errono description. For example for nonexisting command will be:
+    // foo: No such file or directory
+    fprintf(stderr, "%s: %s\n",ctx->cmd, strerror(errno));
+    // TODO switch back to abort() once better event handling is implemented
+    // in switchboard to correctly detect exit code as otherwise waitpid()
+    // detects program has exited however not all signal handlers have executed
+    // hence exit code is unknown yet
+    exit(1);
 }
 
 n00b_party_t *

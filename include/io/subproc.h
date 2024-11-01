@@ -15,7 +15,6 @@ extern void  n00b_subproc_clear_timeout(n00b_subproc_t *);
 extern bool  n00b_subproc_use_pty(n00b_subproc_t *);
 extern bool  n00b_subproc_set_startup_callback(n00b_subproc_t *,
                                               void (*)(void *));
-extern int   n00b_subproc_get_pty_fd(n00b_subproc_t *);
 extern void  n00b_subproc_start(n00b_subproc_t *);
 extern bool  n00b_subproc_poll(n00b_subproc_t *);
 extern void  n00b_subproc_run(n00b_subproc_t *);
