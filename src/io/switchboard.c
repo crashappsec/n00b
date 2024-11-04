@@ -1507,27 +1507,22 @@ is_registered_writer(n00b_switchboard_t *ctx, n00b_party_t *target)
 void
 n00b_sb_destroy(n00b_switchboard_t *ctx, bool free_parties)
 {
-    n00b_party_t *cur, *next;
+    n00b_party_t *cur;
 
     cur = ctx->parties_for_reading;
-
     while (cur) {
-        if (cur->close_on_destroy) {
-            if (cur->n00b_party_type & (N00B_PT_FD | N00B_PT_LISTENER)) {
-                close(n00b_sb_party_fd(cur));
-            }
-            cur = cur->next_reader;
+        if (cur->close_on_destroy && cur->n00b_party_type & (N00B_PT_FD | N00B_PT_LISTENER)) {
+            close(n00b_sb_party_fd(cur));
         }
+        cur = cur->next_reader;
     }
 
     cur = ctx->parties_for_writing;
-
     while (cur) {
         if (cur->close_on_destroy && cur->n00b_party_type == N00B_PT_FD) {
             close(n00b_sb_party_fd(cur));
         }
-        next = cur->next_writer;
-        cur  = next;
+        cur = cur->next_writer;
     }
 }
 
