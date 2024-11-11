@@ -35,3 +35,14 @@ extern void  n00b_subproc_resume_passthrough(n00b_subproc_t *, unsigned char);
 extern void  n00b_subproc_pause_capture(n00b_subproc_t *, unsigned char);
 extern void  n00b_subproc_resume_capture(n00b_subproc_t *, unsigned char);
 extern void  n00b_subproc_status_check(n00b_monitor_t *, bool);
+
+typedef struct {
+    n00b_utf8_t *stdin;
+    n00b_utf8_t *stdout;
+    n00b_utf8_t *stderr;
+    int          exit_code;
+    pid_t        pid;
+} n00b_cmd_out_t;
+
+extern n00b_cmd_out_t *_n00b_subproc(n00b_str_t *, n00b_list_t *, ...);
+#define n00b_subproc(x, y,  ...) _n00b_subproc(x, y, N00B_VA(__VA_ARGS__))
