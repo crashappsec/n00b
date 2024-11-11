@@ -1091,7 +1091,7 @@ add_data_to_string_out(n00b_party_outstr_t *party, char *buf, ssize_t len)
  *
  * When reading one chunk, we then loop through our subscribers, and
  * take action based on the subscriber type.
- *
+ *g
  * If the subscriber is a writable fd, we call publish(), which will
  * enqueue for that fd, as long as it's open (it's ignored otherwise).
  *
