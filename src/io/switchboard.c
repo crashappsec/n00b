@@ -1058,7 +1058,7 @@ add_data_to_string_out(n00b_party_outstr_t *party, char *buf, ssize_t len)
         ">> add_data_to_string_out: "
         "tag = {}, buf = {}, len = {}\n",
         n00b_new_utf8(party->tag),
-        n00b_box_u64(buf),
+        n00b_box_u64((uint64_t)(void *)buf),
         (int64_t)len);
     n00b_print_hex(buf, len, dmsg);
 #endif

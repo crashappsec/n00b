@@ -8,13 +8,13 @@ extern bool  n00b_subproc_pass_to_stdin(n00b_subproc_t *, char *, size_t, bool);
 extern bool  n00b_subproc_set_passthrough(n00b_subproc_t *, unsigned char, bool);
 extern bool  n00b_subproc_set_capture(n00b_subproc_t *, unsigned char, bool);
 extern bool  n00b_subproc_set_io_callback(n00b_subproc_t *,
-                                         unsigned char,
-                                         n00b_sb_cb_t);
+                                          unsigned char,
+                                          n00b_sb_cb_t);
 extern void  n00b_subproc_set_timeout(n00b_subproc_t *, struct timeval *);
 extern void  n00b_subproc_clear_timeout(n00b_subproc_t *);
 extern bool  n00b_subproc_use_pty(n00b_subproc_t *);
 extern bool  n00b_subproc_set_startup_callback(n00b_subproc_t *,
-                                              void (*)(void *));
+                                               void (*)(void *));
 extern void  n00b_subproc_start(n00b_subproc_t *);
 extern bool  n00b_subproc_poll(n00b_subproc_t *);
 extern void  n00b_subproc_run(n00b_subproc_t *);
@@ -37,12 +37,12 @@ extern void  n00b_subproc_resume_capture(n00b_subproc_t *, unsigned char);
 extern void  n00b_subproc_status_check(n00b_monitor_t *, bool);
 
 typedef struct {
-    n00b_utf8_t *stdin;
-    n00b_utf8_t *stdout;
-    n00b_utf8_t *stderr;
+    n00b_utf8_t *sin;
+    n00b_utf8_t *sout;
+    n00b_utf8_t *serr;
     int          exit_code;
     pid_t        pid;
 } n00b_cmd_out_t;
 
 extern n00b_cmd_out_t *_n00b_subproc(n00b_str_t *, n00b_list_t *, ...);
-#define n00b_subproc(x, y,  ...) _n00b_subproc(x, y, N00B_VA(__VA_ARGS__))
+#define n00b_subproc(x, y, ...) _n00b_subproc(x, y, N00B_VA(__VA_ARGS__))

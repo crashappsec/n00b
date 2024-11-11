@@ -932,7 +932,8 @@ _n00b_subproc(n00b_str_t *cmd, n00b_list_t *args, ...)
     struct timeval *timeout           = &to_default;
     bool            wait_for_exit     = false;
     n00b_list_t    *env               = NULL;
-    n00b_cmd_out_t *result            = n00b_gc_alloc_mapped(n00b_cmd_out_t, N00B_GC_SCAN_ALL);
+    n00b_cmd_out_t *result            = n00b_gc_alloc_mapped(n00b_cmd_out_t,
+                                                  N00B_GC_SCAN_ALL);
 
     n00b_karg_only_init(args);
     n00b_kw_ptr("new_stdin", new_stdin);
@@ -986,9 +987,9 @@ _n00b_subproc(n00b_str_t *cmd, n00b_list_t *args, ...)
 
     result->pid       = n00b_subproc_get_pid(&ctx);
     result->exit_code = n00b_subproc_get_exit(&ctx, wait_for_exit);
-    result->stdin     = n00b_cstring(sin, inlen);
-    result->stdout    = n00b_cstring(sout, outlen);
-    result->stderr    = n00b_cstring(serr, errlen);
+    result->sin       = n00b_cstring(sin, inlen);
+    result->sout      = n00b_cstring(sout, outlen);
+    result->serr      = n00b_cstring(serr, errlen);
 
     return result;
 }
