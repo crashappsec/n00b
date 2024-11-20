@@ -341,6 +341,19 @@ libatomic_dep = cc.find_library('atomic', required : false)
 libmath_dep = cc.find_library('m', required : false)
 libthreads_dep = dependency('threads', required : true)
 
+# Need to add these as a subproject, but for the moment just assume them.
+libevent_core_dep = cc.find_library('event_core', required : true)
+libevent_extra_dep = cc.find_library('event_extra', required : true)
+libevent_openssl_dep = cc.find_library('event_openssl', required : true)
+libevent_pthreads_dep = cc.find_library('event_pthreads', required : true)
+
+event_deps = [
+               libevent_core_dep,
+               libevent_extra_dep,
+               libevent_openssl_dep,
+               libevent_pthreads_dep,
+]               
+              
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
 libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
 libffi_dep = subproject('libffi').get_variable('libffi_dep')
@@ -363,7 +376,7 @@ deps = [
   libunibreak_dep,
   libutf8proc_dep,
   openssl_dep,
-]
+] + event_deps
 link_with = [
 ]
 

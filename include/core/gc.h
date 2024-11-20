@@ -87,31 +87,31 @@
 #define GC_FLAG_GLOBAL_STOP 0x00000020
 
 // Shouldn't be accessed by developer, but allows us to inline.
-extern uint64_t     n00b_gc_guard;
+extern uint64_t      n00b_gc_guard;
 extern n00b_arena_t *n00b_new_arena(size_t, hatrack_zarray_t *);
-extern void         n00b_delete_arena(n00b_arena_t *);
-extern void         n00b_expand_arena(size_t, n00b_arena_t **);
+extern void          n00b_delete_arena(n00b_arena_t *);
+extern void          n00b_expand_arena(size_t, n00b_arena_t **);
 extern n00b_arena_t *n00b_collect_arena(n00b_arena_t *);
-extern void        *n00b_gc_resize(void *ptr, size_t len);
-extern void         n00b_gc_thread_collect();
-extern bool         n00b_is_read_only_memory(volatile void *);
-extern void         n00b_gc_set_finalize_callback(n00b_system_finalizer_fn);
+extern void         *n00b_gc_resize(void *ptr, size_t len);
+extern void          n00b_gc_thread_collect();
+extern bool          n00b_is_read_only_memory(volatile void *);
+extern void          n00b_gc_set_finalize_callback(n00b_system_finalizer_fn);
 
 typedef struct n00b_segment_range_t {
-    void                       *start;
-    void                       *end;
+    void                        *start;
+    void                        *end;
     struct n00b_segment_range_t *next;
-    int                         segment_id;
+    int                          segment_id;
 } n00b_segment_range_t;
 
 extern _Atomic(n00b_segment_range_t *) n00b_static_segments;
 
 #ifdef N00B_ADD_ALLOC_LOC_INFO
 extern void _n00b_arena_register_root(n00b_arena_t *,
-                                     void *,
-                                     uint64_t,
-                                     char *,
-                                     int);
+                                      void *,
+                                      uint64_t,
+                                      char *,
+                                      int);
 extern void _n00b_gc_register_root(void *, uint64_t, char *f, int l);
 
 #define n00b_arena_register_root(x, y, z) \
@@ -133,9 +133,9 @@ void n00b_gc_remove_root(void *ptr);
 #ifdef N00B_ADD_ALLOC_LOC_INFO
 extern void *_n00b_gc_raw_alloc(size_t, n00b_mem_scan_fn, char *, int);
 extern void *_n00b_gc_raw_alloc_with_finalizer(size_t,
-                                              n00b_mem_scan_fn,
-                                              char *,
-                                              int);
+                                               n00b_mem_scan_fn,
+                                               char *,
+                                               int);
 
 #define n00b_gc_raw_alloc(x, y) \
     _n00b_gc_raw_alloc(x, y, __FILE__, __LINE__)
@@ -143,11 +143,11 @@ extern void *_n00b_gc_raw_alloc_with_finalizer(size_t,
     _n00b_gc_raw_alloc_with_finalizer(x, y, __FILE__, __LINE__)
 
 extern void *n00b_alloc_from_arena(n00b_arena_t **,
-                                  size_t,
-                                  n00b_mem_scan_fn,
-                                  bool,
-                                  char *,
-                                  int);
+                                   size_t,
+                                   n00b_mem_scan_fn,
+                                   bool,
+                                   char *,
+                                   int);
 
 extern n00b_utf8_t *n00b_gc_alloc_info(void *, int *);
 #else
@@ -158,9 +158,9 @@ extern void *_n00b_gc_raw_alloc_with_finalizer(size_t, n00b_mem_scan_fn);
     _n00b_gc_raw_alloc_with_finalizer(x, y)
 #define n00b_gc_raw_alloc(x, y) _n00b_gc_raw_alloc(x, y)
 extern void *n00b_alloc_from_arena(n00b_arena_t **,
-                                  size_t,
-                                  n00b_mem_scan_fn,
-                                  bool);
+                                   size_t,
+                                   n00b_mem_scan_fn,
+                                   bool);
 #endif
 
 extern int n00b_gc_show_heap_stats_on;
@@ -177,9 +177,9 @@ extern int n00b_gc_show_heap_stats_on;
 extern int n00b_gc_trace_on;
 
 #define n00b_gc_gen_trace_implementation(X)
-#define n00b_gc_trace(X, ...)                            \
+#define n00b_gc_trace(X, ...)                           \
     {                                                   \
-        if (X && n00b_gc_trace_on) {                     \
+        if (X && n00b_gc_trace_on) {                    \
             fprintf(stderr, "gc_trace:%s: ", __func__); \
             fprintf(stderr, __VA_ARGS__);               \
             fputc('\n', stderr);                        \
@@ -241,19 +241,19 @@ n00b_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
 
 typedef void (*n00b_gc_hook)();
 
-extern void           n00b_initialize_gc();
-extern void           n00b_gc_heap_stats(uint64_t *, uint64_t *, uint64_t *);
-extern void           n00b_gc_add_hold(n00b_obj_t);
-extern void           n00b_gc_remove_hold(n00b_obj_t);
+extern void            n00b_initialize_gc();
+extern void            n00b_gc_heap_stats(uint64_t *, uint64_t *, uint64_t *);
+extern void            n00b_gc_add_hold(n00b_obj_t);
+extern void            n00b_gc_remove_hold(n00b_obj_t);
 extern n00b_arena_t   *n00b_internal_stash_heap();
-extern void           n00b_internal_unstash_heap();
-extern void           n00b_internal_set_heap(n00b_arena_t *);
-extern void           n00b_internal_lock_then_unstash_heap();
-extern void           n00b_get_heap_bounds(uint64_t *, uint64_t *, uint64_t *);
-extern void           n00b_gc_register_collect_fns(n00b_gc_hook, n00b_gc_hook);
+extern void            n00b_internal_unstash_heap();
+extern void            n00b_internal_set_heap(n00b_arena_t *);
+extern void            n00b_internal_lock_then_unstash_heap();
+extern void            n00b_get_heap_bounds(uint64_t *, uint64_t *, uint64_t *);
+extern void            n00b_gc_register_collect_fns(n00b_gc_hook, n00b_gc_hook);
 extern n00b_alloc_hdr *n00b_find_alloc(void *);
-extern bool           n00b_in_heap(void *);
-extern void           n00b_add_static_segment(void *, void *);
+extern bool            n00b_in_heap(void *);
+extern void            n00b_add_static_segment(void *, void *);
 // TODO: Keep a list of all heaps.
 
 #ifdef N00B_GC_STATS
@@ -320,3 +320,11 @@ n00b_object_header(n00b_obj_t o)
 }
 
 extern void *n00b_raw_arena_alloc(uint64_t, void **, void **);
+
+// This is a malloc-compatable API for third party stuff. It scans
+// everything for in-heap pointers on a collect.
+// n00b_free_compat() is a no-op.
+
+extern void *n00b_malloc_compat(size_t);
+extern void *n00b_realloc_compat(void *, size_t);
+extern void  n00b_free_compat(void *);

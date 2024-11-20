@@ -1,10 +1,10 @@
 #include "n00b.h"
 
-uint64_t     n00b_gc_guard     = 0;
+uint64_t      n00b_gc_guard     = 0;
 n00b_arena_t *n00b_current_heap = NULL;
-uint64_t     n00b_page_bytes;
-uint64_t     n00b_page_modulus;
-uint64_t     n00b_modulus_mask;
+uint64_t      n00b_page_bytes;
+uint64_t      n00b_page_modulus;
+uint64_t      n00b_modulus_mask;
 
 _Atomic(n00b_segment_range_t *) n00b_static_segments = NULL;
 
@@ -24,7 +24,7 @@ static thread_local unsigned int ring_head = 0;
 static thread_local unsigned int ring_tail = 0;
 #endif
 
-static n00b_set_t    *external_holds = NULL;
+static n00b_set_t   *external_holds = NULL;
 static pthread_key_t n00b_thread_key;
 
 struct n00b_pthread {
@@ -81,11 +81,11 @@ n00b_gc_free_wrapper(void *oldptr, size_t size, void *arg, char *file, int line)
 
 static void *
 n00b_gc_realloc_wrapper(void  *oldptr,
-                       size_t oldsize,
-                       size_t newsize,
-                       void  *arg,
-                       char  *file,
-                       int    line)
+                        size_t oldsize,
+                        size_t newsize,
+                        void  *arg,
+                        char  *file,
+                        int    line)
 {
     return n00b_gc_resize(oldptr, newsize);
 }
@@ -174,15 +174,15 @@ n00b_initialize_gc()
         n00b_end_guard = n00b_rand64();
 #endif
         n00b_gc_guard     = n00b_rand64();
-        initial_roots    = hatrack_zarray_new(N00B_MAX_GC_ROOTS,
+        initial_roots     = hatrack_zarray_new(N00B_MAX_GC_ROOTS,
                                            sizeof(n00b_gc_root_info_t));
-        external_holds   = n00b_rc_alloc(sizeof(n00b_set_t));
-        once             = true;
+        external_holds    = n00b_rc_alloc(sizeof(n00b_set_t));
+        once              = true;
         n00b_page_bytes   = getpagesize();
         n00b_page_modulus = n00b_page_bytes - 1; // Page size is always a power of 2.
         n00b_modulus_mask = ~n00b_page_modulus;
 
-        int initial_len  = N00B_DEFAULT_ARENA_SIZE;
+        int initial_len   = N00B_DEFAULT_ARENA_SIZE;
         n00b_current_heap = n00b_new_arena(initial_len, initial_roots);
         n00b_arena_register_root(n00b_current_heap, &external_holds, 1);
 
@@ -239,7 +239,7 @@ lock_existing_heap()
     uint64_t words_to_lock = ((uint64_t)(n00b_current_heap->next_alloc)) - to_lock;
     int      b_to_lock     = words_to_lock * 8;
     b_to_lock              = n00b_round_up_to_given_power_of_2(getpagesize(),
-                                                 b_to_lock);
+                                                  b_to_lock);
 
 // This doesn't seem to be working on mac; disallows reads.
 #ifdef __linux__
@@ -254,7 +254,7 @@ n00b_internal_stash_heap()
 {
     // This assumes the stashed heap isn't going to be used for allocations
     // until it's returneed.
-    stashed_heap     = n00b_current_heap;
+    stashed_heap      = n00b_current_heap;
     n00b_current_heap = n00b_new_arena(
         N00B_DEFAULT_ARENA_SIZE,
         hatrack_zarray_unsafe_copy(n00b_current_heap->roots));
@@ -319,10 +319,10 @@ n00b_raw_arena_alloc(uint64_t len, void **end, void **accounting)
     *accounting = full_alloc;
 
     n00b_gc_trace(N00B_GCT_MMAP,
-                 "arena:mmap:@%p-@%p:%llu",
-                 full_alloc,
-                 full_alloc + total_len,
-                 len);
+                  "arena:mmap:@%p-@%p:%llu",
+                  full_alloc,
+                  full_alloc + total_len,
+                  len);
 
     return ret;
 }
@@ -341,8 +341,8 @@ n00b_new_arena(size_t num_words, hatrack_zarray_t *roots)
         num_words  = allocation >> 3;
     }
 
-    void        *arena_end;
-    void        *aux;
+    void         *arena_end;
+    void         *aux;
     n00b_arena_t *new_arena = n00b_raw_arena_alloc(allocation, &arena_end, &aux);
 
     new_arena->next_alloc   = (n00b_alloc_hdr *)new_arena->data;
@@ -360,10 +360,10 @@ n00b_new_arena(size_t num_words, hatrack_zarray_t *roots)
 #define TRACE_DEBUG_ARGS , debug_file, debug_ln
 
 void *
-_n00b_gc_raw_alloc(size_t          len,
-                  n00b_mem_scan_fn scan_fn,
-                  char           *debug_file,
-                  int             debug_ln)
+_n00b_gc_raw_alloc(size_t           len,
+                   n00b_mem_scan_fn scan_fn,
+                   char            *debug_file,
+                   int              debug_ln)
 
 #else
 #define TRACE_DEBUG_ARGS
@@ -374,26 +374,26 @@ _n00b_gc_raw_alloc(size_t len, n00b_mem_scan_fn scan_fn)
 #endif
 {
     return n00b_alloc_from_arena(&n00b_current_heap,
-                                len,
-                                scan_fn,
-                                false TRACE_DEBUG_ARGS);
+                                 len,
+                                 scan_fn,
+                                 false TRACE_DEBUG_ARGS);
 }
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
 void *
-_n00b_gc_raw_alloc_with_finalizer(size_t          len,
-                                 n00b_mem_scan_fn scan_fn,
-                                 char           *debug_file,
-                                 int             debug_ln)
+_n00b_gc_raw_alloc_with_finalizer(size_t           len,
+                                  n00b_mem_scan_fn scan_fn,
+                                  char            *debug_file,
+                                  int              debug_ln)
 #else
 void *
 _n00b_gc_raw_alloc_with_finalizer(size_t len, n00b_mem_scan_fn scan_fn)
 #endif
 {
     return n00b_alloc_from_arena(&n00b_current_heap,
-                                len,
-                                scan_fn,
-                                true TRACE_DEBUG_ARGS);
+                                 len,
+                                 scan_fn,
+                                 true TRACE_DEBUG_ARGS);
 }
 
 void *
@@ -415,9 +415,9 @@ n00b_gc_resize(void *ptr, size_t len)
 #endif
 
     void *result = n00b_alloc_from_arena(&n00b_current_heap,
-                                        len,
-                                        hdr->scan_fn,
-                                        (bool)hdr->finalize TRACE_DEBUG_ARGS);
+                                         len,
+                                         hdr->scan_fn,
+                                         (bool)hdr->finalize TRACE_DEBUG_ARGS);
     if (len > 0) {
         size_t bytes = ((char *)hdr->next_addr) - (char *)hdr->data;
         memcpy(result, ptr, n00b_min(len, bytes));
@@ -425,7 +425,7 @@ n00b_gc_resize(void *ptr, size_t len)
 
     if (hdr->finalize == 1) {
         n00b_alloc_hdr *newhdr = &((n00b_alloc_hdr *)result)[-1];
-        newhdr->finalize      = 1;
+        newhdr->finalize       = 1;
 
         n00b_finalizer_info_t *p = n00b_current_heap->to_finalize;
 
@@ -469,10 +469,10 @@ n00b_delete_arena(n00b_arena_t *arena)
 #ifdef N00B_ADD_ALLOC_LOC_INFO
 void
 _n00b_arena_register_root(n00b_arena_t *arena,
-                         void        *ptr,
-                         uint64_t     len,
-                         char        *file,
-                         int          line)
+                          void         *ptr,
+                          uint64_t      len,
+                          char         *file,
+                          int           line)
 #else
 void
 _n00b_arena_register_root(n00b_arena_t *arena, void *ptr, uint64_t len)
@@ -541,11 +541,11 @@ void
 _n00b_gc_register_root(void *ptr, uint64_t num_words, char *f, int l)
 {
     n00b_gc_trace(N00B_GCT_REGISTER,
-                 "root_register:@%p-%p (%s:%d)",
-                 ptr,
-                 ptr + num_words,
-                 f,
-                 l);
+                  "root_register:@%p-%p (%s:%d)",
+                  ptr,
+                  ptr + num_words,
+                  f,
+                  l);
     _n00b_arena_register_root(n00b_current_heap, ptr, num_words, f, l);
 }
 #else
@@ -578,20 +578,20 @@ memcheck_process_ring()
 
         if (a->start->guard != n00b_gc_guard) {
             n00b_alloc_display_front_guard_error(a->start,
-                                                a->start->data,
-                                                a->file,
-                                                a->line,
-                                                true);
+                                                 a->start->data,
+                                                 a->file,
+                                                 a->line,
+                                                 true);
         }
 
         if (*a->end != n00b_end_guard) {
             n00b_alloc_display_rear_guard_error(a->start,
-                                               a->start->data,
-                                               a->len,
-                                               a->end,
-                                               a->file,
-                                               a->line,
-                                               true);
+                                                a->start->data,
+                                                a->len,
+                                                a->end,
+                                                a->file,
+                                                a->line,
+                                                true);
         }
     }
 }
@@ -600,19 +600,19 @@ memcheck_process_ring()
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
 void *
 n00b_alloc_from_arena(n00b_arena_t   **arena_ptr,
-                     size_t          len,
-                     n00b_mem_scan_fn scan_fn,
-                     bool            finalize,
-                     char           *file,
-                     int             line)
+                      size_t           len,
+                      n00b_mem_scan_fn scan_fn,
+                      bool             finalize,
+                      char            *file,
+                      int              line)
 #else
 
 // Note that len is measured in WORDS not bytes.
 void *
 n00b_alloc_from_arena(n00b_arena_t   **arena_ptr,
-                     size_t          len,
-                     n00b_mem_scan_fn scan_fn,
-                     bool            finalize)
+                      size_t           len,
+                      n00b_mem_scan_fn scan_fn,
+                      bool             finalize)
 #endif
 {
     size_t orig_len = len;
@@ -634,8 +634,8 @@ n00b_alloc_from_arena(n00b_arena_t   **arena_ptr,
     len = n00b_round_up_to_given_power_of_2(N00B_FORCED_ALIGNMENT, len);
 
     n00b_alloc_hdr *raw = arena->next_alloc;
-    char          *p   = (char *)raw;
-    raw->next_addr     = p + len;
+    char           *p   = (char *)raw;
+    raw->next_addr      = p + len;
 
     if (raw->next_addr >= (char *)arena->heap_end) {
         pthread_mutex_unlock(&arena->lock);
@@ -651,11 +651,11 @@ n00b_alloc_from_arena(n00b_arena_t   **arena_ptr,
             pthread_mutex_unlock(&arena->lock);
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
             return n00b_alloc_from_arena(arena_ptr,
-                                        len,
-                                        scan_fn,
-                                        finalize,
-                                        file,
-                                        line);
+                                         len,
+                                         scan_fn,
+                                         finalize,
+                                         file,
+                                         line);
 #else
             return n00b_alloc_from_arena(arena_ptr, len, scan_fn, finalize);
 #endif
@@ -673,8 +673,8 @@ n00b_alloc_from_arena(n00b_arena_t   **arena_ptr,
     uint64_t *end_guard_addr = ((uint64_t *)raw->next_addr) - 1;
 
     n00b_shadow_alloc_t *record = n00b_rc_alloc(sizeof(n00b_shadow_alloc_t));
-    record->start              = raw;
-    record->end                = end_guard_addr;
+    record->start               = raw;
+    record->end                 = end_guard_addr;
 
     record->file = file;
     record->line = line;
@@ -728,23 +728,23 @@ n00b_alloc_from_arena(n00b_arena_t   **arena_ptr,
     raw->alloc_line = line;
 
     n00b_gc_trace(N00B_GCT_ALLOC,
-                 "new_record:%p-%p:data:%p:len:%zu:arena:%p-%p (%s:%d)",
-                 raw,
-                 raw->next_addr,
-                 raw->data,
-                 len,
-                 arena,
-                 arena->heap_end,
-                 raw->alloc_file,
-                 raw->alloc_line);
+                  "new_record:%p-%p:data:%p:len:%zu:arena:%p-%p (%s:%d)",
+                  raw,
+                  raw->next_addr,
+                  raw->data,
+                  len,
+                  arena,
+                  arena->heap_end,
+                  raw->alloc_file,
+                  raw->alloc_line);
 
     n00b_total_allocs++;
 #endif
 
     if (finalize) {
         n00b_finalizer_info_t *record = n00b_rc_alloc(sizeof(n00b_finalizer_info_t));
-        record->allocation           = raw;
-        record->next                 = arena->to_finalize;
+        record->allocation            = raw;
+        record->next                  = arena->to_finalize;
 
         if (arena->to_finalize) {
             arena->to_finalize->prev = record;
@@ -772,4 +772,32 @@ n00b_header_gc_bits(uint64_t *bitfield, void *alloc)
     --p.alloc;
 
     n00b_mark_raw_to_addr(bitfield, alloc, &p.alloc->type);
+}
+
+void *
+n00b_malloc_compat(size_t sz)
+{
+    return n00b_gc_raw_alloc(sz, N00B_GC_SCAN_ALL);
+}
+
+void *
+n00b_realloc_compat(void *old, size_t sz)
+{
+    assert(n00b_in_heap(old));
+    n00b_alloc_hdr *hdr = n00b_object_header(old);
+    assert(hdr->guard == n00b_gc_guard);
+    if (sz <= hdr->alloc_len) {
+        return old;
+    }
+
+    void *p = n00b_gc_raw_alloc(sz, N00B_GC_SCAN_ALL);
+    memcpy(p, old, hdr->alloc_len);
+
+    return p;
+}
+
+void
+n00b_free_compat(void *ptr)
+{
+    return;
 }

@@ -593,8 +593,9 @@ n00b_subproc_spawn_fork(n00b_subproc_t *ctx)
                             &ctx->subproc_stdout,
                             &ctx->subproc_stderr,
                             true);
-        n00b_subproc_install_callbacks(ctx);
+
         setup_subscriptions(ctx, false);
+        n00b_subproc_install_callbacks(ctx);
         run_startup_callback(ctx);
     }
     else {

@@ -13,10 +13,10 @@
 static void
 buffer_init(n00b_buf_t *obj, va_list args)
 {
-    int64_t    length = -1;
-    char      *raw    = NULL;
+    int64_t     length = -1;
+    char       *raw    = NULL;
     n00b_str_t *hex    = NULL;
-    char      *ptr    = NULL;
+    char       *ptr    = NULL;
 
     n00b_karg_va_init(args);
 
@@ -144,7 +144,7 @@ buffer_to_str(n00b_buf_t *buf)
     n00b_utf8_t *result;
 
     result  = n00b_new(n00b_type_utf8(),
-                     n00b_kw("length", n00b_ka(buf->byte_len * 2)));
+                      n00b_kw("length", n00b_ka(buf->byte_len * 2)));
     char *p = result->data;
 
     for (int i = 0; i < buf->byte_len; i++) {
@@ -165,7 +165,7 @@ buffer_repr(n00b_buf_t *buf)
     n00b_utf8_t *result;
 
     result  = n00b_new(n00b_type_utf8(),
-                     n00b_kw("length", n00b_ka(buf->byte_len * 4 + 2)));
+                      n00b_kw("length", n00b_ka(buf->byte_len * 4 + 2)));
     char *p = result->data;
 
     *p++ = '"';
@@ -185,11 +185,11 @@ buffer_repr(n00b_buf_t *buf)
 n00b_buf_t *
 n00b_buffer_add(n00b_buf_t *b1, n00b_buf_t *b2)
 {
-    int64_t    l1     = n00b_max(n00b_buffer_len(b1), 0);
-    int64_t    l2     = n00b_max(n00b_buffer_len(b2), 0);
-    int64_t    lnew   = l1 + l2;
+    int64_t     l1     = n00b_max(n00b_buffer_len(b1), 0);
+    int64_t     l2     = n00b_max(n00b_buffer_len(b2), 0);
+    int64_t     lnew   = l1 + l2;
     n00b_buf_t *result = n00b_new(n00b_type_buffer(),
-                                n00b_kw("length", n00b_ka(lnew)));
+                                  n00b_kw("length", n00b_ka(lnew)));
 
     if (l1 > 0) {
         memcpy(result->data, b1->data, l1);
@@ -222,10 +222,10 @@ n00b_buffer_join(n00b_list_t *list, n00b_buf_t *joiner)
     }
 
     n00b_buf_t *result = n00b_new(n00b_type_buffer(),
-                                n00b_kw("length", n00b_ka(new_len)));
-    char      *p      = result->data;
+                                  n00b_kw("length", n00b_ka(new_len)));
+    char       *p      = result->data;
     n00b_buf_t *cur    = n00b_list_get(list, 0, NULL);
-    int        clen   = n00b_buffer_len(cur);
+    int         clen   = n00b_buffer_len(cur);
 
     memcpy(p, cur->data, clen);
 
@@ -257,10 +257,10 @@ n00b_utf8_t *
 n00b_buf_to_utf8_string(n00b_buf_t *buffer)
 {
     n00b_utf8_t *result = n00b_new(n00b_type_utf8(),
-                                 n00b_kw("cstring",
-                                        n00b_ka(buffer->data),
-                                        "length",
-                                        n00b_ka(buffer->byte_len)));
+                                   n00b_kw("cstring",
+                                           n00b_ka(buffer->data),
+                                           "length",
+                                           n00b_ka(buffer->byte_len)));
 
     if (n00b_utf8_validate(result) < 0) {
         N00B_CRAISE("Buffer contains invalid UTF-8.");
@@ -300,11 +300,11 @@ buffer_coerce_to(const n00b_buf_t *b, n00b_type_t *target_type)
     }
 
     if (n00b_types_are_compat(target_type, n00b_type_utf8(), NULL)) {
-        int32_t         count = 0;
-        uint8_t        *p     = (uint8_t *)b->data;
-        uint8_t        *end   = p + b->byte_len;
+        int32_t          count = 0;
+        uint8_t         *p     = (uint8_t *)b->data;
+        uint8_t         *end   = p + b->byte_len;
         n00b_codepoint_t cp;
-        int             cplen;
+        int              cplen;
 
         while (p < end) {
             count++;
@@ -316,8 +316,8 @@ buffer_coerce_to(const n00b_buf_t *b, n00b_type_t *target_type)
         }
 
         n00b_utf8_t *result = n00b_new(target_type,
-                                     n00b_kw("length", n00b_ka(b->byte_len)));
-        result->codepoints = count;
+                                       n00b_kw("length", n00b_ka(b->byte_len)));
+        result->codepoints  = count;
 
         memcpy(result->data, b->data, b->byte_len);
     }
@@ -386,9 +386,9 @@ buffer_get_slice(const n00b_buf_t *b, int64_t start, int64_t end)
         return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
     }
 
-    int64_t    slice_len = end - start;
+    int64_t     slice_len = end - start;
     n00b_buf_t *result    = n00b_new(n00b_type_buffer(),
-                                n00b_kw("length", n00b_ka(slice_len)));
+                                  n00b_kw("length", n00b_ka(slice_len)));
 
     memcpy(result->data, b->data + start, slice_len);
     return result;
@@ -474,7 +474,7 @@ buffer_lit(n00b_utf8_t          *su8,
             return NULL;
         }
         return n00b_new(n00b_type_buffer(),
-                       n00b_kw("length", n00b_ka(length), "hex", n00b_ka(s)));
+                        n00b_kw("length", n00b_ka(length), "hex", n00b_ka(s)));
     }
 
     return n00b_new(n00b_type_buffer(), n00b_kw("raw", n00b_ka(s)));
@@ -488,7 +488,7 @@ static n00b_buf_t *
 buffer_copy(n00b_buf_t *inbuf)
 {
     n00b_buf_t *outbuf = n00b_new(n00b_type_buffer(),
-                                n00b_kw("length", n00b_ka(inbuf->byte_len)));
+                                  n00b_kw("length", n00b_ka(inbuf->byte_len)));
 
     memcpy(outbuf->data, inbuf->data, inbuf->byte_len);
 
