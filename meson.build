@@ -341,19 +341,6 @@ libatomic_dep = cc.find_library('atomic', required : false)
 libmath_dep = cc.find_library('m', required : false)
 libthreads_dep = dependency('threads', required : true)
 
-# Need to add these as a subproject, but for the moment just assume them.
-libevent_core_dep = cc.find_library('event_core', required : true)
-libevent_extra_dep = cc.find_library('event_extra', required : true)
-libevent_openssl_dep = cc.find_library('event_openssl', required : true)
-libevent_pthreads_dep = cc.find_library('event_pthreads', required : true)
-
-event_deps = [
-               libevent_core_dep,
-               libevent_extra_dep,
-               libevent_openssl_dep,
-               libevent_pthreads_dep,
-]               
-              
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
 if (host_machine.system() == 'darwin')
   linuxheaders_dep = declare_dependency()
@@ -365,8 +352,9 @@ libffi_dep = subproject('libffi').get_variable('libffi_dep')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
 openssl_dep = subproject('openssl').get_variable('openssl_dep')
-# libcurl depends on openssl so override its dependency first
+# libcurl and libevent depends on openssl so override its dependency first
 libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
+libevent_dep = subproject('libevent').get_variable('libevent_dep')
 
 if get_option('show_preprocessor_config').enabled()
     c_args = c_args + ['-DN00B_SHOW_PREPROC_CONFIG']
@@ -375,6 +363,7 @@ endif
 deps = [
   libbacktrace_dep,
   libcurl_dep,
+  libevent_dep,
   libffi_dep,
   libmath_dep,
   libthreads_dep,
@@ -382,7 +371,7 @@ deps = [
   libutf8proc_dep,
   linuxheaders_dep,
   openssl_dep,
-] + event_deps
+]
 link_with = [
 ]
 
