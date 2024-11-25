@@ -1,0 +1,9 @@
+[wrap-file]
+directory = kernel-headers-4.19.88
+source_url = https://github.com/sabotage-linux/kernel-headers/archive/v4.19.88.tar.gz
+source_filename = v4.19.88.tar.gz
+source_hash = d104397fc657ffb0f0bda46f54fd182b76a9ebc324149c183a4ff8c86a8db53d
+patch_directory = linuxheaders
+
+[provide]
+linuxheaders = linuxheaders_dep

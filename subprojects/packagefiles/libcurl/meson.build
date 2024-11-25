@@ -16,10 +16,9 @@ i = run_command(
   '''
 [ -n "$(find -name libcurl.a)" ] && exit 0
 export CPPFLAGS="-I$(realpath ../openssl-*)/include $CPPFLAGS"
-if [ "$(uname)" = "Darwin" ] ; then
 export LDFLAGS="-L$(realpath ../openssl-*) $LDFLAGS"
-else
-export LDFLAGS="-static -L$(realpath ../openssl-*) $LDFLAGS"
+if [ "$(uname)" != "Darwin" ] ; then
+export LDFLAGS="-static $LDFLAGS"
 fi
 ./configure -v \
   --with-openssl=$(realpath ../openssl-*) \

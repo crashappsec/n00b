@@ -5,18 +5,24 @@ project(
   meson_version : '>=1.5.0',
 )
 
+if (host_machine.system() == 'darwin')
+  linuxheaders_dep = declare_dependency()
+else
+  linuxheaders_dep = dependency('linuxheaders')
+endif
+
 i = run_command(
   'sh',
   '-exc',
   '''
 [ -n "$(find -name libcrypto.a)" ] && exit 0
+if [ "$(uname)" != "Darwin" ] ; then
+export N00B_STATIC=-static
+export CPPFLAGS="-I$(realpath ../kernel-headers-*)/include $CPPFLAGS"
+fi
 # cannot disable deprecated/engine as curl uses these
 # -no-deprecated
 # -no-engine
-if [ "$(uname)" != "Darwin" ] ; then
-export N00B_STATIC=-static
-fi
-
 ./config \
   enable-ec_nistp_64_gcc_128 \
   no-afalgeng \
@@ -60,6 +66,9 @@ message(i.stdout())
 message(i.stderr())
 
 openssl_dep = declare_dependency(
+  dependencies : [
+    linuxheaders_dep,
+  ],
   include_directories : [
     include_directories('./include/openssl'),
   ],
