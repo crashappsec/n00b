@@ -95,7 +95,7 @@ static void
 mixed_init(n00b_mixed_t *m, va_list args)
 {
     n00b_type_t *type = NULL;
-    void       *ptr  = NULL;
+    void        *ptr  = NULL;
 
     n00b_karg_va_init(args);
     n00b_kw_ptr("type", type);
@@ -214,7 +214,7 @@ mixed_repr(n00b_mixed_t *mixed)
 {
     // For the value types, we need to convert them to a 64-bit equiv
     // to send to the appropriate repr.
-    return n00b_repr((void *)mixed_as_word(mixed), mixed->held_type);
+    return n00b_repr_explicit((void *)mixed_as_word(mixed), mixed->held_type);
 }
 
 static n00b_mixed_t *
@@ -244,8 +244,6 @@ const n00b_vtable_t n00b_mixed_vtable = {
         [N00B_BI_REPR]        = (n00b_vtable_entry)mixed_repr,
         [N00B_BI_COPY]        = (n00b_vtable_entry)mixed_copy,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
-        // Explicit because some compilers don't seem to always properly
-        // zero it (Was sometimes crashing on a `n00b_stream_t` on my mac).
         [N00B_BI_FINALIZER]   = NULL,
     },
 };

@@ -4,16 +4,16 @@
 n00b_grid_t *
 n00b_get_module_summary_info(n00b_compile_ctx *ctx)
 {
-    int         n      = n00b_list_len(ctx->module_ordering);
+    int          n      = n00b_list_len(ctx->module_ordering);
     n00b_grid_t *result = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_cols",
-                                        n00b_ka(4),
-                                        "header_rows",
-                                        n00b_ka(1),
-                                        "container_tag",
-                                        n00b_ka(n00b_new_utf8("table2")),
-                                        "stripe",
-                                        n00b_ka(true)));
+                                   n00b_kw("start_cols",
+                                           n00b_ka(4),
+                                           "header_rows",
+                                           n00b_ka(1),
+                                           "container_tag",
+                                           n00b_ka(n00b_new_utf8("table2")),
+                                           "stripe",
+                                           n00b_ka(true)));
     n00b_utf8_t *snap   = n00b_new_utf8("snap");
     n00b_list_t *row    = n00b_new_table_row();
 
@@ -39,7 +39,7 @@ n00b_get_module_summary_info(n00b_compile_ctx *ctx)
 
         n00b_utf8_t *hash = n00b_cstr_format("{:x}", n00b_box_u64(f->modref));
         n00b_utf8_t *mod  = n00b_cstr_format("{}",
-                                          n00b_box_u64(f->module_id));
+                                            n00b_box_u64(f->module_id));
 
         n00b_list_append(row, spec);
         n00b_list_append(row, f->path);
@@ -66,7 +66,7 @@ n00b_module_t *
 n00b_new_module_compile_ctx()
 {
     n00b_module_t *res = n00b_gc_alloc_mapped(n00b_module_t,
-                                            N00B_GC_SCAN_ALL);
+                                              N00B_GC_SCAN_ALL);
     // n00b_module_ctx_gc_bits);
 
     res->ct = n00b_gc_alloc_mapped(n00b_ct_module_info_t, N00B_GC_SCAN_ALL);
@@ -111,10 +111,10 @@ one_lookup_try(n00b_compile_ctx *ctx,
     module = n00b_to_utf8(module);
 
     // First check the cache.
-    uint64_t      key    = module_key(package, module);
+    uint64_t       key    = module_key(package, module);
     n00b_module_t *result = hatrack_dict_get(ctx->module_cache,
-                                            (void *)key,
-                                            NULL);
+                                             (void *)key,
+                                             NULL);
 
     if (result) {
         return result;
@@ -132,29 +132,29 @@ one_lookup_try(n00b_compile_ctx *ctx,
         // For the package lookup, we need to replace dots in the package
         // name with slashes.
         n00b_utf8_t *s = n00b_to_utf8(n00b_str_replace(package,
-                                                    n00b_new_utf8("."),
-                                                    n00b_new_utf8("/")));
+                                                       n00b_new_utf8("."),
+                                                       n00b_new_utf8("/")));
         n00b_list_append(l, s);
     }
     n00b_list_append(l, module);
 
     n00b_utf8_t *base    = n00b_path_join(l);
-    int         num_ext = n00b_list_len(fext);
+    int          num_ext = n00b_list_len(fext);
     n00b_utf8_t *contents;
 
     n00b_utf8_t *attempt = NULL;
 
     for (int i = 0; i < num_ext; i++) {
         attempt = n00b_cstr_format("{}.{}",
-                                  base,
-                                  n00b_list_get(fext, i, NULL));
+                                   base,
+                                   n00b_list_get(fext, i, NULL));
 
         if (n00b_path_is_url(attempt)) {
             n00b_basic_http_response_t *r = n00b_http_get(attempt);
-            contents                     = n00b_http_op_get_output_utf8(r);
+            contents                      = n00b_http_op_get_output_utf8(r);
         }
         else {
-            contents = n00b_read_utf8_file(attempt);
+            contents = n00b_read_utf8_file(attempt, true);
         }
         if (contents != NULL) {
             break;
@@ -175,12 +175,12 @@ one_lookup_try(n00b_compile_ctx *ctx,
     result->full_uri   = attempt;
     result->modref     = key;
 
-    n00b_buf_t    *b = n00b_new(n00b_type_buffer(),
-                           n00b_kw("length",
-                                  n00b_ka(n00b_str_byte_len(contents)),
-                                  "ptr",
-                                  n00b_ka(contents->data)));
-    n00b_stream_t *s = n00b_buffer_instream(b);
+    n00b_buf_t   *b = n00b_new(n00b_type_buffer(),
+                             n00b_kw("length",
+                                     n00b_ka(n00b_str_byte_len(contents)),
+                                     "ptr",
+                                     n00b_ka(contents->data)));
+    n00b_stream_t *s = n00b_instream_buffer(b);
 
     if (!n00b_lex(result, s)) {
         ctx->fatality = true;
@@ -196,8 +196,8 @@ adjust_it(n00b_str_t **pathp,
           n00b_str_t **pkgp,
           n00b_utf8_t *path_string,
           n00b_utf8_t *matched_system_path,
-          int         matched_len,
-          int         path_len)
+          int          matched_len,
+          int          path_len)
 {
     path_string = n00b_str_slice(path_string, matched_len, path_len);
     path_string = n00b_to_utf8(path_string);
@@ -208,8 +208,8 @@ adjust_it(n00b_str_t **pathp,
     }
 
     n00b_utf8_t *new_prefix = n00b_str_replace(path_string,
-                                             n00b_new_utf8("/"),
-                                             n00b_new_utf8("."));
+                                               n00b_new_utf8("/"),
+                                               n00b_new_utf8("."));
 
     *pathp = matched_system_path;
 
@@ -218,8 +218,8 @@ adjust_it(n00b_str_t **pathp,
     }
     else {
         n00b_utf8_t *package = n00b_str_replace(*pkgp,
-                                              n00b_new_utf8("/"),
-                                              n00b_new_utf8("."));
+                                                n00b_new_utf8("/"),
+                                                n00b_new_utf8("."));
         if (!package->byte_len) {
             *pkgp = new_prefix;
         }
@@ -233,8 +233,8 @@ static void
 adjust_path_and_package(n00b_str_t **pathp, n00b_str_t **pkgp)
 {
     n00b_utf8_t *path    = n00b_to_utf8(*pathp);
-    int         pathlen = n00b_str_byte_len(path);
-    int         otherlen;
+    int          pathlen = n00b_str_byte_len(path);
+    int          otherlen;
 
     n00b_list_t *sp = n00b_get_module_search_path();
 
@@ -276,12 +276,12 @@ adjust_path_and_package(n00b_str_t **pathp, n00b_str_t **pkgp)
 // system extensions get searched.
 n00b_module_t *
 n00b_find_module(n00b_compile_ctx *ctx,
-                n00b_str_t       *path,
-                n00b_str_t       *module,
-                n00b_str_t       *package,
-                n00b_str_t       *relative_package,
-                n00b_str_t       *relative_path,
-                n00b_list_t      *fext)
+                 n00b_str_t       *path,
+                 n00b_str_t       *module,
+                 n00b_str_t       *package,
+                 n00b_str_t       *relative_package,
+                 n00b_str_t       *relative_path,
+                 n00b_list_t      *fext)
 {
     n00b_module_t *result;
 
@@ -325,7 +325,7 @@ n00b_find_module(n00b_compile_ctx *ctx,
     }
 
     n00b_list_t *sp = n00b_get_module_search_path();
-    int         n  = n00b_list_len(sp);
+    int          n  = n00b_list_len(sp);
 
     for (int i = 0; i < n; i++) {
         n00b_utf8_t *one = n00b_list_get(sp, i, NULL);
@@ -351,14 +351,14 @@ static n00b_module_t *
 postprocess_module(n00b_compile_ctx *cctx,
                    n00b_module_t    *fctx,
                    n00b_utf8_t      *path,
-                   bool             http_err,
+                   bool              http_err,
                    n00b_utf8_t      *errmsg)
 {
     if (!fctx) {
         n00b_module_t *result = n00b_new_module_compile_ctx();
-        result->path         = path;
-        result->ct->errors   = n00b_list(n00b_type_ref());
-        cctx->fatality       = true;
+        result->path          = path;
+        result->ct->errors    = n00b_list(n00b_type_ref());
+        cctx->fatality        = true;
 
         hatrack_dict_put(cctx->module_cache, NULL, result);
 
@@ -366,9 +366,9 @@ postprocess_module(n00b_compile_ctx *cctx,
             errmsg = n00b_new_utf8("Internal error");
         }
         n00b_module_load_error(result,
-                              n00b_err_open_module,
-                              path,
-                              errmsg);
+                               n00b_err_open_module,
+                               path,
+                               errmsg);
 
         return result;
     }
@@ -402,11 +402,11 @@ n00b_package_from_path_prefix(n00b_utf8_t *path, n00b_utf8_t **path_loc)
         if (n00b_str_starts_with(path, one)) {
             *path_loc = one;
 
-            int         ix = n00b_str_byte_len(one);
+            int          ix = n00b_str_byte_len(one);
             n00b_utf8_t *s  = n00b_str_slice(path,
-                                          ix,
-                                          n00b_str_codepoint_len(path));
-            s              = n00b_path_trim_slashes(s);
+                                            ix,
+                                            n00b_str_codepoint_len(path));
+            s               = n00b_path_trim_slashes(s);
             if (s->byte_len && s->data[0] == '/') {
                 s->data++;
                 s->codepoints--;
@@ -429,8 +429,8 @@ n00b_package_from_path_prefix(n00b_utf8_t *path, n00b_utf8_t **path_loc)
 static inline n00b_module_t *
 ctx_init_from_web_uri(n00b_compile_ctx *ctx,
                       n00b_utf8_t      *inpath,
-                      bool             has_ext,
-                      bool             https)
+                      bool              has_ext,
+                      bool              https)
 {
     n00b_module_t *result;
     n00b_utf8_t   *module;
@@ -526,7 +526,7 @@ ctx_init_from_module_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
 {
     n00b_utf8_t *package = NULL;
     n00b_utf8_t *module;
-    int64_t     n = n00b_str_rfind(path, n00b_new_utf8("."));
+    int64_t      n = n00b_str_rfind(path, n00b_new_utf8("."));
 
     if (n != -1) {
         package = n00b_to_utf8(n00b_str_slice(path, 0, n));
@@ -542,10 +542,10 @@ ctx_init_from_module_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
 static n00b_module_t *
 ctx_init_from_package_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
 {
-    path               = n00b_resolve_path(path);
-    char       *p      = &path->data[n00b_str_byte_len(path) - 1];
+    path                = n00b_resolve_path(path);
+    char        *p      = &path->data[n00b_str_byte_len(path) - 1];
     n00b_utf8_t *module = n00b_new_utf8(N00B_PACKAGE_INIT_MODULE);
-    char       *end_slash;
+    char        *end_slash;
     n00b_utf8_t *package;
 
     // Avoid trailing slashes, including consecutive ones.
@@ -636,9 +636,9 @@ n00b_init_module_from_loc(n00b_compile_ctx *ctx, n00b_str_t *path)
     //    relative to that path. Otherwise, we put the package in the
     //    top-level.  In either case, we ensure there is a __init
     //    file.
-    path                        = n00b_to_utf8(path);
+    path                         = n00b_to_utf8(path);
     n00b_module_t *result        = NULL;
-    bool          has_extension = has_n00b_extension(path);
+    bool           has_extension = has_n00b_extension(path);
 
     if (n00b_str_starts_with(path, n00b_new_utf8("http:"))) {
         result = ctx_init_from_web_uri(ctx, path, has_extension, false);
@@ -668,15 +668,15 @@ n00b_format_module_location(n00b_module_t *ctx, n00b_token_t *tok)
 {
     if (!ctx->full_uri) {
         ctx->full_uri = n00b_cstr_format("{}.{}",
-                                        ctx->package,
-                                        ctx->name);
+                                         ctx->package,
+                                         ctx->name);
     }
 
     if (!tok) {
         return n00b_cstr_format("[b]{}[/]", ctx->full_uri);
     }
     return n00b_cstr_format("[b]{}:{:n}:{:n}:[/]",
-                           ctx->full_uri,
-                           n00b_box_i64(tok->line_no),
-                           n00b_box_i64(tok->line_offset + 1));
+                            ctx->full_uri,
+                            n00b_box_i64(tok->line_no),
+                            n00b_box_i64(tok->line_offset + 1));
 }

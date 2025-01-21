@@ -4,14 +4,14 @@ static void
 box_init(n00b_box_t *box, va_list args)
 {
     n00b_box_t b = va_arg(args, n00b_box_t);
-    box->u64    = b.u64;
+    box->u64     = b.u64;
     return;
 }
 
 static n00b_utf8_t *
 box_repr(n00b_box_t *box)
 {
-    return n00b_repr(box->v, n00b_type_unbox(n00b_get_my_type(box)));
+    return n00b_repr_explicit(box->v, n00b_type_unbox(n00b_get_my_type(box)));
 }
 
 static n00b_utf8_t *
@@ -46,8 +46,6 @@ const n00b_vtable_t n00b_box_vtable = {
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)box_format,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)box_from_lit,
         [N00B_BI_GC_MAP]       = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
-        // Explicit because some compilers don't seem to always properly
-        // zero it (Was sometimes crashing on a `n00b_stream_t` on my mac).
         [N00B_BI_FINALIZER]    = NULL,
     },
 };

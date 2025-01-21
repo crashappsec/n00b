@@ -43,48 +43,48 @@ ansi_render_style_start(uint64_t info, n00b_stream_t *outstream)
         return;
     }
 
-    n00b_stream_putc(outstream, '\e');
-    n00b_stream_putc(outstream, '[');
+    n00b_putc(outstream, '\e');
+    n00b_putc(outstream, '[');
     if (info & N00B_STY_BOLD) {
         remaining &= ~N00B_STY_BOLD;
-        n00b_stream_putc(outstream, '1');
+        n00b_putc(outstream, '1');
         if (remaining) {
-            n00b_stream_putc(outstream, ';');
+            n00b_putc(outstream, ';');
         }
     }
     if (info & N00B_STY_REV) {
         remaining &= ~N00B_STY_REV;
-        n00b_stream_putc(outstream, '7');
+        n00b_putc(outstream, '7');
         if (remaining) {
-            n00b_stream_putc(outstream, ';');
+            n00b_putc(outstream, ';');
         }
     }
     if (info & N00B_STY_ST) {
         remaining &= ~N00B_STY_ST;
-        n00b_stream_putc(outstream, '9');
+        n00b_putc(outstream, '9');
         if (remaining) {
-            n00b_stream_putc(outstream, ';');
+            n00b_putc(outstream, ';');
         }
     }
     if (info & N00B_STY_ITALIC) {
         remaining &= ~N00B_STY_ITALIC;
-        n00b_stream_putc(outstream, '3');
+        n00b_putc(outstream, '3');
         if (remaining) {
-            n00b_stream_putc(outstream, ';');
+            n00b_putc(outstream, ';');
         }
     }
     if (info & N00B_STY_UL) {
         remaining &= ~N00B_STY_UL;
-        n00b_stream_putc(outstream, '4');
+        n00b_putc(outstream, '4');
         if (remaining) {
-            n00b_stream_putc(outstream, ';');
+            n00b_putc(outstream, ';');
         }
     }
     if (info & N00B_STY_UUL) {
         remaining &= ~N00B_STY_UUL;
-        n00b_stream_puts(outstream, "21");
+        n00b_puts(outstream, "21");
         if (remaining) {
-            n00b_stream_putc(outstream, ';');
+            n00b_putc(outstream, ';');
         }
     }
 
@@ -97,20 +97,20 @@ ansi_render_style_start(uint64_t info, n00b_stream_t *outstream)
             uint8_t r = (uint8_t)((tmp & ~N00B_STY_CLEAR_FG) >> N00B_OFFSET_FG_RED) & 0xff;
             uint8_t g = (uint8_t)((tmp & ~N00B_STY_CLEAR_FG) >> N00B_OFFSET_FG_GREEN) & 0xff;
             uint8_t b = (uint8_t)((tmp & ~N00B_STY_CLEAR_FG) >> N00B_OFFSET_FG_BLUE) & 0xff;
-            n00b_stream_puts(outstream, "38;2;");
-            n00b_stream_puti(outstream, r);
-            n00b_stream_putc(outstream, ';');
-            n00b_stream_puti(outstream, g);
-            n00b_stream_putc(outstream, ';');
-            n00b_stream_puti(outstream, b);
+            n00b_puts(outstream, "38;2;");
+            n00b_puti(outstream, r);
+            n00b_putc(outstream, ';');
+            n00b_puti(outstream, g);
+            n00b_putc(outstream, ';');
+            n00b_puti(outstream, b);
         }
         else {
-            n00b_stream_puts(outstream, "38;5;");
+            n00b_puts(outstream, "38;5;");
             int32_t color = (int32_t)(tmp & ~(N00B_STY_CLEAR_FG));
-            n00b_stream_puti(outstream, n00b_to_vga(color));
+            n00b_puti(outstream, n00b_to_vga(color));
         }
         if (remaining) {
-            n00b_stream_putc(outstream, ';');
+            n00b_putc(outstream, ';');
         }
     }
 
@@ -123,36 +123,42 @@ ansi_render_style_start(uint64_t info, n00b_stream_t *outstream)
             uint8_t r = (uint8_t)((tmp & ~N00B_STY_CLEAR_BG) >> N00B_OFFSET_BG_RED) & 0xff;
             uint8_t g = (uint8_t)((tmp & ~N00B_STY_CLEAR_BG) >> N00B_OFFSET_BG_GREEN) & 0xff;
             uint8_t b = (uint8_t)((tmp & ~N00B_STY_CLEAR_BG) >> N00B_OFFSET_BG_BLUE) & 0xff;
-            n00b_stream_puts(outstream, "48;2;");
-            n00b_stream_puti(outstream, r);
-            n00b_stream_putc(outstream, ';');
-            n00b_stream_puti(outstream, g);
-            n00b_stream_putc(outstream, ';');
-            n00b_stream_puti(outstream, b);
+            n00b_puts(outstream, "48;2;");
+            n00b_puti(outstream, r);
+            n00b_putc(outstream, ';');
+            n00b_puti(outstream, g);
+            n00b_putc(outstream, ';');
+            n00b_puti(outstream, b);
         }
         else {
-            n00b_stream_puts(outstream, "38;5;");
+            n00b_puts(outstream, "38;5;");
             int32_t toand = (int32_t)((uint64_t)N00B_STY_BG_BITS >> N00B_OFFSET_BG_BLUE);
-            n00b_stream_puti(outstream, n00b_to_vga(tmp & toand));
+            n00b_puti(outstream, n00b_to_vga(tmp & toand));
         }
     }
-    n00b_stream_putc(outstream, 'm');
+    n00b_putc(outstream, 'm');
 }
 
 static inline void
 ansi_render_style_end(n00b_stream_t *outstream)
 {
-    n00b_stream_putc(outstream, '\e');
-    n00b_stream_putc(outstream, '[');
-    n00b_stream_putc(outstream, '0');
-    n00b_stream_putc(outstream, 'm');
+    n00b_putc(outstream, '\e');
+    n00b_putc(outstream, '[');
+    n00b_putc(outstream, '0');
+    n00b_putc(outstream, 'm');
 }
 
 static inline void
 ansi_render_style_final(n00b_stream_t *outstream)
 {
-    n00b_stream_puts(outstream, "\e[0m\e[K");
-    n00b_stream_flush(outstream);
+    n00b_puts(outstream, "\e[0m\e[K");
+    // n00b_flush(outstream);
+}
+
+static inline n00b_utf8_t *
+ansi_get_style_end(void)
+{
+    return n00b_new_utf8("\e[0m");
 }
 
 static inline void
@@ -166,7 +172,34 @@ ansi_render_one_codepoint_plain(n00b_codepoint_t cp, n00b_stream_t *outstream)
     }
 
     len = utf8proc_encode_char(cp, tmp);
-    n00b_stream_raw_write(outstream, len, (char *)tmp);
+    n00b_stream_write_memory(outstream, (char *)tmp, len);
+}
+
+static void
+ansi_add_one_codepoint_plain(char **outp, n00b_codepoint_t cp)
+{
+    if (ignore_for_printing(cp)) {
+        return;
+    }
+
+    char *tmp = *outp;
+    int   len = utf8proc_encode_char(cp, (void *)tmp);
+    if (len > 0) {
+        tmp += len;
+        *outp = tmp;
+    }
+}
+
+static inline void
+ansi_render_one_codepoint_upper(n00b_codepoint_t cp, n00b_stream_t *outstream)
+{
+    ansi_render_one_codepoint_plain(utf8proc_toupper(cp), outstream);
+}
+
+static inline void
+ansi_add_one_codepoint_upper(char **outp, n00b_codepoint_t cp)
+{
+    ansi_add_one_codepoint_plain(outp, utf8proc_toupper(cp));
 }
 
 static inline void
@@ -176,9 +209,9 @@ ansi_render_one_codepoint_lower(n00b_codepoint_t cp, n00b_stream_t *outstream)
 }
 
 static inline void
-ansi_render_one_codepoint_upper(n00b_codepoint_t cp, n00b_stream_t *outstream)
+ansi_add_one_codepoint_lower(char **outp, n00b_codepoint_t cp)
 {
-    ansi_render_one_codepoint_plain(utf8proc_toupper(cp), outstream);
+    ansi_add_one_codepoint_plain(outp, utf8proc_tolower(cp));
 }
 
 static inline bool
@@ -192,6 +225,19 @@ ansi_render_one_n00b_codepoint_title(n00b_codepoint_t cp, bool go_up, n00b_strea
     return n00b_codepoint_is_space(cp);
 }
 
+static inline bool
+ansi_add_one_codepoint_title(char **outp, n00b_codepoint_t cp, bool go_up)
+{
+    if (go_up) {
+        ansi_add_one_codepoint_upper(outp, cp);
+        return false;
+    }
+    else {
+        ansi_add_one_codepoint_plain(outp, cp);
+        return n00b_codepoint_is_space(cp);
+    }
+}
+
 void
 n00b_utf8_ansi_render(const n00b_utf8_t *s, n00b_stream_t *outstream)
 {
@@ -201,15 +247,15 @@ n00b_utf8_ansi_render(const n00b_utf8_t *s, n00b_stream_t *outstream)
 
     n00b_style_t        default_style = n00b_get_default_style();
     n00b_style_t        current_style = default_style;
-    uint64_t           casing        = current_style & N00B_STY_TITLE;
-    int32_t            cp_ix         = 0;
-    int32_t            cp_stop       = 0;
-    uint32_t           style_ix      = 0;
+    uint64_t            casing        = current_style & N00B_STY_TITLE;
+    int32_t             cp_ix         = 0;
+    int32_t             cp_stop       = 0;
+    uint32_t            style_ix      = 0;
     n00b_u8_state_t     style_state   = N00B_U8_STATE_START_DEFAULT;
-    uint8_t           *p             = (uint8_t *)s->data;
-    uint8_t           *end           = p + s->codepoints;
+    uint8_t            *p             = (uint8_t *)s->data;
+    uint8_t            *end           = p + s->codepoints;
     n00b_style_entry_t *entry         = NULL;
-    bool               case_up       = true;
+    bool                case_up       = true;
     n00b_codepoint_t    codepoint;
 
     style_state = N00B_U8_STATE_START_DEFAULT;
@@ -327,13 +373,13 @@ n00b_utf8_ansi_render(const n00b_utf8_t *s, n00b_stream_t *outstream)
 // generally do not support other encodings.
 static void
 ansi_render_u32_region(const n00b_utf32_t *s,
-                       int32_t            from,
-                       int32_t            to,
+                       int32_t             from,
+                       int32_t             to,
                        n00b_style_t        style,
                        n00b_stream_t      *outstream)
 {
     n00b_codepoint_t *p   = (n00b_codepoint_t *)(s->data);
-    bool             cap = true;
+    bool              cap = true;
 
     if (style != 0) {
         ansi_render_style_start(style, outstream);
@@ -365,17 +411,200 @@ ansi_render_u32_region(const n00b_utf32_t *s,
     ansi_render_style_final(outstream);
 }
 
+#define ansi_puti(var)               \
+    if (!var) {                      \
+        buf[i++] = '0';              \
+    }                                \
+    else {                           \
+        if (var < 0) {               \
+            buf[i++] = '-';          \
+            var *= -1;               \
+        }                            \
+        memset(convert, 0, 21);      \
+        p = convert + 20;            \
+        while (var != 0) {           \
+            *--p = (var % 10) + '0'; \
+            var /= 10;               \
+        }                            \
+        while (p < cend) {           \
+            buf[i++] = *p++;         \
+        }                            \
+    }
+
+#define ansi_puts(str)     \
+    p   = str;             \
+    end = p + strlen(str); \
+    while (p < end) {      \
+        buf[i++] = *p++;   \
+    }
+
+#define ansi_putc(ch) buf[i++] = ch
+
+#define ansi_sep()      \
+    if (remaining) {    \
+        ansi_putc(';'); \
+    }
+
+static n00b_utf8_t *
+ansi_get_style_start(uint64_t info)
+{
+    uint64_t remaining = (~N00B_STY_CLEAR_FLAGS) & info;
+    int32_t  i         = 2;
+    char     buf[1024] = {
+        '\e',
+        '[',
+        0,
+    };
+    char  convert[21];
+    char *p;
+    char *cend = convert + 20;
+    char *end;
+
+    if (info & N00B_STY_BOLD) {
+        remaining &= ~N00B_STY_BOLD;
+        ansi_putc('1');
+        ansi_sep();
+    }
+    if (info & N00B_STY_REV) {
+        remaining &= ~N00B_STY_REV;
+        ansi_putc('7');
+        ansi_sep();
+    }
+    if (info & N00B_STY_ST) {
+        remaining &= ~N00B_STY_ST;
+        ansi_putc('9');
+        ansi_sep();
+    }
+    if (info & N00B_STY_ITALIC) {
+        remaining &= ~N00B_STY_ITALIC;
+        ansi_putc('3');
+        ansi_sep();
+    }
+    if (info & N00B_STY_UL) {
+        remaining &= ~N00B_STY_UL;
+        ansi_putc('4');
+        ansi_sep();
+    }
+    if (info & N00B_STY_UUL) {
+        remaining &= ~N00B_STY_UUL;
+        ansi_puts("21");
+        ansi_sep();
+    }
+
+    if (info & N00B_STY_FG) {
+        remaining &= ~N00B_STY_FG;
+
+        uint64_t tmp = info & N00B_STY_FG_BITS;
+
+        if (n00b_use_truecolor()) {
+            uint8_t r = (uint8_t)((tmp & ~N00B_STY_CLEAR_FG) >> N00B_OFFSET_FG_RED) & 0xff;
+            uint8_t g = (uint8_t)((tmp & ~N00B_STY_CLEAR_FG) >> N00B_OFFSET_FG_GREEN) & 0xff;
+            uint8_t b = (uint8_t)((tmp & ~N00B_STY_CLEAR_FG) >> N00B_OFFSET_FG_BLUE) & 0xff;
+            ansi_puts("38;2;");
+            ansi_puti(r);
+            ansi_putc(';');
+            ansi_puti(g);
+            ansi_putc(';');
+            ansi_puti(b);
+        }
+        else {
+            ansi_puts("38;5;");
+            int32_t color = (int32_t)(tmp & ~(N00B_STY_CLEAR_FG));
+            uint8_t c     = n00b_to_vga(color);
+            ansi_puti(c);
+        }
+        ansi_sep();
+    }
+
+    if (info & N00B_STY_BG) {
+        remaining &= ~N00B_STY_BG;
+
+        uint64_t tmp = info & N00B_STY_BG_BITS;
+
+        if (n00b_use_truecolor()) {
+            uint8_t r = (uint8_t)((tmp & ~N00B_STY_CLEAR_BG) >> N00B_OFFSET_BG_RED) & 0xff;
+            uint8_t g = (uint8_t)((tmp & ~N00B_STY_CLEAR_BG) >> N00B_OFFSET_BG_GREEN) & 0xff;
+            uint8_t b = (uint8_t)((tmp & ~N00B_STY_CLEAR_BG) >> N00B_OFFSET_BG_BLUE) & 0xff;
+            ansi_puts("48;2;");
+            ansi_puti(r);
+            ansi_putc(';');
+            ansi_puti(g);
+            ansi_putc(';');
+            ansi_puti(b);
+        }
+        else {
+            ansi_puts("38;5;");
+            int32_t toand = (int32_t)((uint64_t)N00B_STY_BG_BITS >> N00B_OFFSET_BG_BLUE);
+            uint8_t c     = n00b_to_vga(tmp & toand);
+            ansi_puti(c);
+        }
+    }
+    ansi_putc('m');
+
+    return n00b_new_utf8(buf);
+}
+
+static n00b_utf8_t *
+ansify_region(const n00b_utf32_t *s,
+              int32_t             from,
+              int32_t             to,
+              n00b_style_t        style)
+{
+    n00b_codepoint_t *p        = (n00b_codepoint_t *)(s->data);
+    n00b_utf8_t      *result   = NULL;
+    bool              cap      = true;
+    // Overallocate by a lot.
+    int               to_alloc = (to - from) * 16;
+    char             *buf      = n00b_gc_raw_alloc(to_alloc, N00B_GC_SCAN_NONE);
+    char             *outp     = buf;
+    n00b_utf8_t      *tmp;
+
+    if (style != N00B_UNSTYLED) {
+        result = ansi_get_style_start(style);
+    }
+
+    switch (style & N00B_STY_TITLE) {
+    case N00B_STY_UPPER:
+        for (int32_t i = from; i < to; i++) {
+            ansi_add_one_codepoint_upper(&outp, p[i]);
+        }
+        break;
+    case N00B_STY_LOWER:
+        for (int32_t i = from; i < to; i++) {
+            ansi_add_one_codepoint_lower(&outp, p[i]);
+        }
+        break;
+    case N00B_STY_TITLE:
+        for (int32_t i = from; i < to; i++) {
+            cap = ansi_add_one_codepoint_title(&outp, p[i], cap);
+        }
+        break;
+    default:
+        for (int32_t i = from; i < to; i++) {
+            ansi_add_one_codepoint_plain(&outp, p[i]);
+        }
+        break;
+    }
+
+    *outp  = 0;
+    tmp    = n00b_new_utf8(buf);
+    result = n00b_str_concat(result, tmp);
+    tmp    = ansi_get_style_end();
+
+    return n00b_str_concat(result, tmp);
+}
+
 void
 n00b_utf32_ansi_render(const n00b_utf32_t *s,
-                      int32_t            start_ix,
-                      int32_t            end_ix,
-                      n00b_stream_t      *outstream)
+                       int32_t             start_ix,
+                       int32_t             end_ix,
+                       n00b_stream_t      *outstream)
 {
     if (!s) {
         return;
     }
 
-    int32_t     len    = n00b_str_codepoint_len(s);
+    int32_t      len    = n00b_str_codepoint_len(s);
     n00b_style_t style0 = n00b_get_default_style();
 
     if (start_ix < 0) {
@@ -422,6 +651,56 @@ n00b_utf32_ansi_render(const n00b_utf32_t *s,
     }
 }
 
+n00b_utf8_t *
+n00b_ansify_line(const n00b_utf32_t *s)
+{
+    int          l     = n00b_str_codepoint_len(s);
+    n00b_style_t sbase = n00b_get_default_style();
+
+    if (s->styling == NULL || (uint64_t)s->styling == N00B_STY_BAD) {
+        return ansify_region(s, 0, l, sbase);
+    }
+
+    int           cur        = 0;
+    int           num_styles = s->styling->num_entries;
+    n00b_utf32_t *result     = NULL;
+    n00b_utf32_t *tmp;
+
+    for (int i = 0; i < num_styles; i++) {
+        int32_t ss = s->styling->styles[i].start;
+        int32_t se = s->styling->styles[i].end;
+
+        if (se <= cur) {
+            continue;
+        }
+
+        if (ss > cur) {
+            tmp    = ansify_region(s, cur, n00b_min(ss, l), sbase);
+            cur    = ss;
+            result = n00b_str_concat(result, tmp);
+        }
+
+        if (ss <= cur && se >= cur) {
+            int32_t      stopat = n00b_min(se, l);
+            n00b_style_t sty    = s->styling->styles[i].info;
+            tmp                 = ansify_region(s, cur, stopat, sty);
+            result              = n00b_str_concat(result, tmp);
+            cur                 = stopat;
+        }
+
+        if (cur == l) {
+            return result;
+        }
+    }
+
+    if (cur != l) {
+        tmp    = ansify_region(s, cur, l, sbase);
+        result = n00b_str_concat(result, tmp);
+    }
+
+    return result;
+}
+
 void
 n00b_ansi_render(const n00b_str_t *s, n00b_stream_t *out)
 {
@@ -439,8 +718,8 @@ n00b_ansi_render(const n00b_str_t *s, n00b_stream_t *out)
 
 static int32_t
 internal_truncate_to_width(n00b_utf32_t *s,
-                           int32_t      end,
-                           int32_t      width)
+                           int32_t       end,
+                           int32_t       width)
 {
     int i = 0;
 
@@ -459,19 +738,19 @@ internal_truncate_to_width(n00b_utf32_t *s,
 
 void
 n00b_ansi_render_to_width(const n00b_str_t *s,
-                         int32_t          width,
-                         int32_t          hang,
-                         n00b_stream_t    *out)
+                          int32_t           width,
+                          int32_t           hang,
+                          n00b_stream_t    *out)
 {
     if (!s) {
         return;
     }
 
     n00b_utf32_t *as_u32 = n00b_to_utf32(s);
-    int32_t      i;
+    int32_t       i;
 
     n00b_list_t *lines = n00b_str_split(as_u32, n00b_get_newline_const());
-    int         n     = n00b_list_len(lines);
+    int          n     = n00b_list_len(lines);
 
     if (width <= 0) {
         width = N00B_MIN_RENDER_WIDTH;
@@ -479,7 +758,7 @@ n00b_ansi_render_to_width(const n00b_str_t *s,
 
     for (i = 0; i < n; i++) {
         n00b_utf32_t *line = n00b_list_get(lines, i, NULL);
-        int32_t      end  = n00b_str_codepoint_len(line);
+        int32_t       end  = n00b_str_codepoint_len(line);
 
         if (end > width) {
             end = internal_truncate_to_width(line, end, width);
@@ -488,16 +767,153 @@ n00b_ansi_render_to_width(const n00b_str_t *s,
         if (i + 1 == n) {
             break;
         }
-        n00b_stream_putcp(out, '\n');
+        n00b_putcp(out, '\n');
     }
+}
+
+typedef struct {
+    int32_t       width;
+    int32_t       hang;
+    n00b_utf32_t *s;
+    bool          truncate;
+} ansi_filter_ctx;
+
+static void *
+n00b_filter_flush_ansi(n00b_stream_t *party, ansi_filter_ctx *ctx, void *ignore)
+{
+    n00b_str_t *result = ctx->s;
+    ctx->s             = NULL;
+
+    return result;
+}
+
+static void *
+n00b_filter_merge_ansi(n00b_stream_t *party, ansi_filter_ctx *ctx, void *msg)
+{
+    n00b_type_t  *t            = n00b_get_my_type(msg);
+    n00b_utf8_t  *nl           = n00b_get_newline_const();
+    bool          partial_line = false;
+    n00b_utf32_t *result       = NULL;
+    n00b_list_t  *lines;
+    n00b_utf32_t *s;
+    int           n;
+
+    if (!n00b_type_is_string(t)) {
+        // Then it's a synchronous write.
+
+        n00b_list_t *l = n00b_list(n00b_type_ref());
+        if (ctx->s) {
+            n00b_list_append(l, n00b_filter_flush_ansi(party, ctx, NULL));
+            ctx->s = NULL;
+        }
+
+        n00b_list_append(l, msg);
+
+        return l;
+    }
+
+    if (n00b_str_codepoint_len(msg) == 0) {
+        return NULL;
+    }
+
+    s = n00b_to_utf32(msg);
+
+    if (ctx->s) {
+        s      = n00b_str_concat(ctx->s, s);
+        ctx->s = NULL;
+    }
+
+    if (!n00b_str_ends_with(s, n00b_get_newline_const())
+        && !n00b_str_ends_with(s, n00b_utf32_repeat('\r', 1))) {
+        partial_line = true;
+    }
+
+    if (!ctx->truncate) {
+        lines = n00b_str_wrap(s, ctx->width, ctx->hang);
+    }
+    else {
+        lines = n00b_str_split(s, nl);
+    }
+
+    n = n00b_list_len(lines);
+
+    if (partial_line) {
+        n      = n - 1;
+        ctx->s = n00b_list_get(lines, n, NULL);
+    }
+
+    for (int i = 0; i < n; i++) {
+        n00b_utf32_t *line = n00b_list_get(lines, i, NULL);
+        int32_t       end  = n00b_str_codepoint_len(line);
+
+        if (end > ctx->width && ctx->truncate) {
+            end    = internal_truncate_to_width(line, end, ctx->width);
+            result = n00b_str_concat(result, n00b_ansify_line(line));
+        }
+        else {
+            n00b_utf8_t *part = n00b_ansify_line(line);
+
+            if (result) {
+                result = n00b_cstr_format("{}{}", result, part);
+            }
+            else {
+                result = part;
+            }
+        }
+    }
+
+    n00b_list_t *l = n00b_list(n00b_type_utf8());
+
+    if (!result) {
+        return l;
+    }
+
+    n00b_list_append(l, n00b_to_utf8(result));
+
+    return l;
+}
+
+// Note that there's currently no way to resize via API.
+void
+n00b_merge_ansi(n00b_stream_t *party,
+                size_t         width,
+                size_t         hang,
+                bool           truncate)
+{
+    ansi_filter_ctx *ctx = n00b_gc_alloc_mapped(ansi_filter_ctx,
+                                                N00B_GC_SCAN_ALL);
+
+    if (width <= 0) {
+        width = n00b_terminal_width();
+    }
+    if (width < N00B_MIN_RENDER_WIDTH) {
+        width = N00B_MIN_RENDER_WIDTH;
+    }
+
+    ctx->width    = width;
+    ctx->hang     = hang;
+    ctx->truncate = truncate;
+
+    n00b_stream_filter_t *f = n00b_new_filter((void *)n00b_filter_merge_ansi,
+                                              (void *)n00b_filter_flush_ansi,
+                                              n00b_new_utf8("ansi"),
+                                              sizeof(ansi_filter_ctx));
+
+    ansi_filter_ctx *cookie = f->state;
+
+    cookie->width    = width;
+    cookie->hang     = hang;
+    cookie->truncate = truncate;
+
+    n00b_add_filter(party, f, false);
 }
 
 static inline size_t
 internal_render_len_u32(const n00b_utf32_t *s)
 {
     n00b_codepoint_t *p     = (n00b_codepoint_t *)s->data;
-    int32_t          len   = n00b_str_codepoint_len(s);
-    size_t           count = 0;
+    int32_t           len   = n00b_str_codepoint_len(s);
+    size_t            count = 0;
 
     for (int i = 0; i < len; i++) {
         count += internal_char_render_width(p[i]);
@@ -509,10 +925,10 @@ internal_render_len_u32(const n00b_utf32_t *s)
 static inline size_t
 internal_render_len_u8(const n00b_utf8_t *s)
 {
-    uint8_t        *p   = (uint8_t *)s->data;
-    uint8_t        *end = p + s->byte_len;
+    uint8_t         *p   = (uint8_t *)s->data;
+    uint8_t         *end = p + s->byte_len;
     n00b_codepoint_t cp;
-    size_t          count = 0;
+    size_t           count = 0;
 
     while (p < end) {
         p += utf8proc_iterate(p, 4, &cp);

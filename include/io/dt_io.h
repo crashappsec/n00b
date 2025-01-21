@@ -29,8 +29,8 @@ typedef bool (*n00b_progress_decl)(void *);
  */
 typedef struct n00b_sb_msg_t {
     struct n00b_sb_msg_t *next;
-    size_t               len;
-    char                 data[N00B_SB_MSG_LEN + 1];
+    size_t                len;
+    char                  data[N00B_SB_MSG_LEN + 1];
 } n00b_sb_msg_t;
 
 /*
@@ -47,8 +47,8 @@ typedef struct n00b_sb_msg_t {
  */
 typedef struct n00b_sb_heap_t {
     struct n00b_sb_heap_t *next;
-    size_t                cur_cell;
-    uint32_t              dummy; // force alignment portably.
+    size_t                 cur_cell;
+    uint32_t               dummy; // force alignment portably.
     n00b_sb_msg_t          cells[];
 } n00b_sb_heap_t;
 
@@ -64,7 +64,7 @@ typedef struct n00b_sb_heap_t {
 typedef struct n00b_subscription_t {
     struct n00b_subscription_t *next;
     struct n00b_party_t        *subscriber;
-    bool                       paused;
+    bool                        paused;
 } n00b_subscription_t;
 
 /*
@@ -78,8 +78,8 @@ typedef struct {
     n00b_sb_msg_t       *first_msg;
     n00b_sb_msg_t       *last_msg;
     n00b_subscription_t *subscribers;
-    int                 fd;
-    bool                proxy_close; // close fd when proxy input is closed
+    int                  fd;
+    bool                 proxy_close; // close fd when proxy input is closed
 } n00b_party_fd_t;
 
 /*
@@ -87,8 +87,8 @@ typedef struct {
  */
 typedef struct {
     n00b_accept_decl accept_cb;
-    int             fd;
-    int             saved_flags;
+    int              fd;
+    int              saved_flags;
 } n00b_party_listener_t;
 
 /*
@@ -172,15 +172,15 @@ typedef struct n00b_party_t {
     struct n00b_party_t *next_reader;
     struct n00b_party_t *next_writer;
     struct n00b_party_t *next_loner;
-    void               *extra;
+    void                *extra;
     n00b_party_enum      n00b_party_type;
-    int                 found_errno;
-    bool                open_for_write;
-    bool                open_for_read;
-    bool                can_read_from_it;
-    bool                can_write_to_it;
-    bool                close_on_destroy;
-    bool                stop_on_close;
+    int                  found_errno;
+    bool                 open_for_write;
+    bool                 open_for_read;
+    bool                 can_read_from_it;
+    bool                 can_write_to_it;
+    bool                 close_on_destroy;
+    bool                 stop_on_close;
 } n00b_party_t;
 
 /*
@@ -194,12 +194,12 @@ typedef struct n00b_monitor_t {
     n00b_party_t          *stdin_fd_party;
     n00b_party_t          *stdout_fd_party;
     n00b_party_t          *stderr_fd_party;
-    int                   exit_status;
-    pid_t                 pid;
-    bool                  shutdown_when_closed;
-    bool                  closed;
-    int                   found_errno;
-    int                   term_signal;
+    int                    exit_status;
+    pid_t                  pid;
+    bool                   shutdown_when_closed;
+    bool                   closed;
+    int                    found_errno;
+    int                    term_signal;
 } n00b_monitor_t;
 
 typedef struct {
@@ -210,8 +210,8 @@ typedef struct {
 
 typedef struct {
     n00b_one_capture_t *captures;
-    bool               inited;
-    int                num_captures;
+    bool                inited;
+    int                 num_captures;
 } n00b_capture_result_t;
 
 /*
@@ -225,43 +225,43 @@ typedef struct n00b_switchboard_t {
     n00b_monitor_t    *pid_watch_list;
     n00b_sb_msg_t     *freelist;
     n00b_sb_heap_t    *heap;
-    void             *extra;
-    struct timeval   *io_timeout_ptr;
-    struct timeval    io_timeout;
+    void              *extra;
+    struct timeval    *io_timeout_ptr;
+    struct timeval     io_timeout;
     n00b_progress_decl progress_callback;
-    bool              progress_on_timeout_only;
-    bool              done;
-    fd_set            readset;
-    fd_set            writeset;
-    int               max_fd;
-    int               fds_ready;
-    size_t            heap_elems;
-    bool              ignore_running_procs_on_shutdown;
+    bool               progress_on_timeout_only;
+    bool               done;
+    fd_set             readset;
+    fd_set             writeset;
+    int                max_fd;
+    int                fds_ready;
+    size_t             heap_elems;
+    bool               ignore_running_procs_on_shutdown;
 } n00b_switchboard_t;
 
 typedef struct {
     void (*startup_callback)(void *);
-    char                *cmd;
-    char               **argv;
-    char               **envp;
-    char                *path;
+    char                 *cmd;
+    char                **argv;
+    char                **envp;
+    char                 *path;
     n00b_switchboard_t    sb;
-    bool                 run;
-    struct termios      *child_termcap;
+    bool                  run;
+    struct termios       *child_termcap;
     struct n00b_dcb_t    *deferred_cbs;
-    struct termios      *parent_termcap;
+    struct termios       *parent_termcap;
     n00b_capture_result_t result;
-    struct termios       saved_termcap;
-    int                  signal_fd;
-    int                  pty_fd;
-    bool                 pty_stdin_pipe;
-    bool                 proxy_stdin_close;
-    bool                 use_pty;
-    bool                 str_waiting;
-    char                 passthrough;
-    bool                 pt_all_to_stdout;
-    char                 capture;
-    bool                 combine_captures; // Combine stdout / err and termout
+    struct termios        saved_termcap;
+    int                   signal_fd;
+    int                   pty_fd;
+    bool                  pty_stdin_pipe;
+    bool                  proxy_stdin_close;
+    bool                  use_pty;
+    bool                  str_waiting;
+    char                  passthrough;
+    bool                  pt_all_to_stdout;
+    char                  capture;
+    bool                  combine_captures; // Combine stdout / err and termout
     n00b_party_t          str_stdin;
     n00b_party_t          parent_stdin;
     n00b_party_t          parent_stdout;
@@ -283,14 +283,14 @@ typedef struct {
 
 // These are the real signatures.
 typedef void (*n00b_accept_cb_t)(struct n00b_switchboard_t *,
-                                int fd,
-                                struct sockaddr *,
-                                socklen_t *);
+                                 int fd,
+                                 struct sockaddr *,
+                                 socklen_t *);
 typedef bool (*n00b_progress_cb_t)(struct n00b_switchboard_t *);
 
 typedef struct n00b_dcb_t {
     struct n00b_dcb_t *next;
     n00b_party_t      *to_free;
-    unsigned char     which;
+    unsigned char      which;
     n00b_sb_cb_t       cb;
 } n00b_deferred_cb_t;

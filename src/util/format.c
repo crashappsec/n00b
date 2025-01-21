@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 // This function is a little overly defensive on bounds, since the caller
@@ -5,7 +6,7 @@
 static void
 parse_one_format_spec(const n00b_utf32_t *s, n00b_fmt_info_t *cur)
 {
-    int             pos  = cur->start;
+    int              pos  = cur->start;
     n00b_fmt_spec_t *info = &cur->spec;
 
     // The actual Python-style format specifier is much easier to
@@ -13,8 +14,8 @@ parse_one_format_spec(const n00b_utf32_t *s, n00b_fmt_info_t *cur)
     // will do.
 
     memset(info, 0, sizeof(n00b_fmt_spec_t));
-    int              saved_position;
-    int64_t          l = n00b_str_codepoint_len(s);
+    int               saved_position;
+    int64_t           l = n00b_str_codepoint_len(s);
     n00b_codepoint_t *p = (n00b_codepoint_t *)s->data;
     n00b_codepoint_t  c;
 
@@ -267,8 +268,8 @@ n00b_extract_format_specifiers(const n00b_str_t *fmt)
     n00b_fmt_info_t  *last = NULL;
     n00b_fmt_info_t  *cur  = NULL;
     n00b_codepoint_t *p;
-    int              l;
-    int              n;
+    int               l;
+    int               n;
 
     fmt = n00b_to_utf32(fmt);
     p   = (n00b_codepoint_t *)fmt->data;
@@ -324,7 +325,7 @@ apply_padding_and_alignment(n00b_utf8_t *instr, n00b_fmt_spec_t *spec)
     n00b_utf8_t     *pad;
     n00b_utf8_t     *outstr;
     n00b_codepoint_t cp;
-    int             len;
+    int              len;
 
     if (spec->fill != 0) {
         cp = spec->fill;
@@ -359,9 +360,11 @@ lookup_arg_strings(n00b_fmt_info_t *specs, n00b_dict_t *args)
 {
     n00b_list_t     *result = n00b_list(n00b_type_utf8());
     n00b_fmt_info_t *info   = specs;
-    int             i      = 0;
+    int              i      = 0;
     n00b_utf8_t     *key;
     n00b_obj_t       obj;
+    bool             is_obj      = false;
+    bool             is_interior = false;
 
     while (info != NULL) {
         switch (info->spec.kind) {
@@ -373,7 +376,7 @@ lookup_arg_strings(n00b_fmt_info_t *specs, n00b_dict_t *args)
             break;
         default:
             key = n00b_new(n00b_type_utf8(),
-                          n00b_kw("cstring", n00b_ka(info->reference.name)));
+                           n00b_kw("cstring", n00b_ka(info->reference.name)));
             break;
         }
 
@@ -393,15 +396,32 @@ lookup_arg_strings(n00b_fmt_info_t *specs, n00b_dict_t *args)
             N00B_RAISE(err);
         }
 
-        n00b_vtable_t *vtable = n00b_vtable(obj);
-        n00b_format_fn fn     = (n00b_format_fn)vtable->methods[N00B_BI_FORMAT];
-        n00b_utf8_t   *s;
-
-        if (fn != NULL) {
-            s = n00b_to_utf8(fn(obj, &info->spec));
+        if (!n00b_in_heap(obj)) {
+            obj = n00b_box_u64((uint64_t)obj);
         }
-        else {
-            s = n00b_to_utf8(n00b_to_str(obj, n00b_get_my_type(obj)));
+
+        n00b_basic_memory_info(obj, &is_obj, &is_interior);
+
+        if (!is_obj || is_interior) {
+            obj = n00b_box_u64((uint64_t)obj);
+        }
+
+        n00b_vtable_t *vtable = n00b_vtable(obj);
+        n00b_utf8_t   *s      = NULL;
+        n00b_format_fn fn;
+
+        if (vtable != NULL) {
+            fn = (n00b_format_fn)vtable->methods[N00B_BI_FORMAT];
+            if (!fn) {
+                s = n00b_repr(obj);
+            }
+            else {
+                s = (*fn)(obj, &info->spec);
+            }
+        }
+
+        if (!s) {
+            s = n00b_str_from_int((int64_t)obj);
         }
 
         s = apply_padding_and_alignment(s, &info->spec);
@@ -444,12 +464,12 @@ assemble_formatted_result(const n00b_str_t *fmt, n00b_list_t *arg_strings)
 
     fmt = n00b_to_utf32(fmt);
 
-    int64_t          to_alloc = n00b_str_codepoint_len(fmt);
-    int64_t          list_len = n00b_list_len(arg_strings);
-    int64_t          arg_ix   = 0;
-    int64_t          out_ix   = 0;
-    int64_t          alen; // length of one argument being substituted in.
-    int64_t          fmt_len = n00b_str_codepoint_len(fmt);
+    int64_t           to_alloc = n00b_str_codepoint_len(fmt);
+    int64_t           list_len = n00b_list_len(arg_strings);
+    int64_t           arg_ix   = 0;
+    int64_t           out_ix   = 0;
+    int64_t           alen; // length of one argument being substituted in.
+    int64_t           fmt_len = n00b_str_codepoint_len(fmt);
     n00b_codepoint_t *fmtp    = (n00b_codepoint_t *)fmt->data;
     n00b_codepoint_t *outp;
     n00b_codepoint_t *argp;
@@ -463,7 +483,7 @@ assemble_formatted_result(const n00b_str_t *fmt, n00b_list_t *arg_strings)
     }
 
     result = n00b_new(n00b_type_utf32(),
-                     n00b_kw("length", n00b_ka(to_alloc)));
+                      n00b_kw("length", n00b_ka(to_alloc)));
     outp   = (n00b_codepoint_t *)result->data;
 
     n00b_copy_style_info(fmt, result);
@@ -539,6 +559,9 @@ assemble_formatted_result(const n00b_str_t *fmt, n00b_list_t *arg_strings)
 n00b_utf8_t *
 n00b_str_vformat(const n00b_str_t *fmt, n00b_dict_t *args)
 {
+    n00b_utf8_t *result;
+    n00b_push_heap(n00b_string_heap);
+
     // Positional items are looked up via their ASCII string.
     // Keys are expected to be utf8.
     //
@@ -548,7 +571,9 @@ n00b_str_vformat(const n00b_str_t *fmt, n00b_dict_t *args)
     n00b_fmt_info_t *info = n00b_extract_format_specifiers(fmt);
 
     if (info == NULL) {
-        return n00b_rich_lit(n00b_to_utf8(fmt)->data);
+        result = n00b_rich_lit(n00b_to_utf8(fmt)->data);
+        n00b_pop_heap();
+        return result;
     }
 
     // We're going to create a version of the format string where all
@@ -557,7 +582,7 @@ n00b_str_vformat(const n00b_str_t *fmt, n00b_dict_t *args)
     // to do, before we do object substitutions.
     n00b_list_t *segments = n00b_new(n00b_type_list(n00b_type_utf32()));
 
-    int             cur_pos = 0;
+    int              cur_pos = 0;
     n00b_fmt_info_t *cur_arg = info;
 
     while (cur_arg != NULL) {
@@ -581,15 +606,18 @@ n00b_str_vformat(const n00b_str_t *fmt, n00b_dict_t *args)
     // After this point, we will potentially have a formatted string,
     // so the locations for the {} may not be where we might compute
     // them to be, so we will just reparse them.
-    fmt                     = n00b_rich_lit(n00b_to_utf8(fmt)->data);
+    fmt                      = n00b_rich_lit(n00b_to_utf8(fmt)->data);
     n00b_list_t *arg_strings = lookup_arg_strings(info, args);
 
-    return assemble_formatted_result(fmt, arg_strings);
+    result = assemble_formatted_result(fmt, arg_strings);
+    n00b_pop_heap();
+    return result;
 }
 
 n00b_utf8_t *
 n00b_base_format(const n00b_str_t *fmt, int nargs, va_list args)
 {
+    n00b_push_heap(n00b_string_heap);
     n00b_obj_t   one;
     n00b_dict_t *dict = n00b_dict(n00b_type_utf8(), n00b_type_ref());
 
@@ -602,17 +630,20 @@ n00b_base_format(const n00b_str_t *fmt, int nargs, va_list args)
         n00b_utf8_t *key = n00b_str_from_int(i);
         hatrack_dict_add(dict, key, one);
     }
+    n00b_pop_heap();
     return n00b_str_vformat(fmt, dict);
 }
 
 n00b_utf8_t *
 _n00b_str_format(const n00b_str_t *fmt, int nargs, ...)
 {
-    va_list     args;
+    va_list      args;
     n00b_utf8_t *result;
 
     va_start(args, nargs);
+    n00b_push_heap(n00b_string_heap);
     result = n00b_base_format(fmt, nargs, args);
+    n00b_pop_heap();
     va_end(args);
 
     return result;
@@ -621,13 +652,15 @@ _n00b_str_format(const n00b_str_t *fmt, int nargs, ...)
 n00b_utf8_t *
 _n00b_cstr_format(char *fmt, int nargs, ...)
 {
-    va_list     args;
+    va_list      args;
     n00b_utf8_t *utf8fmt;
     n00b_utf8_t *result;
 
     va_start(args, nargs);
+    n00b_push_heap(n00b_string_heap);
     utf8fmt = n00b_new_utf8(fmt);
     result  = n00b_base_format((const n00b_str_t *)utf8fmt, nargs, args);
+    n00b_pop_heap();
     va_end(args);
 
     return result;
@@ -640,7 +673,7 @@ n00b_cstr_array_format(char *fmt, int num_args, n00b_utf8_t **params)
     n00b_dict_t *dict = n00b_dict(n00b_type_utf8(), n00b_type_ref());
 
     for (int i = 0; i < num_args; i++) {
-        one             = params[i];
+        one              = params[i];
         n00b_utf8_t *key = n00b_str_from_int(i);
         hatrack_dict_add(dict, key, one);
     }

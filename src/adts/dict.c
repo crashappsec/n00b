@@ -55,7 +55,7 @@ n00b_custom_string_hash(n00b_str_t *s)
 
 void
 n00b_store_bits(uint64_t     *bitfield,
-               mmm_header_t *alloc)
+                mmm_header_t *alloc)
 {
     crown_store_t *store = (crown_store_t *)alloc->data;
     void          *end   = (void *)&store->buckets[store->last_slot + 1];
@@ -75,7 +75,7 @@ n00b_dict_gc_bits_raw(uint64_t *bitfield, void *alloc)
 
 void
 n00b_dict_gc_bits_bucket_full(uint64_t     *bitfield,
-                             mmm_header_t *alloc)
+                              mmm_header_t *alloc)
 {
     n00b_mark_address(bitfield, alloc, &alloc->next);
     n00b_mark_address(bitfield, alloc, &alloc->cleanup_aux);
@@ -86,7 +86,7 @@ n00b_dict_gc_bits_bucket_full(uint64_t     *bitfield,
 
 void
 n00b_dict_gc_bits_bucket_key(uint64_t     *bitfield,
-                            mmm_header_t *alloc)
+                             mmm_header_t *alloc)
 {
     n00b_mark_address(bitfield, alloc, &alloc->next);
     n00b_mark_address(bitfield, alloc, &alloc->cleanup_aux);
@@ -96,7 +96,7 @@ n00b_dict_gc_bits_bucket_key(uint64_t     *bitfield,
 
 void
 n00b_dict_gc_bits_bucket_value(uint64_t     *bitfield,
-                              mmm_header_t *alloc)
+                               mmm_header_t *alloc)
 {
     n00b_mark_address(bitfield, alloc, &alloc->next);
     n00b_mark_address(bitfield, alloc, &alloc->cleanup_aux);
@@ -106,7 +106,7 @@ n00b_dict_gc_bits_bucket_value(uint64_t     *bitfield,
 
 void
 n00b_dict_gc_bits_bucket_hdr_only(uint64_t     *bitfield,
-                                 mmm_header_t *alloc)
+                                  mmm_header_t *alloc)
 {
     n00b_mark_address(bitfield, alloc, &alloc->next);
     n00b_mark_address(bitfield, alloc, &alloc->cleanup_aux);
@@ -114,9 +114,9 @@ n00b_dict_gc_bits_bucket_hdr_only(uint64_t     *bitfield,
 
 void
 n00b_setup_unmanaged_dict(n00b_dict_t *dict,
-                         size_t      hash_type,
-                         bool        trace_keys,
-                         bool        trace_vals)
+                          size_t       hash_type,
+                          bool         trace_keys,
+                          bool         trace_vals)
 {
     hatrack_dict_init(dict, hash_type, N00B_GC_SCAN_ALL);
 
@@ -138,13 +138,14 @@ n00b_setup_unmanaged_dict(n00b_dict_t *dict,
 }
 
 // Used for dictionaries that are temporary and cannot ever be used in
-// an object context. This is mainly for short-term state like marhal memos
-// and for type hashing.
+// an object context. This is mainly for short-term state like marshal
+// memos and for type hashing.
 n00b_dict_t *
 n00b_new_unmanaged_dict(size_t hash, bool trace_keys, bool trace_vals)
 {
-    n00b_dict_t *dict = n00b_gc_raw_alloc(sizeof(n00b_dict_t),
-                                        (n00b_mem_scan_fn)n00b_dict_gc_bits_raw);
+    n00b_dict_t *dict = n00b_gc_raw_alloc(
+        sizeof(n00b_dict_t),
+        (n00b_mem_scan_fn)n00b_dict_gc_bits_raw);
 
     n00b_setup_unmanaged_dict(dict, hash, trace_keys, trace_vals);
     return dict;
@@ -153,7 +154,7 @@ n00b_new_unmanaged_dict(size_t hash, bool trace_keys, bool trace_vals)
 static void
 n00b_dict_init(n00b_dict_t *dict, va_list args)
 {
-    size_t         hash_fn;
+    size_t          hash_fn;
     n00b_list_t    *type_params;
     n00b_type_t    *key_type;
     n00b_type_t    *value_type;
@@ -221,25 +222,21 @@ static n00b_str_t *
 dict_repr(n00b_dict_t *dict)
 {
     uint64_t             view_len;
-    n00b_type_t          *dict_type   = n00b_get_my_type(dict);
-    n00b_list_t          *type_params = n00b_type_get_params(dict_type);
-    n00b_type_t          *key_type    = n00b_list_get(type_params, 0, NULL);
-    n00b_type_t          *val_type    = n00b_list_get(type_params, 1, NULL);
-    hatrack_dict_item_t *view        = hatrack_dict_items_sort(dict, &view_len);
+    hatrack_dict_item_t *view = hatrack_dict_items_sort(dict, &view_len);
 
     n00b_list_t *items    = n00b_new(n00b_type_list(n00b_type_utf32()),
-                                n00b_kw("length", n00b_ka(view_len)));
+                                  n00b_kw("length", n00b_ka(view_len)));
     n00b_list_t *one_item = n00b_new(n00b_type_list(n00b_type_utf32()));
     n00b_utf8_t *colon    = n00b_get_colon_const();
 
     for (uint64_t i = 0; i < view_len; i++) {
-        n00b_list_set(one_item, 0, n00b_repr(view[i].key, key_type));
-        n00b_list_set(one_item, 1, n00b_repr(view[i].value, val_type));
+        n00b_list_set(one_item, 0, n00b_repr(view[i].key));
+        n00b_list_set(one_item, 1, n00b_repr(view[i].value));
         n00b_list_append(items, n00b_str_join(one_item, colon));
     }
 
     return n00b_cstr_format("\\{{}\\}",
-                           n00b_str_join(items, n00b_get_comma_const()));
+                            n00b_str_join(items, n00b_get_comma_const()));
     /*
     n00b_list_set(one_item, 0, n00b_get_lbrace_const());
     n00b_list_set(one_item, 1, n00b_str_join(items, n00b_get_comma_const()));
@@ -259,7 +256,7 @@ dict_coerce_to(n00b_dict_t *dict, n00b_type_t *dst_type)
 {
     uint64_t             len;
     hatrack_dict_item_t *view = hatrack_dict_items_sort(dict, &len);
-    n00b_dict_t          *res  = n00b_new(dst_type);
+    n00b_dict_t         *res  = n00b_new(dst_type);
 
     for (uint64_t i = 0; i < len; i++) {
         void *key_copy = n00b_copy(view[i].key);
@@ -282,7 +279,7 @@ n00b_dict_shallow_copy(n00b_dict_t *dict)
 {
     uint64_t             len;
     hatrack_dict_item_t *view = hatrack_dict_items_sort(dict, &len);
-    n00b_dict_t          *res  = n00b_new(n00b_get_my_type(dict));
+    n00b_dict_t         *res  = n00b_new(n00b_get_my_type(dict));
 
     for (uint64_t i = 0; i < len; i++) {
         void *key_copy = view[i].key;
@@ -341,10 +338,10 @@ dict_get(n00b_dict_t *d, void *k)
 n00b_list_t *
 n00b_dict_keys(n00b_dict_t *dict)
 {
-    uint64_t    view_len;
+    uint64_t     view_len;
     n00b_type_t *dict_type = n00b_get_my_type(dict);
     n00b_type_t *key_type  = n00b_list_get(dict_type->items, 0, NULL);
-    void      **keys      = hatrack_dict_keys_sort(dict, &view_len);
+    void       **keys      = hatrack_dict_keys_sort(dict, &view_len);
     n00b_list_t *result    = n00b_list(key_type);
 
     for (unsigned int i = 0; i < view_len; i++) {
@@ -357,10 +354,10 @@ n00b_dict_keys(n00b_dict_t *dict)
 n00b_list_t *
 n00b_dict_values(n00b_dict_t *dict)
 {
-    uint64_t    view_len;
+    uint64_t     view_len;
     n00b_type_t *dict_type = n00b_get_my_type(dict);
     n00b_type_t *val_type  = n00b_list_get(dict_type->items, 1, NULL);
-    void      **values    = hatrack_dict_values_sort(dict, &view_len);
+    void       **values    = hatrack_dict_values_sort(dict, &view_len);
     n00b_list_t *result    = n00b_list(val_type);
 
     for (unsigned int i = 0; i < view_len; i++) {
@@ -373,7 +370,7 @@ n00b_dict_values(n00b_dict_t *dict)
 static n00b_dict_t *
 to_dict_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *lm)
 {
-    uint64_t    n      = n00b_list_len(items);
+    uint64_t     n      = n00b_list_len(items);
     n00b_dict_t *result = n00b_new(objtype);
 
     for (unsigned int i = 0; i < n; i++) {

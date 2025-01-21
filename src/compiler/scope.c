@@ -24,8 +24,8 @@ n00b_symbol_t *
 n00b_new_symbol()
 {
     n00b_symbol_t *result = n00b_gc_alloc_mapped(n00b_symbol_t, n00b_sym_gc_bits);
-    result->ct           = n00b_gc_alloc_mapped(n00b_ct_sym_info_t,
-                                     N00B_GC_SCAN_ALL);
+    result->ct            = n00b_gc_alloc_mapped(n00b_ct_sym_info_t,
+                                      N00B_GC_SCAN_ALL);
 
     return result;
 }
@@ -40,9 +40,9 @@ n00b_scope_t *
 n00b_new_scope(n00b_scope_t *parent, n00b_scope_kind kind)
 {
     n00b_scope_t *result = n00b_gc_alloc_mapped(n00b_scope_t, n00b_scope_gc_bits);
-    result->parent      = parent;
-    result->symbols     = n00b_dict(n00b_type_utf8(), n00b_type_ref());
-    result->kind        = kind;
+    result->parent       = parent;
+    result->symbols      = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    result->kind         = kind;
 
     return result;
 }
@@ -73,8 +73,8 @@ n00b_sym_get_best_ref_loc(n00b_symbol_t *sym)
 
 void
 n00b_shadow_check(n00b_module_t *ctx,
-                 n00b_symbol_t *sym,
-                 n00b_scope_t  *cur_scope)
+                  n00b_symbol_t *sym,
+                  n00b_scope_t  *cur_scope)
 {
     n00b_scope_t *module_scope = ctx->module_scope;
     n00b_scope_t *global_scope = ctx->ct->global_scope;
@@ -97,35 +97,35 @@ n00b_shadow_check(n00b_module_t *ctx,
     if (in_module) {
         if (cur_scope == global_scope) {
             n00b_add_error(ctx,
-                          n00b_err_decl_mask,
-                          sym->ct->declaration_node,
-                          n00b_new_utf8("global"),
-                          n00b_new_utf8("module"),
-                          n00b_node_get_loc_str(in_module->ct->declaration_node));
+                           n00b_err_decl_mask,
+                           sym->ct->declaration_node,
+                           n00b_new_utf8("global"),
+                           n00b_new_utf8("module"),
+                           n00b_node_get_loc_str(in_module->ct->declaration_node));
             return;
         }
 
         n00b_add_error(ctx,
-                      n00b_err_attr_mask,
-                      sym->ct->declaration_node,
-                      n00b_node_get_loc_str(in_module->ct->declaration_node));
+                       n00b_err_attr_mask,
+                       sym->ct->declaration_node,
+                       n00b_node_get_loc_str(in_module->ct->declaration_node));
         return;
     }
 
     if (in_global) {
         if (cur_scope == module_scope) {
             n00b_add_error(ctx,
-                          n00b_err_decl_mask,
-                          sym->ct->declaration_node,
-                          n00b_new_utf8("module"),
-                          n00b_new_utf8("global"),
-                          n00b_node_get_loc_str(in_global->ct->declaration_node));
+                           n00b_err_decl_mask,
+                           sym->ct->declaration_node,
+                           n00b_new_utf8("module"),
+                           n00b_new_utf8("global"),
+                           n00b_node_get_loc_str(in_global->ct->declaration_node));
             return;
         }
         n00b_add_error(ctx,
-                      n00b_err_attr_mask,
-                      sym->ct->declaration_node,
-                      n00b_node_get_loc_str(in_global->ct->declaration_node));
+                       n00b_err_attr_mask,
+                       sym->ct->declaration_node,
+                       n00b_node_get_loc_str(in_global->ct->declaration_node));
         return;
     }
 
@@ -141,15 +141,15 @@ n00b_shadow_check(n00b_module_t *ctx,
 
 n00b_symbol_t *
 n00b_declare_symbol(n00b_module_t    *ctx,
-                   n00b_scope_t     *scope,
-                   n00b_utf8_t      *name,
-                   n00b_tree_node_t *node,
-                   n00b_symbol_kind  kind,
-                   bool            *success,
-                   bool             err_if_present)
+                    n00b_scope_t     *scope,
+                    n00b_utf8_t      *name,
+                    n00b_tree_node_t *node,
+                    n00b_symbol_kind  kind,
+                    bool             *success,
+                    bool              err_if_present)
 {
-    n00b_symbol_t *entry         = n00b_new_symbol();
-    n00b_pnode_t  *p             = node ? n00b_tree_get_contents(node) : NULL;
+    n00b_symbol_t *entry        = n00b_new_symbol();
+    n00b_pnode_t  *p            = node ? n00b_tree_get_contents(node) : NULL;
     entry->name                 = name;
     entry->ct->declaration_node = node;
     entry->type                 = n00b_new_typevar();
@@ -183,25 +183,25 @@ n00b_declare_symbol(n00b_module_t    *ctx,
     }
 
     n00b_add_error(ctx,
-                  n00b_err_invalid_redeclaration,
-                  node,
-                  name,
-                  n00b_sym_kind_name(old),
-                  n00b_node_get_loc_str(old->ct->declaration_node));
+                   n00b_err_invalid_redeclaration,
+                   node,
+                   name,
+                   n00b_sym_kind_name(old),
+                   n00b_node_get_loc_str(old->ct->declaration_node));
 
     return old;
 }
 n00b_symbol_t *
 n00b_add_inferred_symbol(n00b_module_t    *ctx,
-                        n00b_scope_t     *scope,
-                        n00b_utf8_t      *name,
-                        n00b_tree_node_t *node)
+                         n00b_scope_t     *scope,
+                         n00b_utf8_t      *name,
+                         n00b_tree_node_t *node)
 {
     n00b_symbol_t *entry = n00b_new_symbol();
     n00b_pnode_t  *p     = node ? n00b_tree_get_contents(node) : NULL;
-    entry->name         = name;
-    entry->type         = n00b_new_typevar();
-    entry->loc          = p ? n00b_format_module_location(ctx, p->token) : NULL;
+    entry->name          = name;
+    entry->type          = n00b_new_typevar();
+    entry->loc           = p ? n00b_format_module_location(ctx, p->token) : NULL;
 
     if (scope->kind & (N00B_SCOPE_FUNC | N00B_SCOPE_FORMALS)) {
         entry->flags |= N00B_F_FUNCTION_SCOPE;
@@ -224,16 +224,16 @@ n00b_add_inferred_symbol(n00b_module_t    *ctx,
 
 n00b_symbol_t *
 n00b_add_or_replace_symbol(n00b_module_t    *ctx,
-                          n00b_scope_t     *scope,
-                          n00b_utf8_t      *name,
-                          n00b_tree_node_t *node)
+                           n00b_scope_t     *scope,
+                           n00b_utf8_t      *name,
+                           n00b_tree_node_t *node)
 {
     n00b_symbol_t *entry = n00b_new_symbol();
     n00b_pnode_t  *p     = node ? n00b_tree_get_contents(node) : NULL;
-    entry->name         = name;
-    entry->type         = n00b_new_typevar();
-    entry->kind         = N00B_SK_VARIABLE;
-    entry->loc          = p ? n00b_format_module_location(ctx, p->token) : NULL;
+    entry->name          = name;
+    entry->type          = n00b_new_typevar();
+    entry->kind          = N00B_SK_VARIABLE;
+    entry->loc           = p ? n00b_format_module_location(ctx, p->token) : NULL;
 
     hatrack_dict_put(scope->symbols, name, entry);
 
@@ -272,43 +272,43 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
         // the symbol explicitly declared. So it's the previous
         // location to complain about.
         n00b_add_error(new_ctx,
-                      n00b_err_redecl_neq_generics,
-                      new_sym->ct->declaration_node,
-                      new_sym->name,
-                      n00b_new_utf8("a less generic / more concrete"),
-                      n00b_value_obj_repr(t2),
-                      n00b_value_obj_repr(t1),
-                      n00b_node_get_loc_str(old_sym->ct->declaration_node));
+                       n00b_err_redecl_neq_generics,
+                       new_sym->ct->declaration_node,
+                       new_sym->name,
+                       n00b_new_utf8("a less generic / more concrete"),
+                       n00b_value_obj_repr(t2),
+                       n00b_value_obj_repr(t1),
+                       n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_match_right_more_specific:
         n00b_add_error(new_ctx,
-                      n00b_err_redecl_neq_generics,
-                      new_sym->ct->declaration_node,
-                      new_sym->name,
-                      n00b_new_utf8("a more generic / less concrete"),
-                      n00b_value_obj_repr(t2),
-                      n00b_value_obj_repr(t1),
-                      n00b_node_get_loc_str(old_sym->ct->declaration_node));
+                       n00b_err_redecl_neq_generics,
+                       new_sym->ct->declaration_node,
+                       new_sym->name,
+                       n00b_new_utf8("a more generic / less concrete"),
+                       n00b_value_obj_repr(t2),
+                       n00b_value_obj_repr(t1),
+                       n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_match_both_have_more_generic_bits:
         n00b_add_error(new_ctx,
-                      n00b_err_redecl_neq_generics,
-                      new_sym->ct->declaration_node,
-                      new_sym->name,
-                      n00b_new_utf8("a type with different generic parts"),
-                      n00b_value_obj_repr(t2),
-                      n00b_value_obj_repr(t1),
-                      n00b_node_get_loc_str(old_sym->ct->declaration_node));
+                       n00b_err_redecl_neq_generics,
+                       new_sym->ct->declaration_node,
+                       new_sym->name,
+                       n00b_new_utf8("a type with different generic parts"),
+                       n00b_value_obj_repr(t2),
+                       n00b_value_obj_repr(t1),
+                       n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_cant_match:
         n00b_add_error(new_ctx,
-                      n00b_err_redecl_neq_generics,
-                      new_sym->ct->declaration_node,
-                      new_sym->name,
-                      n00b_new_utf8("a completely incompatible"),
-                      n00b_value_obj_repr(t2),
-                      n00b_value_obj_repr(t1),
-                      n00b_node_get_loc_str(old_sym->ct->declaration_node));
+                       n00b_err_redecl_neq_generics,
+                       new_sym->ct->declaration_node,
+                       new_sym->name,
+                       n00b_new_utf8("a completely incompatible"),
+                       n00b_value_obj_repr(t2),
+                       n00b_value_obj_repr(t1),
+                       n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     }
 }
@@ -321,17 +321,17 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
 
 bool
 n00b_merge_symbols(n00b_module_t *ctx1,
-                  n00b_symbol_t *sym1,
-                  n00b_symbol_t *sym2) // The older symbol.
+                   n00b_symbol_t *sym1,
+                   n00b_symbol_t *sym2) // The older symbol.
 {
     if (sym1->kind != sym2->kind) {
         n00b_add_error(ctx1,
-                      n00b_err_redecl_kind,
-                      sym1->ct->declaration_node,
-                      sym1->name,
-                      n00b_sym_kind_name(sym2),
-                      n00b_sym_kind_name(sym1),
-                      n00b_node_get_loc_str(sym2->ct->declaration_node));
+                       n00b_err_redecl_kind,
+                       sym1->ct->declaration_node,
+                       sym1->name,
+                       n00b_sym_kind_name(sym2),
+                       n00b_sym_kind_name(sym1),
+                       n00b_node_get_loc_str(sym2->ct->declaration_node));
         return false;
     }
 
@@ -341,11 +341,11 @@ n00b_merge_symbols(n00b_module_t *ctx1,
     case N00B_SK_ENUM_TYPE:
     case N00B_SK_ENUM_VAL:
         n00b_add_error(ctx1,
-                      n00b_err_no_redecl,
-                      sym1->ct->declaration_node,
-                      sym1->name,
-                      n00b_sym_kind_name(sym1),
-                      n00b_node_get_loc_str(sym2->ct->declaration_node));
+                       n00b_err_no_redecl,
+                       sym1->ct->declaration_node,
+                       sym1->name,
+                       n00b_sym_kind_name(sym1),
+                       n00b_node_get_loc_str(sym2->ct->declaration_node));
         return false;
 
     case N00B_SK_VARIABLE:
@@ -381,10 +381,10 @@ n00b_merge_symbols(n00b_module_t *ctx1,
 
 n00b_symbol_t *
 n00b_symbol_lookup(n00b_scope_t *local_scope,
-                  n00b_scope_t *module_scope,
-                  n00b_scope_t *global_scope,
-                  n00b_scope_t *attr_scope,
-                  n00b_utf8_t  *name)
+                   n00b_scope_t *module_scope,
+                   n00b_scope_t *global_scope,
+                   n00b_scope_t *attr_scope,
+                   n00b_utf8_t  *name)
 {
     n00b_symbol_t *result = NULL;
 
@@ -401,21 +401,21 @@ n00b_format_scope(n00b_scope_t *scope)
 {
     uint64_t              len = 0;
     hatrack_dict_value_t *values;
-    n00b_grid_t           *grid       = n00b_new(n00b_type_grid(),
-                               n00b_kw("start_cols",
-                                      n00b_ka(6),
-                                      "header_rows",
-                                      n00b_ka(1),
-                                      "stripe",
-                                      n00b_ka(true)));
-    n00b_list_t           *row        = n00b_new_table_row();
-    n00b_utf8_t           *decl_const = n00b_new_utf8("declared");
-    n00b_utf8_t           *inf_const  = n00b_new_utf8("inferred");
-    n00b_dict_t           *memos      = n00b_dict(n00b_type_typespec(),
-                                 n00b_type_utf8());
+    n00b_grid_t          *grid       = n00b_new(n00b_type_grid(),
+                                 n00b_kw("start_cols",
+                                         n00b_ka(6),
+                                         "header_rows",
+                                         n00b_ka(1),
+                                         "stripe",
+                                         n00b_ka(true)));
+    n00b_list_t          *row        = n00b_new_table_row();
+    n00b_utf8_t          *decl_const = n00b_new_utf8("declared");
+    n00b_utf8_t          *inf_const  = n00b_new_utf8("inferred");
+    n00b_dict_t          *memos      = n00b_dict(n00b_type_typespec(),
+                                   n00b_type_utf8());
     int64_t               nexttid    = 0;
-    n00b_utf8_t           *snap       = n00b_new_utf8("snap");
-    n00b_utf8_t           *full_snap  = n00b_new_utf8("full_snap");
+    n00b_utf8_t          *snap       = n00b_new_utf8("snap");
+    n00b_utf8_t          *full_snap  = n00b_new_utf8("full_snap");
 
     if (scope != NULL) {
         values = hatrack_dict_values_sort(scope->symbols,
@@ -461,34 +461,34 @@ n00b_format_scope(n00b_scope_t *scope)
                 }
                 else {
                     n00b_list_append(row,
-                                    n00b_new_utf8(
-                                        n00b_symbol_kind_names[entry->kind]));
+                                     n00b_new_utf8(
+                                         n00b_symbol_kind_names[entry->kind]));
                 }
             }
         }
         else {
             n00b_list_append(row,
-                            n00b_new_utf8(n00b_symbol_kind_names[entry->kind]));
+                             n00b_new_utf8(n00b_symbol_kind_names[entry->kind]));
         }
 
         n00b_type_t *symtype = n00b_get_sym_type(entry);
-        symtype             = n00b_type_resolve(symtype);
+        symtype              = n00b_type_resolve(symtype);
 
         if (n00b_type_is_box(symtype)) {
             symtype = n00b_type_unbox(symtype);
         }
 
         n00b_list_append(row,
-                        n00b_cstr_format("[em]{} [/][i]({})",
-                                        n00b_internal_type_repr(symtype,
-                                                               memos,
-                                                               &nexttid),
-                                        kind));
+                         n00b_cstr_format("[em]{} [/][i]({})",
+                                          n00b_internal_type_repr(symtype,
+                                                                  memos,
+                                                                  &nexttid),
+                                          kind));
         n00b_list_append(row,
-                        n00b_cstr_format("{:x}",
-                                        n00b_box_u64(entry->static_offset)));
+                         n00b_cstr_format("{:x}",
+                                          n00b_box_u64(entry->static_offset)));
 
-        int         n = n00b_list_len(entry->ct->sym_defs);
+        int          n = n00b_list_len(entry->ct->sym_defs);
         n00b_utf8_t *def_text;
 
         if (n == 0) {
@@ -510,12 +510,12 @@ n00b_format_scope(n00b_scope_t *scope)
         if (n00b_sym_is_declared_const(entry)) {
             if (entry->value == NULL) {
                 def_text = n00b_str_concat(n00b_cstr_format("[i]value:[red] not set[/]\n"),
-                                          def_text);
+                                           def_text);
             }
             else {
                 def_text = n00b_str_concat(n00b_cstr_format("[i]value:[jazzberry] {}[/]\n",
-                                                          n00b_value_obj_repr(entry->value)),
-                                          def_text);
+                                                            n00b_value_obj_repr(entry->value)),
+                                           def_text);
             }
         }
 
@@ -556,9 +556,9 @@ n00b_scope_copy(n00b_scope_t *s)
 {
     // We just need a shallow copy.
     n00b_scope_t *result = n00b_gc_alloc_mapped(n00b_scope_t, n00b_scope_gc_bits);
-    result->parent      = s->parent;
-    result->symbols     = n00b_shallow(s->symbols);
-    result->kind        = s->kind;
+    result->parent       = s->parent;
+    result->symbols      = n00b_shallow(s->symbols);
+    result->kind         = s->kind;
 
     return result;
 }

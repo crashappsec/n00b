@@ -72,12 +72,13 @@ unsigned_repr(int64_t item)
 }
 
 __uint128_t
-n00b_raw_int_parse(n00b_utf8_t *u8, n00b_compile_error_t *err, bool *neg)
+n00b_raw_int_parse(n00b_str_t *instr, n00b_compile_error_t *err, bool *neg)
 {
-    __uint128_t cur  = 0;
-    __uint128_t last = 0;
-    char       *s    = u8->data;
-    char       *p    = s;
+    n00b_utf8_t *u8   = n00b_to_utf8(instr);
+    __uint128_t  cur  = 0;
+    __uint128_t  last = 0;
+    char        *s    = u8->data;
+    char        *p    = s;
 
     if (*p == '-') {
         *neg = true;
@@ -90,6 +91,7 @@ n00b_raw_int_parse(n00b_utf8_t *u8, n00b_compile_error_t *err, bool *neg)
     *err = n00b_err_no_error;
 
     int32_t c;
+
     while ((c = *p++) != 0) {
         c -= '0';
         last = cur;
@@ -98,15 +100,15 @@ n00b_raw_int_parse(n00b_utf8_t *u8, n00b_compile_error_t *err, bool *neg)
             if (err) {
                 *err = n00b_err_parse_invalid_lit_char;
                 // err->loc  = p - s - 1;
+                return ~0;
             }
-            return ~0;
         }
+        cur += c;
         if (cur < last) {
             if (err) {
                 *err = n00b_err_parse_lit_overflow;
             }
         }
-        cur += c;
     }
     return cur;
 }
@@ -174,51 +176,51 @@ raw_hex_parse(n00b_utf8_t *u8, n00b_compile_error_t *err)
     return cur;
 }
 
-#define BASE_INT_PARSE()                                      \
-    bool        neg = false;                                  \
-    __uint128_t val;                                          \
-                                                              \
-    switch (st) {                                             \
-    case ST_Base10:                                           \
+#define BASE_INT_PARSE()                                       \
+    bool        neg = false;                                   \
+    __uint128_t val;                                           \
+                                                               \
+    switch (st) {                                              \
+    case ST_Base10:                                            \
         val = n00b_raw_int_parse(s, code, &neg);               \
-        break;                                                \
-    case ST_1Quote:                                           \
+        break;                                                 \
+    case ST_1Quote:                                            \
         N00B_CRAISE("Single quoted not reimplemented yet.\n"); \
-    default:                                                  \
-        val = raw_hex_parse(s, code);                         \
-        break;                                                \
-    }                                                         \
-                                                              \
+    default:                                                   \
+        val = raw_hex_parse(s, code);                          \
+        break;                                                 \
+    }                                                          \
+                                                               \
     if (*code != n00b_err_no_error) {                          \
-        return NULL;                                          \
+        return NULL;                                           \
     }
 
 #define SIGNED_PARSE(underlow_val, overflow_val, magic_type) \
     BASE_INT_PARSE()                                         \
     if (neg) {                                               \
         if (val > overflow_val) {                            \
-            *code = n00b_err_parse_lit_underflow;             \
+            *code = n00b_err_parse_lit_underflow;            \
             return NULL;                                     \
         }                                                    \
-        return n00b_box_##magic_type(-1 * val);               \
+        return n00b_box_##magic_type(-1 * val);              \
     }                                                        \
     else {                                                   \
         if (st == ST_Base10 && val > overflow_val) {         \
-            *code = n00b_err_parse_lit_overflow;              \
+            *code = n00b_err_parse_lit_overflow;             \
             return NULL;                                     \
         }                                                    \
-        return n00b_box_##magic_type(val);                    \
+        return n00b_box_##magic_type(val);                   \
     }
 
 #define UNSIGNED_PARSE(overflow_val, magic_type) \
     BASE_INT_PARSE()                             \
     if (neg) {                                   \
-        *code = n00b_err_parse_lit_invalid_neg;   \
+        *code = n00b_err_parse_lit_invalid_neg;  \
         return NULL;                             \
     }                                            \
                                                  \
     if (val > overflow_val) {                    \
-        *code = n00b_err_parse_lit_overflow;      \
+        *code = n00b_err_parse_lit_overflow;     \
         return NULL;                             \
     }                                            \
     return n00b_box_##magic_type(val)
@@ -278,6 +280,7 @@ n00b_parse_int64(n00b_utf8_t *s, int64_t *out)
     if (err != n00b_err_no_error) {
         return false;
     }
+
     *out = *res;
     return true;
 }
@@ -339,6 +342,8 @@ f64_parse(n00b_utf8_t          *s,
           n00b_utf8_t          *litmod,
           n00b_compile_error_t *code)
 {
+    s = n00b_to_utf8(s);
+
     *code = n00b_err_no_error;
     char  *end;
     double d = strtod(s->data, &end);
@@ -382,14 +387,14 @@ bool_repr(bool b)
     if (b == false) {
         if (false_repr == NULL) {
             false_repr = n00b_new(n00b_type_utf8(),
-                                 n00b_kw("cstring", n00b_ka("false")));
+                                  n00b_kw("cstring", n00b_ka("false")));
             n00b_gc_register_root(&false_repr, 1);
         }
         return false_repr;
     }
     if (true_repr == NULL) {
         true_repr = n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("true")));
+                             n00b_kw("cstring", n00b_ka("true")));
         n00b_gc_register_root(&true_repr, 1);
     }
 
@@ -630,7 +635,7 @@ base_int_fmt(__int128_t v, n00b_fmt_spec_t *spec, n00b_codepoint_t default_type)
     }
 
     n00b_utf8_t *s = n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka(repr + n)));
+                              n00b_kw("cstring", n00b_ka(repr + n)));
 
     // Figure out if we're going to use the sign before doing any padding.
 
@@ -685,13 +690,13 @@ base_int_fmt(__int128_t v, n00b_fmt_spec_t *spec, n00b_codepoint_t default_type)
     case 1:
         s = n00b_str_concat(
             n00b_new(n00b_type_utf8(),
-                    n00b_kw("cstring", n00b_ka("0x"))),
+                     n00b_kw("cstring", n00b_ka("0x"))),
             s);
         break;
     case 2:
         s = n00b_str_concat(
             n00b_new(n00b_type_utf8(),
-                    n00b_kw("cstring", n00b_ka("U+"))),
+                     n00b_kw("cstring", n00b_ka("U+"))),
             s);
         break;
     default:
@@ -773,29 +778,29 @@ bool_fmt(bool *repr, n00b_fmt_spec_t *spec)
     case 0:
         if (*repr) {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("True")));
+                            n00b_kw("cstring", n00b_ka("True")));
         }
         else {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("False")));
+                            n00b_kw("cstring", n00b_ka("False")));
         }
     case 'b': // Boolean
         if (*repr) {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("true")));
+                            n00b_kw("cstring", n00b_ka("true")));
         }
         else {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("false")));
+                            n00b_kw("cstring", n00b_ka("false")));
         }
     case 'B':
         if (*repr) {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("TRUE")));
+                            n00b_kw("cstring", n00b_ka("TRUE")));
         }
         else {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("FALSE")));
+                            n00b_kw("cstring", n00b_ka("FALSE")));
         }
     case 't':
         if (*repr) {
@@ -814,20 +819,20 @@ bool_fmt(bool *repr, n00b_fmt_spec_t *spec)
     case 'Q': // Question
         if (*repr) {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("YES")));
+                            n00b_kw("cstring", n00b_ka("YES")));
         }
         else {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("NO")));
+                            n00b_kw("cstring", n00b_ka("NO")));
         }
     case 'q':
         if (*repr) {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("yes")));
+                            n00b_kw("cstring", n00b_ka("yes")));
         }
         else {
             return n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka("no")));
+                            n00b_kw("cstring", n00b_ka("no")));
         }
     case 'Y':
         if (*repr) {
@@ -906,7 +911,7 @@ float_fmt(double *repr, n00b_fmt_spec_t *spec)
             }
 
             rest = n00b_new(n00b_type_utf8(),
-                           n00b_kw("cstring", n00b_ka(fprepr + n)));
+                            n00b_kw("cstring", n00b_ka(fprepr + n)));
 
             if (using_sign) {
                 pad = n00b_str_concat(sign, pad);
@@ -931,8 +936,6 @@ const n00b_vtable_t n00b_u8_type = {
         [N00B_BI_COERCE]       = (n00b_vtable_entry)any_int_coerce_to,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)u8_parse,
         [N00B_BI_GC_MAP]       = (n00b_vtable_entry)N00B_GC_SCAN_NONE,
-        // Explicit because some compilers don't seem to always properly
-        // zero it (Was sometimes crashing on a `n00b_stream_t` on my mac).
         [N00B_BI_FINALIZER]    = NULL,
 
     },

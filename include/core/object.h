@@ -13,6 +13,70 @@ static inline n00b_type_t *n00b_type_i64();
 
 extern n00b_type_t *n00b_get_my_type(n00b_obj_t);
 
+static inline void
+n00b_basic_memory_info(void *addr, bool *is_obj, bool *interior)
+{
+    assert(n00b_in_heap(addr));
+
+    n00b_alloc_hdr *h = n00b_find_allocation_record(addr);
+
+    if (interior) {
+        *interior = (h->data != addr);
+    }
+
+    if (is_obj) {
+        *is_obj = (h->type != NULL);
+    }
+}
+
+static bool
+n00b_is_object_reference(void *addr)
+{
+    bool is_obj   = false;
+    bool interior = false;
+
+    n00b_basic_memory_info(addr, &is_obj, &interior);
+
+    return is_obj && !interior;
+}
+
+#ifdef N00B_DEBUG
+
+// Macro to preserve __FILE__ and __LINE__ for assert.
+#define n00b_object_sanity_check(addr)                   \
+    {                                                    \
+        assert(n00b_is_object_reference(addr));          \
+        n00b_type_t *t = n00b_get_my_type(addr);         \
+                                                         \
+        assert(t);                                       \
+        assert(t->base_index > N00B_T_ERROR              \
+               && t->base_index < N00B_NUM_BUILTIN_DTS); \
+    }
+
+#else
+#define n00b_object_sanity_check(x)
+#endif
+
+static inline bool
+n00b_has_repr(void *addr)
+{
+    if (!n00b_is_object_reference(addr)) {
+        return false;
+    }
+
+    n00b_type_t *t = n00b_get_my_type(addr);
+
+    if (!t) {
+        return false;
+    }
+
+    if (n00b_base_type_info[t->base_index].vtable->methods[N00B_BI_REPR]) {
+        return true;
+    }
+
+    return false;
+}
+
 static inline n00b_dt_info_t *
 n00b_object_type_info(n00b_obj_t user_object)
 {
@@ -76,18 +140,22 @@ n00b_is_null(void *n)
 extern void n00b_scan_header_only(uint64_t *, int);
 
 #if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
-extern n00b_obj_t _n00b_new(char *, int, n00b_type_t *, ...);
+extern n00b_obj_t _n00b_new(n00b_heap_t *, char *, int, n00b_type_t *, ...);
 
-#define n00b_new(tid, ...) _n00b_new(__FILE__, __LINE__, tid, N00B_VA(__VA_ARGS__))
+#define n00b_new(tid, ...) \
+    _n00b_new(n00b_default_heap, __FILE__, __LINE__, tid, N00B_VA(__VA_ARGS__))
 #else
-extern n00b_obj_t _n00b_new(n00b_type_t *type, ...);
+extern n00b_obj_t _n00b_new(n00b_heap_t *, n00b_type_t *, ...);
 
-#define n00b_new(tid, ...) _n00b_new(tid, N00B_VA(__VA_ARGS__))
+#define n00b_new(tid, ...) \
+    _n00b_new(n00b_default_heap, tid, N00B_VA(__VA_ARGS__))
 #endif
 
-extern n00b_str_t  *n00b_repr(void *, n00b_type_t *);
+extern n00b_str_t  *n00b_repr_explicit(void *, n00b_type_t *);
+extern n00b_str_t  *n00b_repr(void *);
+extern n00b_utf8_t *n00b_object_repr_opt(void *);
 extern n00b_str_t  *n00b_to_str(void *, n00b_type_t *);
-extern bool        n00b_can_coerce(n00b_type_t *, n00b_type_t *);
+extern bool         n00b_can_coerce(n00b_type_t *, n00b_type_t *);
 extern n00b_obj_t   n00b_coerce(void *, n00b_type_t *, n00b_type_t *);
 extern n00b_obj_t   n00b_coerce_object(const n00b_obj_t, n00b_type_t *);
 extern n00b_obj_t   n00b_copy(n00b_obj_t);
@@ -97,24 +165,24 @@ extern n00b_obj_t   n00b_sub(n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_mul(n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_div(n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_mod(n00b_obj_t, n00b_obj_t);
-extern bool        n00b_eq(n00b_type_t *, n00b_obj_t, n00b_obj_t);
-extern bool        n00b_lt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
-extern bool        n00b_gt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
-extern int64_t     n00b_len(n00b_obj_t);
+extern bool         n00b_eq(n00b_type_t *, n00b_obj_t, n00b_obj_t);
+extern bool         n00b_lt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
+extern bool         n00b_gt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
+extern int64_t      n00b_len(n00b_obj_t);
 extern n00b_obj_t   n00b_index_get(n00b_obj_t, n00b_obj_t);
-extern void        n00b_index_set(n00b_obj_t, n00b_obj_t, n00b_obj_t);
+extern void         n00b_index_set(n00b_obj_t, n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_slice_get(n00b_obj_t, int64_t, int64_t);
-extern void        n00b_slice_set(n00b_obj_t, int64_t, int64_t, n00b_obj_t);
+extern void         n00b_slice_set(n00b_obj_t, int64_t, int64_t, n00b_obj_t);
 extern n00b_str_t  *n00b_value_obj_repr(n00b_obj_t);
 extern n00b_str_t  *n00b_value_obj_to_str(n00b_obj_t);
 extern n00b_type_t *n00b_get_item_type(n00b_obj_t);
-extern void       *n00b_get_view(n00b_obj_t, int64_t *);
+extern void        *n00b_get_view(n00b_obj_t, int64_t *);
 extern n00b_obj_t   n00b_container_literal(n00b_type_t *,
-                                         n00b_list_t *,
-                                         n00b_utf8_t *);
-extern void        n00b_finalize_allocation(void *);
+                                           n00b_list_t *,
+                                           n00b_utf8_t *);
+extern void         n00b_finalize_allocation(void *);
 extern n00b_obj_t   n00b_shallow(n00b_obj_t);
-extern void       *n00b_autobox(void *);
+extern void        *n00b_autobox(void *);
 
 extern const n00b_vtable_t n00b_i8_type;
 extern const n00b_vtable_t n00b_u8_type;
@@ -165,3 +233,9 @@ extern const n00b_vtable_t n00b_parser_vtable;
 extern const n00b_vtable_t n00b_gopt_parser_vtable;
 extern const n00b_vtable_t n00b_gopt_command_vtable;
 extern const n00b_vtable_t n00b_gopt_option_vtable;
+extern const n00b_vtable_t n00b_lock_vtable;
+extern const n00b_vtable_t n00b_condition_vtable;
+extern const n00b_vtable_t n00b_stream_vtable;
+extern const n00b_vtable_t n00b_message_vtable;
+extern const n00b_vtable_t n00b_bytering_vtable;
+extern const n00b_vtable_t n00b_file_vtable;

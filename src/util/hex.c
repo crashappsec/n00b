@@ -1,11 +1,5 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
-
-const uint8_t n00b_hex_map[16] = {
-    // clang-format off
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-    // clang-format on
-};
 
 #define MIN_DUMP_WIDTH 36
 
@@ -52,7 +46,7 @@ add_offset(char   **optr,
     while (value) {
         chr       = (uint8_t)value & 0x0f;
         value     = value >> 4;
-        buf[--ix] = n00b_hex_map[chr];
+        buf[--ix] = n00b_hex_map_lower[chr];
     }
 
     for (ix = 0; ix < offset_len; ix++) {
@@ -75,10 +69,10 @@ add_offset(char   **optr,
 
 char *
 n00b_hexl(void    *ptr,
-         int32_t  len,
-         uint64_t start_offset,
-         int32_t  width,
-         char    *prefix)
+          int32_t  len,
+          uint64_t start_offset,
+          int32_t  width,
+          char    *prefix)
 {
     struct winsize ws;
     uint64_t       offset_len = calculate_size_prefix(len, start_offset);
@@ -178,23 +172,23 @@ n00b_hexl(void    *ptr,
         int n = chars_per_line / 4;
         for (int j = 0; j < n; j++) {
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
 
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
 
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
 
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
             *outptr++ = ' ';
         }
@@ -220,28 +214,28 @@ n00b_hexl(void    *ptr,
         // Now, print any full groups of 4.
         for (uint64_t i = 0; i < remainder / 4; i++) {
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
             *outptr++ = ' ';
         }
         // Now, print any leftover chars.
         for (uint64_t i = 0; i < remainder % 4; i++) {
             c         = *inptr++;
-            *outptr++ = n00b_hex_map[(c >> 4)];
-            *outptr++ = n00b_hex_map[c & 0x0f];
+            *outptr++ = n00b_hex_map_lower[(c >> 4)];
+            *outptr++ = n00b_hex_map_lower[c & 0x0f];
             *outptr++ = ' ';
         }
 
@@ -266,18 +260,18 @@ n00b_hexl(void    *ptr,
 n00b_utf8_t *
 _n00b_hex_dump(void *ptr, uint32_t len, ...)
 {
-    int64_t start_offset = 0;
-    int32_t width        = -1;
-    char   *prefix       = "";
+    int64_t      start_offset = 0;
+    int32_t      width        = -1;
+    char        *prefix       = "";
+    n00b_utf8_t *res;
 
     n00b_karg_only_init(len);
     n00b_kw_int64("start_offset", start_offset);
     n00b_kw_int32("width", width);
     n00b_kw_ptr("prefix", prefix);
 
-    char       *dump = n00b_hexl(ptr, len, start_offset, width, prefix);
-    n00b_utf8_t *res  = n00b_new(n00b_type_utf8(),
-                              n00b_kw("cstring", n00b_ka(dump)));
-
+    char *dump = n00b_hexl(ptr, len, start_offset, width, prefix);
+    res        = n00b_new(n00b_type_utf8(),
+                   n00b_kw("cstring", n00b_ka(dump)));
     return res;
 }

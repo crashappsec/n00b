@@ -4,9 +4,9 @@
 
 static n00b_watch_target n00b_watch_list[N00B_WATCH_SLOTS];
 static n00b_watch_log_t  n00b_watch_log[N00B_WATCH_LOG_SZ];
-static _Atomic int      next_log_id     = 0;
-static _Atomic int      max_target      = 0;
-static __thread bool    recursion_guard = false;
+static _Atomic int       next_log_id     = 0;
+static _Atomic int       max_target      = 0;
+static __thread bool     recursion_guard = false;
 
 static void
 watch_init()
@@ -15,20 +15,19 @@ watch_init()
 
     if (!inited) {
         inited = true;
-        for (int i = 0; i < N00B_WATCH_SLOTS; i++) {
-            n00b_gc_register_root(&n00b_watch_list[i].address, 1);
-        }
+        n00b_gc_register_root(&n00b_watch_list[0], sizeof(n00b_watch_list) / 8);
+        n00b_gc_register_root(&n00b_watch_log[0], sizeof(n00b_watch_log) / 8);
     }
 }
 
 void
-_n00b_watch_set(void            *ptr,
-               int              ix,
-               n00b_watch_action ra,
-               n00b_watch_action wa,
-               bool             print,
-               char            *file,
-               int              line)
+_n00b_watch_set(void             *ptr,
+                int               ix,
+                n00b_watch_action ra,
+                n00b_watch_action wa,
+                bool              print,
+                char             *file,
+                int               line)
 {
     watch_init();
 
@@ -52,10 +51,10 @@ _n00b_watch_set(void            *ptr,
 
     if (print) {
         n00b_printf("[atomic lime]Added watchpoint[/] @{:x} {}:{} (value: {:x})",
-                   n00b_box_u64((uint64_t)ptr),
-                   n00b_new_utf8(file),
-                   n00b_box_u64(line),
-                   n00b_box_u64(iv));
+                    n00b_box_u64((uint64_t)ptr),
+                    n00b_new_utf8(file),
+                    n00b_box_u64(line),
+                    n00b_box_u64(iv));
     }
 }
 
@@ -75,23 +74,23 @@ watch_print_log(int logid, int watchix)
 
     if (!entry.changed) {
         n00b_printf("[atomic lime]{}:@{:x}: Unchanged[/] {}:{} (value: {:x})",
-                   n00b_box_u64(logid),
-                   n00b_box_u64((uint64_t)t.address),
-                   n00b_new_utf8(entry.file),
-                   n00b_box_u64(entry.line),
-                   n00b_box_u64(entry.seen_value));
+                    n00b_box_u64(logid),
+                    n00b_box_u64((uint64_t)t.address),
+                    n00b_new_utf8(entry.file),
+                    n00b_box_u64(entry.line),
+                    n00b_box_u64(entry.seen_value));
         return;
     }
 
     // If you get a crash inside the GC, comment out the printf instead.
     // printf("%p vs %p\n", (void *)entry.start_value, (void *)entry.seen_value);
     n00b_printf("[red]{}:@{:x}: Changed @{}:{} from [em]{:x}[/] to [em]{:x}",
-               n00b_box_u64(logid),
-               n00b_box_u64((uint64_t)t.address),
-               n00b_new_utf8(entry.file),
-               n00b_box_u64(entry.line),
-               n00b_box_u64(entry.start_value),
-               n00b_box_u64(entry.seen_value));
+                n00b_box_u64(logid),
+                n00b_box_u64((uint64_t)t.address),
+                n00b_new_utf8(entry.file),
+                n00b_box_u64(entry.line),
+                n00b_box_u64(entry.start_value),
+                n00b_box_u64(entry.seen_value));
     return;
 }
 
@@ -127,8 +126,8 @@ _n00b_watch_scan(char *file, int line)
         uint64_t cur     = *(uint64_t *)t.address;
         bool     changed = cur != t.value;
 
-        logid                   = atomic_fetch_add(&next_log_id, 1);
-        log_slot                = logid % N00B_WATCH_LOG_SZ;
+        logid                    = atomic_fetch_add(&next_log_id, 1);
+        log_slot                 = logid % N00B_WATCH_LOG_SZ;
         n00b_watch_log[log_slot] = (n00b_watch_log_t){
             .file        = file,
             .line        = line,

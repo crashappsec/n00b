@@ -38,11 +38,11 @@ n00b_new_compile_context(n00b_str_t *input)
     result->final_attrs   = n00b_new_scope(NULL, N00B_SCOPE_GLOBAL);
     result->final_globals = n00b_new_scope(NULL, N00B_SCOPE_ATTRIBUTES);
     result->backlog       = n00b_new(n00b_type_set(n00b_type_ref()),
-                              n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                               n00b_kw("hash", n00b_ka(module_ctx_hash)));
     result->processed     = n00b_new(n00b_type_set(n00b_type_ref()),
-                                n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                                 n00b_kw("hash", n00b_ka(module_ctx_hash)));
     result->memory_layout = n00b_gc_alloc_mapped(n00b_static_memory,
-                                                N00B_GC_SCAN_ALL);
+                                                 N00B_GC_SCAN_ALL);
     result->str_consts    = n00b_dict(n00b_type_utf8(), n00b_type_u64());
     result->obj_consts    = n00b_dict(n00b_type_ref(), n00b_type_u64());
     result->value_consts  = n00b_dict(n00b_type_u64(), n00b_type_u64());
@@ -67,23 +67,23 @@ n00b_str_to_type(n00b_utf8_t *str)
         n00b_gc_register_root(&str_to_type_tmp_path, 1);
     }
 
-    n00b_type_t   *result = NULL;
-    n00b_stream_t *stream = n00b_string_instream(str);
-    n00b_module_t  ctx    = {
-            .modref = 0xffffffff,
-            .path   = str_to_type_tmp_path,
-            .name   = str_to_type_tmp_path,
+    n00b_type_t  *result = NULL;
+    n00b_stream_t *stream = n00b_stream_string(str);
+    n00b_module_t ctx    = {
+           .modref = 0xffffffff,
+           .path   = str_to_type_tmp_path,
+           .name   = str_to_type_tmp_path,
     };
 
     if (n00b_lex(&ctx, stream) != false) {
         n00b_parse_type(&ctx);
     }
 
-    n00b_stream_close(stream);
+    n00b_close(stream);
 
     if (ctx.ct->parse_tree != NULL) {
         n00b_dict_t *type_ctx = n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                                     n00b_type_ref()));
+                                                        n00b_type_ref()));
 
         result = n00b_node_to_type(&ctx, ctx.ct->parse_tree, type_ctx);
     }
@@ -98,7 +98,7 @@ n00b_str_to_type(n00b_utf8_t *str)
 static void
 merge_function_decls(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 {
-    n00b_scope_t          *scope = fctx->module_scope;
+    n00b_scope_t         *scope = fctx->module_scope;
     hatrack_dict_value_t *items;
     uint64_t              n;
 
@@ -117,13 +117,13 @@ merge_function_decls(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 
         if (!hatrack_dict_add(cctx->final_globals->symbols, new->name, new)) {
             n00b_symbol_t *old = hatrack_dict_get(cctx->final_globals->symbols,
-                                                 new->name,
-                                                 NULL);
+                                                  new->name,
+                                                  NULL);
 
             if (old != new) {
                 n00b_add_warning(fctx,
-                                n00b_warn_cant_export,
-                                new->ct->declaration_node);
+                                 n00b_warn_cant_export,
+                                 new->ct->declaration_node);
             }
         }
     }
@@ -263,8 +263,8 @@ merge_one_plain_scope(n00b_compile_ctx *cctx,
 {
     uint64_t              num_symbols;
     hatrack_dict_value_t *items;
-    n00b_symbol_t         *new_sym;
-    n00b_symbol_t         *old_sym;
+    n00b_symbol_t        *new_sym;
+    n00b_symbol_t        *old_sym;
 
     items = hatrack_dict_values(local->symbols, &num_symbols);
 
@@ -300,7 +300,7 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
     cctx->final_spec->in_use = true;
 
     uint64_t              num_sections;
-    n00b_dict_t           *fspecs = cctx->final_spec->section_specs;
+    n00b_dict_t          *fspecs = cctx->final_spec->section_specs;
     hatrack_dict_value_t *sections;
 
     sections = hatrack_dict_values(fctx->ct->local_specs->section_specs,
@@ -308,8 +308,8 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 
     if (num_sections && cctx->final_spec->locked) {
         n00b_add_error(fctx,
-                      n00b_err_spec_locked,
-                      fctx->ct->local_specs->declaration_node);
+                       n00b_err_spec_locked,
+                       fctx->ct->local_specs->declaration_node);
         cctx->fatality = true;
     }
 
@@ -323,16 +323,16 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
         n00b_spec_section_t *old = hatrack_dict_get(fspecs, cur->name, NULL);
 
         n00b_add_error(fctx,
-                      n00b_err_spec_redef_section,
-                      cur->declaration_node,
-                      cur->name,
-                      n00b_node_get_loc_str(old->declaration_node));
+                       n00b_err_spec_redef_section,
+                       cur->declaration_node,
+                       cur->name,
+                       n00b_node_get_loc_str(old->declaration_node));
         cctx->fatality = true;
     }
 
     n00b_spec_section_t *root_adds = fctx->ct->local_specs->root_section;
     n00b_spec_section_t *true_root = cctx->final_spec->root_section;
-    uint64_t            num_fields;
+    uint64_t             num_fields;
 
     if (root_adds == NULL) {
         return;
@@ -344,8 +344,8 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
         }
         else {
             true_root->short_doc = n00b_cstr_format("{}\n{}",
-                                                   true_root->short_doc,
-                                                   root_adds->short_doc);
+                                                    true_root->short_doc,
+                                                    root_adds->short_doc);
         }
     }
     if (root_adds->long_doc) {
@@ -354,8 +354,8 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
         }
         else {
             true_root->long_doc = n00b_cstr_format("{}\n{}",
-                                                  true_root->long_doc,
-                                                  root_adds->long_doc);
+                                                   true_root->long_doc,
+                                                   root_adds->long_doc);
         }
     }
 
@@ -370,27 +370,27 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
         }
 
         n00b_spec_field_t *old = hatrack_dict_get(root_adds->fields,
-                                                 cur->name,
-                                                 NULL);
+                                                  cur->name,
+                                                  NULL);
 
         n00b_add_error(fctx,
-                      n00b_err_spec_redef_field,
-                      cur->declaration_node,
-                      cur->name,
-                      n00b_node_get_loc_str(old->declaration_node));
+                       n00b_err_spec_redef_field,
+                       cur->declaration_node,
+                       cur->name,
+                       n00b_node_get_loc_str(old->declaration_node));
         cctx->fatality = true;
     }
 
     if (root_adds->allowed_sections != NULL) {
         uint64_t num_allows;
         void   **allows = n00b_set_items(root_adds->allowed_sections,
-                                      &num_allows);
+                                       &num_allows);
 
         for (uint64_t i = 0; i < num_allows; i++) {
             if (!n00b_set_add(true_root->allowed_sections, allows[i])) {
                 n00b_add_warning(fctx,
-                                n00b_warn_dupe_allow,
-                                root_adds->declaration_node);
+                                 n00b_warn_dupe_allow,
+                                 root_adds->declaration_node);
             }
             assert(n00b_set_contains(true_root->allowed_sections, allows[i]));
         }
@@ -399,13 +399,13 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
     if (root_adds->required_sections != NULL) {
         uint64_t num_reqs;
         void   **reqs = n00b_set_items(root_adds->required_sections,
-                                    &num_reqs);
+                                     &num_reqs);
 
         for (uint64_t i = 0; i < num_reqs; i++) {
             if (!n00b_set_add(true_root->required_sections, reqs[i])) {
                 n00b_add_warning(fctx,
-                                n00b_warn_dupe_require,
-                                root_adds->declaration_node);
+                                 n00b_warn_dupe_require,
+                                 root_adds->declaration_node);
             }
         }
     }
@@ -416,8 +416,8 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 
     if (true_root->validator != NULL) {
         n00b_add_error(fctx,
-                      n00b_err_dupe_validator,
-                      root_adds->declaration_node);
+                       n00b_err_dupe_validator,
+                       root_adds->declaration_node);
         cctx->fatality = true;
     }
     else {
@@ -481,12 +481,12 @@ n00b_compile_from_entry_point(n00b_str_t *entry)
     n00b_compile_ctx *result = n00b_new_compile_context(NULL);
 
     result->sys_package = n00b_find_module(result,
-                                          n00b_n00b_root(),
-                                          n00b_new_utf8(N00B_PACKAGE_INIT_MODULE),
-                                          n00b_new_utf8("sys"),
-                                          NULL,
-                                          NULL,
-                                          NULL);
+                                           n00b_n00b_root(),
+                                           n00b_new_utf8(N00B_PACKAGE_INIT_MODULE),
+                                           n00b_new_utf8("sys"),
+                                           NULL,
+                                           NULL,
+                                           NULL);
 
     if (result->sys_package != NULL) {
         n00b_add_module_to_worklist(result, result->sys_package);
@@ -521,11 +521,11 @@ n00b_compile_from_entry_point(n00b_str_t *entry)
 
 bool
 n00b_incremental_module(n00b_vm_t         *vm,
-                       n00b_str_t        *location,
-                       bool              new_entry,
-                       n00b_compile_ctx **compile_state)
+                        n00b_str_t        *location,
+                        bool               new_entry,
+                        n00b_compile_ctx **compile_state)
 {
-    void           **cache = (void **)&vm->obj->ccache;
+    void            **cache = (void **)&vm->obj->ccache;
     n00b_compile_ctx *ctx   = n00b_new_compile_ctx();
 
     ctx->final_spec      = vm->obj->attr_spec;
@@ -540,9 +540,9 @@ n00b_incremental_module(n00b_vm_t         *vm,
     ctx->value_consts  = cache[N00B_CCACHE_CUR_VCONSTS];
 
     ctx->backlog   = n00b_new(n00b_type_set(n00b_type_ref()),
-                           n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                            n00b_kw("hash", n00b_ka(module_ctx_hash)));
     ctx->processed = n00b_new(n00b_type_set(n00b_type_ref()),
-                             n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                              n00b_kw("hash", n00b_ka(module_ctx_hash)));
 
     if (compile_state) {
         *compile_state = ctx;
@@ -563,12 +563,12 @@ n00b_incremental_module(n00b_vm_t         *vm,
     }
 
     sys = n00b_find_module(ctx,
-                          n00b_n00b_root(),
-                          n00b_new_utf8(N00B_PACKAGE_INIT_MODULE),
-                          n00b_new_utf8("sys"),
-                          NULL,
-                          NULL,
-                          NULL);
+                           n00b_n00b_root(),
+                           n00b_new_utf8(N00B_PACKAGE_INIT_MODULE),
+                           n00b_new_utf8("sys"),
+                           NULL,
+                           NULL,
+                           NULL);
 
     ctx->sys_package = sys;
 

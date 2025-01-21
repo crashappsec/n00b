@@ -155,3 +155,33 @@ n00b_codepoint_is_unicode_digit(n00b_codepoint_t cp)
         return false;
     }
 }
+
+static inline bool
+n00b_codepoint_is_hex_digit(n00b_codepoint_t cp)
+{
+    if (n00b_codepoint_is_ascii_digit(cp)) {
+        return true;
+    }
+    if (n00b_codepoint_is_ascii_upper(cp)) {
+        if (cp <= 'F') {
+            return true;
+        }
+    }
+    else {
+        if (n00b_codepoint_is_ascii_lower(cp) && cp < 'f') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static inline bool
+n00b_codepoint_is_valid_json_string_char(n00b_codepoint_t cp)
+{
+    if (cp >= 0x20 && cp <= 0x10ffff && cp != '"' && cp != '\\') {
+        return true;
+    }
+
+    return false;
+}

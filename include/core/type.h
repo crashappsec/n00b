@@ -3,7 +3,7 @@
 #include "n00b.h"
 
 extern n00b_type_t *n00b_type_resolve(n00b_type_t *);
-extern bool        n00b_type_is_concrete(n00b_type_t *);
+extern bool         n00b_type_is_concrete(n00b_type_t *);
 extern n00b_type_t *n00b_type_copy(n00b_type_t *);
 extern n00b_type_t *n00b_get_builtin_type(n00b_builtin_t);
 extern n00b_type_t *n00b_unify(n00b_type_t *, n00b_type_t *);
@@ -40,33 +40,32 @@ extern n00b_type_t     *n00b_type_tuple_from_xlist(n00b_list_t *);
 extern n00b_type_t     *n00b_type_fn(n00b_type_t *, n00b_list_t *, bool);
 extern n00b_type_t     *n00b_type_fn_va(n00b_type_t *, int64_t, ...);
 extern n00b_type_t     *n00b_type_varargs_fn(n00b_type_t *, int64_t, ...);
-extern void            n00b_lock_type(n00b_type_t *);
 extern n00b_type_t     *n00b_get_promotion_type(n00b_type_t *,
-                                              n00b_type_t *,
-                                              int *);
+                                                n00b_type_t *,
+                                                int *);
 extern n00b_type_t     *n00b_new_typevar();
-extern void            n00b_initialize_global_types();
+extern void             n00b_initialize_global_types();
 extern n00b_type_hash_t n00b_calculate_type_hash(n00b_type_t *node);
-extern uint64_t       *n00b_get_list_bitfield();
-extern uint64_t       *n00b_get_dict_bitfield();
-extern uint64_t       *n00b_get_set_bitfield();
-extern uint64_t       *n00b_get_tuple_bitfield();
-extern uint64_t       *n00b_get_all_containers_bitfield();
-extern uint64_t       *n00b_get_no_containers_bitfield();
-extern int             n00b_get_num_bitfield_words();
-extern bool            n00b_partial_inference(n00b_type_t *);
-extern bool            n00b_list_syntax_possible(n00b_type_t *);
-extern bool            n00b_dict_syntax_possible(n00b_type_t *);
-extern bool            n00b_set_syntax_possible(n00b_type_t *);
-extern bool            n00b_tuple_syntax_possible(n00b_type_t *);
-extern void            n00b_remove_list_options(n00b_type_t *);
-extern void            n00b_remove_dict_options(n00b_type_t *);
-extern void            n00b_remove_set_options(n00b_type_t *);
-extern void            n00b_remove_tuple_options(n00b_type_t *);
-extern bool            n00b_type_has_list_syntax(n00b_type_t *);
-extern bool            n00b_type_has_dict_syntax(n00b_type_t *);
-extern bool            n00b_type_has_set_syntax(n00b_type_t *);
-extern bool            n00b_type_has_tuple_syntax(n00b_type_t *);
+extern uint64_t        *n00b_get_list_bitfield();
+extern uint64_t        *n00b_get_dict_bitfield();
+extern uint64_t        *n00b_get_set_bitfield();
+extern uint64_t        *n00b_get_tuple_bitfield();
+extern uint64_t        *n00b_get_all_containers_bitfield();
+extern uint64_t        *n00b_get_no_containers_bitfield();
+extern int              n00b_get_num_bitfield_words();
+extern bool             n00b_partial_inference(n00b_type_t *);
+extern bool             n00b_list_syntax_possible(n00b_type_t *);
+extern bool             n00b_dict_syntax_possible(n00b_type_t *);
+extern bool             n00b_set_syntax_possible(n00b_type_t *);
+extern bool             n00b_tuple_syntax_possible(n00b_type_t *);
+extern void             n00b_remove_list_options(n00b_type_t *);
+extern void             n00b_remove_dict_options(n00b_type_t *);
+extern void             n00b_remove_set_options(n00b_type_t *);
+extern void             n00b_remove_tuple_options(n00b_type_t *);
+extern bool             n00b_type_has_list_syntax(n00b_type_t *);
+extern bool             n00b_type_has_dict_syntax(n00b_type_t *);
+extern bool             n00b_type_has_set_syntax(n00b_type_t *);
+extern bool             n00b_type_has_tuple_syntax(n00b_type_t *);
 
 static inline void
 n00b_remove_all_container_options(n00b_type_t *t)
@@ -110,44 +109,162 @@ n00b_type_get_num_params(n00b_type_t *n)
     return n00b_list_len(n00b_type_resolve(n)->items);
 }
 
-static inline bool
-n00b_type_is_bool(n00b_type_t *n)
+static bool
+n00b_ensure_type(n00b_type_t *t)
 {
-    return n00b_type_resolve(n)->typeid == N00B_T_BOOL;
+    if (!t) {
+        return false;
+    }
+    assert(t->base_index > 0 && t->base_index < N00B_NUM_BUILTIN_DTS);
+    n00b_type_t *r = n00b_type_resolve(t);
+
+    if (r == t) {
+        return true;
+    }
+
+    return n00b_ensure_type(r);
 }
 
 static inline bool
-n00b_type_is_ref(n00b_type_t *n)
+n00b_type_is_bool(n00b_type_t *t)
 {
-    return n00b_type_resolve(n)->typeid == N00B_T_REF;
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    return n00b_type_resolve(t)->typeid == N00B_T_BOOL;
+}
+
+static inline bool
+n00b_type_is_ref(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->typeid == N00B_T_REF;
 }
 
 static inline bool
 n00b_type_is_locked(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     return n00b_type_resolve(t)->flags & N00B_FN_TY_LOCK;
 }
 
 static inline bool
 n00b_type_is_tuple(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     return n00b_type_get_kind(t) == N00B_DT_KIND_tuple;
 }
 
 static inline bool
 n00b_type_is_list(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     return n00b_type_resolve(t)->base_index == N00B_T_LIST;
+}
+
+static inline bool
+n00b_type_is_dict(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_DICT;
+}
+
+static inline bool
+n00b_type_is_lock(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_LOCK;
+}
+
+static inline bool
+n00b_type_is_condition(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_CONDITION;
+}
+
+static inline bool
+n00b_type_is_stream(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_STREAM;
+}
+
+static inline bool
+n00b_type_is_file(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_FILE;
+}
+
+static inline bool
+n00b_type_is_message(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_MESSAGE;
+}
+
+static inline bool
+n00b_type_is_bytering(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_BYTERING;
+}
+
+static inline bool
+n00b_type_is_keyword(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    return n00b_type_resolve(t)->base_index == N00B_T_KEYWORD;
 }
 
 static inline bool
 n00b_type_is_set(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     return n00b_type_resolve(t)->base_index == N00B_T_SET;
 }
 
 static inline void
-n00b_type_lock(n00b_type_t *t)
+n00b_lock_type(n00b_type_t *t)
 {
     n00b_type_resolve(t)->flags |= N00B_FN_TY_LOCK;
 }
@@ -175,6 +292,16 @@ n00b_type_get_last_param(n00b_type_t *n)
     return n00b_type_get_param(n, n00b_type_get_num_params(n) - 1);
 }
 
+static inline n00b_type_t *
+n00b_type_get_list_param(n00b_type_t *t)
+{
+    if (!t || !n00b_type_is_list(t)) {
+        return NULL;
+    }
+
+    return n00b_type_get_param(t, 0);
+}
+
 static inline n00b_dt_info_t *
 n00b_type_get_data_type_info(n00b_type_t *t)
 {
@@ -185,6 +312,10 @@ n00b_type_get_data_type_info(n00b_type_t *t)
 static inline bool
 n00b_type_is_mutable(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     return n00b_type_get_data_type_info(t)->mutable;
 }
 
@@ -197,9 +328,13 @@ n00b_get_base_type_id(const n00b_obj_t obj)
 extern n00b_type_t *n00b_bi_types[N00B_NUM_BUILTIN_DTS];
 
 static inline bool
-n00b_type_is_error(n00b_type_t *n)
+n00b_type_is_error(n00b_type_t *t)
 {
-    return n00b_type_resolve(n)->typeid == N00B_T_ERROR;
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->typeid == N00B_T_ERROR;
 }
 
 static inline n00b_type_t *
@@ -347,6 +482,12 @@ n00b_type_ipv4()
 }
 
 static inline n00b_type_t *
+n00b_type_net_addr()
+{
+    return n00b_bi_types[N00B_T_IPV4];
+}
+
+static inline n00b_type_t *
 n00b_type_duration()
 {
     return n00b_bi_types[N00B_T_DURATION];
@@ -449,12 +590,6 @@ n00b_type_internal()
 }
 
 static inline n00b_type_t *
-n00b_type_stream()
-{
-    return n00b_bi_types[N00B_T_STREAM];
-}
-
-static inline n00b_type_t *
 n00b_type_kargs()
 {
     return n00b_bi_types[N00B_T_KEYWORD];
@@ -521,6 +656,42 @@ n00b_type_gopt_option()
 }
 
 static inline n00b_type_t *
+n00b_type_lock()
+{
+    return n00b_bi_types[N00B_T_LOCK];
+}
+
+static inline n00b_type_t *
+n00b_type_condition()
+{
+    return n00b_bi_types[N00B_T_CONDITION];
+}
+
+static inline n00b_type_t *
+n00b_type_stream()
+{
+    return n00b_bi_types[N00B_T_STREAM];
+}
+
+static inline n00b_type_t *
+n00b_type_message()
+{
+    return n00b_bi_types[N00B_T_MESSAGE];
+}
+
+static inline n00b_type_t *
+n00b_type_bytering()
+{
+    return n00b_bi_types[N00B_T_BYTERING];
+}
+
+static inline n00b_type_t *
+n00b_type_file()
+{
+    return n00b_bi_types[N00B_T_FILE];
+}
+
+static inline n00b_type_t *
 n00b_merge_types(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 {
     n00b_type_t *result = n00b_unify(t1, t2);
@@ -539,8 +710,8 @@ n00b_merge_types(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 static inline n00b_type_t *
 n00b_type_any_list(n00b_type_t *item_type)
 {
-    n00b_type_t *result                = n00b_new(n00b_type_typespec(),
-                                 N00B_T_GENERIC);
+    n00b_type_t *result               = n00b_new(n00b_type_typespec(),
+                                   N00B_T_GENERIC);
     result->options.container_options = n00b_get_list_bitfield();
     result->items                     = n00b_list(n00b_type_typespec());
 
@@ -557,7 +728,7 @@ static inline n00b_type_t *
 n00b_type_any_dict(n00b_type_t *key, n00b_type_t *value)
 {
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
-                                 N00B_T_GENERIC);
+                                   N00B_T_GENERIC);
 
     result->options.container_options = n00b_get_dict_bitfield();
     result->items                     = n00b_new(n00b_type_list(n00b_type_typespec()));
@@ -579,8 +750,8 @@ n00b_type_any_dict(n00b_type_t *key, n00b_type_t *value)
 static inline n00b_type_t *
 n00b_type_any_set(n00b_type_t *item_type)
 {
-    n00b_type_t *result                = n00b_new(n00b_type_typespec(),
-                                 N00B_T_GENERIC);
+    n00b_type_t *result               = n00b_new(n00b_type_typespec(),
+                                   N00B_T_GENERIC);
     result->options.container_options = n00b_get_set_bitfield();
     result->items                     = n00b_new(n00b_type_list(n00b_type_typespec()));
 
@@ -623,6 +794,10 @@ n00b_obj_type_check(const n00b_obj_t *obj, n00b_type_t *t2, int *warn)
 static inline bool
 n00b_type_is_box(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     t = n00b_type_resolve(t);
     switch (t->base_index) {
     case N00B_T_BOX_BOOL:
@@ -673,7 +848,7 @@ n00b_type_unbox(n00b_type_t *t)
 static inline bool
 n00b_type_is_int_type(n00b_type_t *t)
 {
-    if (t == NULL) {
+    if (!n00b_ensure_type(t)) {
         return false;
     }
 
@@ -696,7 +871,7 @@ n00b_type_is_int_type(n00b_type_t *t)
 static inline bool
 n00b_type_is_float_type(n00b_type_t *t)
 {
-    if (t == NULL) {
+    if (!n00b_ensure_type(t)) {
         return false;
     }
 
@@ -714,7 +889,7 @@ n00b_type_is_float_type(n00b_type_t *t)
 static inline bool
 n00b_type_is_signed(n00b_type_t *t)
 {
-    if (t == NULL) {
+    if (!n00b_ensure_type(t)) {
         return false;
     }
 
@@ -734,6 +909,9 @@ n00b_type_is_signed(n00b_type_t *t)
 static inline bool
 n00b_type_is_tvar(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
     t = n00b_type_resolve(t);
     return (n00b_type_get_kind(t) == N00B_DT_KIND_type_var);
 }
@@ -741,6 +919,9 @@ n00b_type_is_tvar(n00b_type_t *t)
 static inline bool
 n00b_type_is_void(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_VOID;
 }
@@ -748,6 +929,9 @@ n00b_type_is_void(n00b_type_t *t)
 static inline bool
 n00b_type_is_nil(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_VOID;
 }
@@ -755,13 +939,60 @@ n00b_type_is_nil(n00b_type_t *t)
 static inline bool
 n00b_type_is_string(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_UTF8 || t->typeid == N00B_T_UTF32;
 }
 
 static inline bool
+n00b_type_is_buffer(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_BUFFER;
+}
+
+static inline bool
+n00b_type_is_datetime(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_DATETIME;
+}
+
+static inline bool
+n00b_type_is_date(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_DATE;
+}
+
+static inline bool
+n00b_type_is_time(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_TIME;
+}
+
+static inline bool
 n00b_type_is_renderable(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_RENDERABLE;
 }
@@ -769,6 +1000,9 @@ n00b_type_is_renderable(n00b_type_t *t)
 static inline bool
 n00b_type_is_grid(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_GRID;
 }
@@ -776,8 +1010,11 @@ n00b_type_is_grid(n00b_type_t *t)
 static inline bool
 n00b_type_is_value_type(n00b_type_t *t)
 {
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
     // This should NOT unbox; check n00b_type_is_box() too if needed.
-    t                 = n00b_type_resolve(t);
+    t                  = n00b_type_resolve(t);
     n00b_dt_info_t *dt = n00b_type_get_data_type_info(t);
 
     return dt->by_value;
@@ -786,7 +1023,12 @@ n00b_type_is_value_type(n00b_type_t *t)
 static inline bool
 n00b_obj_item_type_is_value(n00b_obj_t obj)
 {
-    n00b_type_t *t         = n00b_get_my_type(obj);
+    n00b_type_t *t = n00b_get_my_type(obj);
+
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     n00b_type_t *item_type = n00b_type_get_param(t, 0);
 
     return n00b_type_is_value_type(item_type);
@@ -822,13 +1064,17 @@ n00b_obj_is_int_type(const n00b_obj_t *obj)
 {
     n00b_type_t *t = n00b_get_my_type((n00b_obj_t *)obj);
 
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
     return n00b_type_is_int_type(n00b_resolve_and_unbox(t));
 }
 
 static inline bool
 n00b_type_requires_gc_scan(n00b_type_t *t)
 {
-    t                 = n00b_type_resolve(t);
+    t                  = n00b_type_resolve(t);
     n00b_dt_info_t *dt = n00b_type_get_data_type_info(t);
 
     if (dt->by_value) {
@@ -842,7 +1088,7 @@ void n00b_set_next_typevar_fn(n00b_next_typevar_fn);
 
 #ifdef N00B_USE_INTERNAL_API
 extern n00b_grid_t *n00b_format_global_type_environment(n00b_type_universe_t *);
-extern void        n00b_clean_environment();
+extern void         n00b_clean_environment();
 
 #ifdef N00B_TYPE_LOG
 extern void type_log_on();

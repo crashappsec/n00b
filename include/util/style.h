@@ -4,6 +4,7 @@
 
 // Flags in the style `info` bitfield.
 
+#define N00B_UNSTYLED         ((n00b_style_t)0)
 #define N00B_STY_BOLD         (0x1ULL << 63)
 #define N00B_STY_ITALIC       (0x1ULL << 62)
 #define N00B_STY_ST           (0x1ULL << 61)
@@ -34,8 +35,8 @@
 
 extern n00b_style_t n00b_apply_bg_color(n00b_style_t style, n00b_utf8_t *name);
 extern n00b_style_t n00b_apply_fg_color(n00b_style_t style, n00b_utf8_t *name);
-extern void        n00b_style_gaps(n00b_str_t *, n00b_style_t);
-extern void        n00b_str_layer_style(n00b_str_t *, n00b_style_t, n00b_style_t);
+extern void         n00b_style_gaps(n00b_str_t *, n00b_style_t);
+extern void         n00b_str_layer_style(n00b_str_t *, n00b_style_t, n00b_style_t);
 
 #ifdef N00B_STYLE_DEBUG
 static inline void
@@ -96,16 +97,16 @@ n00b_alloc_styles(n00b_str_t *s, int n)
 {
     if (n <= 0) {
         s->styling              = n00b_gc_flex_alloc(n00b_style_info_t,
-                                       n00b_style_entry_t,
-                                       1,
-                                       N00B_GC_SCAN_ALL);
+                                        n00b_style_entry_t,
+                                        1,
+                                        N00B_GC_SCAN_ALL);
         s->styling->num_entries = 0;
     }
     else {
         s->styling              = n00b_gc_flex_alloc(n00b_style_info_t,
-                                       n00b_style_entry_t,
-                                       n + 1,
-                                       N00B_GC_SCAN_ALL);
+                                        n00b_style_entry_t,
+                                        n + 1,
+                                        N00B_GC_SCAN_ALL);
         s->styling->num_entries = n;
     }
 }
@@ -121,7 +122,7 @@ n00b_copy_style_info(const n00b_str_t *from_str, n00b_str_t *to_str)
     n00b_alloc_styles(to_str, n);
 
     for (int i = 0; i < n; i++) {
-        n00b_style_entry_t s        = from_str->styling->styles[i];
+        n00b_style_entry_t s       = from_str->styling->styles[i];
         to_str->styling->styles[i] = s;
     }
 
@@ -139,9 +140,9 @@ n00b_str_set_style(n00b_str_t *s, n00b_style_t style)
 
 static inline int
 n00b_copy_and_offset_styles(n00b_str_t *from_str,
-                           n00b_str_t *to_str,
-                           int        dst_style_ix,
-                           int        offset)
+                            n00b_str_t *to_str,
+                            int         dst_style_ix,
+                            int         offset)
 {
     if (from_str->styling == NULL || from_str->styling->num_entries == 0) {
         return dst_style_ix;

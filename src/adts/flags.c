@@ -23,14 +23,14 @@ flags_init(n00b_flags_t *self, va_list args)
     self->alloc_wordlen = (length + 63) / 64;
 
     self->contents = n00b_gc_raw_alloc(sizeof(uint64_t) * self->alloc_wordlen,
-                                      NULL);
+                                       NULL);
 }
 
 n00b_flags_t *
 n00b_flags_copy(const n00b_flags_t *self)
 {
     n00b_flags_t *result = n00b_new(n00b_type_flags(),
-                                  n00b_kw("length", n00b_ka(self->num_flags)));
+                                    n00b_kw("length", n00b_ka(self->num_flags)));
 
     for (int i = 0; i < result->alloc_wordlen; i++) {
         result->contents[i] = self->contents[i];
@@ -66,12 +66,12 @@ flags_repr(const n00b_flags_t *self)
     N00B_STATIC_ASCII_STR(prefix, "0x{");
     N00B_STATIC_ASCII_STR(fmt_cons, ":{}x}");
     n00b_utf8_t *result;
-    int         n = self->alloc_wordlen;
+    int          n = self->alloc_wordlen;
 
     if (self->bit_modulus) {
         n00b_utf8_t *fmt = n00b_str_format(fmt_cons, (self->bit_modulus + 3) / 4);
-        fmt             = n00b_to_utf8(n00b_str_concat(prefix, fmt));
-        result          = n00b_str_format(fmt, n00b_box_u64(self->contents[--n]));
+        fmt              = n00b_to_utf8(n00b_str_concat(prefix, fmt));
+        result           = n00b_str_format(fmt, n00b_box_u64(self->contents[--n]));
     }
     else {
         result = n00b_new_utf8("0x");
@@ -79,8 +79,8 @@ flags_repr(const n00b_flags_t *self)
 
     while (n--) {
         result = n00b_cstr_format("{}{:x}",
-                                 result,
-                                 n00b_box_u64(self->contents[n]));
+                                  result,
+                                  n00b_box_u64(self->contents[n]));
     }
 
     return result;
@@ -92,9 +92,9 @@ flags_lit(const n00b_utf8_t    *s,
           n00b_utf8_t          *m,
           n00b_compile_error_t *code)
 {
-    int64_t      len    = n00b_str_codepoint_len(s);
+    int64_t       len    = n00b_str_codepoint_len(s);
     n00b_flags_t *result = n00b_new(n00b_type_flags(),
-                                  n00b_kw("length", n00b_ka(len * 4)));
+                                    n00b_kw("length", n00b_ka(len * 4)));
 
     uint64_t cur_word = 0;
     int      ct       = 0;
@@ -154,10 +154,10 @@ flags_lit(const n00b_utf8_t    *s,
 n00b_flags_t *
 n00b_flags_add(n00b_flags_t *self, n00b_flags_t *with)
 {
-    uint32_t     res_flags   = n00b_max(self->num_flags, with->num_flags);
+    uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
     n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                  n00b_kw("length", n00b_ka(res_flags)));
-    int32_t      min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
+                                    n00b_kw("length", n00b_ka(res_flags)));
+    int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
 
     for (int i = 0; i < min_wordlen; i++) {
         result->contents[i] = self->contents[i] | with->contents[i];
@@ -185,11 +185,11 @@ n00b_flags_sub(n00b_flags_t *self, n00b_flags_t *with)
     // it's the rhs, as it implies the lhs has unset flags, but
     // they're valid.
 
-    uint32_t     res_flags   = n00b_max(self->num_flags, with->num_flags);
+    uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
     n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                  n00b_kw("length", n00b_ka(res_flags)));
-    int32_t      min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
-    int          i;
+                                    n00b_kw("length", n00b_ka(res_flags)));
+    int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
+    int           i;
 
     for (i = 0; i < min_wordlen; i++) {
         result->contents[i] = self->contents[i] & ~with->contents[i];
@@ -211,10 +211,10 @@ n00b_flags_test(n00b_flags_t *self, n00b_flags_t *with)
     // it's the rhs, as it implies the lhs has unset flags, but
     // they're valid.
 
-    uint32_t     res_flags   = n00b_max(self->num_flags, with->num_flags);
+    uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
     n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                  n00b_kw("length", n00b_ka(res_flags)));
-    int32_t      min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
+                                    n00b_kw("length", n00b_ka(res_flags)));
+    int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
 
     for (int i = 0; i < min_wordlen; i++) {
         result->contents[i] = self->contents[i] & with->contents[i];
@@ -226,10 +226,10 @@ n00b_flags_test(n00b_flags_t *self, n00b_flags_t *with)
 n00b_flags_t *
 n00b_flags_xor(n00b_flags_t *self, n00b_flags_t *with)
 {
-    uint32_t     res_flags   = n00b_max(self->num_flags, with->num_flags);
+    uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
     n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                  n00b_kw("length", n00b_ka(res_flags)));
-    int32_t      min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
+                                    n00b_kw("length", n00b_ka(res_flags)));
+    int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
 
     for (int i = 0; i < min_wordlen; i++) {
         result->contents[i] = self->contents[i] ^ with->contents[i];
@@ -255,10 +255,10 @@ n00b_flags_eq(n00b_flags_t *self, n00b_flags_t *other)
     // We do this in as close to constant time as possible to avoid
     // any side channels.
 
-    uint64_t     sum = 0;
-    int          i;
-    int32_t      nlow  = n00b_min(self->alloc_wordlen, other->alloc_wordlen);
-    int32_t      nhigh = n00b_max(self->alloc_wordlen, other->alloc_wordlen);
+    uint64_t      sum = 0;
+    int           i;
+    int32_t       nlow  = n00b_min(self->alloc_wordlen, other->alloc_wordlen);
+    int32_t       nhigh = n00b_max(self->alloc_wordlen, other->alloc_wordlen);
     n00b_flags_t *high_ptr;
 
     if (self->alloc_wordlen == nhigh) {
@@ -293,7 +293,7 @@ resize_flags(n00b_flags_t *self, uint64_t new_num)
 
     if (new_words < self->alloc_wordlen) {
         uint64_t *contents = n00b_gc_raw_alloc(sizeof(uint64_t) * new_words,
-                                              NULL);
+                                               NULL);
 
         for (int i = 0; i < self->alloc_wordlen; i++) {
             contents[i] = self->contents[i];
@@ -404,7 +404,7 @@ static inline void *
 flags_view(n00b_flags_t *self, uint64_t *n)
 {
     n00b_flags_t *copy = n00b_flags_copy(self);
-    *n                = copy->num_flags;
+    *n                 = copy->num_flags;
 
     return copy;
 }
@@ -428,8 +428,6 @@ const n00b_vtable_t n00b_flags_vtable = {
         [N00B_BI_SLICE_GET]    = (n00b_vtable_entry)n00b_flags_slice,
         [N00B_BI_SLICE_SET]    = (n00b_vtable_entry)n00b_flags_set_slice,
 #endif
-        // Explicit because some compilers don't seem to always properly
-        // zero it (Was sometimes crashing on a `n00b_stream_t` on my mac).
         [N00B_BI_FINALIZER] = NULL,
     },
 };

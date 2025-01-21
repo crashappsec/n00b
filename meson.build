@@ -34,6 +34,7 @@ c_args = [
     '-Wno-cast-function-type',
     '-fno-omit-frame-pointer',
     '-DHATRACK_PER_INSTANCE_AUX',
+    '-DHATRACK_DONT_DEALLOC',    
     '-DN00B_MIN_RENDER_WIDTH=' + render_width,
     '-DN00B_BACKTRACE_SUPPORTED',
 ]
@@ -137,7 +138,8 @@ if get_option('dev_mode') == true
     endif
 
     if get_option('show_gc_stats').enabled()
-        c_args = c_args + ['-DN00B_GC_STATS', '-DHATRACK_ALLOC_PASS_LOCATION']
+        c_args = c_args + ['-DN00B_GC_STATS',
+                '-DHATRACK_ALLOC_PASS_LOCATION']
     endif
 
     vm_debug = get_option('vm_debug')
@@ -174,14 +176,12 @@ n00b_c_args = c_args
 
 n00b_core = [
     'src/core/init.c',
-    'src/core/gcbase.c',
-    'src/core/collect.c',
+    'src/core/heap.c',
+    'src/core/collect.c',    
     'src/core/kargs.c',
     'src/core/exceptions.c',
     'src/core/types.c',
     'src/core/typestore.c',
-    'src/core/marshal.c',
-    'src/core/unmarshal.c',
     'src/core/literals.c',
     'src/core/attrstore.c',
     'src/core/vm.c',
@@ -189,6 +189,8 @@ n00b_core = [
     'src/core/object.c',
     'src/core/validation.c',
     'src/core/rtsetup.c',
+    'src/core/thread.c',
+    'src/core/thread_coop.c',    
 ]
 n00b_adts = [
     'src/adts/string.c',
@@ -202,23 +204,39 @@ n00b_adts = [
     'src/adts/numbers.c',
     'src/adts/mixed.c',
     'src/adts/tuple.c',
-    'src/adts/ipaddr.c',
+    'src/adts/net_addr.c',
     'src/adts/datetime.c',
     'src/adts/size.c',
     'src/adts/duration.c',
     'src/adts/callback.c',
-    'src/adts/streams.c',
     'src/adts/flags.c',
     'src/adts/box.c',
+    'src/adts/bytering.c',
 ]
 
 n00b_io = [
+    'src/io/iocore.c',
+    'src/io/ioqueue.c',    
+    'src/io/filters.c',
+    'src/io/marshal.c',
+    'src/io/file.c',
+    'src/io/socket.c',
+    'src/io/listener.c',
+    'src/io/signal.c',
+    'src/io/timer.c',
+    'src/io/exitinfo.c',
+    'src/io/condition.c',
+    'src/io/callback.c',
+    'src/io/topic.c',
+    'src/io/subproxy.c',
+    'src/io/buffer.c',
+    'src/io/strstream.c',
     'src/io/ansi.c',
-    'src/io/switchboard.c',
-    'src/io/subproc.c',
+    'src/io/print.c',
     'src/io/term.c',
     'src/io/http.c',
-    'src/io/file.c',
+    'src/io/proc.c',
+    'src/io/debug.c',
 ]
 
 n00b_compiler = [
@@ -265,12 +283,20 @@ n00b_util = [
     'src/util/getopt_parse.c',
     'src/util/getopt_docs.c',
     'src/util/markdown.c',
+    'src/util/locks.c',
+    'src/util/json.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
 
-n00b_src = n00b_core + n00b_adts + n00b_io + n00b_compiler + n00b_util + n00b_crypto
+n00b_cmd = ['src/cmd/main.c']
 
+n00b_log = ['src/cmd/n00b_debug.c']
+
+n00b_base = n00b_core + n00b_adts + n00b_io + n00b_compiler + n00b_util + n00b_crypto
+
+n00b_src = n00b_base + n00b_cmd
+log_src = n00b_base + n00b_log
 
 hat_primary = [
     'src/hatrack/support/hatrack_common.c',
@@ -323,7 +349,7 @@ if not using_osx and not using_glibc
     hat_primary = hat_primary + quark_files
 endif
 
-lib_src = n00b_src + hat_primary
+lib_src = n00b_base + hat_primary
 
 test_src = [
     'src/harness/n00b_base/test.c',
@@ -338,6 +364,19 @@ libatomic_dep = cc.find_library('atomic', required : false)
 libmath_dep = cc.find_library('m', required : false)
 libthreads_dep = dependency('threads', required : true)
 
+# Need to add these as a subproject, but for the moment just assume them.
+libevent_core_dep = cc.find_library('event_core', required : true)
+libevent_extra_dep = cc.find_library('event_extra', required : true)
+libevent_openssl_dep = cc.find_library('event_openssl', required : true)
+libevent_pthreads_dep = cc.find_library('event_pthreads', required : true)
+
+event_deps = [
+               libevent_core_dep,
+               libevent_extra_dep,
+               libevent_openssl_dep,
+               libevent_pthreads_dep,
+]               
+              
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
 libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
 libffi_dep = subproject('libffi').get_variable('libffi_dep')
@@ -360,7 +399,7 @@ deps = [
   libunibreak_dep,
   libutf8proc_dep,
   openssl_dep,
-]
+] + event_deps
 link_with = [
 ]
 
@@ -368,8 +407,7 @@ if using_glibc and libatomic_dep.found()
   deps = deps + [libatomic_dep]
 endif
 
-n00b = static_library(
-    'n00b',
+n00b = static_library('n00b',
     lib_src,
     include_directories: incdir,
     dependencies: deps,
@@ -394,6 +432,26 @@ endif
 executable(
     'n00btest',
     test_src,
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)
+
+executable(
+    'n00b',
+    n00b_src,
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)
+
+executable(
+ 'n00blog',
+ log_src,
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,

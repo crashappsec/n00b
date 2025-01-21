@@ -1,5 +1,7 @@
 #include "n00b.h"
 
+int debug_flag = false;
+
 typedef struct {
     n00b_set_t       *captures;
     n00b_tree_node_t *tree_cur;
@@ -9,38 +11,38 @@ typedef struct {
 
 #ifdef N00B_N00B_DEBUG_PATTERNS
 #define tpat_debug(ctx, txt) n00b_print(n00b_cstr_format( \
-    "{:x} : [em]{}[/]",                                 \
-    n00b_box_u64((uint64_t)ctx->pattern_cur),            \
-    n00b_new_utf8(txt),                                  \
+    "{:x} : [em]{}[/]",                                   \
+    n00b_box_u64((uint64_t)ctx->pattern_cur),             \
+    n00b_new_utf8(txt),                                   \
     0))
 #else
 #define tpat_debug(ctx, txt)
 #endif
 
-#define tpat_varargs(result)                                                 \
-    va_list args;                                                            \
-    int64_t num_kids = 0;                                                    \
-    int     i        = 0;                                                    \
-                                                                             \
-    va_start(args, capture);                                                 \
-    num_kids = va_arg(args, int64_t);                                        \
-    if (num_kids) {                                                          \
+#define tpat_varargs(result)                                                   \
+    va_list args;                                                              \
+    int64_t num_kids = 0;                                                      \
+    int     i        = 0;                                                      \
+                                                                               \
+    va_start(args, capture);                                                   \
+    num_kids = va_arg(args, int64_t);                                          \
+    if (num_kids) {                                                            \
         result->children = n00b_gc_array_alloc(n00b_tpat_node_t **, num_kids); \
-                                                                             \
-        for (i = 0; i < num_kids; i++) {                                     \
+                                                                               \
+        for (i = 0; i < num_kids; i++) {                                       \
             n00b_tpat_node_t *n = va_arg(args, n00b_tpat_node_t *);            \
-            if (!n) {                                                        \
-                break;                                                       \
-            }                                                                \
-            result->children[i] = n;                                         \
-        }                                                                    \
-    }                                                                        \
-    result->num_kids = i;                                                    \
+            if (!n) {                                                          \
+                break;                                                         \
+            }                                                                  \
+            result->children[i] = n;                                           \
+        }                                                                      \
+    }                                                                          \
+    result->num_kids = i;                                                      \
     va_end(args)
 
 n00b_tree_node_t *
 n00b_pat_repr(n00b_tpat_node_t   *pat,
-             n00b_pattern_fmt_fn content_formatter)
+              n00b_pattern_fmt_fn content_formatter)
 {
     n00b_utf8_t *op       = NULL;
     n00b_utf8_t *contents = (*content_formatter)(pat->contents);
@@ -108,18 +110,18 @@ n00b_pat_repr(n00b_tpat_node_t   *pat,
     }
 
     n00b_utf8_t *txt = n00b_cstr_format("{:x} [em]{}{}[/] :",
-                                      n00b_box_u64((uint64_t)pat),
-                                      op,
-                                      capture);
+                                        n00b_box_u64((uint64_t)pat),
+                                        op,
+                                        capture);
 
     txt = n00b_str_concat(txt, contents);
 
     n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_utf8()),
-                                      n00b_kw("contents", n00b_ka(txt)));
+                                        n00b_kw("contents", n00b_ka(txt)));
 
     for (unsigned int i = 0; i < pat->num_kids; i++) {
         n00b_tree_node_t *kid = n00b_pat_repr(pat->children[i],
-                                            content_formatter);
+                                              content_formatter);
         n00b_tree_adopt_node(result, kid);
     }
 
@@ -159,7 +161,7 @@ static inline n00b_tpat_node_t *
 tpat_base(void *contents, int64_t min, int64_t max, bool walk, int64_t capture)
 {
     n00b_tpat_node_t *result = n00b_gc_alloc_mapped(n00b_tpat_node_t,
-                                                  n00b_tpat_gc_bits);
+                                                    n00b_tpat_gc_bits);
 
     result->min      = min;
     result->max      = max;
@@ -214,7 +216,7 @@ n00b_tpat_node_t *
 n00b_tpat_content_find(void *contents, int64_t capture)
 {
     n00b_tpat_node_t *result = tpat_base(contents, 1, 1, true, capture);
-    result->ignore_kids     = 1;
+    result->ignore_kids      = 1;
 
     return result;
 }
@@ -223,7 +225,7 @@ n00b_tpat_node_t *
 n00b_tpat_content_match(void *contents, int64_t capture)
 {
     n00b_tpat_node_t *result = tpat_base(contents, 1, 1, false, capture);
-    result->ignore_kids     = 1;
+    result->ignore_kids      = 1;
 
     return result;
 }
@@ -232,7 +234,7 @@ n00b_tpat_node_t *
 n00b_tpat_opt_content_match(void *contents, int64_t capture)
 {
     n00b_tpat_node_t *result = tpat_base(contents, 0, 1, false, capture);
-    result->ignore_kids     = 1;
+    result->ignore_kids      = 1;
 
     return result;
 }
@@ -241,7 +243,7 @@ n00b_tpat_node_t *
 n00b_tpat_n_m_content_match(void *contents, int64_t min, int64_t max, int64_t capture)
 {
     n00b_tpat_node_t *result = tpat_base(contents, min, max, false, capture);
-    result->ignore_kids     = 1;
+    result->ignore_kids      = 1;
 
     return result;
 }
@@ -254,9 +256,9 @@ static bool full_match(search_ctx_t *, void *);
 
 bool
 n00b_tree_match(n00b_tree_node_t *tree,
-               n00b_tpat_node_t *pat,
-               n00b_cmp_fn       cmp,
-               n00b_list_t     **match_loc)
+                n00b_tpat_node_t *pat,
+                n00b_cmp_fn       cmp,
+                n00b_list_t     **match_loc)
 {
 #if 0
     search_ctx_t search_state = {
@@ -311,16 +313,16 @@ capture(search_ctx_t *ctx, n00b_tree_node_t *node)
 }
 
 static int
-count_consecutive_matches(search_ctx_t    *ctx,
+count_consecutive_matches(search_ctx_t     *ctx,
                           n00b_tree_node_t *parent,
-                          int              next_child,
-                          void            *contents,
-                          int              max,
+                          int               next_child,
+                          void             *contents,
+                          int               max,
                           n00b_list_t     **captures)
 {
     n00b_set_t  *saved_captures     = ctx->captures;
     n00b_list_t *per_match_captures = NULL;
-    int         result             = 0;
+    int          result             = 0;
 
     ctx->captures = NULL;
 
@@ -354,18 +356,17 @@ count_consecutive_matches(search_ctx_t    *ctx,
     return result;
 }
 
-int debug_flag = false;
 static bool
-kid_match_from(search_ctx_t    *ctx,
+kid_match_from(search_ctx_t     *ctx,
                n00b_tree_node_t *parent,
                n00b_tpat_node_t *parent_pattern,
-               int              next_child,
-               int              next_pattern,
-               void            *contents)
+               int               next_child,
+               int               next_pattern,
+               void             *contents)
 {
     n00b_tpat_node_t *subpattern   = parent_pattern->children[next_pattern];
     n00b_list_t      *kid_captures = NULL;
-    int              num_matches;
+    int               num_matches;
 
     ctx->pattern_cur = subpattern;
     // We start by seeing how many sequential matches we can find.
@@ -387,9 +388,9 @@ kid_match_from(search_ctx_t    *ctx,
     // Capture any nodes that are definitely part of this match.
     for (int i = next_child; i < subpattern->min; i++) {
         n00b_set_t *one_set = n00b_list_get(kid_captures,
-                                          kid_capture_ix++,
-                                          NULL);
-        ctx->captures      = merge_captures(ctx->captures, one_set);
+                                            kid_capture_ix++,
+                                            NULL);
+        ctx->captures       = merge_captures(ctx->captures, one_set);
     }
 
     // Here we are looking to advance to the next pattern, but if
@@ -404,8 +405,8 @@ kid_match_from(search_ctx_t    *ctx,
 
         for (int i = kid_capture_ix; i < n00b_list_len(kid_captures); i++) {
             n00b_set_t *one_set = n00b_list_get(kid_captures,
-                                              i,
-                                              NULL);
+                                                i,
+                                                NULL);
 
             ctx->captures = merge_captures(ctx->captures, one_set);
         }
@@ -433,7 +434,7 @@ kid_match_from(search_ctx_t    *ctx,
     next_child += subpattern->min;
 
     n00b_tpat_node_t *pnew          = parent_pattern->children[next_pattern];
-    void            *next_contents = pnew->contents;
+    void             *next_contents = pnew->contents;
 
     for (int i = 0; i <= num_matches; i++) {
         n00b_set_t *copy = NULL;
@@ -456,9 +457,9 @@ kid_match_from(search_ctx_t    *ctx,
             ctx->captures = merge_captures(ctx->captures, copy);
             if (kid_capture_ix < n00b_list_len(kid_captures)) {
                 n00b_set_t *one_set = n00b_list_get(kid_captures,
-                                                  kid_capture_ix,
-                                                  NULL);
-                ctx->captures      = merge_captures(ctx->captures, one_set);
+                                                    kid_capture_ix,
+                                                    NULL);
+                ctx->captures       = merge_captures(ctx->captures, one_set);
             }
             return true;
         }
@@ -469,9 +470,9 @@ kid_match_from(search_ctx_t    *ctx,
             // node that DOES work for us, if there's a capture
             // it's time to stash it.
             n00b_set_t *one_set = n00b_list_get(kid_captures,
-                                              kid_capture_ix++,
-                                              NULL);
-            ctx->captures      = merge_captures(ctx->captures, one_set);
+                                                kid_capture_ix++,
+                                                NULL);
+            ctx->captures       = merge_captures(ctx->captures, one_set);
         }
     }
 
@@ -487,7 +488,7 @@ children_match(search_ctx_t *ctx)
 
     n00b_tree_node_t *saved_parent  = ctx->tree_cur;
     n00b_tpat_node_t *saved_pattern = ctx->pattern_cur;
-    bool             result;
+    bool              result;
 
     if (saved_pattern->num_kids == 0) {
         if (saved_parent->num_kids == 0 || saved_pattern->ignore_kids) {

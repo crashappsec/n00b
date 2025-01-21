@@ -36,19 +36,15 @@
 #include <string.h>
 #endif
 
-typedef struct mmm_free_tids_st mmm_free_tids_t;
-struct mmm_free_tids_st {
-    mmm_free_tids_t *next;
-    uint64_t         tid;
-};
-
 static _Atomic uint64_t mmm_nexttid;
 
 _Atomic uint64_t mmm_epoch = HATRACK_EPOCH_FIRST;
 
 static uint64_t mmm_reservations[HATRACK_THREADS_MAX];
 
+#ifndef HATRACK_DONT_DEALLOC
 static void mmm_empty(mmm_thread_t *thread);
+#endif
 
 #ifdef HATRACK_MMM_DEBUG
 __attribute__((unused)) static void
@@ -94,7 +90,7 @@ static mmm_thread_acquire_func mmm_thread_acquire_fn = mmm_thread_acquire_defaul
  *
  */
 
-static _Atomic(mmm_free_tids_t *) mmm_free_tids;
+_Atomic(mmm_free_tids_t *) mmm_free_tids;
 
 // Call when a thread exits to add to the free TID stack.
 static void
@@ -211,9 +207,11 @@ mmm_thread_release(mmm_thread_t *thread)
     if (thread->initialized) {
         mmm_end_op(thread);
 
+#ifndef HATRACK_DONT_DEALLOC
         while (thread->retire_list) {
             mmm_empty(thread);
         }
+#endif
 
         mmm_tid_giveback(thread);
     }
@@ -234,6 +232,8 @@ mmm_setthreadfns(mmm_thread_acquire_func acquirefn, void *aux)
  * mmm_empty(), which walks our thread-local retirement list, looking
  * for items to free.
  */
+
+#ifndef HATRACK_DONT_DEALLOC
 void
 mmm_retire(mmm_thread_t *thread, void *ptr)
 {
@@ -383,6 +383,35 @@ mmm_empty(mmm_thread_t *thread)
 }
 
 void
+mmm_retire_unused(void *ptr)
+{
+    DEBUG_MMM_INTERNAL(ptr, "mmm_retire_unused");
+    HATRACK_RETIRE_UNUSED_CTR();
+
+    mmm_header_t *item = mmm_get_header(ptr);
+    hatrack_free(item, sizeof(mmm_header_t) + item->size);
+
+    return;
+}
+
+// Use this in migration functions to avoid unnecessary scanning of the
+// retire list, when we know the epoch won't have changed.
+void
+mmm_retire_fast(mmm_thread_t *thread, void *ptr)
+{
+    mmm_header_t *cell;
+
+    cell                = mmm_get_header(ptr);
+    cell->retire_epoch  = atomic_load(&mmm_epoch);
+    cell->next          = thread->retire_list;
+    thread->retire_list = cell;
+
+    return;
+}
+
+#endif
+
+void
 mmm_start_basic_op(mmm_thread_t *thread)
 {
     mmm_reservations[thread->tid] = atomic_load(&mmm_epoch);
@@ -508,33 +537,6 @@ mmm_help_commit(void *ptr)
              cur_epoch,
              HATRACK_CTR_COMMIT_HELPS);
     }
-
-    return;
-}
-
-void
-mmm_retire_unused(void *ptr)
-{
-    DEBUG_MMM_INTERNAL(ptr, "mmm_retire_unused");
-    HATRACK_RETIRE_UNUSED_CTR();
-
-    mmm_header_t *item = mmm_get_header(ptr);
-    hatrack_free(item, sizeof(mmm_header_t) + item->size);
-
-    return;
-}
-
-// Use this in migration functions to avoid unnecessary scanning of the
-// retire list, when we know the epoch won't have changed.
-void
-mmm_retire_fast(mmm_thread_t *thread, void *ptr)
-{
-    mmm_header_t *cell;
-
-    cell                = mmm_get_header(ptr);
-    cell->retire_epoch  = atomic_load(&mmm_epoch);
-    cell->next          = thread->retire_list;
-    thread->retire_list = cell;
 
     return;
 }

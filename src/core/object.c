@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 static n00b_utf8_t *
@@ -214,18 +215,10 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .mutable   = true,
     },
     [N00B_T_IPV4] = {
-        .name      = "IPaddr",
+        .name      = "Address",
         .typeid    = N00B_T_IPV4,
         .vtable    = &n00b_ipaddr_vtable,
-        .alloc_len = sizeof(n00b_ipaddr_t),
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-    },
-    [N00B_T_IPV6] = {
-        .name      = "IPv6_unused", // Going to merge w/ ipv4
-        .typeid    = N00B_T_IPV6,
-        .vtable    = &n00b_ipaddr_vtable,
-        .alloc_len = sizeof(struct sockaddr_in6),
+        .alloc_len = sizeof(n00b_net_addr_t),
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
@@ -436,14 +429,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .dt_kind   = N00B_DT_KIND_type_var,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
-    [N00B_T_STREAM] = {
-        .name      = "stream",
-        .typeid    = N00B_T_STREAM,
-        .alloc_len = sizeof(n00b_stream_t),
-        .vtable    = &n00b_stream_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-    },
     [N00B_T_KEYWORD] = {
         .name      = "keyword",
         .typeid    = N00B_T_KEYWORD,
@@ -629,7 +614,60 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
-
+    [N00B_T_LOCK] = {
+        .name      = "lock",
+        .typeid    = N00B_T_LOCK,
+        .alloc_len = sizeof(n00b_lock_t),
+        .vtable    = &n00b_lock_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_CONDITION] = {
+        .name      = "condition",
+        .typeid    = N00B_T_CONDITION,
+        .alloc_len = sizeof(n00b_condition_t),
+        .vtable    = &n00b_condition_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_STREAM] = {
+        .name      = "event",
+        .typeid    = N00B_T_STREAM,
+        .alloc_len = sizeof(n00b_stream_t),
+        .vtable    = &n00b_stream_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_MESSAGE] = {
+        .name      = "message",
+        .typeid    = N00B_T_MESSAGE,
+        .alloc_len = sizeof(n00b_message_t),
+        .vtable    = &n00b_message_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_BYTERING] = {
+        .name      = "bytering",
+        .typeid    = N00B_T_BYTERING,
+        .alloc_len = sizeof(n00b_bytering_t),
+        .vtable    = &n00b_bytering_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_FILE] = {
+        .name      = "file",
+        .typeid    = N00B_T_FILE,
+        .alloc_len = sizeof(n00b_stream_t),
+        .vtable    = &n00b_file_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
 };
 
 extern int TMP_DEBUG;
@@ -638,56 +676,59 @@ extern int n00b_watch_case;
 
 #if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
 n00b_obj_t
-_n00b_new(char *file, int line, n00b_type_t *type, ...)
+_n00b_new(n00b_heap_t *heap, char *file, int line, n00b_type_t *type, ...)
 #else
 n00b_obj_t
-_n00b_new(n00b_type_t *type, ...)
+_n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 #endif
 {
+    n00b_heap_t *__n00b_saved_heap           = NULL;
+    bool         clear_thread_heap_reference = false;
+
+    //    // Always use the type heap for types.
+    if (type->typeid == N00B_T_TYPESPEC) {
+        //__n00b_saved_heap           = n00b_type_heap;
+        clear_thread_heap_reference = true;
+    }
+
+    // Thread heap overrides specified heaps.
+    if (heap && !n00b_thread_heap) {
+        // __n00b_saved_heap           = heap;
+        clear_thread_heap_reference = true;
+    }
+
     type = n00b_type_resolve(type);
 
-    n00b_obj_t        obj;
-    va_list          args;
-    n00b_dt_info_t   *tinfo     = n00b_type_get_data_type_info(type);
-    uint64_t         alloc_len = tinfo->alloc_len;
+    n00b_obj_t      obj;
+    va_list         args;
+    n00b_dt_info_t *tinfo     = n00b_type_get_data_type_info(type);
+    uint64_t        alloc_len = tinfo->alloc_len;
 
     if (!tinfo->vtable) {
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-      return _n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL, file, line);
-#else
-      return n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL);
-#endif
+        obj = n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL);
+
+        if (clear_thread_heap_reference) {
+            n00b_thread_heap = NULL;
+        }
+
+        // if (clear_thread_heap_reference) {
+        //  n00b_pop_heap();
+        //        }
+        return obj;
     }
 
     n00b_vtable_entry init_fn = tinfo->vtable->methods[N00B_BI_CONSTRUCTOR];
     n00b_vtable_entry scan_fn = tinfo->vtable->methods[N00B_BI_GC_MAP];
 
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-    if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
-        obj = _n00b_gc_raw_alloc(alloc_len,
-                                (n00b_mem_scan_fn)scan_fn,
-                                file,
-                                line);
-    }
-    else {
-        obj = _n00b_gc_raw_alloc_with_finalizer(alloc_len,
-                                               (n00b_mem_scan_fn)scan_fn,
-                                               file,
-                                               line);
-    }
-#else
-    if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
-        obj = n00b_gc_raw_alloc(alloc_len, (n00b_mem_scan_fn)scan_fn);
-    }
-    else {
-        obj = n00b_gc_raw_alloc_with_finalizer(alloc_len,
-                                              (n00b_mem_scan_fn)scan_fn);
-    }
-#endif
+    obj = n00b_halloc(heap, alloc_len, (n00b_mem_scan_fn)scan_fn);
 
     n00b_alloc_hdr *hdr = &((n00b_alloc_hdr *)obj)[-1];
-    hdr->n00b_obj     = 1;
-    hdr->type          = type;
+    hdr->n00b_obj       = true;
+    hdr->type           = type;
+
+    if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
+        hdr->n00b_finalize = true;
+    }
 
     switch (tinfo->dt_kind) {
     case N00B_DT_KIND_primitive:
@@ -704,17 +745,25 @@ _n00b_new(n00b_type_t *type, ...)
         }
         break;
     default:
+        if (clear_thread_heap_reference) {
+            n00b_thread_heap = NULL;
+        }
+
         N00B_CRAISE(
             "Requested type is non-instantiable or not yet "
             "implemented.");
     }
 
+    if (clear_thread_heap_reference) {
+        n00b_pop_heap();
+    }
+
     return obj;
 }
 n00b_str_t *
-n00b_repr(void *item, n00b_type_t *t)
+n00b_repr_explicit(void *item, n00b_type_t *t)
 {
-    uint64_t    x = n00b_type_resolve(t)->base_index;
+    uint64_t     x = n00b_type_resolve(t)->base_index;
     n00b_repr_fn p;
 
     p = (n00b_repr_fn)n00b_base_type_info[x].vtable->methods[N00B_BI_REPR];
@@ -723,9 +772,34 @@ n00b_repr(void *item, n00b_type_t *t)
         p = (n00b_repr_fn)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_STR];
         if (!p) {
             return n00b_cstr_format("{}@{:x}",
-                                   n00b_new_utf8(n00b_base_type_info[x].name),
-                                   n00b_box_u64((uint64_t)item));
+                                    n00b_new_utf8(n00b_base_type_info[x].name),
+                                    n00b_box_u64((uint64_t)item));
         }
+    }
+
+    return (*p)(item);
+}
+
+n00b_utf8_t *
+n00b_object_repr_opt(void *item)
+{
+    if (!n00b_in_heap(item)) {
+        return NULL;
+    }
+
+    n00b_type_t *t = n00b_get_my_type(item);
+
+    if (!t) {
+        return NULL;
+    }
+
+    uint64_t     x = t->base_index;
+    n00b_repr_fn p;
+
+    p = (n00b_repr_fn)n00b_base_type_info[x].vtable->methods[N00B_BI_REPR];
+
+    if (!p) {
+        return NULL;
     }
 
     return (*p)(item);
@@ -737,10 +811,63 @@ n00b_value_obj_repr(n00b_obj_t obj)
     n00b_type_t *t = n00b_type_resolve(n00b_get_my_type(obj));
 
     if (n00b_type_is_box(t)) {
-        return n00b_repr(n00b_unbox_obj(obj).v, n00b_type_unbox(t));
+        return n00b_repr_explicit(n00b_unbox_obj(obj).v, n00b_type_unbox(t));
     }
 
-    return n00b_repr(obj, t);
+    return n00b_repr_explicit(obj, t);
+}
+
+n00b_str_t *
+n00b_repr(void *item)
+{
+    if (!n00b_in_heap(item)) {
+        return n00b_str_from_int((int64_t)item);
+    }
+
+    bool is_obj;
+    bool interior;
+    bool ptr = false;
+
+    n00b_basic_memory_info(item, &is_obj, &interior);
+
+    if (!is_obj || interior) {
+ptr_fmt:
+        ptr  = true;
+        item = n00b_box_u64((uint64_t)item);
+    }
+    n00b_type_t *t = n00b_get_my_type(item);
+
+    if (!t) {
+        goto ptr_fmt;
+    }
+    uint64_t     x = t->base_index;
+    n00b_repr_fn p;
+
+    if (!n00b_base_type_info[x].vtable) {
+        goto ptr_fmt;
+    }
+
+    p = (n00b_repr_fn)n00b_base_type_info[x].vtable->methods[N00B_BI_REPR];
+
+    if (!p) {
+        p = (n00b_repr_fn)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_STR];
+    }
+
+    if (!p) {
+        goto ptr_fmt;
+    }
+
+    if (ptr) {
+        char buf[34] = {
+            0,
+        };
+
+        sprintf(buf, "@%p", item);
+
+        return n00b_new_utf8(buf);
+    }
+
+    return (*p)(item);
 }
 
 n00b_str_t *
@@ -755,7 +882,7 @@ n00b_str_t *
 n00b_to_str(void *item, n00b_type_t *t)
 {
     n00b_dt_info_t *dt = n00b_type_get_data_type_info(t);
-    uint64_t       x  = dt->typeid;
+    uint64_t        x  = dt->typeid;
     n00b_repr_fn    p;
 
     switch (x) {
@@ -774,8 +901,8 @@ n00b_to_str(void *item, n00b_type_t *t)
 
         if (!p) {
             return n00b_cstr_format("{}@{:x}",
-                                   n00b_new_utf8(n00b_base_type_info[x].name),
-                                   n00b_box_u64((uint64_t)item));
+                                    n00b_new_utf8(n00b_base_type_info[x].name),
+                                    n00b_box_u64((uint64_t)item));
         }
     }
 
@@ -1019,7 +1146,7 @@ n00b_coerce_object(const n00b_obj_t obj, n00b_type_t *to_type)
 {
     n00b_type_t    *from_type = n00b_get_my_type(obj);
     n00b_dt_info_t *info      = n00b_type_get_data_type_info(from_type);
-    uint64_t       value;
+    uint64_t        value;
 
     if (!info->by_value) {
         return n00b_coerce(obj, from_type, to_type);
@@ -1125,9 +1252,9 @@ n00b_get_view(n00b_obj_t obj, int64_t *n_items)
     n00b_type_t    *t         = n00b_get_my_type(obj);
     n00b_dt_info_t *info      = n00b_type_get_data_type_info(t);
     n00b_vtable_t  *vtbl      = (n00b_vtable_t *)info->vtable;
-    void          *itf       = vtbl->methods[N00B_BI_ITEM_TYPE];
+    void           *itf       = vtbl->methods[N00B_BI_ITEM_TYPE];
     n00b_view_fn    ptr       = (n00b_view_fn)vtbl->methods[N00B_BI_VIEW];
-    uint64_t       size_bits = 0x3;
+    uint64_t        size_bits = 0x3;
 
     // If no item type callback is provided, we just assume 8 bytes
     // are produced.  In fact, I currently am not providing callbacks
@@ -1208,7 +1335,7 @@ void *
 n00b_autobox(void *ptr)
 {
     if (!n00b_in_heap(ptr)) {
-        return n00b_box_i64((int64_t)ptr);
+        return n00b_box_u64((int64_t)ptr);
     }
 
     n00b_alloc_hdr *h = ptr;
@@ -1228,8 +1355,6 @@ n00b_autobox(void *ptr)
     else {
         return ptr;
     }
-
-    return ptr;
 }
 
 n00b_type_t *

@@ -393,7 +393,7 @@ static void
 add_item(n00b_parser_t       *p,
          n00b_earley_item_t  *from_state,
          n00b_earley_item_t **newptr,
-         bool                next_state)
+         bool                 next_state)
 {
     n00b_earley_item_t *new = *newptr;
 
@@ -411,9 +411,9 @@ add_item(n00b_parser_t       *p,
     // The state we use for duping could also be hashed to avoid the
     // state scan if that ever were an issue.
     n00b_earley_state_t *state   = next_state ? p->next_state : p->current_state;
-    int                 n       = n00b_list_len(state->items);
-    new->estate_id              = state->id;
-    new->eitem_index            = n;
+    int                  n       = n00b_list_len(state->items);
+    new->estate_id               = state->id;
+    new->eitem_index             = n;
     n00b_earley_item_t *existing = search_for_existing_state(state, new, n);
 
     if (existing) {
@@ -437,7 +437,7 @@ add_item(n00b_parser_t       *p,
         }
 
         existing->completors = n00b_set_union(existing->completors,
-                                             new->completors);
+                                              new->completors);
 
         *newptr = existing;
         return;
@@ -458,15 +458,15 @@ terminal_scan(n00b_parser_t *p, n00b_earley_item_t *old, bool not_null)
 {
     n00b_earley_item_t *new   = new_earley_item();
     n00b_earley_item_t *start = old->start_item;
-    new->start_item          = start;
-    new->cursor              = old->cursor + 1;
-    new->parent_states       = old->parent_states;
-    new->penalty             = old->penalty;
-    new->sub_penalties       = old->sub_penalties;
-    new->my_penalty          = old->my_penalty;
-    new->previous_scan       = old;
-    new->rule                = old->rule;
-    new->cost                = old->cost;
+    new->start_item           = start;
+    new->cursor               = old->cursor + 1;
+    new->parent_states        = old->parent_states;
+    new->penalty              = old->penalty;
+    new->sub_penalties        = old->sub_penalties;
+    new->my_penalty           = old->my_penalty;
+    new->previous_scan        = old;
+    new->rule                 = old->rule;
+    new->cost                 = old->cost;
 
     old->no_reprocessing = true;
     add_item(p, NULL, &new, not_null);
@@ -492,19 +492,19 @@ static void
 add_one_nt_prediction(n00b_parser_t      *p,
                       n00b_earley_item_t *predictor,
                       n00b_nonterm_t     *nt,
-                      int                rule_ix)
+                      int                 rule_ix)
 {
     n00b_earley_item_t *ei = new_earley_item();
-    ei->ruleset_id        = nt->id;
-    ei->rule              = n00b_list_get(nt->rules, rule_ix, NULL);
-    ei->rule_index        = rule_ix;
-    ei->start_item        = ei;
+    ei->ruleset_id         = nt->id;
+    ei->rule               = n00b_list_get(nt->rules, rule_ix, NULL);
+    ei->rule_index         = rule_ix;
+    ei->start_item         = ei;
 
     if (predictor) {
         n00b_earley_item_t *prestart = predictor->start_item;
-        ei->predictor_ruleset_id    = prestart->ruleset_id;
-        ei->predictor_rule_index    = prestart->rule_index;
-        ei->predictor_cursor        = prestart->cursor;
+        ei->predictor_ruleset_id     = prestart->ruleset_id;
+        ei->predictor_rule_index     = prestart->rule_index;
+        ei->predictor_cursor         = prestart->cursor;
     }
 
     if (ei->rule->penalty_rule) {
@@ -526,12 +526,12 @@ add_one_group_prediction(n00b_parser_t *p, n00b_earley_item_t *predictor)
     n00b_pitem_t       *next = get_ei_pitem(ps, predictor->cursor);
     n00b_rule_group_t  *g    = next->contents.group;
     n00b_earley_item_t *gei  = new_earley_item();
-    gei->start_item         = gei;
-    gei->cursor             = 0;
-    gei->double_dot         = true;
-    gei->group              = g;
-    gei->ruleset_id         = g->gid;
-    gei->rule               = n00b_list_get(g->contents->rules, 0, NULL);
+    gei->start_item          = gei;
+    gei->cursor              = 0;
+    gei->double_dot          = true;
+    gei->group               = g;
+    gei->ruleset_id          = g->gid;
+    gei->rule                = n00b_list_get(g->contents->rules, 0, NULL);
 
     assert(gei->rule);
 
@@ -552,15 +552,15 @@ add_first_group_item(n00b_parser_t *p, n00b_earley_item_t *gei)
     // completion time. So the first item doesn't need any penalty
     // accounting.
     n00b_earley_item_t *ei = new_earley_item();
-    ei->start_item        = ei;
-    ei->cursor            = 0;
-    ei->rule              = n00b_list_get(gei->group->contents->rules, 0, NULL);
-    ei->ruleset_id        = gei->group->gid;
-    ei->rule_index        = 0;
-    ei->match_ct          = 0;
-    ei->group             = gei->group;
-    ei->group_top         = gei;
-    ei->double_dot        = false;
+    ei->start_item         = ei;
+    ei->cursor             = 0;
+    ei->rule               = n00b_list_get(gei->group->contents->rules, 0, NULL);
+    ei->ruleset_id         = gei->group->gid;
+    ei->rule_index         = 0;
+    ei->match_ct           = 0;
+    ei->group              = gei->group;
+    ei->group_top          = gei;
+    ei->double_dot         = false;
 
     assert(gei);
 
@@ -578,14 +578,14 @@ empty_group_completion(n00b_parser_t *p, n00b_earley_item_t *gei)
 {
     if (!gei->group->min) {
         n00b_earley_item_t *gend = new_earley_item();
-        gend->start_item        = gei;
-        gend->cursor            = n00b_list_len(gei->rule->contents);
-        gend->double_dot        = true;
-        gend->group             = gei->group;
-        gend->ruleset_id        = gei->group->gid;
-        gend->rule              = gei->rule;
-        gend->match_ct          = 0;
-        gend->parent_states     = gei->parent_states;
+        gend->start_item         = gei;
+        gend->cursor             = n00b_list_len(gei->rule->contents);
+        gend->double_dot         = true;
+        gend->group              = gei->group;
+        gend->ruleset_id         = gei->group->gid;
+        gend->rule               = gei->rule;
+        gend->match_ct           = 0;
+        gend->parent_states      = gei->parent_states;
 
         add_item(p, gei, &gend, false);
     }
@@ -804,6 +804,12 @@ char_in_class(n00b_codepoint_t cp, n00b_bi_class_t class)
     case N00B_P_BIC_SPACE:
         return n00b_codepoint_is_space(cp);
         break;
+    case N00B_P_BIC_JSON_STR_CONTENTS:
+        return n00b_codepoint_is_valid_json_string_char(cp);
+    case N00B_P_BIC_HEX_DIGIT:
+        return n00b_codepoint_is_hex_digit(cp);
+    case N00B_P_BIC_NONZERO_ASCII_DIGIT:
+        return n00b_codepoint_is_ascii_digit(cp) && cp != '0';
     }
 
     n00b_unreachable();
@@ -882,7 +888,7 @@ complete_group_item(n00b_parser_t *parser, n00b_earley_item_t *ei)
 static void
 complete(n00b_parser_t *parser, n00b_earley_item_t *ei)
 {
-    uint64_t            n;
+    uint64_t             n;
     n00b_set_t          *start_set = ei->start_item->parent_states;
     n00b_earley_item_t **parents   = hatrack_set_items_sort(start_set, &n);
 
@@ -894,7 +900,7 @@ complete(n00b_parser_t *parser, n00b_earley_item_t *ei)
 static inline void
 run_state_predictions(n00b_parser_t *parser)
 {
-    int                i  = 0;
+    int                 i  = 0;
     n00b_earley_item_t *ei = n00b_list_get(parser->current_state->items, i, NULL);
 
     while (ei != NULL) {
@@ -924,7 +930,7 @@ run_state_predictions(n00b_parser_t *parser)
 static inline void
 run_state_scans(n00b_parser_t *parser)
 {
-    int                i  = 0;
+    int                 i  = 0;
     n00b_earley_item_t *ei = n00b_list_get(parser->current_state->items, i, NULL);
 
     while (ei != NULL) {
@@ -956,7 +962,7 @@ run_state_scans(n00b_parser_t *parser)
 static inline void
 run_state_completions(n00b_parser_t *parser)
 {
-    int                i  = 0;
+    int                 i  = 0;
     n00b_earley_item_t *ei = n00b_list_get(parser->current_state->items, i, NULL);
 
     while (ei != NULL) {
@@ -1009,7 +1015,7 @@ enter_next_state(n00b_parser_t *parser)
     else {
         // Load the start ruleset.
         n00b_grammar_t *grammar = parser->grammar;
-        int            ix      = parser->start;
+        int             ix      = parser->start;
         n00b_nonterm_t *start   = n00b_get_nonterm(grammar, ix);
 
         predict_nt(parser, start, NULL);
@@ -1068,8 +1074,8 @@ internal_parse(n00b_parser_t *parser, n00b_nonterm_t *start)
 
 void
 n00b_parse_token_list(n00b_parser_t  *parser,
-                     n00b_list_t    *toks,
-                     n00b_nonterm_t *start)
+                      n00b_list_t    *toks,
+                      n00b_nonterm_t *start)
 {
     n00b_parser_reset(parser);
     parser->preloaded_tokens = true;
@@ -1089,8 +1095,8 @@ n00b_parse_string(n00b_parser_t *parser, n00b_str_t *s, n00b_nonterm_t *start)
 
 void
 n00b_parse_string_list(n00b_parser_t  *parser,
-                      n00b_list_t    *items,
-                      n00b_nonterm_t *start)
+                       n00b_list_t    *items,
+                       n00b_nonterm_t *start)
 {
     n00b_parser_reset(parser);
     parser->user_context = items;

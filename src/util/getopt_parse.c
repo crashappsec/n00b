@@ -33,11 +33,11 @@ handle_subcommand(n00b_gopt_extraction_ctx *ctx)
         n = n->children[0];
     }
 
-    int               len        = n->num_kids;
+    int                len        = n->num_kids;
     n00b_parse_node_t *cmd_node   = n00b_tree_get_contents(n);
     n00b_utf8_t       *saved_path = ctx->path;
     n00b_gopt_cspec   *cmd        = ctx->cur_cmd;
-    int64_t           cmd_key;
+    int64_t            cmd_key;
 
     cmd_key      = cmd_node->info.token->tid;
     ctx->cur_cmd = hatrack_dict_get(cmd->sub_commands,
@@ -122,7 +122,7 @@ static n00b_utf8_t *
 bad_num(n00b_gopt_extraction_ctx *ctx, n00b_parse_node_t *cur)
 {
     n00b_utf8_t *msg = n00b_cstr_format("Number out of range: [em]{}[/] ",
-                                      cur->info.token->value);
+                                        cur->info.token->value);
     n00b_list_append(ctx->errors, msg);
 
     return cur->info.token->value;
@@ -131,14 +131,14 @@ bad_num(n00b_gopt_extraction_ctx *ctx, n00b_parse_node_t *cur)
 static inline void *
 extract_value_from_node(n00b_gopt_extraction_ctx *ctx,
                         n00b_tree_node_t         *n,
-                        bool                    *ok)
+                        bool                     *ok)
 {
     n00b_parse_node_t  *cur = n00b_tree_get_contents(n);
     n00b_grammar_t     *g   = ctx->parser->grammar;
     n00b_gopt_node_type gopt_type;
     n00b_list_t        *items;
-    int64_t            intval;
-    double             dval;
+    int64_t             intval;
+    double              dval;
     n00b_obj_t          val;
 
     if (ok) {
@@ -267,24 +267,24 @@ extract_other_args(n00b_gopt_extraction_ctx *ctx,
 static void
 handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
 {
-    int               len              = n->num_kids;
+    int                len              = n->num_kids;
     n00b_utf8_t       *name             = get_node_text(n);
     n00b_tree_node_t  *name_tnode       = n->children[0]->children[0];
     n00b_parse_node_t *name_pnode       = n00b_tree_get_contents(name_tnode);
-    int               flag_id          = name_pnode->info.token->tid;
+    int                flag_id          = name_pnode->info.token->tid;
     n00b_list_t       *extracted_values = n00b_list(n00b_type_ref());
-    int64_t           key;
+    int64_t            key;
 
     if (flag_id == (N00B_START_TOK_ID + N00B_GOTT_UNKNOWN_OPT)) {
         n00b_utf8_t *msg = n00b_cstr_format("Unknown option: [em]{}[/] ",
-                                          name_pnode->info.token->value);
+                                            name_pnode->info.token->value);
         n00b_list_append(ctx->errors, msg);
         return;
     }
 
     n00b_goption_t *cur_option = hatrack_dict_get(ctx->gctx->all_options,
-                                                 name,
-                                                 NULL);
+                                                  name,
+                                                  NULL);
     if (!cur_option) {
         return;
     }
@@ -294,9 +294,9 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
         int offset = get_option_arg_offset(n);
 
         n00b_list_append(extracted_values,
-                        extract_value_from_node(ctx,
-                                                n->children[offset],
-                                                NULL));
+                         extract_value_from_node(ctx,
+                                                 n->children[offset],
+                                                 NULL));
 
         if (len > offset + 1) {
             extract_other_args(ctx, extracted_values, n->children[offset + 1]);
@@ -362,7 +362,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
     case N00B_GOAT_CHOICE_T_ALIAS:
         if (existing->n) {
             n00b_list_t *cur = (n00b_list_t *)existing->value;
-            len             = n00b_list_len(cur);
+            len              = n00b_list_len(cur);
             n00b_obj_t   us  = n00b_list_get(extracted_values, 0, NULL);
             n00b_type_t *t   = n00b_get_my_type(us);
 
@@ -380,7 +380,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
             return;
         }
         n00b_list_t *cur = (n00b_list_t *)existing->value;
-        len             = n00b_list_len(cur);
+        len              = n00b_list_len(cur);
         n00b_obj_t   us  = n00b_list_get(extracted_values, 0, NULL);
         n00b_type_t *t   = n00b_get_my_type(us);
         n00b_list_t *new = n00b_list(t);
@@ -465,8 +465,8 @@ gopt_extract_spec(n00b_gopt_extraction_ctx *ctx)
     n00b_parse_node_t  *cur = n00b_tree_get_contents(n);
     n00b_grammar_t     *g   = ctx->parser->grammar;
     n00b_gopt_node_type t   = (n00b_gopt_node_type)n00b_parse_get_user_data(g,
-                                                                       cur);
-    int                len = n->num_kids;
+                                                                          cur);
+    int                 len = n->num_kids;
 
     if (is_group_node(cur)) {
         extract_args(ctx);
@@ -506,7 +506,7 @@ gopt_extract_top_spec(n00b_gopt_extraction_ctx *ctx)
 {
     n00b_tree_node_t  *n   = ctx->intree;
     n00b_parse_node_t *cur = n00b_tree_get_contents(n);
-    int               len = n->num_kids;
+    int                len = n->num_kids;
 
     ctx->cur_cmd = hatrack_dict_get(ctx->gctx->top_specs,
                                     (void *)cur->id,
@@ -546,7 +546,7 @@ extract_individual_flags(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
 static void
 gopt_extract_flags(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
 {
-    int                l = n->num_kids;
+    int                 l = n->num_kids;
     n00b_grammar_t     *g = ctx->parser->grammar;
     n00b_gopt_node_type tinfo;
 
@@ -577,7 +577,8 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
     n00b_tree_node_t   *cur = ctx->intree;
     n00b_parse_node_t  *pn  = n00b_tree_get_contents(cur);
     n00b_grammar_t     *g   = ctx->parser->grammar;
-    n00b_gopt_node_type t   = (n00b_gopt_node_type)n00b_parse_get_user_data(g, pn);
+    n00b_gopt_node_type t   = (n00b_gopt_node_type)n00b_parse_get_user_data(g,
+                                                                          pn);
     n00b_utf8_t        *msg;
     n00b_tree_node_t   *n;
 
@@ -587,7 +588,7 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
         }
         else {
             msg = n00b_cstr_format("Missing an expected [em]{}[/].",
-                                  pn->info.name);
+                                   pn->info.name);
         }
 
         n00b_list_append(ctx->errors, msg);
@@ -598,13 +599,13 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
 
         assert(!n->num_kids);
         n = cur->children[1];
-        assert(!n->num_kids);
+        // assert(!n->num_kids);
 
         n00b_parse_node_t *bad_kid = n00b_tree_get_contents(cur->children[0]);
 
         msg = n00b_cstr_format("Got [em]{}[/] when expecting a [em]{}[/].",
-                              bad_kid->info.token->value,
-                              pn->info.name);
+                               bad_kid->info.token->value,
+                               pn->info.name);
         n00b_list_append(ctx->errors, msg);
         return;
     }
@@ -625,10 +626,10 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
         while (n->num_kids) {
             n = n->children[0];
         }
-        pn                      = n00b_tree_get_contents(n);
+        pn                       = n00b_tree_get_contents(n);
         n00b_gopt_cspec *cmd     = ctx->cur_cmd;
-        int64_t         cmd_key = pn->info.token->tid;
-        ctx->cur_cmd            = hatrack_dict_get(cmd->sub_commands,
+        int64_t          cmd_key = pn->info.token->tid;
+        ctx->cur_cmd             = hatrack_dict_get(cmd->sub_commands,
                                         (void *)cmd_key,
                                         NULL);
         if (!ctx->cur_cmd) {
@@ -699,7 +700,7 @@ check_opt_against_commands(n00b_gopt_extraction_ctx *ctx, n00b_rt_option_t *opt)
 static inline void
 gopt_do_flag_validation(n00b_gopt_extraction_ctx *ctx)
 {
-    uint64_t          n;
+    uint64_t           n;
     n00b_rt_option_t **option_info = (void *)hatrack_dict_values(ctx->flags, &n);
 
     for (uint64_t i = 0; i < n; i++) {
@@ -723,7 +724,7 @@ convert_parse_tree(n00b_gopt_ctx *gctx, n00b_parser_t *p, n00b_tree_node_t *node
         .parser       = p,
     };
     n00b_gopt_result_t *result = n00b_gc_alloc_mapped(n00b_gopt_result_t,
-                                                    N00B_GC_SCAN_ALL);
+                                                      N00B_GC_SCAN_ALL);
 
     if (gctx->show_debug) {
         n00b_print(n00b_parse_tree_format(ctx.intree));
@@ -766,7 +767,7 @@ fix_pruned_tree(n00b_tree_node_t *t)
     n00b_parse_node_t *pn = n00b_tree_get_contents(t);
     // Without resetting the hash on each node, the builtin dedupe
     // won't pick up the tree changes we made (removing Opts nodes)
-    pn->hv               = 0;
+    pn->hv                = 0;
 
     if (t->num_kids != 0) {
         for (int i = 0; i < t->num_kids; i++) {
@@ -798,10 +799,11 @@ n00b_gopt_parse(n00b_gopt_ctx *ctx, n00b_str_t *argv0, n00b_list_t *args)
     n00b_parser_t *opt_parser = n00b_new(n00b_type_parser(), ctx->grammar);
 
     n00b_parse_token_list(opt_parser, ctx->tokens, ctx->nt_start);
+
     n00b_list_t *trees      = n00b_parse_get_parses(opt_parser);
     n00b_list_t *cleaned    = n00b_list(n00b_type_ref());
     n00b_list_t *results    = n00b_list(n00b_type_ref());
-    bool        error_free = false;
+    bool         error_free = false;
 
     for (int i = 0; i < n00b_list_len(trees); i++) {
         n00b_tree_node_t   *t   = n00b_list_get(trees, i, NULL);

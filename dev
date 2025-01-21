@@ -11,6 +11,8 @@ N00B_TEST_CFG=${N00B_DEV_CFG}
 
 N00B_MESON_STATE_FILE=.meson_last
 N00B_TEST_EXE=n00btest
+N00B_EXE=n00b
+N00B_LOG_EXE=n00blog
 
 function color {
     case $1 in
@@ -59,7 +61,7 @@ function ensure_env_setup {
 }
 
 function cur_exe_loc {
-    echo ${N00B_BUILD_DIR}/${N00B_TEST_EXE}
+    echo ${N00B_BUILD_DIR}
 }
 
 function meson_hatrack {
@@ -291,14 +293,16 @@ function n00b_compile {
     fi
 
     if [[ ${OS} = "Darwin" ]] ; then
-        dsymutil $(cur_exe_loc)
+        dsymutil $(cur_exe_loc)/${N00B_EXE}
+        dsymutil $(cur_exe_loc)/${N00B_TEST_EXE}
+        dsymutil $(cur_exe_loc)/${N00B_LOG_EXE}
     fi
 }
 
 function n00b_run_tests {
     log Running test exe for target: $(color yellow '[==' $N00B_BUILD_TARGET '==]') in directory: $(color YELLOW ${N00B_BUILD_DIR})
 
-    $(cur_exe_loc) ${N00B_PASSTHROUGH_ARGS}
+    $(cur_exe_loc)/${N00B_TEST_EXE} ${N00B_PASSTHROUGH_ARGS}
     EXIT=$?
     log "Exit status: ${EXIT}"
     exit ${EXIT}
@@ -321,7 +325,7 @@ function n00b_run {
 
 function debug_project {
     n00b_prebuild $@
-    CUR_EXE=$(cur_exe_loc)
+    CUR_EXE=$(cur_exe_loc)/${N00B_TEST_EXE}
 
     n00b_compile
 

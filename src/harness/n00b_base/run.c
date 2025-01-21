@@ -18,16 +18,16 @@ execute_test(n00b_test_kat *kat)
 
     if (err_output != NULL) {
         n00b_grid_t *err_grid = n00b_new(n00b_type_grid(),
-                                       n00b_kw("start_rows",
-                                              n00b_ka(2),
-                                              "start_cols",
-                                              n00b_ka(1),
-                                              "container_tag",
-                                              n00b_ka(n00b_new_utf8("flow"))));
+                                         n00b_kw("start_rows",
+                                                 n00b_ka(2),
+                                                 "start_cols",
+                                                 n00b_ka(1),
+                                                 "container_tag",
+                                                 n00b_ka(n00b_new_utf8("flow"))));
         n00b_utf8_t *s        = n00b_new_utf8("Error Output");
         n00b_grid_add_row(err_grid,
-                         n00b_to_str_renderable(s,
-                                               n00b_new_utf8("h2")));
+                          n00b_to_str_renderable(s,
+                                                 n00b_new_utf8("h2")));
         n00b_grid_add_row(err_grid, err_output);
         n00b_print(err_grid);
     }
@@ -45,7 +45,7 @@ execute_test(n00b_test_kat *kat)
     n00b_generate_code(ctx, vm);
 
     if (n00b_dev_mode) {
-        int           n = vm->entry_point;
+        int            n = vm->entry_point;
         n00b_module_t *m = n00b_list_get(vm->obj->module_contents, n, NULL);
 
         n00b_show_dev_disasm(vm, m);
@@ -58,7 +58,7 @@ execute_test(n00b_test_kat *kat)
 
     if (kat->save) {
         n00b_printf("\n[h3]Saving VM state.");
-        n00b_buf_t *b = n00b_vm_save(vm);
+        n00b_vm_save(vm);
         n00b_printf("[h4]First run saved.");
 
         if (kat->second_entry != NULL) {
@@ -125,7 +125,7 @@ monitor_test(n00b_test_kat *kat, int readfd, pid_t pid)
     case 0:
         kat->timeout = true;
         n00b_print(n00b_callout(n00b_cstr_format("{} TIMED OUT.",
-                                              kat->path)));
+                                                 kat->path)));
         wait4(pid, &status, WNOHANG | WUNTRACED, &kat->usage);
         break;
     case -1:
@@ -143,8 +143,8 @@ monitor_test(n00b_test_kat *kat, int readfd, pid_t pid)
         kat->exit_code = WEXITSTATUS(status);
 
         n00b_printf("[h4]{}[/h4] exited with return code: [em]{}[/].",
-                   kat->path,
-                   n00b_box_u64(kat->exit_code));
+                    kat->path,
+                    n00b_box_u64(kat->exit_code));
 
         announce_test_end(kat);
         return;
@@ -252,7 +252,7 @@ n00b_run_other_test_files(void)
         switch (select(pipefds[0] + 1, &select_ctx, NULL, NULL, &timeout)) {
         case 0:
             n00b_print(n00b_callout(n00b_cstr_format("{} TIMED OUT.",
-                                                  item->path)));
+                                                     item->path)));
             kill(pid, SIGKILL);
             continue;
         case -1:
@@ -261,8 +261,8 @@ n00b_run_other_test_files(void)
         default:
             waitpid(pid, &status, WNOHANG);
             n00b_printf("[h4]{}[/h4] exited with return code: [em]{}[/].",
-                       item->path,
-                       n00b_box_u64(WEXITSTATUS(status)));
+                        item->path,
+                        n00b_box_u64(WEXITSTATUS(status)));
             continue;
         }
     }

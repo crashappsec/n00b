@@ -1,977 +1,793 @@
+#define N00B_USE_INTERNAL_API
+
 #include "n00b.h"
 
-typedef struct {
-    n00b_alloc_hdr *new_hdr;
-    n00b_alloc_hdr *old_hdr;
-    int            ix;
-} worklist_item_t;
+static pthread_once_t n00b_gc_init             = PTHREAD_ONCE_INIT;
+static n00b_heap_t   *to_space                 = NULL;
+static n00b_heap_t   *n00b_scratch_heap        = NULL;
+n00b_heap_t          *n00b_marshal_heap        = NULL;
+n00b_heap_t          *n00b_debug_heap          = NULL;
+n00b_heap_t          *n00b_string_heap         = NULL;
+bool                  __n00b_collector_running = false;
+static n00b_heap_t   *__n00b_current_from_space;
+
+bool
+n00b_addr_in_one_heap(n00b_heap_t *h, void *p)
+{
+    if (h->released) {
+        return false;
+    }
+
+    if (h->private && __n00b_current_from_space != h) {
+        return false;
+    }
+
+    n00b_arena_t *a = h->first_arena;
+
+    while (a) {
+        if (n00b_addr_in_arena(a, p)) {
+            return true;
+        }
+        a = a->successor;
+    }
+
+    return false;
+}
+
+#ifdef N00B_GC_STATS
+static void
+debug_print_heap(n00b_heap_t *p)
+{
+    n00b_crit_t crit = atomic_read(&p->ptr);
+    char       *head = (char *)crit.next_alloc;
+    uint64_t    used = 0;
+    uint64_t    free = 0;
+
+    n00b_arena_t *a = p->first_arena;
+
+    while (a) {
+        if (a->successor) {
+            used += ((char *)a->addr_end) - (char *)a->addr_start;
+        }
+        else {
+            used += head - (char *)a->addr_start;
+            if (head < (char *)a->addr_end) {
+                free = ((char *)a->addr_end) - head;
+            }
+        }
+        a = a->successor;
+    }
+
+    char name[PIPE_BUF];
+
+    if (p->name) {
+        snprintf(name, PIPE_BUF - 1, "'%s' ", p->name);
+    }
+    else {
+        name[0] = 0;
+    }
+
+    printf(
+        "Heap ID %lld: %s(%s:%d)%s%s%s%s%s\n"
+        "%lld used, %llu free)\n"
+        "  Allocs: new this heap: %d / inherited: %d / lifetime: %d\n",
+        p->heap_id,
+        name,
+        p->file,
+        p->line,
+        p->pinned ? " (pinned)" : "",
+        p->released ? " (released)" : "",
+        p->no_trace ? " (no-trace)" : "",
+        p->local_collects ? " (local gc)" : "",
+        p->private ? " (private)" : "",
+        used,
+        free,
+        p->alloc_count,
+        p->inherit_count,
+        p->total_alloc_count);
+
+    a = p->first_arena;
+    if (a) {
+        printf("  Next alloc: %p & arena(s):\n", crit.next_alloc);
+
+        while (a) {
+            printf("  %p-%p\n", a->addr_start, a->addr_end);
+            a = a->successor;
+        }
+    }
+}
+
+void
+n00b_debug_all_heaps(void)
+{
+    for (unsigned int i = 0; i < n00b_next_heap_index; i++) {
+        debug_print_heap(n00b_all_heaps + i);
+    }
+}
+#endif
+
+static inline void
+n00b_create_alloc_guards(void)
+{
+    n00b_gc_guard = n00b_rand64();
+#ifdef N00B_FULL_MEMCHECK
+    n00b_end_guard = n00b_rand64();
+#endif
+}
+
+static inline void
+n00b_discover_page_info(void)
+{
+    n00b_page_bytes   = getpagesize();
+    // Page size is always a power of 2.
+    n00b_page_modulus = n00b_page_bytes - 1;
+    n00b_modulus_mask = ~n00b_page_modulus;
+}
+
+static inline void
+n00b_setup_heap_info(void)
+{
+    n00b_heap_entries_pp = (n00b_page_bytes / sizeof(n00b_heap_t)) - 1;
+}
+
+static inline void
+n00b_create_first_heaps(void)
+{
+    n00b_default_heap = n00b_new_heap(N00B_DEFAULT_HEAP_SIZE);
+    n00b_heap_set_name(n00b_default_heap, "user");
+
+    n00b_debug_heap = n00b_new_heap(N00B_DEFAULT_HEAP_SIZE);
+    n00b_heap_set_name(n00b_debug_heap, "debug");
+
+    // Create the main allocation heap and the 'to_space' heap that
+    // marshalling uses.
+
+    // No arenas get created within this heap at first.
+    to_space = n00b_new_heap(0);
+    n00b_heap_set_name(to_space, "gc to-space'");
+    n00b_heap_pin(to_space);
+    // n00b_heap_set_no_trace(to_space);
+    n00b_heap_set_private(to_space);
+
+    // When we do alloc in that space, it will not trigger collections.
+    n00b_scratch_heap = n00b_new_heap(0);
+    n00b_heap_set_name(n00b_scratch_heap, "gc scratch");
+    n00b_heap_pin(n00b_scratch_heap);
+    n00b_heap_set_private(n00b_scratch_heap);
+    // n00b_heap_set_no_trace(n00b_scratch_heap);
+
+    n00b_thread_master_heap = n00b_new_heap(N00B_START_TYPE_HEAP_SIZE);
+    n00b_heap_set_name(n00b_thread_master_heap, "internal");
+    n00b_heap_pin(n00b_thread_master_heap);
+    // n00b_heap_set_local_collects(n00b_thread_master_heap);
+
+    n00b_string_heap = n00b_new_heap(N00B_START_TYPE_HEAP_SIZE);
+    n00b_heap_set_name(n00b_string_heap, "strings");
+
+    //    n00b_type_heap = n00b_new_heap(N00B_START_TYPE_HEAP_SIZE);
+    //    n00b_heap_set_no_trace(n00b_type_heap);
+    // n00b_heap_set_local_collects(n00b_type_heap);
+
+    //    n00b_marshal_heap = n00b_new_heap(N00B_START_MARSHAL_HEAP_SIZE);
+    //    n00b_heap_set_no_trace(n00b_marshal_heap);
+    // n00b_heap_set_local_collects(n00b_marshal_heap);
+
+    n00b_default_heap->name       = "user";
+    n00b_thread_master_heap->name = "internal";
+    //    n00b_marshal_heap->name       = "marshal";
+    //    n00b_type_heap->name          = "type";
+    to_space->name                = "gc 'to-space'";
+    n00b_scratch_heap->name       = "gc scratch";
+}
+
+static hatrack_mem_manager_t hatrack_manager = {
+    .mallocfn  = n00b_malloc_wrap,
+    .zallocfn  = n00b_malloc_wrap,
+    .reallocfn = n00b_realloc_wrap,
+    .freefn    = n00b_free_wrap,
+    .arg       = NULL,
+};
+
+static void
+n00b_initial_gc_setup(void)
+{
+    n00b_create_alloc_guards();
+    n00b_discover_page_info();
+    n00b_setup_heap_info();
+    n00b_create_first_heaps();
+    hatrack_setmallocfns(&hatrack_manager);
+}
+
+void
+n00b_initialize_gc(void)
+{
+    pthread_once(&n00b_gc_init, n00b_initial_gc_setup);
+}
 
 typedef struct {
-    uint64_t        write_ix;
-    uint64_t        read_ix;
-    worklist_item_t items[];
-} worklist_t;
+    n00b_alloc_hdr *src;
+    n00b_alloc_hdr *dst;
+} n00b_collect_wl_item_t;
+
+typedef struct n00b_scan_range_t n00b_scan_range_t;
+
+struct n00b_scan_range_t {
+    void              *ptr;
+    uint64_t           num_words;
+    unsigned int       scanned : 1;
+    n00b_scan_range_t *next;
+};
 
 typedef struct {
-    n00b_arena_t   *from_space;
-    n00b_arena_t   *to_space;
-    void          *fromspc_start;
-    void          *fromspc_end;
-    n00b_alloc_hdr *next_to_record;
-    worklist_t    *worklist;
-    int            reached_allocs;
-    int            copied_allocs;
-    bool           stack_scanning;
+    n00b_heap_t            *from_space;
+    crown_t                 memos;
+    n00b_collect_wl_item_t *worklist;
+    int32_t                 ix;
+    int32_t                 root_touches;
+    n00b_scan_range_t      *scan_list;
 } n00b_collection_ctx;
 
-#define GC_OP_FW   0
-#define GC_OP_COPY 1
+static inline int64_t
+get_next_heap_request_len(n00b_heap_t *h, size_t alloc_request)
+{
+    // Generally, we should want to consolidate a heap that's grown to
+    // multiple arenas into a single arena.
+    //
+    // Here, we first calculate the sum of all sub-heaps, and then
+    // make sure it's at least 4 times the size of the single request
+    // that caused the collection (if any).
+    //
+    // Generally that check will only matter for tiny heaps or huge
+    // allocations. In the worst case, where nothing (or little)
+    // actually gets moved, once we're done collecting we'll
+    // immediately double the heap space via a successor heap.
 
-// In gcbase.c, but not directly exported.
-extern n00b_arena_t *n00b_current_heap;
-extern uint64_t     n00b_page_bytes;
-extern uint64_t     n00b_page_modulus;
-extern uint64_t     n00b_modulus_mask;
+    n00b_arena_t *a = h->first_arena;
+
+    int64_t result = 0;
+
+    while (a) {
+        result += a->user_length;
+        a = a->successor;
+        break;
+    }
+
+    return result + alloc_request;
+}
+
+static inline void
+setup_collection_ctx(n00b_collection_ctx *ctx, n00b_heap_t *h)
+{
+    // Here, we're going to:
+    //
+    // 1. Make sure the scratch heap is big enough to accomodate the
+    //    accounting for those, to avoid extra copying.
+    //
+    // 2. Reset the per-collection counter, adding it to the total
+    //    alloc counter (since we're going to use it in the
+    //    calculation needed for the previous item).
+    //
+    // 3. allocate the memos dict.
+    //
+    // 4. setup the worklist.
+    //
+    // Ideally, we'd want to reserve enough pages to allocate a
+    // worklist item and a hash bucket for every single alloc in the
+    // from-space, in case we have a heap where we are collecting
+    // absolutely nothing.
+    //
+    // Generally, this will be a huge overestimate, but in the worst
+    // case, it's an underestimate, since we are not accounting for
+    // the extra hash buckets, since we resize if we reach the 75%
+    // threshold.
+    //
+    // But pages we don't use and we free after collection aren't a
+    // big deal, so we can pre-allocate the data structures to
+    // hold as much as we'd ever need.
+    //
+    // The most complicated bit is the hash table, since we need to
+    // make sure it never gets 75% full, but we also need to make sure
+    // that it can size up to a power-of-two in terms of the number of
+    // buckets. So we want to assume our # of allocs is 75% of the
+    // hash table, and we'd need space for about 25% more entries than
+    // that in the hash table. We'll need less in the list, but we
+    // will have some overhead that we just won't bother calculating
+    // (if it's an underestimate for small heaps, the hit won't
+    // matter).
+    //
+    // In fact, instead of having to calculate 4/3 * n, we just do 3/2
+    // * n, which is a larger number, and easier to calculate (n = n +
+    // n >> 1)
+
+    int32_t bpn     = (sizeof(n00b_collect_wl_item_t)
+                   + sizeof(crown_bucket_t));
+    int32_t n       = atomic_read(&h->alloc_count);
+    int32_t heap_sz = (n + (n >> 1)) * bpn;
+
+    h->total_alloc_count += n;
+    n00b_add_arena(n00b_scratch_heap, heap_sz);
+
+    // Set up a 'crown' instance.
+    // First, how much space do we need if we had 100% utilization
+    // (even though that's now allowed).
+    int64_t to_populate = n * sizeof(crown_bucket_t);
+    int64_t bkt_space   = hatrack_round_up_to_power_of_2(to_populate);
+
+    // Now, until the bucket space, when fully populated stays under
+    // the 75% threshold, double the bucket space.
+    // The math here is just: x - .25x = .75x
+    while (bkt_space - (bkt_space >> 2) <= to_populate) {
+        bkt_space <<= 1;
+    }
+
+    // For presized stores, hatrack wants the log base 2 of the needed
+    // size, not the actual size.
+    char crown_size = (char)n00b_int_log2((uint64_t)bkt_space);
+
+    // Since we've already set the thread-local heap to the scratch
+    // heap, the allocations that result from the below will come from it.
+    crown_init_size(&ctx->memos, crown_size, NULL);
+
+    n00b_push_heap(n00b_thread_master_heap);
+    // Now, allocate the maximum number of worklist items in one hunk.
+    ctx->worklist = n00b_gc_raw_alloc(sizeof(n00b_collect_wl_item_t) * n,
+                                      N00B_GC_SCAN_NONE);
+    n00b_pop_heap();
+    ctx->ix         = 0;
+    ctx->from_space = h;
+    ctx->scan_list  = NULL;
+}
+
+static inline void
+make_to_space_our_space(n00b_heap_t *h)
+{
+    // Once we've copied everything into the dedicated 'to-space'
+    // heap, we move the arena object into the original heap, and
+    // remove the reference to the arena from the to-space heap.
+
+    atomic_store(&h->ptr, atomic_read(&to_space->ptr));
+
+    h->cur_arena_end = to_space->cur_arena_end;
+    h->alloc_count   = 0;
+    h->first_arena   = to_space->first_arena;
+    h->newest_arena  = h->first_arena;
+
+    to_space->first_arena  = NULL;
+    to_space->newest_arena = NULL;
+}
+
+static inline void
+free_excess_pages(n00b_heap_t *h, int64_t start_len)
+{
+}
+
+static inline n00b_alloc_hdr *
+get_relocation_addr(n00b_collection_ctx *ctx, n00b_alloc_hdr *hdr)
+{
+    // This is only called when MOVING, so is just an alloc, except we
+    // don't need to do the typical alloc setup, just reserve an
+    // address. The contents, including the header, will be copied out
+    // of the old heap at the end.
+    n00b_crit_t     entry     = atomic_read(&to_space->ptr);
+    n00b_alloc_hdr *result    = entry.next_alloc;
+    int             total_len = sizeof(n00b_alloc_hdr) + hdr->alloc_len;
+    char           *end       = ((char *)result) + total_len;
+
+    entry.next_alloc = (n00b_alloc_hdr *)end;
+    assert(((void *)result) < to_space->first_arena->addr_end);
+
+    atomic_store(&to_space->ptr, entry);
+
+    return result;
+}
+
+static inline uint64_t
+calculate_new_address(void *ptr, n00b_alloc_hdr *src, n00b_alloc_hdr *dst)
+{
+    int diff = (char *)ptr - (char *)src;
+    return (uint64_t)diff + (uint64_t)dst;
+}
+
+static inline bool
+should_process(n00b_collection_ctx *ctx, uint64_t *p)
+{
+    n00b_heap_t *heap = n00b_addr_find_heap(p);
+
+    // Not in any heap, so just data.
+    if (!heap) {
+        return false;
+    }
+    // Local collects don't look for pointers in other heaps.
+    if (ctx->from_space->local_collects && heap != ctx->from_space) {
+        return false;
+    }
+    // Some heaps promise not to hold your pointers (or at least not to
+    // care if you move the memory).
+    if (heap != ctx->from_space && (heap->private || heap->no_trace)) {
+        return false;
+    }
+
+    return true;
+}
+static inline void
+add_mem_range(n00b_collection_ctx *ctx,
+              uint64_t            *p,
+              int                  num_words,
+              bool                 scanned)
+{
+    n00b_scan_range_t *sr = n00b_heap_alloc(n00b_scratch_heap,
+                                            sizeof(n00b_scan_range_t),
+                                            N00B_GC_SCAN_NONE);
+
+    assert(p);
+    assert(!ctx->scan_list || n00b_addr_find_heap(ctx->scan_list) == n00b_addr_find_heap(sr));
+    sr->next       = ctx->scan_list;
+    sr->ptr        = p;
+    sr->num_words  = num_words;
+    sr->scanned    = scanned;
+    ctx->scan_list = sr;
+
+    //    printf("%p: %p / %08d  ; ", sr, p, num_words);
+}
+
+static void
+run_scans(n00b_collection_ctx *ctx)
+{
+    // Here, we need to do two things:
+    // 1. Replace pointers into the heap we're collecting with pointers
+    //    in the space we're moving everything into.
+    // 2. Follow *any* pointers to find heap allocations; we will
+    //    want to scan any heap allocation that is reachable, period.
+    //
+    // If, in step 1, we haven't seen the pointer before, we will
+    // eventually need to copy out the live record into the to-space.
+    // But, since we have the world stopped, we can do that once all
+    // pointers are pointing to the new heap.
+    //
+    // For #2, we want to prevent recursion. Therefore, when we find a
+    // new live allocation record through a pointer, we add it to our
+    // memos list (the memos map allocation records to relocation
+    // addresses for those records), but with a NULL relocation
+    // address, indicating it's not being relocated, but has been
+    // scanned.
+
+    n00b_scan_range_t *range = ctx->scan_list;
+
+    while (range) {
+        assert(!ctx->scan_list
+               || n00b_addr_find_heap(ctx->scan_list) == n00b_addr_find_heap(range));
+        uint64_t *p         = range->ptr;
+        int       num_words = range->num_words;
+        ctx->scan_list      = range->next;
+        assert(num_words >= 0);
+        assert(p);
+
+        for (int i = 0; i < num_words; i++) {
+            bool                    found;
+            bool                    moving;
+            n00b_alloc_hdr         *src_record;
+            hatrack_hash_t          hv;
+            n00b_alloc_hdr         *dst_record;
+            n00b_collect_wl_item_t *wl;
+            uint64_t                value = *p;
+
+            if (!should_process(ctx, (void *)value)) {
+                p++;
+                continue;
+            }
+
+            src_record = n00b_find_allocation_record((void *)value);
+            moving     = n00b_addr_in_one_heap(ctx->from_space, src_record);
+            hv         = hash_pointer(src_record);
+            dst_record = crown_get(&ctx->memos, hv, &found);
+
+            if (!found) {
+                if (moving) {
+                    dst_record = get_relocation_addr(ctx, src_record);
+                    wl         = ctx->worklist + ctx->ix++;
+                    wl->src    = src_record;
+                    wl->dst    = dst_record;
+                }
+                else {
+                    dst_record = NULL;
+                }
+                assert((dst_record && moving) || !moving);
+                ctx->root_touches++;
+                crown_put(&ctx->memos, hv, dst_record, NULL);
+                if (src_record->scan_fn != N00B_GC_SCAN_NONE) {
+                    int len = sizeof(n00b_alloc_hdr) + src_record->alloc_len;
+                    add_mem_range(ctx, (void *)src_record, len / 8, true);
+                }
+                if (moving) {
+                    *p = calculate_new_address((void *)value,
+                                               src_record,
+                                               dst_record);
+                }
+            }
+            else {
+                if (moving) {
+                    *p = calculate_new_address((void *)value,
+                                               src_record,
+                                               dst_record);
+                }
+            }
+
+            p++;
+        }
+        range = ctx->scan_list;
+    }
+}
+
+static inline void
+trace_key_startup_items(n00b_collection_ctx *ctx)
+{
+    // These key bits of the type system need to be done before
+    // anything else if we're collecting the heap they come out of.
+    //
+    // Though soon I expect to have the startup type info in its own
+    // pinned heap and this will go away at that point.
+    add_mem_range(ctx,
+                  (uint64_t *)&n00b_bi_types[2],
+                  1,
+                  false);
+    add_mem_range(ctx,
+                  (uint64_t *)&n00b_bi_types[0],
+                  N00B_NUM_BUILTIN_DTS,
+                  false);
+    run_scans(ctx);
+}
+
+static inline void
+trace_one_rootset(n00b_collection_ctx *ctx, n00b_heap_t *h)
+{
+    if (!h->roots || h->released) {
+        return;
+    }
+
+    n00b_gc_root_info_t *ri;
+
+    uint32_t num_roots = hatrack_zarray_len(h->roots);
+    for (uint32_t j = 0; j < num_roots; j++) {
+        ri = hatrack_zarray_cell_address(h->roots,
+                                         j);
+
+        struct n00b_gc_root_tinfo_t tinfo = atomic_read(&ri->tinfo);
+
+        if (tinfo.inactive) {
+            continue;
+        }
+
+        // printf("trace root from %s:%d: ", ri->file, ri->line);
+        add_mem_range(ctx, ri->ptr, ri->num_items, false);
+        run_scans(ctx);
+        // printf("had %d root touches.\n", ctx->root_touches);
+        ctx->root_touches = 0;
+    }
+}
+
+static inline void
+trace_all_roots(n00b_collection_ctx *ctx)
+{
+    // Even though we allow tying roots to heaps, we assume bad
+    // behavior, and will fully trace from all roots across all heaps,
+    // looking for pointers into the current heap.
+    n00b_heap_t *h = n00b_all_heaps;
+
+    for (unsigned int i = 0; i < n00b_next_heap_index; i++) {
+        if (i && !(i % n00b_heap_entries_pp)) {
+            h = *(n00b_heap_t **)h;
+            continue;
+        }
+
+        if (h->no_trace && h != ctx->from_space) {
+            h++;
+            continue;
+        }
+
+        trace_one_rootset(ctx, h);
+        h++;
+    }
+}
+
+static inline void
+trace_stack(n00b_collection_ctx *ctx)
+{
+    // Here, we trace the stack for every thread.
+    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
+        n00b_thread_t *ti = atomic_read(&n00b_global_thread_list[i]);
+        if (!ti) {
+            continue;
+        }
+        if (ti->cur) {
+            add_mem_range(ctx, ti->cur, (ti->base - ti->cur) / 8, false);
+        }
+        else {
+            assert(ti->pthread_id != pthread_self());
+        }
+        run_scans(ctx);
+        ctx->root_touches = 0;
+    }
+}
+
+static inline void
+perform_relocations(n00b_collection_ctx *ctx)
+{
+    n00b_collect_wl_item_t *item = ctx->worklist;
+    int                     bytelen;
+
+    for (int i = 0; i < ctx->ix; i++) {
+        bytelen = sizeof(n00b_alloc_hdr) + item->src->alloc_len;
+        memcpy(item->dst, item->src, bytelen);
+        // We are about to get rid of the next_addr field, but for now,
+        // keep it correct.
+        item->dst->next_addr = ((char *)item->dst) + bytelen;
+        assert(item->dst->guard == n00b_gc_guard);
+        item++;
+    }
+}
+
+void
+n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
+{
+    // Calling this on a pinned heap un-pins it.  Also note that
+    // generally you will want to stop the world for this.
+
+    int64_t      starting_arena_len = 0;
+    n00b_heap_t *thread_local_stash = n00b_thread_master_heap;
+
+#ifdef N00B_GC_STATS
+    cprintf("+++Collection beginning:\n");
+    debug_print_heap(h);
+#ifdef N00B_GC_SHOW_COLLECT_STACK_TRACES
+    n00b_static_c_backtrace();
+#endif
+#endif
+
+    __n00b_collector_running  = true;
+    __n00b_current_from_space = h;
+
+    starting_arena_len = get_next_heap_request_len(h, alloc_request);
+
+    // Here, we're going to make sure there's ample free space in the heap.
+    // If the arena is less than 25% utilized at the end, we'll give back
+    // pages, down to our previous page size.
+
+    n00b_add_arena(to_space, starting_arena_len << 2);
+    n00b_add_arena(n00b_scratch_heap, N00B_START_SCRATCH_HEAP_SIZE);
+
+    // Set the thread heap to the scratch heap; this will allow us to
+    // allocate dynamically for worklist management. We'll nuke those
+    // allocations at the end. For anything we migrate, we will
+    // explicitly specify the to-space heap when we allocate.
+    n00b_thread_heap = n00b_scratch_heap;
+
+    n00b_collection_ctx *ctx = n00b_gc_alloc_mapped(n00b_collection_ctx,
+                                                    N00B_GC_SCAN_NONE);
+
+    setup_collection_ctx(ctx, h);
+    trace_key_startup_items(ctx);
+    if (h->local_collects) {
+        trace_one_rootset(ctx, h);
+    }
+    else {
+        trace_all_roots(ctx);
+    }
+    trace_stack(ctx);
+
+    printf("Done scanning; about to copy %d allocs.\n",
+           ctx->ix);
+
+    perform_relocations(ctx);
+
+    make_to_space_our_space(h);
+    h->inherit_count = ctx->ix;
+    free_excess_pages(h, starting_arena_len);
+    n00b_heap_clear(n00b_scratch_heap);
+
+#ifdef N00B_GC_STATS
+    cprintf("---Collection finished::\n");
+    debug_print_heap(h);
+#endif
+
+    n00b_thread_heap          = thread_local_stash;
+    __n00b_current_from_space = NULL;
+    __n00b_collector_running  = false;
+}
+
+void
+_n00b_heap_register_root(n00b_heap_t *h, void *p, uint64_t l N00B_ALLOC_XTRA)
+{
+    // Len is measured in 64 bit words and must be at least 1.
+    n00b_gc_root_info_t *ri;
+
+    h = n00b_get_heap(h);
+
+    if (!h->roots) {
+        h->roots = hatrack_zarray_new(N00B_MAX_GC_ROOTS,
+                                      sizeof(n00b_gc_root_info_t));
+    }
+
+    hatrack_zarray_new_cell(h->roots, (void *)&ri);
+    ri->num_items = l;
+    ri->ptr       = p;
+#ifdef N00B_ADD_ALLOC_LOC_INFO
+    ri->file = file;
+    ri->line = line;
+#endif
+}
+
+void
+_n00b_heap_register_dynamic_root(n00b_heap_t *h,
+                                 void        *p,
+                                 uint64_t l
+                                     N00B_ALLOC_XTRA)
+{
+    int                  max = h->roots ? hatrack_zarray_len(h->roots) : 0;
+    uint64_t             id  = (uint64_t)n00b_thread_self();
+    n00b_gc_root_tinfo_t expect;
+    n00b_gc_root_tinfo_t new = {.thread_id = id >> 1, .inactive = false};
+
+    for (int i = 0; i < max; i++) {
+        n00b_gc_root_info_t *ri = hatrack_zarray_cell_address(h->roots, i);
+        expect.thread_id        = 0;
+        expect.inactive         = true;
+
+        if (CAS(&ri->tinfo, &expect, new)) {
+            ri->num_items = l;
+            ri->ptr       = p;
+#ifdef N00B_ADD_ALLOC_LOC_INFO
+            ri->file = file;
+            ri->line = line;
+#endif
+            return;
+        }
+    }
+    n00b_heap_register_root(h, p, l);
+}
+
+void
+n00b_heap_remove_root(n00b_heap_t *h, void *ptr)
+{
+    int32_t max = atomic_load(&h->roots->length);
+
+    for (int i = 0; i < max; i++) {
+        n00b_gc_root_info_t *ri = hatrack_zarray_cell_address(h->roots, i);
+        if (ri->ptr == ptr) {
+            ri->num_items = 0;
+            ri->ptr       = NULL;
+
+            n00b_gc_root_tinfo_t ti = {.thread_id = 0, .inactive = true};
+            atomic_store(&ri->tinfo, ti);
+        }
+    }
+}
+
+n00b_alloc_hdr *
+n00b_find_allocation_record(void *addr)
+{
+    // Align the pointer for scanning back to the header.
+    // It should be aligned, but people do the craziest things.
+    void       **p = (void **)(((uint64_t)addr) & ~0x0000000000000007);
+    n00b_heap_t *h = n00b_addr_find_heap(addr);
+
+    if (!h) {
+        return NULL;
+    }
+
+    while (p != (void *)h) {
+        if (*(uint64_t *)p == n00b_gc_guard) {
+            break;
+        }
+        --p;
+    }
+
+    return (n00b_alloc_hdr *)p;
+}
 
 static n00b_system_finalizer_fn system_finalizer = NULL;
 
 void
-n00b_gc_set_finalize_callback(n00b_system_finalizer_fn fn)
+n00b_gc_set_system_finalizer(n00b_system_finalizer_fn fn)
 {
     system_finalizer = fn;
-}
-
-#ifdef N00B_GC_STATS
-int                          n00b_gc_show_heap_stats_on = N00B_SHOW_GC_DEFAULT;
-static thread_local uint32_t n00b_total_collects        = 0;
-static thread_local uint64_t n00b_total_garbage_words   = 0;
-static thread_local uint64_t n00b_total_size            = 0;
-extern thread_local uint64_t n00b_total_alloced;
-extern thread_local uint64_t n00b_total_requested;
-extern thread_local uint32_t n00b_total_allocs;
-
-uint64_t
-n00b_get_alloc_counter()
-{
-    return n00b_current_heap->alloc_count;
-}
-#endif
-
-#ifdef N00B_GC_FULL_TRACE
-int n00b_gc_trace_on = N00B_GC_FULL_TRACE_DEFAULT;
-#endif
-
-#ifdef N00B_FULL_MEMCHECK
-extern uint64_t n00b_end_guard;
-#endif
-
-typedef struct hook_record_t {
-    struct hook_record_t *next;
-    n00b_gc_hook           post_collect;
-} hook_record_t;
-
-static hook_record_t *n00b_gc_hooks = NULL;
-
-#if defined(__linux__)
-static inline void
-n00b_get_stack_scan_region(uint64_t *top, uint64_t *bottom)
-{
-    pthread_t self = pthread_self();
-
-    pthread_attr_t attrs;
-    uint64_t       addr;
-
-    pthread_getattr_np(self, &attrs);
-
-    size_t size;
-
-    pthread_attr_getstack(&attrs, (void **)&addr, &size);
-
-#ifdef N00B_USE_FRAME_INTRINSIC
-    *bottom = (uint64_t)__builtin_frame_address(0);
-#else
-    *bottom = (uint64_t)addr + size;
-#endif
-
-    *top = (uint64_t)addr;
-}
-
-#elif defined(__APPLE__) || defined(BSD)
-// Apple at least has no way to get the thread's attr struct that
-// I can find. But it does provide an API to get at the same data.
-static inline void
-n00b_get_stack_scan_region(uint64_t *top, uint64_t *bottom)
-{
-    pthread_t self = pthread_self();
-
-    *bottom = (uint64_t)pthread_get_stackaddr_np(self);
-
-#ifdef N00B_USE_FRAME_INTRINSIC
-    *top = (uint64_t)__builtin_frame_address(0);
-#else
-    *top = (uint64_t)&self;
-#endif
-}
-#else
-#error "Unsupported platform."
-#endif
-
-void
-n00b_gc_register_collect_fn(n00b_gc_hook post)
-{
-    hook_record_t *record = calloc(1, sizeof(hook_record_t));
-
-    record->post_collect = post;
-    record->next         = n00b_gc_hooks;
-    n00b_gc_hooks         = record;
-}
-
-static inline void
-run_post_collect_hooks()
-{
-    hook_record_t *record = n00b_gc_hooks;
-
-    while (record != NULL) {
-        if (record->post_collect) {
-            (*record->post_collect)();
-        }
-        record = record->next;
-    }
-}
-
-static void
-migrate_finalizers(n00b_arena_t *old, n00b_arena_t *new)
-{
-    n00b_finalizer_info_t *cur = old->to_finalize;
-    n00b_finalizer_info_t *next;
-
-    // For the moment, we might have issues w/ finalizers.
-    return;
-    while (cur != NULL) {
-        n00b_alloc_hdr *alloc = cur->allocation;
-        next                 = cur->next;
-
-        // If it's been forwarded, we migrate the record to the new heap.
-        // In the other branch, we'll call the finalizer and delete the
-        // record (we do not cache records right now).
-        if (alloc->fw_addr) {
-            cur->next        = new->to_finalize;
-            new->to_finalize = cur;
-            // fw_addr is the user-facing address; but the alloc record
-            // gets the actual header, which is why we do the -1 index.
-            cur->allocation  = &((n00b_alloc_hdr *)alloc->fw_addr)[-1];
-        }
-        else {
-            system_finalizer(alloc->data);
-            n00b_rc_free(cur);
-        }
-
-        cur = next;
-    }
-}
-
-static inline bool
-value_in_fromspace(n00b_collection_ctx *ctx, void *ptr)
-{
-    if (ptr >= ctx->fromspc_end || ptr <= ctx->fromspc_start) {
-        return false;
-    }
-    n00b_gc_trace(N00B_GCT_PTR_TEST, "In fromspace (%p) == true", ptr);
-    return true;
-}
-
-#ifdef N00B_FULL_MEMCHECK
-static inline char *
-name_alloc(n00b_alloc_hdr *alloc)
-{
-    if (!alloc->n00b_obj) {
-        return "raw alloc";
-    }
-    if (!alloc->type) {
-        return "internal structure";
-    }
-
-    return n00b_internal_type_name(alloc->type);
-}
-#endif
-
-static void *ptr_relocate(n00b_collection_ctx *, void *);
-
-static inline void *
-possible_relo(n00b_collection_ctx *ctx, void *p)
-{
-    // Must be NULL if it's not in the heap.
-    if (!n00b_in_heap(p)) {
-        return p;
-    }
-
-    return ptr_relocate(ctx, p);
-}
-
-static worklist_item_t *
-next_write_slot(n00b_collection_ctx *ctx)
-{
-    worklist_item_t *result = &ctx->worklist->items[ctx->worklist->write_ix];
-
-    result->ix = ctx->worklist->write_ix++;
-
-    return result;
-}
-
-static inline worklist_item_t *
-next_read_slot(n00b_collection_ctx *ctx)
-{
-    return &ctx->worklist->items[ctx->worklist->read_ix++];
-}
-
-static inline void
-fill_new_hdr(n00b_collection_ctx *ctx, n00b_alloc_hdr *old, n00b_alloc_hdr *new)
-{
-    // The old alloc might have debug padding, so we don't strictly
-    // use 'alloc_len' because it hides that.
-
-    char *raw = (char *)new;
-
-    ctx->next_to_record = (void *)(raw + old->alloc_len);
-    ctx->reached_allocs = ctx->reached_allocs + 1;
-    new->guard          = old->guard;
-    new->next_addr      = (char *)ctx->next_to_record;
-    new->alloc_len      = old->alloc_len;
-    new->request_len    = old->request_len;
-    new->scan_fn        = old->scan_fn;
-    new->finalize       = old->finalize;
-    new->n00b_obj      = old->n00b_obj;
-    new->cached_hash    = old->cached_hash;
-    new->type           = possible_relo(ctx, old->type);
-
-#if defined(N00B_FULL_MEMCHECK)
-    new->end_guard_loc = ((uint64_t *)new->next_addr) - 2;
-#endif
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-    new->alloc_file = old->alloc_file;
-    new->alloc_line = old->alloc_line;
-#endif
-}
-
-static n00b_alloc_hdr *
-get_new_header(n00b_collection_ctx *ctx, n00b_alloc_hdr *old)
-{
-    n00b_alloc_hdr *new    = ctx->next_to_record;
-    worklist_item_t *item = next_write_slot(ctx);
-
-    item->new_hdr = new;
-    item->old_hdr = old;
-    old->fw_addr  = new;
-
-    n00b_gc_trace(N00B_GCT_SCAN_PTR,
-                 "Marking header @%p, to move to %p. Write ix = %d",
-                 old,
-                 old->fw_addr,
-                 item->ix);
-
-    fill_new_hdr(ctx, old, new);
-
-    return new;
-}
-
-// We perhaps should instead keep a binary range tree or k-d tree to
-// not have to keep scanning memory.
-//
-// My thinking here is:
-//
-// 1. Keep it simple.
-//
-// 2. Sequential access is VERY fast relative to jumping around pages
-//    when walking a tree.
-//
-// 3. Get fancier if there's data showing we need to do so.
-static void *
-ptr_relocate(n00b_collection_ctx *ctx, void *ptr)
-{
-    // Align the pointer for scanning back to the header.
-    // It should be aligned, but people do the craziest things.
-    void **p = (void **)(((uint64_t)ptr) & ~0x0000000000000007);
-    p        = (void **)(((n00b_alloc_hdr *)p) - 1);
-
-    while ((*(uint64_t *)p) != n00b_gc_guard) {
-        p--;
-    }
-
-    n00b_gc_trace(N00B_GCT_SCAN_PTR, "Header @%p for ptr @%p", p, ptr);
-
-    n00b_alloc_hdr *hdr = (n00b_alloc_hdr *)p;
-    n00b_alloc_hdr *fw  = hdr->fw_addr;
-
-    if (fw == NULL) {
-        fw = get_new_header(ctx, hdr);
-    }
-    else {
-        n00b_gc_trace(N00B_GCT_SCAN_PTR, "Existing forward @%p -> %p", hdr, fw);
-    }
-
-    ptrdiff_t offset = ((char *)ptr) - (char *)hdr->data;
-    char     *result = ((char *)fw->data) + offset;
-
-    assert(result - (char *)fw == ((char *)ptr) - (char *)hdr);
-
-    return result;
-}
-
-static void
-move_range_unsafely(n00b_collection_ctx *ctx, worklist_item_t *item)
-{
-    // Unsafely because we aren't being specific about what's a pointer
-    // and what isn't, so we might be transforming data into dangling ptrs.
-
-    uint64_t *p   = item->old_hdr->data;
-    uint64_t *end = (uint64_t *)item->old_hdr->next_addr;
-    uint64_t *dst = item->new_hdr->data;
-
-    n00b_gc_trace(N00B_GCT_WORKLIST,
-                 "Move (%ld): %p-%p -> %p",
-                 ctx->worklist->read_ix,
-                 p,
-                 end,
-                 dst);
-
-    while (p < end) {
-        uint64_t value = *p++;
-
-        if (value_in_fromspace(ctx, (void *)value)) {
-            *dst = (uint64_t)ptr_relocate(ctx, (void *)value);
-        }
-        else {
-            *dst = value;
-        }
-        dst++;
-    }
-}
-
-static void
-one_worklist_item(n00b_collection_ctx *ctx)
-{
-    worklist_item_t *item = next_read_slot(ctx);
-    n00b_alloc_hdr *new    = item->new_hdr;
-    n00b_alloc_hdr *old    = item->old_hdr;
-
-    n00b_gc_trace(N00B_GCT_WORKLIST, "process item: %d", ctx->worklist->read_ix);
-
-    if (N00B_GC_SCAN_NONE == (void *)item->new_hdr->scan_fn) {
-        size_t copy_len = ((char *)old->next_addr) - (char *)old->data;
-
-        memcpy(new->data, old->data, copy_len);
-
-        ctx->copied_allocs++;
-        return;
-    }
-
-#ifdef N00B_SCAN_FNS
-    if (N00B_GC_SCAN_ALL == (void *)item->new_hdr->scan_fn) {
-        move_range_unsafely(ctx, item);
-        ctx->copied_allocs++;
-
-        return;
-    }
-
-    // Start simple, will get this back up in a bit.
-    uint32_t  numwords    = item->new_hdr->alloc_len / 8;
-    uint32_t  bf_byte_len = ((numwords / 64) + 1) * 8;
-    uint64_t *map         = malloc(bf_byte_len);
-    uint64_t *map_copy    = map;
-
-    memset(map, 0, bf_byte_len);
-
-    // TODO: Probably this should point at the OLD location?
-    // Tho would be messy w/ marshal.
-    (*item->new_hdr->scan_fn)(map, item->old_hdr->data);
-
-    uint32_t  scan_ix = 0;
-    uint64_t  value;
-    uint64_t *p   = item->old_hdr->data;
-    uint64_t *end = (uint64_t *)item->old_hdr->next_addr;
-    uint64_t *dst = item->new_hdr->data;
-
-    while (p < end) {
-        value = *p++;
-
-        if (((*map) & (1 << scan_ix++)) && value_in_fromspace(ctx, (void *)value)) {
-            *dst++ = (uint64_t)ptr_relocate(ctx, (void *)value);
-        }
-        else {
-            *dst++ = value;
-        }
-
-        if (n00b_unlikely(scan_ix == 64)) {
-            ++map;
-            scan_ix = 0;
-        }
-    }
-    ctx->copied_allocs++;
-    free(map_copy);
-#else
-    move_range_unsafely(ctx, item);
-    ctx->copied_allocs++;
-#endif
-}
-
-static void
-process_worklist(n00b_collection_ctx *ctx)
-{
-    n00b_gc_trace(N00B_GCT_WORKLIST,
-                 "list start: %d - %d",
-                 ctx->worklist->read_ix,
-                 ctx->worklist->write_ix);
-
-    while (ctx->worklist->read_ix != ctx->worklist->write_ix) {
-        one_worklist_item(ctx);
-    }
-
-    n00b_gc_trace(N00B_GCT_WORKLIST,
-                 "@end: %d - dx",
-                 ctx->worklist->read_ix,
-                 ctx->worklist->write_ix);
-}
-
-static void
-scan_external_range(n00b_collection_ctx *ctx, uint64_t *p, int num_words)
-{
-    for (int i = 0; i < num_words; i++) {
-        uint64_t value = *p;
-
-#ifdef HAS_ADDRESS_SANITIZER
-        if (__asan_addr_is_in_fake_stack(__asan_get_current_fake_stack(),
-                                         value)) {
-            p++;
-            continue;
-        }
-#endif
-
-        if (value_in_fromspace(ctx, (void *)value)) {
-            *p = (uint64_t)ptr_relocate(ctx, (void *)value);
-        }
-        p++;
-    }
-}
-
-static void
-scan_roots(n00b_collection_ctx *ctx)
-{
-    n00b_arena_t *old       = ctx->from_space;
-    uint32_t     num_roots = hatrack_zarray_len(old->roots);
-
-    for (uint32_t i = 0; i < num_roots; i++) {
-        n00b_gc_root_info_t *ri = hatrack_zarray_cell_address(old->roots, i);
-
-        n00b_gc_trace(N00B_GCT_SCAN,
-                     "Root scan start: %p (%u item(s)) (%s:%d)",
-                     ri->ptr,
-                     (uint32_t)ri->num_items,
-                     ri->file,
-                     ri->line);
-        scan_external_range(ctx, ri->ptr, ri->num_items);
-        n00b_gc_trace(N00B_GCT_SCAN,
-                     "Root scan end: %p (%d item(s)) (%s:%d)",
-                     ri->ptr,
-                     (uint32_t)ri->num_items,
-                     ri->file,
-                     ri->line);
-        process_worklist(ctx);
-    }
-}
-
-static void
-raw_trace(n00b_collection_ctx *ctx)
-{
-    n00b_arena_t *cur = ctx->from_space;
-    uint64_t    *stack_top;
-    uint64_t    *stack_bottom;
-
-    n00b_get_stack_scan_region((uint64_t *)&stack_top,
-                              (uint64_t *)&stack_bottom);
-
-    scan_external_range(ctx, (uint64_t *)&n00b_bi_types[2], 1);
-    process_worklist(ctx);
-    scan_external_range(ctx, (uint64_t *)&n00b_bi_types[0], N00B_NUM_BUILTIN_DTS);
-    process_worklist(ctx);
-
-    /*    scan_external_range(ctx,
-                            (uint64_t *)&ctx->from_space->history->ring[0],
-                            N00B_ALLOC_HISTORY_SIZE);
-                            process_worklist(ctx);*/
-    scan_roots(ctx);
-
-    n00b_gc_trace(N00B_GCT_SCAN,
-                 "Stack scan start: %p to %p (%lu item(s))",
-                 stack_top,
-                 stack_bottom,
-                 stack_bottom - stack_top);
-
-    ctx->stack_scanning = true;
-    scan_external_range(ctx, stack_top, stack_bottom - stack_top);
-    process_worklist(ctx);
-
-    n00b_gc_trace(N00B_GCT_SCAN,
-                 "Stack scan end: %p to %p (%lu item(s))",
-                 stack_top,
-                 stack_bottom,
-                 stack_bottom - stack_top);
-
-    if (system_finalizer != NULL) {
-        migrate_finalizers(cur, ctx->to_space);
-    }
-}
-
-#ifdef N00B_FULL_MEMCHECK
-
-extern uint64_t n00b_end_guard;
-
-void
-_n00b_memcheck_raw_alloc(void *a, char *file, int line)
-{
-    // This uses info int the alloc itself that might be corrupt;
-    // It's a TODO to make the external records log n searchable,
-    // to remove that potential issue.
-
-    if (!n00b_in_heap(a)) {
-        fprintf(stderr,
-                "\n%s:%d: Heap pointer %p is corrupt; not in heap.\n",
-                file,
-                line,
-                a);
-        abort();
-    }
-
-    n00b_alloc_hdr *h = (n00b_alloc_hdr *)(((unsigned char *)a) - sizeof(n00b_alloc_hdr));
-    if (h->guard != n00b_gc_guard) {
-        fprintf(stderr, "\n%s:%d: ", file, line);
-        n00b_alloc_display_front_guard_error(h, a, NULL, 0, true);
-    }
-
-    if (*h->end_guard_loc != n00b_end_guard) {
-        fprintf(stderr, "\n%s:%d: ", file, line);
-        n00b_alloc_display_rear_guard_error(h,
-                                           a,
-                                           h->request_len,
-                                           a,
-                                           NULL,
-                                           0,
-                                           true);
-    }
-}
-
-void
-_n00b_memcheck_object(n00b_obj_t o, char *file, int line)
-{
-    if (!n00b_in_heap(o)) {
-        fprintf(stderr,
-                "\n%s:%d: Heap pointer %p is corrupt; not in heap.\n",
-                file,
-                line,
-                o);
-        abort();
-    }
-
-    n00b_alloc_hdr *h = n00b_object_header(o);
-
-    if (h->guard != n00b_gc_guard) {
-        fprintf(stderr, "\n%s:%d: ", file, line);
-        n00b_alloc_display_front_guard_error(h, o, NULL, 0, true);
-    }
-
-    if (*h->end_guard_loc != n00b_end_guard) {
-        fprintf(stderr, "\n%s:%d: ", file, line);
-        n00b_alloc_display_rear_guard_error(h,
-                                           o,
-                                           h->request_len,
-                                           h->end_guard_loc,
-                                           NULL,
-                                           0,
-                                           true);
-    }
-}
-
-// No API here; we use this to fail tests if there's any definitive
-// error.  The abort() will do it, but that only fires if the check
-// for being recent finds the error, mainly for debugging purposes.
-
-bool n00b_definite_memcheck_error = false;
-
-void
-n00b_alloc_display_front_guard_error(n00b_alloc_hdr *hdr,
-                                    void          *ptr,
-                                    char          *file,
-                                    int            line,
-                                    bool           bail)
-{
-    fprintf(stderr,
-            "%s @%p is corrupt; its guard has been overwritten.\n"
-            "Expected '%llx', but got '%llx'\n"
-            "Alloc location: %s:%d\n\n",
-            name_alloc(hdr),
-            ptr,
-            (long long unsigned)n00b_gc_guard,
-            (long long unsigned)hdr->guard,
-            file ? file : hdr->alloc_file,
-            file ? line : hdr->alloc_line);
-
-    n00b_definite_memcheck_error = true;
-
-#ifdef N00B_STRICT_MEMCHECK
-    abort();
-#else
-    if (bail) {
-        abort();
-    }
-#endif
-}
-
-void
-n00b_alloc_display_rear_guard_error(n00b_alloc_hdr *hdr,
-                                   void          *ptr,
-                                   int            len,
-                                   void          *rear_guard_loc,
-                                   char          *file,
-                                   int            line,
-                                   bool           bail)
-{
-    fprintf(stderr,
-            "%s @%p overflowed. It was allocated to %d bytes, and had its "
-            "end guard at %p.\n"
-            "End guard should have been '%llx' but was actually '%llx'\n"
-            "Alloc location: %s:%d\n\n",
-            name_alloc(hdr),
-            ptr,
-            len,
-            rear_guard_loc,
-            (long long unsigned int)n00b_end_guard,
-            (long long unsigned int)*(uint64_t *)rear_guard_loc,
-            file ? file : hdr->alloc_file,
-            file ? line : hdr->alloc_line);
-
-    n00b_definite_memcheck_error = true;
-
-#ifdef N00B_STRICT_MEMCHECK
-    abort();
-#else
-    if (bail) {
-        abort();
-    }
-#endif
-}
-
-static void
-show_next_allocs(n00b_shadow_alloc_t *a)
-{
-#ifdef N00B_SHOW_NEXT_ALLOCS
-    int n = N00B_SHOW_NEXT_ALLOCS;
-    fprintf(stderr, "Next allocs:\n");
-
-    while (a && n) {
-        fprintf(stderr,
-                "%s:%d (@%p; %d bytes)\n",
-                a->file,
-                a->line,
-                a->start,
-                a->len);
-        a = a->next;
-        n -= 1;
-    }
-#endif
-}
-
-static void
-memcheck_validate_old_records(n00b_arena_t *from_space)
-{
-    uint64_t           *low  = (void *)from_space->data;
-    uint64_t           *high = (void *)from_space->heap_end;
-    n00b_shadow_alloc_t *a    = from_space->shadow_start;
-
-    while (a != NULL) {
-        n00b_shadow_alloc_t *next = a->next;
-
-        if (a->start->guard != n00b_gc_guard) {
-            n00b_alloc_display_front_guard_error(a->start,
-                                                a->start->data,
-                                                a->file,
-                                                a->line,
-                                                false);
-        }
-
-        if (*a->end != n00b_end_guard) {
-            n00b_alloc_display_rear_guard_error(a->start,
-                                               a->start->data,
-                                               a->len,
-                                               a->end,
-                                               a->file,
-                                               a->line,
-                                               false);
-            show_next_allocs(next);
-        }
-
-        if (a->start->fw_addr != NULL) {
-            uint64_t **p   = (void *)a->start->data;
-            uint64_t **end = (void *)a->end;
-
-            while (p < end) {
-                uint64_t *v = *p;
-                if (v > low && v < high) {
-                    void **probe;
-                    probe = (void **)(((uint64_t)v) & ~0x0000000000000007);
-
-                    while (*(uint64_t *)probe != n00b_gc_guard) {
-                        --probe;
-                    }
-
-                    n00b_alloc_hdr *h = (n00b_alloc_hdr *)probe;
-                    if (!h->fw_addr) {
-                        // We currently don't mark this as a definite
-                        // error for testing, because it *can* be a
-                        // false positive.  It's reasonably likely in
-                        // common situations on a mac.
-                        fprintf(stderr,
-                                "*****Possible missed allocation*****\n"
-                                "At address %p, Found a pointer "
-                                " to %p, which was NOT copied.\n"
-                                "The pointer was found in a live allocation"
-                                " from %s:%d.\n"
-                                "That allocation moved to %p.\n"
-                                "The allocation's gc bit map: %p\n"
-                                "The pointer itself was allocated from %s:%d.\n"
-                                "Note that this can be a false positive if "
-                                "the memory in the allocation was non-pointer "
-                                "data and properly marked as such.\n"
-                                "Otherwise, it may be a pointer that was "
-                                "marked as data, incorrectly.\n\n",
-                                p,
-                                *p,
-                                a->start->alloc_file,
-                                a->start->alloc_line,
-                                a->start->fw_addr,
-                                a->start->scan_fn,
-                                h->alloc_file,
-                                h->alloc_line);
-#ifdef N00B_STRICT_MEMCHECK
-                        exit(-4);
-#endif
-                    }
-                }
-                p++;
-            }
-        }
-        a = next;
-    }
-}
-
-static void
-memcheck_delete_old_records(n00b_arena_t *from_space)
-{
-    n00b_shadow_alloc_t *a = from_space->shadow_start;
-
-    while (a != NULL) {
-        n00b_shadow_alloc_t *next = a->next;
-        n00b_rc_free(a);
-        a = next;
-    }
-}
-
-#endif
-
-#ifdef N00B_GC_STATS
-#define PREP_STATS()                                                    \
-    n00b_arena_t *old_arena = (void *)ctx->from_space;                   \
-                                                                        \
-    uint64_t old_used, old_free, old_total, live, available, new_total; \
-                                                                        \
-    n00b_gc_heap_stats(&old_used, &old_free, &old_total);                \
-                                                                        \
-    uint64_t prev_new_allocs  = n00b_total_allocs;                       \
-    uint64_t prev_start_bytes = ctx->from_space->start_size;            \
-    uint64_t prev_used_mem    = old_used - prev_start_bytes;            \
-    uint64_t copy_count       = ctx->from_space->num_transferred;       \
-    uint64_t old_num_records  = n00b_total_alloced + copy_count;         \
-                                                                        \
-    uint64_t num_migrations;                                            \
-                                                                        \
-    n00b_total_collects++;
-
-#define SHOW_STATS()                                                           \
-    const int mb   = 0x100000;                                                 \
-    num_migrations = ctx->copied_allocs;                                       \
-    n00b_gc_heap_stats(&live, &available, &new_total);                          \
-                                                                               \
-    n00b_current_heap->legacy_count    = num_migrations;                        \
-    n00b_current_heap->num_transferred = num_migrations;                        \
-    n00b_current_heap->start_size      = live / 8;                              \
-                                                                               \
-    n00b_total_garbage_words += (old_used - live) / 8;                          \
-    n00b_total_size += (old_total / 8);                                         \
-                                                                               \
-    if (!n00b_gc_show_heap_stats_on) {                                          \
-        return ctx->to_space;                                                  \
-    }                                                                          \
-                                                                               \
-    n00b_printf("\n[h1 u]****Heap Stats****\n");                                \
-                                                                               \
-    n00b_printf(                                                                \
-        "[h2]Pre-collection heap[i] @{:x}:",                                   \
-        n00b_box_u64((uint64_t)old_arena));                                     \
-                                                                               \
-    n00b_printf("[em]{:,}[/] mb used of [em]{:,}[/] mb; ([em]{:,}[/] mb free)", \
-               n00b_box_u64(old_used / mb),                                     \
-               n00b_box_u64(old_total / mb),                                    \
-               n00b_box_u64(old_free / mb));                                    \
-                                                                               \
-    n00b_printf(                                                                \
-        "[em]{:,}[/] records, [em]{:,}[/] "                                    \
-        "migrated; [em]{:,}[/] new. ([em]{:,}[/] mb)\n",                       \
-        n00b_box_u64(old_num_records),                                          \
-        n00b_box_u64(num_migrations),                                           \
-        n00b_box_u64(prev_new_allocs),                                          \
-        n00b_box_u64(prev_used_mem / mb));                                      \
-                                                                               \
-    n00b_printf(                                                                \
-        "[h2]Post collection heap [i]@{:x}: ",                                 \
-        n00b_box_u64((uint64_t)n00b_current_heap));                              \
-                                                                               \
-    n00b_printf(                                                                \
-        "[em]{:,}[/] mb used of [em]{:,}[/] mb; "                              \
-        "([b i]{:,}[/] mb free, [b i]{:,}[/] mb collected)",                   \
-        n00b_box_u64(live / mb),                                                \
-        n00b_box_u64(new_total / mb),                                           \
-        n00b_box_u64(available / mb),                                           \
-        n00b_box_u64((old_used - live) / mb));                                  \
-                                                                               \
-    n00b_printf("Copied [em]{:,}[/] records; Trashed [em]{:,}[/]",              \
-               n00b_box_u64(num_migrations),                                    \
-               n00b_box_u64(old_num_records - num_migrations));                 \
-                                                                               \
-    n00b_printf("[h2]Totals[/h2]\n[b]Total requests:[/] [em]{:,}[/] mb ",       \
-               n00b_box_u64(n00b_total_requested / mb));                         \
-                                                                               \
-    n00b_printf("[b]Total alloced:[/] [em]{:,}[/] mb",                          \
-               n00b_box_u64(n00b_total_alloced / mb));                           \
-                                                                               \
-    n00b_printf("[b]Total allocs:[/] [em]{:,}[/]",                              \
-               n00b_box_u64(n00b_total_allocs));                                 \
-                                                                               \
-    n00b_printf("[b]Total collects:[/] [em]{:,}",                               \
-               n00b_box_u64(n00b_total_collects));                               \
-                                                                               \
-    double      u = n00b_total_garbage_words * (double)100.0;                   \
-    n00b_utf8_t *gstr;                                                          \
-                                                                               \
-    u    = u / (double)(n00b_total_size);                                       \
-    gstr = n00b_cstr_format("{}", n00b_box_double(u));                           \
-    gstr = n00b_str_slice(gstr, 0, 5);                                          \
-                                                                               \
-    n00b_printf("[b]Collect utilization[/]: [em]{}%[/] [i]garbage",             \
-               gstr);                                                          \
-                                                                               \
-    n00b_printf("[b]Average allocation size:[/] [em]{:,}[/] bytes",             \
-               n00b_box_u64(n00b_total_alloced / n00b_total_allocs))
-#else
-#define PREP_STATS()
-#define SHOW_STATS()
-#endif
-
-#if defined(N00B_GC_FULL_TRACE) && N00B_GCT_COLLECT != 0
-#define RUN_CORE_TRACE(x)                                \
-    n00b_gc_trace(N00B_GCT_COLLECT,                        \
-                 "=========== COLLECT START; arena @%p", \
-                 n00b_current_heap);                      \
-    raw_trace(x);                                        \
-    n00b_gc_trace(N00B_GCT_COLLECT,                        \
-                 "=========== COLLECT END; arena @%p\n", \
-                 n00b_current_heap)
-#else
-#define RUN_CORE_TRACE(x) raw_trace(x)
-#endif
-
-#ifdef N00B_FULL_MEMCHECK
-#define MEMCHECK_OLD_HEAP(x)          \
-    memcheck_validate_old_records(x); \
-    memcheck_delete_old_records(x)
-#else
-#define MEMCHECK_OLD_HEAP(x)
-#endif
-
-n00b_arena_t *
-n00b_collect_arena(n00b_arena_t *from_space)
-{
-#ifdef N00B_GC_SHOW_COLLECT_STACK_TRACES
-    printf(
-        "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n"
-        "Initiating garbage collection.\n Current stack: \n\n");
-    n00b_static_c_backtrace();
-    printf(
-        "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n");
-#endif
-
-    n00b_collection_ctx *ctx;
-    void               *worklist_end;
-    worklist_t         *worklist;
-    const int           hdr_sz = sizeof(n00b_alloc_hdr) / 8;
-    uint64_t            len    = from_space->heap_end - (uint64_t *)from_space;
-
-    worklist = n00b_raw_arena_alloc(len * 8, &worklist_end, (void **)&ctx);
-
-    if (from_space->grow_next) {
-        len <<= 1;
-    }
-
-    ctx->from_space     = from_space;
-    ctx->to_space       = n00b_new_arena(len, from_space->roots);
-    ctx->worklist       = worklist;
-    ctx->next_to_record = ctx->to_space->next_alloc;
-    ctx->fromspc_start  = ctx->from_space->data;
-    ctx->fromspc_end    = ctx->from_space->heap_end;
-    ctx->fromspc_start += hdr_sz;
-    ctx->fromspc_end -= hdr_sz;
-
-    PREP_STATS();
-
-    RUN_CORE_TRACE(ctx);
-
-    ctx->to_space->next_alloc  = ctx->next_to_record;
-    ctx->to_space->alloc_count = ctx->copied_allocs;
-    assert(ctx->copied_allocs == ctx->reached_allocs);
-
-    MEMCHECK_OLD_HEAP(ctx->from_space);
-
-    uint64_t start = (uint64_t)ctx->to_space;
-    uint64_t end   = (uint64_t)ctx->to_space->heap_end;
-    uint64_t total = end - start;
-    uint64_t where = (uint64_t)ctx->to_space->next_alloc;
-    uint64_t inuse = where - start;
-
-    if (((total + (total >> 1)) >> 4) < inuse) {
-        ctx->to_space->grow_next = true;
-    }
-
-    run_post_collect_hooks();
-
-    // Free the worklist.
-    n00b_gc_trace(N00B_GCT_MUNMAP,
-                 "worklist: del @%p (used %lld items)",
-                 ctx->worklist,
-                 ctx->worklist->write_ix);
-
-    if (ctx->from_space == n00b_current_heap) {
-        n00b_current_heap = ctx->to_space;
-    }
-
-    n00b_arena_t *result = ctx->to_space;
-    SHOW_STATS();
-
-    pthread_mutex_unlock(&ctx->from_space->lock);
-    n00b_delete_arena(ctx->from_space);
-    n00b_delete_arena((void *)ctx->worklist);
-
-    return result;
-}
-
-void
-n00b_gc_thread_collect()
-{
-    n00b_current_heap = n00b_collect_arena(n00b_current_heap);
 }

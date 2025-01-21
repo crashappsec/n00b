@@ -74,7 +74,7 @@ n00b_terminal_init(n00b_terminal_t *terminal, va_list args)
     bool found;
 
     n00b_grammar_t *grammar = va_arg(args, n00b_grammar_t *);
-    terminal->value        = va_arg(args, n00b_utf8_t *);
+    terminal->value         = va_arg(args, n00b_utf8_t *);
 
     // Special-case single character terminals to their codepoint.
     if (n00b_str_codepoint_len(terminal->value) == 1) {
@@ -123,12 +123,12 @@ n00b_nonterm_init(n00b_nonterm_t *nonterm, va_list args)
     // don't add to the dictionary, but we do add to the list. This is
     // used for groups.
 
-    bool           found;
+    bool            found;
     n00b_utf8_t    *err;
-    int64_t        n;
+    int64_t         n;
     n00b_grammar_t *grammar = va_arg(args, n00b_grammar_t *);
-    nonterm->name          = va_arg(args, n00b_utf8_t *);
-    nonterm->rules         = n00b_list(n00b_type_ref());
+    nonterm->name           = va_arg(args, n00b_utf8_t *);
+    nonterm->rules          = n00b_list(n00b_type_ref());
 
     if (nonterm->name == NULL) {
         // Anonymous / inline rule.
@@ -152,7 +152,7 @@ n00b_nonterm_init(n00b_nonterm_t *nonterm, va_list args)
     if (found) {
 bail:
         err = n00b_cstr_format("Duplicate ruleset name: [em]{}[/]",
-                              nonterm->name);
+                               nonterm->name);
         N00B_RAISE(err);
     }
 
@@ -181,7 +181,9 @@ bail:
     }
 }
 
-static bool is_nullable_rule(n00b_grammar_t *, n00b_parse_rule_t *, n00b_list_t *);
+static bool is_nullable_rule(n00b_grammar_t *,
+                             n00b_parse_rule_t *,
+                             n00b_list_t *);
 
 static bool
 check_stack_for_nt(n00b_list_t *stack, int64_t ruleset)
@@ -230,8 +232,8 @@ is_nullable_nt(n00b_grammar_t *g, int64_t nt_id, n00b_list_t *stack)
     // A non-terminal is nullable if any of its individual rules are
     // nullable.
     n00b_parse_rule_t *cur_rule;
-    bool              found_any_rule = false;
-    int64_t           i              = 0;
+    bool               found_any_rule = false;
+    int64_t            i              = 0;
 
     if (n00b_list_len(nt->rules) == 0) {
         finalize_nullable(nt, true);
@@ -297,8 +299,8 @@ is_nullable_rule(n00b_grammar_t *g, n00b_parse_rule_t *rule, n00b_list_t *stack)
 
 bool
 n00b_is_nullable_pitem(n00b_grammar_t *grammar,
-                      n00b_pitem_t   *item,
-                      n00b_list_t    *stack)
+                       n00b_pitem_t   *item,
+                       n00b_list_t    *stack)
 {
     // There's not a tremendous value in caching nullable here; it is
     // best cached in the non-terminal node. We recompute only when
@@ -352,9 +354,9 @@ n00b_pitem_t *
 n00b_group_items(n00b_grammar_t *g, n00b_list_t *pitems, int min, int max)
 {
     n00b_rule_group_t *group = n00b_gc_alloc_mapped(n00b_rule_group_t,
-                                                  N00B_GC_SCAN_ALL);
+                                                    N00B_GC_SCAN_ALL);
 
-    group->gid               = n00b_rand16();
+    group->gid                = n00b_rand16();
     n00b_utf8_t    *tmp_name  = n00b_cstr_format("$$group_nt_{}", group->gid);
     n00b_pitem_t   *tmp_nt_pi = n00b_pitem_nonterm_raw(g, tmp_name);
     n00b_nonterm_t *nt        = n00b_pitem_get_ruleset(g, tmp_nt_pi);
@@ -367,7 +369,7 @@ n00b_group_items(n00b_grammar_t *g, n00b_list_t *pitems, int min, int max)
     group->min      = min;
     group->max      = max;
 
-    n00b_pitem_t *result    = n00b_new_pitem(N00B_P_GROUP);
+    n00b_pitem_t *result   = n00b_new_pitem(N00B_P_GROUP);
     result->contents.group = group;
 
     return result;
@@ -410,7 +412,7 @@ pitems_eq(n00b_pitem_t *p1, n00b_pitem_t *p2)
     case N00B_P_GROUP:
         return p1->contents.group == p2->contents.group;
     default:
-      n00b_unreachable();
+        n00b_unreachable();
     }
 }
 
@@ -448,7 +450,7 @@ static n00b_parse_rule_t *
 ruleset_add_rule_internal(n00b_grammar_t     *g,
                           n00b_nonterm_t     *ruleset,
                           n00b_list_t        *items,
-                          int                cost,
+                          int                 cost,
                           n00b_parse_rule_t  *penalty,
                           n00b_parse_rule_t **old)
 {
@@ -461,12 +463,12 @@ ruleset_add_rule_internal(n00b_grammar_t     *g,
     }
 
     n00b_parse_rule_t *rule = n00b_gc_alloc_mapped(n00b_parse_rule_t,
-                                                 N00B_GC_SCAN_ALL);
-    rule->nt               = ruleset;
-    rule->contents         = items;
-    rule->cost             = cost;
-    rule->penalty_rule     = penalty ? true : false;
-    rule->link             = penalty;
+                                                   N00B_GC_SCAN_ALL);
+    rule->nt                = ruleset;
+    rule->contents          = items;
+    rule->cost              = cost;
+    rule->penalty_rule      = penalty ? true : false;
+    rule->link              = penalty;
 
     if (rule_exists(ruleset, rule, old)) {
         return NULL;
@@ -480,9 +482,9 @@ ruleset_add_rule_internal(n00b_grammar_t     *g,
 
 n00b_parse_rule_t *
 n00b_ruleset_add_rule(n00b_grammar_t *g,
-                     n00b_nonterm_t *nt,
-                     n00b_list_t    *items,
-                     int            cost)
+                      n00b_nonterm_t *nt,
+                      n00b_list_t    *items,
+                      int             cost)
 {
     n00b_parse_rule_t *new;
     n00b_parse_rule_t *old = NULL;
@@ -507,9 +509,9 @@ create_one_error_rule_set(n00b_grammar_t *g, int rule_ix)
     // over-complicate. Single-token detection is good enough.
 
     n00b_parse_rule_t *cur    = n00b_list_get(g->rules, rule_ix, NULL);
-    int               n      = n00b_list_len(cur->contents);
+    int                n      = n00b_list_len(cur->contents);
     n00b_list_t       *l      = cur->contents;
-    int               tok_ct = 0;
+    int                tok_ct = 0;
     n00b_pitem_t      *pi;
 
     if (cur->nt->no_error_rule) {
@@ -525,20 +527,20 @@ create_one_error_rule_set(n00b_grammar_t *g, int rule_ix)
         tok_ct++;
 
         n00b_utf8_t    *name   = n00b_cstr_format("$term-{}-{}-{}",
-                                           cur->nt->name,
-                                           rule_ix,
-                                           tok_ct);
+                                             cur->nt->name,
+                                             rule_ix,
+                                             tok_ct);
         n00b_pitem_t   *pi_err = n00b_pitem_nonterm_raw(g, name);
         n00b_nonterm_t *nt_err = n00b_pitem_get_ruleset(g, pi_err);
         n00b_list_t    *r      = n00b_list(n00b_type_ref());
 
         n00b_list_append(r, pi);
         n00b_parse_rule_t *ok = ruleset_add_rule_internal(g,
-                                                         nt_err,
-                                                         r,
-                                                         0,
-                                                         NULL,
-                                                         NULL);
+                                                          nt_err,
+                                                          r,
+                                                          0,
+                                                          NULL,
+                                                          NULL);
 
         r = n00b_list(n00b_type_ref());
         n00b_list_append(r, n00b_new_pitem(N00B_P_NULL));
@@ -629,7 +631,7 @@ n00b_prep_first_parse(n00b_grammar_t *g)
     }
 
     n00b_nonterm_t *start = n00b_get_nonterm(g, g->default_start);
-    start->start_nt      = true;
+    start->start_nt       = true;
 
     n00b_list_sort(g->rules, (n00b_sort_fn)cmp_rules_for_display_ordering);
 
@@ -677,7 +679,7 @@ n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
     // Since any registered tokens are non-zero, we can test for that to
     // determine if it's registered, instead of passing a bool.
     n00b_utf8_t *u8 = n00b_to_utf8(value);
-    int64_t     n  = (int64_t)hatrack_dict_get(parser->grammar->terminal_map,
+    int64_t      n  = (int64_t)hatrack_dict_get(parser->grammar->terminal_map,
                                           u8,
                                           NULL);
 
@@ -695,7 +697,7 @@ count_newlines(n00b_parser_t *parser, n00b_str_t *tok_value, int *last_index)
 {
     n00b_utf32_t     *v      = n00b_to_utf32(tok_value);
     n00b_codepoint_t *p      = (n00b_codepoint_t *)v->data;
-    int              result = 0;
+    int               result = 0;
 
     for (int i = 0; i < v->codepoints; i++) {
         switch (p[i]) {
@@ -721,15 +723,15 @@ n00b_add_debug_highlight(n00b_parser_t *parser, int32_t eid, int32_t ix)
 {
     if (!parser->debug_highlights) {
         parser->debug_highlights = n00b_dict(n00b_type_int(),
-                                            n00b_type_set(n00b_type_int()));
+                                             n00b_type_set(n00b_type_int()));
     }
 
     int64_t key   = eid;
     int64_t value = ix;
 
     n00b_set_t *s = hatrack_dict_get(parser->debug_highlights,
-                                    (void *)key,
-                                    NULL);
+                                     (void *)key,
+                                     NULL);
 
     if (!s) {
         s = n00b_set(n00b_type_int());
@@ -754,13 +756,13 @@ n00b_parser_load_token(n00b_parser_t *parser)
 
     if (parser->preloaded_tokens) {
         n00b_list_t *toks = (n00b_list_t *)parser->token_cache;
-        bool        err;
+        bool         err;
 
         state->token = n00b_list_get(toks, parser->position, &err);
 
         if (err) {
             state->token = n00b_gc_alloc_mapped(n00b_token_info_t,
-                                               N00B_GC_SCAN_ALL);
+                                                N00B_GC_SCAN_ALL);
 
             state->token->tid = N00B_TOK_EOF;
         }
@@ -779,7 +781,7 @@ n00b_parser_load_token(n00b_parser_t *parser)
     // stash the literal value when needed.
 
     n00b_token_info_t *tok = n00b_gc_alloc_mapped(n00b_token_info_t,
-                                                N00B_GC_SCAN_ALL);
+                                                  N00B_GC_SCAN_ALL);
 
     state->token = tok;
 
@@ -802,8 +804,8 @@ n00b_parser_load_token(n00b_parser_t *parser)
         }
         else {
             n00b_terminal_t *ti = n00b_list_get(parser->grammar->named_terms,
-                                              tok->tid - N00B_START_TOK_ID,
-                                              0);
+                                                tok->tid - N00B_START_TOK_ID,
+                                                0);
             if (ti->value) {
                 tok->value = ti->value;
             }

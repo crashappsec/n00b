@@ -358,6 +358,9 @@ extern n00b_grid_t  *n00b_getopt_command_get_long_for_printing(n00b_gopt_ctx *,
                                                              n00b_utf8_t *);
 extern n00b_grid_t  *n00b_getopt_default_usage(n00b_gopt_ctx *, n00b_utf8_t *);
 extern n00b_tuple_t *n00b_getopt_raw_usage_info(n00b_gopt_ctx *, n00b_utf8_t *);
+extern n00b_gopt_result_t *n00b_run_getopt_raw(n00b_gopt_ctx *,
+                                               n00b_utf8_t *,
+                                               n00b_list_t *);
 
 static inline void
 n00b_getopt_show_usage(n00b_gopt_ctx *ctx, n00b_utf8_t *cmd)
@@ -366,7 +369,7 @@ n00b_getopt_show_usage(n00b_gopt_ctx *ctx, n00b_utf8_t *cmd)
 }
 
 static inline n00b_list_t *
-n00b_gopt_rule_any_word()
+n00b_gopt_rule_any_word(void)
 {
     return n00b_gopt_rule(N00B_GOG_LPAREN,
                          N00B_GOG_WORD,
@@ -375,13 +378,44 @@ n00b_gopt_rule_any_word()
 }
 
 static inline n00b_list_t *
-n00b_gopt_rule_optional_word()
+n00b_gopt_rule_optional_word(void)
 {
     return n00b_gopt_rule(N00B_GOG_LPAREN,
                          N00B_GOG_WORD,
                          N00B_GOG_RPAREN,
                          N00B_GOG_OPT);
 }
+
+static inline bool
+n00b_gopt_has_errors(n00b_gopt_result_t *res)
+{
+    return res->errors && n00b_list_len(res->errors) != 0;
+}
+
+static inline n00b_list_t *
+n00b_gopt_get_errors(n00b_gopt_result_t *res)
+{
+    return res->errors;
+}
+
+static inline n00b_utf8_t *
+n00b_gopt_get_command(n00b_gopt_result_t *res)
+{
+    return res->cmd;
+}
+
+static inline n00b_dict_t *
+n00b_gopt_get_flags(n00b_gopt_result_t *res)
+{
+    return res->flags;
+}
+
+static inline n00b_list_t *
+n00b_gopt_get_args(n00b_gopt_result_t *res, n00b_utf8_t *section)
+{
+    return hatrack_dict_get(res->args, section, NULL);
+}
+
 #ifdef N00B_USE_INTERNAL_API
 void n00b_gopt_tokenize(n00b_gopt_ctx *, n00b_utf8_t *, n00b_list_t *);
 void n00b_gopt_finalize(n00b_gopt_ctx *);

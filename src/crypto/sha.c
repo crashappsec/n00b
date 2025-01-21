@@ -1,10 +1,6 @@
 #include "n00b.h"
 
-void
-n00b_gc_openssl()
-{
-    // Nothing now.
-}
+// TODO: add a mutex around update operations.
 
 static const EVP_MD init_map[2][3] = {
     {
@@ -45,7 +41,7 @@ n00b_sha_init(n00b_sha_t *ctx, va_list args)
     }
 
     ctx->digest = n00b_new(n00b_type_buffer(),
-                          n00b_kw("length", n00b_ka(bits / 8)));
+                           n00b_kw("length", n00b_ka(bits / 8)));
 
     version -= 2;
     bits               = (bits >> 7) - 2; // Maps the bit sizes to 0, 1 and 2,
@@ -88,10 +84,14 @@ n00b_sha_string_update(n00b_sha_t *ctx, n00b_str_t *str)
 void
 n00b_sha_buffer_update(n00b_sha_t *ctx, n00b_buf_t *buffer)
 {
+    n00b_buffer_acquire_r(buffer);
+
     int32_t len = buffer->byte_len;
     if (len > 1) {
         EVP_DigestUpdate(ctx->openssl_ctx, buffer->data, len);
     }
+
+    n00b_buffer_release(buffer);
 }
 
 n00b_buf_t *
@@ -99,7 +99,7 @@ n00b_sha_finish(n00b_sha_t *ctx)
 {
     EVP_DigestFinal_ex(ctx->openssl_ctx, ctx->digest->data, NULL);
     n00b_buf_t *result = ctx->digest;
-    ctx->digest       = NULL;
+    ctx->digest        = NULL;
 
     return result;
 }

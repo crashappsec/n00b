@@ -1,9 +1,13 @@
 #pragma once
+
 // #define _XOPEN_SOURCE 700
 // #define _POSIX_C_SOURCE 200809L
 #include "n00b/config.h"
 // Useful options (mainly for dev) are commented out here.
 // The logic below (and into the relevent header files) sets up defaults.
+//
+// Memory management
+// #include "core/gc.h"
 //
 // Everything includes this; the ordering here is somewhat important
 // due to interdependencies, though they can always be solved via
@@ -14,10 +18,6 @@
 #include "core/kargs.h"  // Keyword arguments.
 #include "util/random.h"
 
-// Memory management
-#include "core/refcount.h"
-#include "core/gc.h"
-
 // Core object.
 #include "core/object.h"
 
@@ -25,6 +25,7 @@
 
 // Basic "exclusive" (i.e., single threaded) list.
 #include "adts/list.h"
+#include "core/thread.h"
 
 // Type system API.
 #include "core/typestore.h"
@@ -42,25 +43,27 @@
 #include "adts/codepoint.h"
 #include "adts/string.h"
 #include "util/breaks.h"
-#include "io/ansi.h"
-#include "util/hex.h"
 #include "util/style.h"
 #include "util/styledb.h"
 #include "util/richlit.h"
 
-// Our grid API.
-#include "adts/grid.h"
-
-// IO primitives.
-#include "io/term.h"
-#include "io/switchboard.h"
-#include "io/subproc.h"
-
 // Basic exception handling support.
 #include "core/exception.h"
 
-// Stream IO API.
-#include "adts/stream.h"
+// Other data types.
+#include "adts/grid.h"
+#include "adts/dict.h"
+#include "adts/set.h"
+#include "adts/net_addr.h"
+#include "adts/datetime.h"
+#include "adts/duration.h"
+#include "adts/bytering.h"
+
+// IO primitives.
+#include "io/term.h"
+#include "io/iocore.h"
+#include "io/ioqueue.h"
+#include "io/proc.h" // To replace subproc.h
 
 // Mixed data type API.
 #include "adts/mixed.h"
@@ -98,6 +101,7 @@
 #include "util/wrappers.h"
 
 #include "util/cbacktrace.h"
+#include "util/json.h"
 
 // The compiler.
 #include "compiler/ast_utils.h"
@@ -111,21 +115,20 @@
 #include "compiler/cfgs.h"
 #include "compiler/codegen.h"
 
-#include "adts/dict.h"
-#include "adts/set.h"
-#include "adts/ipaddr.h"
-#include "adts/datetime.h"
-#include "adts/duration.h"
-
 #include "core/ffi.h"
 #include "util/watch.h"
+
 #include "io/http.h"
 #include "io/file.h"
-
-// Helper functions for object marshal implementations to
-// marshal primitive values.
-#include "core/marshal.h"
+#include "io/filters.h"
+#include "io/ansi.h"
+#include "io/marshal.h"
 
 #include "util/parsing.h"  // generic parser via Earley parsing.
 #include "util/getopt.h"   // Getopt parsing.
 #include "util/markdown.h" // Wrap of vendored md4c.
+
+// Helper functions for object marshal implementations to
+// marshal primitive values.
+#include "util/hex.h"
+#include "io/debug.h"

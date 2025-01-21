@@ -26,10 +26,10 @@ typedef enum {
     N00B_P_TERMINAL, // A single terminal.
     N00B_P_ANY,      // Match for 'any terminal'.
     N00B_P_BI_CLASS, // Builtin character classes; these are effectively
-                    // a 'choice' of one character terminals.
+                     // a 'choice' of one character terminals.
     N00B_P_SET,      // A specific set of terminals can
-                    // match. Generally for use when the built-in
-                    // classes don't meet your needs.
+                     // match. Generally for use when the built-in
+                     // classes don't meet your needs.
     N00B_P_GROUP,    // A group of items, which can have a min or max.
 } n00b_pitem_kind;
 
@@ -45,6 +45,9 @@ typedef enum {
     N00B_P_BIC_LOWER,
     N00B_P_BIC_LOWER_ASCII,
     N00B_P_BIC_SPACE,
+    N00B_P_BIC_JSON_STR_CONTENTS,
+    N00B_P_BIC_HEX_DIGIT,
+    N00B_P_BIC_NONZERO_ASCII_DIGIT,
 } n00b_bi_class_t;
 
 typedef enum {
@@ -93,30 +96,54 @@ typedef struct n00b_grammar_t      n00b_grammar_t;
 typedef struct n00b_earley_state_t n00b_earley_state_t;
 typedef struct n00b_parse_node_t   n00b_parse_node_t;
 
+// Instead of manually walking a tree, you can set a function for each
+// NT type. It will walk in post order (children left to right, then
+// root last<).
+//
+// For terminals, the walker returns the terminal. For non-terminals,
+// your callback can return anything you like.
+//
+// For arguments to the callback, The first element is the node the
+// callback is associated with the non-terminal that fired. From here
+// you can get things like the index into the non-terminal's rule, or
+// file and line info. The second is the results from each child node
+// if any, or NULL if there are no children.
+//
+// If a node doesn't have a callback, then any values from tokens or
+// callbacks below are propogated upward.
+//
+// The third argument is a 'thunk'; completely user defined; pass it
+// in at the beginning of the walk.
+
+typedef void *(*n00b_parse_action_t)(n00b_parse_node_t *,
+                                     n00b_list_t *,
+                                     void *);
+
 struct n00b_terminal_t {
     n00b_utf8_t *value;
-    void       *user_data;
-    int64_t     id;
+    void        *user_data;
+    int64_t      id;
 };
 
 struct n00b_nonterm_t {
-    n00b_utf8_t *name;
-    n00b_list_t *rules; // A list of n00b_parse_rule_t objects;
-    void       *user_data;
-    int64_t     id;
-    bool        group_nt;
-    bool        empty_is_error;
-    bool        error_nulled;
-    bool        start_nt;
-    bool        finalized;
-    bool        nullable;
-    bool        no_error_rule;
+    n00b_utf8_t        *name;
+    n00b_list_t        *rules; // A list of n00b_parse_rule_t objects;
+    n00b_parse_action_t action;
+    void               *user_data;
+    int64_t             id;
+    bool                group_nt;
+    bool                empty_is_error;
+    bool                error_nulled;
+    bool                start_nt;
+    bool                finalized;
+    bool                nullable;
+    bool                no_error_rule;
 };
 
 struct n00b_parse_rule_t {
     n00b_nonterm_t    *nt;
     n00b_list_t       *contents;
-    int32_t           cost;
+    int32_t            cost;
     // For penalty rules. We track the original rule so that we can
     // more easily reconstruct the intended tree structure.
     n00b_parse_rule_t *link;
@@ -124,14 +151,14 @@ struct n00b_parse_rule_t {
     // would be nullable if we allow a token omission, and that we
     // generated rules for single token omission that respect that
     // fact (done to avoid cycles).
-    bool              penalty_rule;
+    bool               penalty_rule;
 };
 
 struct n00b_rule_group_t {
     n00b_nonterm_t *contents;
-    int32_t        min;
-    int32_t        max;
-    int32_t        gid;
+    int32_t         min;
+    int32_t         max;
+    int32_t         gid;
 };
 
 struct n00b_pitem_t {
@@ -149,14 +176,14 @@ struct n00b_pitem_t {
 };
 
 struct n00b_token_info_t {
-    void       *user_info;
+    void        *user_info;
     n00b_utf8_t *value;
-    int32_t     tid;
-    int32_t     index;
+    int32_t      tid;
+    int32_t      index;
     // These capture the start location.
-    uint32_t    line;   // 1-indexed.
-    uint32_t    column; // 0-indexed.
-    uint32_t    endcol;
+    uint32_t     line;   // 1-indexed.
+    uint32_t     column; // 0-indexed.
+    uint32_t     endcol;
 };
 
 struct n00b_parse_node_t {
@@ -164,6 +191,7 @@ struct n00b_parse_node_t {
     int64_t  hv;
     int32_t  start;
     int32_t  end;
+    int32_t  rule_index;
     uint32_t penalty;
     uint32_t cost;
     uint16_t penalty_location;
@@ -208,20 +236,20 @@ struct n00b_earley_item_t {
     n00b_dict_t        *cache;
     // The `rule_id` is the non-terminal we pulled the rule from.
     // The non-terminal can contain multiple rules though.
-    int32_t            ruleset_id;
+    int32_t             ruleset_id;
     // This is the field that distinguishes which rule in the ruleset
     // we pulled. This isn't all that useful given we have the pointer
     // to the rule, but I keep it around for debuggability.
-    int32_t            rule_index;
+    int32_t             rule_index;
     // Which item in the rule are we to process (the 'dot')?
-    int32_t            cursor;
+    int32_t             cursor;
     // The next few items are to help us distinguish when we need to
     // create unique states, or when we can share them.
-    int32_t            predictor_ruleset_id;
-    int32_t            predictor_rule_index;
-    int32_t            predictor_cursor;
+    int32_t             predictor_ruleset_id;
+    int32_t             predictor_rule_index;
+    int32_t             predictor_cursor;
     // If we're a group item, how many have we matched?
-    int32_t            match_ct;
+    int32_t             match_ct;
     // Thhe next two fields is the recognizer's state machine
     // location, mainly useful for I/O, but since we have it, we use
     // it over the state arrays in the parser.
@@ -232,28 +260,28 @@ struct n00b_earley_item_t {
     // for sure. But I stick with the algorithm's lingo, so we track
     // here both the state this item was created in, as well as the
     // index into that state in which we live.
-    int32_t            estate_id;
-    int32_t            eitem_index;
+    int32_t             estate_id;
+    int32_t             eitem_index;
     // These tracks penalties the grammar associates with this rule.
     // Current 'total' associated with an earley state.
     // This will just be a sub of the components below.
-    uint32_t           penalty;
+    uint32_t            penalty;
     // Anything added to this state, or prior sibling states, via a
     // completion. In the case of groups, the individual items inside
     // a group take sub-penalties from their elements; they are
     // propogated up to the group node, but
-    uint32_t           sub_penalties;
+    uint32_t            sub_penalties;
     // Anything produced from SELECTING the current rule, including
     // any inherited penalty. This should be constant for every item
     // in a rule, and should be 0 for group items.
-    uint32_t           my_penalty;
+    uint32_t            my_penalty;
     // Anything associated with too few or too many matches. This
     // really is meant to disambiguate item starts only based on the
     // penalty we would assess; during group completion, the proper
     // group penalty gets calculated, instead of propogating it
     // throughout the group item.
-    uint32_t           group_penalty;
-    uint32_t           cost;
+    uint32_t            group_penalty;
+    uint32_t            cost;
     // In the classic Earley algorithm, this operation to perform on a
     // state is not selected when we generate the state; it's
     // generated by looking at the item when we get to it for
@@ -308,14 +336,14 @@ struct n00b_earley_item_t {
     // Also note that any time a group is first predicted, it's
     // randomly assigned an ID right now. I'll probably change that and
     // assign them hidden non-terminal IDs statically.
-    bool               double_dot;
+    bool                double_dot;
     // When predicting a non-terminal, if this is true, we should
     // additionally perform a 'null' prediction.
     // Currently, this skirts the whole penalty / cost system, so is
     // explicitly not done with error productions, which must match
     // a null pitem.
-    bool               null_prediction;
-    bool               no_reprocessing;
+    bool                null_prediction;
+    bool                no_reprocessing;
     // This strictly isn't necessary, but it's been a nice helper for
     // me.  The basic idea is that subtrees span from a start item to
     // an end item. The start item will result from a prediction (in
@@ -341,14 +369,14 @@ struct n00b_grammar_t {
     n00b_list_t *nt_list;
     n00b_dict_t *nt_map;
     n00b_dict_t *terminal_map; // Registered non-unicode token types.
-    int32_t     default_start;
-    uint32_t    max_penalty;
-    bool        hide_penalty_rewrites;
-    bool        hide_groups;
-    int         suspend_penalty_hiding;
-    bool        suspend_group_hiding;
-    bool        error_rules;
-    bool        finalized;
+    int32_t      default_start;
+    uint32_t     max_penalty;
+    bool         hide_penalty_rewrites;
+    bool         hide_groups;
+    int          suspend_penalty_hiding;
+    bool         suspend_group_hiding;
+    bool         error_rules;
+    bool         finalized;
 };
 
 struct n00b_earley_state_t {
@@ -357,7 +385,7 @@ struct n00b_earley_state_t {
     // When tree-building, any ambiguous parse can share the leaf.
     n00b_tree_node_t  *cache;
     n00b_list_t       *items;
-    int               id;
+    int                id;
 };
 
 // Token iterators get passed the parse context, and can assign to the
@@ -377,23 +405,23 @@ struct n00b_parser_t {
     n00b_list_t         *states;
     n00b_earley_state_t *current_state;
     n00b_earley_state_t *next_state;
-    void               *user_context;
+    void                *user_context;
     n00b_dict_t         *debug_highlights;
     // The tokenization callback should set this if the token ID
     // returned isn't recognized, or if the value wasn't otherwise set
     // when initializing the corresponding non-terminal.
-    void               *token_cache;
+    void                *token_cache;
     n00b_tokenizer_fn    tokenizer;
-    bool                run;
-    int32_t             start;
-    int32_t             position;       // Absolute pos in tok stream
-    int32_t             current_line;   // 1-indexed.
-    int32_t             current_column; // 0-indexed.
-    int32_t             fnode_count;    // Next unique node ID
-    bool                ignore_escaped_newlines;
-    bool                preloaded_tokens;
-    bool                show_debug;
-    bool                tree_annotations;
+    bool                 run;
+    int32_t              start;
+    int32_t              position;       // Absolute pos in tok stream
+    int32_t              current_line;   // 1-indexed.
+    int32_t              current_column; // 0-indexed.
+    int32_t              fnode_count;    // Next unique node ID
+    bool                 ignore_escaped_newlines;
+    bool                 preloaded_tokens;
+    bool                 show_debug;
+    bool                 tree_annotations;
 };
 
 // Any registered terminals that we give IDs will be strings. If the
@@ -416,40 +444,44 @@ struct n00b_parser_t {
 #define N00B_IX_START_OF_PROGRAM -1
 
 extern n00b_pitem_t      *n00b_group_items(n00b_grammar_t *p,
-                                         n00b_list_t    *pitems,
-                                         int            min,
-                                         int            max);
+                                           n00b_list_t    *pitems,
+                                           int             min,
+                                           int             max);
 extern n00b_parse_rule_t *n00b_ruleset_add_rule(n00b_grammar_t *,
-                                              n00b_nonterm_t *,
-                                              n00b_list_t *,
-                                              int);
-extern void              n00b_parser_set_default_start(n00b_grammar_t *,
-                                                      n00b_nonterm_t *);
-extern void              n00b_internal_parse(n00b_parser_t *, n00b_nonterm_t *);
-
-extern void           n00b_parse_token_list(n00b_parser_t *,
-                                           n00b_list_t *,
-                                           n00b_nonterm_t *);
-extern void           n00b_parse_string(n00b_parser_t *,
-                                       n00b_str_t *,
-                                       n00b_nonterm_t *);
-extern void           n00b_parse_string_list(n00b_parser_t *,
-                                            n00b_list_t *,
+                                                n00b_nonterm_t *,
+                                                n00b_list_t *,
+                                                int);
+extern void               n00b_parser_set_default_start(n00b_grammar_t *,
+                                                        n00b_nonterm_t *);
+extern void               n00b_internal_parse(n00b_parser_t *,
+                                              n00b_nonterm_t *);
+extern void               n00b_parse_token_list(n00b_parser_t *,
+                                                n00b_list_t *,
+                                                n00b_nonterm_t *);
+extern void               n00b_parse_string(n00b_parser_t *,
+                                            n00b_str_t *,
                                             n00b_nonterm_t *);
-extern n00b_nonterm_t *n00b_pitem_get_ruleset(n00b_grammar_t *, n00b_pitem_t *);
-
-extern n00b_grid_t *n00b_grammar_to_grid(n00b_grammar_t *);
-extern n00b_grid_t *n00b_parse_state_format(n00b_parser_t *, bool);
-extern n00b_grid_t *n00b_forest_format(n00b_list_t *);
-extern n00b_utf8_t *n00b_repr_token_info(n00b_token_info_t *);
-extern int64_t     n00b_token_stream_codepoints(n00b_parser_t *, void **);
-extern int64_t     n00b_token_stream_strings(n00b_parser_t *, void **);
-extern n00b_grid_t *n00b_get_parse_state(n00b_parser_t *, bool);
-extern n00b_grid_t *n00b_format_parse_state(n00b_parser_t *, bool);
-extern n00b_grid_t *n00b_grammar_format(n00b_grammar_t *);
-extern void        n00b_parser_reset(n00b_parser_t *);
-extern n00b_utf8_t *n00b_repr_parse_node(n00b_parse_node_t *);
-extern n00b_list_t *n00b_parse_get_parses(n00b_parser_t *);
+extern void               n00b_parse_string_list(n00b_parser_t *,
+                                                 n00b_list_t *,
+                                                 n00b_nonterm_t *);
+extern n00b_nonterm_t    *n00b_pitem_get_ruleset(n00b_grammar_t *,
+                                                 n00b_pitem_t *);
+extern n00b_grid_t       *n00b_grammar_to_grid(n00b_grammar_t *);
+extern n00b_grid_t       *n00b_parse_state_format(n00b_parser_t *, bool);
+extern n00b_grid_t       *n00b_forest_format(n00b_list_t *);
+extern n00b_utf8_t       *n00b_repr_token_info(n00b_token_info_t *);
+extern int64_t            n00b_token_stream_codepoints(n00b_parser_t *,
+                                                       void **);
+extern int64_t            n00b_token_stream_strings(n00b_parser_t *, void **);
+extern n00b_grid_t       *n00b_get_parse_state(n00b_parser_t *, bool);
+extern n00b_grid_t       *n00b_format_parse_state(n00b_parser_t *, bool);
+extern n00b_grid_t       *n00b_grammar_format(n00b_grammar_t *);
+extern void               n00b_parser_reset(n00b_parser_t *);
+extern n00b_utf8_t       *n00b_repr_parse_node(n00b_parse_node_t *);
+extern n00b_list_t       *n00b_parse_get_parses(n00b_parser_t *);
+extern void              *n00b_parse_tree_walk(n00b_parser_t *,
+                                               n00b_tree_node_t *,
+                                               void *);
 
 static inline n00b_pitem_t *
 n00b_new_pitem(n00b_pitem_kind kind)
@@ -466,7 +498,7 @@ n00b_pitem_terminal_from_int(n00b_grammar_t *g, int64_t n)
 {
     n00b_pitem_t    *result = n00b_new_pitem(N00B_P_TERMINAL);
     n00b_terminal_t *term;
-    int             ix;
+    int              ix;
 
     result->contents.terminal = n;
     ix                        = n - N00B_START_TOK_ID;
@@ -479,8 +511,8 @@ n00b_pitem_terminal_from_int(n00b_grammar_t *g, int64_t n)
 static inline n00b_pitem_t *
 n00b_pitem_term_raw(n00b_grammar_t *p, n00b_utf8_t *name)
 {
-    n00b_pitem_t    *result    = n00b_new_pitem(N00B_P_TERMINAL);
-    n00b_terminal_t *tok       = n00b_new(n00b_type_terminal(), p, name);
+    n00b_pitem_t    *result   = n00b_new_pitem(N00B_P_TERMINAL);
+    n00b_terminal_t *tok      = n00b_new(n00b_type_terminal(), p, name);
     result->contents.terminal = tok->id;
 
     return result;
@@ -489,7 +521,7 @@ n00b_pitem_term_raw(n00b_grammar_t *p, n00b_utf8_t *name)
 static inline n00b_pitem_t *
 n00b_pitem_from_nt(n00b_nonterm_t *nt)
 {
-    n00b_pitem_t *result      = n00b_new_pitem(N00B_P_NT);
+    n00b_pitem_t *result     = n00b_new_pitem(N00B_P_NT);
     result->contents.nonterm = nt->id;
     result->s                = nt->name;
 
@@ -506,7 +538,7 @@ n00b_grammar_add_term(n00b_grammar_t *g, n00b_utf8_t *s)
 static inline n00b_pitem_t *
 n00b_pitem_terminal_cp(n00b_codepoint_t cp)
 {
-    n00b_pitem_t *result       = n00b_new_pitem(N00B_P_TERMINAL);
+    n00b_pitem_t *result      = n00b_new_pitem(N00B_P_TERMINAL);
     result->contents.terminal = cp;
 
     return result;
@@ -515,8 +547,8 @@ n00b_pitem_terminal_cp(n00b_codepoint_t cp)
 static inline n00b_pitem_t *
 n00b_pitem_nonterm_raw(n00b_grammar_t *p, n00b_utf8_t *name)
 {
-    n00b_pitem_t   *result    = n00b_new_pitem(N00B_P_NT);
-    n00b_nonterm_t *nt        = n00b_new(n00b_type_ruleset(), p, name);
+    n00b_pitem_t   *result   = n00b_new_pitem(N00B_P_NT);
+    n00b_nonterm_t *nt       = n00b_new(n00b_type_ruleset(), p, name);
     result->contents.nonterm = nt->id;
 
     return result;
@@ -525,7 +557,7 @@ n00b_pitem_nonterm_raw(n00b_grammar_t *p, n00b_utf8_t *name)
 static inline n00b_pitem_t *
 n00b_pitem_choice_raw(n00b_grammar_t *p, n00b_list_t *choices)
 {
-    n00b_pitem_t *result    = n00b_new_pitem(N00B_P_SET);
+    n00b_pitem_t *result   = n00b_new_pitem(N00B_P_SET);
     result->contents.items = choices;
 
     return result;
@@ -543,7 +575,7 @@ static inline n00b_pitem_t *
 n00b_pitem_builtin_raw(n00b_bi_class_t class)
 {
     // Builtin character classes.
-    n00b_pitem_t *result    = n00b_new_pitem(N00B_P_BI_CLASS);
+    n00b_pitem_t *result   = n00b_new_pitem(N00B_P_BI_CLASS);
     result->contents.class = class;
 
     return result;
@@ -571,7 +603,7 @@ static inline n00b_grid_t *
 n00b_parse_tree_format(n00b_tree_node_t *t)
 {
     return n00b_grid_tree_new(t,
-                             n00b_kw("callback", n00b_ka(n00b_repr_parse_node)));
+                              n00b_kw("callback", n00b_ka(n00b_repr_parse_node)));
 }
 
 static inline void *
@@ -621,21 +653,21 @@ n00b_parse_get_user_data(n00b_grammar_t *g, n00b_parse_node_t *node)
 extern n00b_nonterm_t *n00b_get_nonterm(n00b_grammar_t *, int64_t);
 extern n00b_utf8_t    *n00b_repr_rule(n00b_grammar_t *, n00b_list_t *, int);
 extern n00b_list_t    *n00b_repr_earley_item(n00b_parser_t *,
-                                           n00b_earley_item_t *,
-                                           int);
+                                             n00b_earley_item_t *,
+                                             int);
 extern n00b_utf8_t    *n00b_repr_nonterm(n00b_grammar_t *, int64_t, bool);
 extern n00b_utf8_t    *n00b_repr_group(n00b_grammar_t *, n00b_rule_group_t *);
 extern n00b_utf8_t    *n00b_repr_term(n00b_grammar_t *, int64_t);
 extern n00b_utf8_t    *n00b_repr_rule(n00b_grammar_t *, n00b_list_t *, int);
 extern n00b_utf8_t    *n00b_repr_token_info(n00b_token_info_t *);
 extern n00b_grid_t    *n00b_repr_state_table(n00b_parser_t *, bool);
-extern void           n00b_parser_load_token(n00b_parser_t *);
+extern void            n00b_parser_load_token(n00b_parser_t *);
 extern n00b_grid_t    *n00b_get_parse_state(n00b_parser_t *, bool);
 extern n00b_utf8_t    *n00b_parse_repr_item(n00b_grammar_t *, n00b_pitem_t *);
-extern void           n00b_prep_first_parse(n00b_grammar_t *);
-extern bool           n00b_is_nullable_pitem(n00b_grammar_t *,
-                                            n00b_pitem_t *,
-                                            n00b_list_t *);
+extern void            n00b_prep_first_parse(n00b_grammar_t *);
+extern bool            n00b_is_nullable_pitem(n00b_grammar_t *,
+                                              n00b_pitem_t *,
+                                              n00b_list_t *);
 
 static inline bool
 n00b_is_non_terminal(n00b_pitem_t *pitem)
@@ -677,7 +709,7 @@ n00b_hide_penalties(n00b_grammar_t *g)
 
 #endif
 
-extern void        n00b_add_debug_highlight(n00b_parser_t *, int32_t, int32_t);
+extern void         n00b_add_debug_highlight(n00b_parser_t *, int32_t, int32_t);
 extern n00b_list_t *n00b_clean_trees(n00b_parser_t *, n00b_list_t *);
 
 static inline n00b_terminal_t *
@@ -700,4 +732,10 @@ n00b_earley_cost_cmp(n00b_earley_item_t *left, n00b_earley_item_t *right)
     }
 
     return N00B_EARLEY_CMP_EQ;
+}
+
+static inline void
+n00b_nonterm_set_walk_action(n00b_nonterm_t *nt, n00b_parse_action_t action)
+{
+    nt->action = action;
 }

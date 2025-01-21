@@ -85,8 +85,8 @@ static n00b_obj_t
 n00b_flexarray_coerce_to(flexarray_t *list, n00b_type_t *dst_type)
 {
     n00b_dt_kind_t base          = n00b_type_get_kind(dst_type);
-    flex_view_t  *view          = flexarray_view(list);
-    int64_t       len           = flexarray_view_len(view);
+    flex_view_t   *view          = flexarray_view(list);
+    int64_t        len           = flexarray_view_len(view);
     n00b_type_t   *src_item_type = n00b_type_get_param(n00b_get_my_type(list), 0);
     n00b_type_t   *dst_item_type = n00b_type_get_param(dst_type, 0);
 
@@ -122,10 +122,10 @@ n00b_flexarray_copy(flexarray_t *list)
 {
     flex_view_t *view = flexarray_view(list);
     int64_t      len  = flexarray_view_len(view);
-    n00b_type_t  *myty = n00b_get_my_type(list);
+    n00b_type_t *myty = n00b_get_my_type(list);
 
     flexarray_t *res    = n00b_new(myty, n00b_kw("length", n00b_ka(len)));
-    n00b_type_t  *itemty = n00b_type_get_param(myty, 0);
+    n00b_type_t *itemty = n00b_type_get_param(myty, 0);
 
     // itemty = n00b_resolve_type(itemty);
 
@@ -141,7 +141,7 @@ static void *
 n00b_flexarray_get(flexarray_t *list, int64_t index)
 {
     n00b_obj_t result;
-    int       status;
+    int        status;
 
     if (index < 0) {
         // Thing might get resized, so we have to take a view.
@@ -301,12 +301,9 @@ n00b_flexarray_set_slice(flexarray_t *list, int64_t start, int64_t end, flexarra
 static n00b_str_t *
 n00b_flexarray_repr(flexarray_t *list)
 {
-    n00b_type_t  *list_type   = n00b_get_my_type(list);
-    n00b_list_t  *type_params = n00b_type_get_params(list_type);
-    n00b_type_t  *item_type   = n00b_list_get(type_params, 0, NULL);
-    flex_view_t *view        = flexarray_view(list);
-    int64_t      len         = flexarray_view_len(view);
-    n00b_list_t  *items       = n00b_new(n00b_type_list(n00b_type_utf32()));
+    flex_view_t *view  = flexarray_view(list);
+    int64_t      len   = flexarray_view_len(view);
+    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_utf32()));
 
     for (int i = 0; i < len; i++) {
         int   err  = 0;
@@ -315,7 +312,7 @@ n00b_flexarray_repr(flexarray_t *list)
             continue;
         }
 
-        n00b_str_t *s = n00b_repr(item, item_type);
+        n00b_str_t *s = n00b_repr(item);
         n00b_list_append(items, s);
     }
 
@@ -323,7 +320,7 @@ n00b_flexarray_repr(flexarray_t *list)
     n00b_str_t *result = n00b_str_join(items, sep);
 
     result = n00b_str_concat(n00b_get_lbrak_const(),
-                            n00b_str_concat(result, n00b_get_rbrak_const()));
+                             n00b_str_concat(result, n00b_get_rbrak_const()));
 
     return result;
 }

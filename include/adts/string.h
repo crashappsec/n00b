@@ -1,42 +1,44 @@
 #pragma once
 
 #include "n00b.h"
+extern const char n00b_hex_map_lower[16];
+extern const char n00b_hex_map_upper[16];
 
-extern n00b_str_t          *n00b_str_copy(const n00b_str_t *s);
-extern n00b_utf32_t        *n00b_str_concat(const n00b_str_t *, const n00b_str_t *);
-extern n00b_utf8_t         *n00b_to_utf8(const n00b_utf32_t *);
-extern n00b_utf32_t        *n00b_to_utf32(const n00b_utf8_t *);
-extern n00b_utf8_t         *n00b_from_file(const n00b_str_t *, int *);
+extern n00b_str_t         *n00b_str_copy(const n00b_str_t *s);
+extern n00b_utf32_t       *n00b_str_concat(const n00b_str_t *, const n00b_str_t *);
+extern n00b_utf8_t        *n00b_to_utf8(const n00b_utf32_t *);
+extern n00b_utf32_t       *n00b_to_utf32(const n00b_utf8_t *);
+extern n00b_utf8_t        *n00b_from_file(const n00b_str_t *, int *);
 extern int64_t             n00b_utf8_validate(const n00b_utf8_t *);
-extern n00b_utf32_t        *n00b_str_slice(const n00b_str_t *, int64_t, int64_t);
-extern n00b_utf8_t         *n00b_utf8_repeat(n00b_codepoint_t, int64_t);
-extern n00b_utf32_t        *n00b_utf32_repeat(n00b_codepoint_t, int64_t);
-extern n00b_utf32_t        *_n00b_str_strip(const n00b_str_t *s, ...);
-extern n00b_str_t          *_n00b_str_truncate(const n00b_str_t *s, int64_t, ...);
-extern n00b_str_t          *_n00b_str_join(n00b_list_t *,
-                                         const n00b_str_t *,
-                                         ...);
-extern n00b_utf8_t         *n00b_str_from_int(int64_t n);
+extern n00b_utf32_t       *n00b_str_slice(const n00b_str_t *, int64_t, int64_t);
+extern n00b_utf8_t        *n00b_utf8_repeat(n00b_codepoint_t, int64_t);
+extern n00b_utf32_t       *n00b_utf32_repeat(n00b_codepoint_t, int64_t);
+extern n00b_utf32_t       *_n00b_str_strip(const n00b_str_t *s, ...);
+extern n00b_str_t         *_n00b_str_truncate(const n00b_str_t *s, int64_t, ...);
+extern n00b_str_t         *_n00b_str_join(n00b_list_t *,
+                                          const n00b_str_t *,
+                                          ...);
+extern n00b_utf8_t        *n00b_str_from_int(int64_t n);
 extern int64_t             _n00b_str_find(n00b_str_t *, n00b_str_t *, ...);
 extern int64_t             _n00b_str_rfind(n00b_str_t *, n00b_str_t *, ...);
-extern n00b_utf8_t         *n00b_cstring(char *s, int64_t len);
-extern n00b_utf8_t         *n00b_rich(n00b_utf8_t *, n00b_utf8_t *style);
-extern n00b_codepoint_t     n00b_index(const n00b_str_t *, int64_t);
+extern n00b_utf8_t        *n00b_cstring(char *s, int64_t len);
+extern n00b_utf8_t        *n00b_rich(n00b_utf8_t *, n00b_utf8_t *style);
+extern n00b_codepoint_t    n00b_index(const n00b_str_t *, int64_t);
 extern bool                n00b_str_can_coerce_to(n00b_type_t *, n00b_type_t *);
-extern n00b_obj_t           n00b_str_coerce_to(const n00b_str_t *, n00b_type_t *);
-extern n00b_list_t         *n00b_str_split(n00b_str_t *, n00b_str_t *);
+extern n00b_obj_t          n00b_str_coerce_to(const n00b_str_t *, n00b_type_t *);
+extern n00b_list_t        *n00b_str_split(n00b_str_t *, n00b_str_t *);
 extern struct flexarray_t *n00b_str_fsplit(n00b_str_t *, n00b_str_t *);
 extern bool                n00b_str_starts_with(const n00b_str_t *,
-                                               const n00b_str_t *);
+                                                const n00b_str_t *);
 extern bool                n00b_str_ends_with(const n00b_str_t *,
-                                             const n00b_str_t *);
-extern n00b_list_t         *n00b_str_wrap(const n00b_str_t *, int64_t, int64_t);
-extern n00b_utf32_t        *n00b_str_upper(n00b_str_t *);
-extern n00b_utf32_t        *n00b_str_lower(n00b_str_t *);
-extern n00b_utf32_t        *n00b_title_case(n00b_str_t *);
-extern n00b_str_t          *n00b_str_pad(n00b_str_t *, int64_t);
-extern n00b_utf8_t         *n00b_str_to_hex(n00b_str_t *, bool);
-extern n00b_list_t         *_n00b_c_map(char *, ...);
+                                              const n00b_str_t *);
+extern n00b_list_t        *n00b_str_wrap(const n00b_str_t *, int64_t, int64_t);
+extern n00b_utf32_t       *n00b_str_upper(n00b_str_t *);
+extern n00b_utf32_t       *n00b_str_lower(n00b_str_t *);
+extern n00b_utf32_t       *n00b_title_case(n00b_str_t *);
+extern n00b_str_t         *n00b_str_pad(n00b_str_t *, int64_t);
+extern n00b_utf8_t        *n00b_str_to_hex(n00b_str_t *, bool);
+extern n00b_list_t        *_n00b_c_map(char *, ...);
 
 // This is in richlit.c
 extern n00b_utf8_t *n00b_rich_lit(char *);
@@ -55,25 +57,31 @@ extern const n00b_utf8_t *n00b_crlf_const;
 static inline bool
 n00b_str_is_u32(const n00b_str_t *s)
 {
-    return (bool)(s->utf32);
+    return s ? (bool)(s->utf32) : false;
 }
 
 static inline bool
 n00b_str_is_u8(const n00b_str_t *s)
 {
-    return !s->utf32;
+    return s ? !s->utf32 : false;
+}
+
+static inline bool
+n00b_str_is_styled(const n00b_str_t *s)
+{
+    return s ? s->styling && s->styling->num_entries : false;
 }
 
 static inline int64_t
 n00b_str_codepoint_len(const n00b_str_t *s)
 {
-    return s->codepoints;
+    return s ? s->codepoints : 0;
 }
 
 static inline int64_t
 n00b_str_byte_len(const n00b_str_t *s)
 {
-    return s->byte_len;
+    return s ? s->byte_len : 0;
 }
 
 extern int64_t n00b_str_render_len(const n00b_str_t *);
@@ -116,7 +124,9 @@ n00b_to_cstring(n00b_str_t *s)
 }
 
 extern n00b_list_t *n00b_u8_map(n00b_list_t *);
-extern bool        n00b_str_eq(n00b_str_t *, n00b_str_t *);
+extern bool         n00b_str_eq(n00b_str_t *, n00b_str_t *);
+extern char        *n00b_to_cstr(void *);
+extern char       **n00b_make_cstr_array(n00b_list_t *, int *);
 
 extern const uint64_t n00b_pmap_str[2];
 

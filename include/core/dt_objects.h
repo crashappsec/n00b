@@ -24,7 +24,7 @@ typedef void (*n00b_vtable_entry)(n00b_obj_t *, va_list);
 typedef void (*n00b_container_init)(n00b_obj_t *, void *, va_list);
 
 typedef struct {
-    uint64_t         num_entries;
+    uint64_t          num_entries;
     n00b_vtable_entry methods[];
 } n00b_vtable_t;
 
@@ -93,7 +93,7 @@ typedef enum {
     // Container funcs
     N00B_BI_LEN,       // `t -> int
     N00B_BI_INDEX_GET, // `t[`n] -> `v (such that `t = list[`v] or
-                      //  `t = dict[`n, `v]
+                       //  `t = dict[`n, `v]
     N00B_BI_INDEX_SET, // `t[`n] = `v -- requires index type
     N00B_BI_SLICE_GET, // `t[int:int] -> `v
     N00B_BI_SLICE_SET,
@@ -163,7 +163,6 @@ typedef enum : int64_t {
     N00B_T_TRUE_REF, // A managed pointer.
     N00B_T_INTERNAL, // Some internal datastructure we don't intend to expose.
     N00B_T_GENERIC,  // If instantiated, instantiates a 'mixed' object.
-    N00B_T_STREAM,   // streaming IO interface.
     N00B_T_KEYWORD,  // Keyword arg object for internal use.
     N00B_T_VM,
     N00B_T_PARSE_NODE,
@@ -186,6 +185,12 @@ typedef enum : int64_t {
     N00B_T_GOPT_PARSER,
     N00B_T_GOPT_COMMAND,
     N00B_T_GOPT_OPTION,
+    N00B_T_LOCK,
+    N00B_T_CONDITION,
+    N00B_T_STREAM,
+    N00B_T_MESSAGE,
+    N00B_T_BYTERING,
+    N00B_T_FILE,
     N00B_NUM_BUILTIN_DTS,
 } n00b_builtin_t;
 

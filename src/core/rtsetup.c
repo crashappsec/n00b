@@ -45,14 +45,14 @@ n00b_vm_setup_ffi(n00b_vm_t *vm)
         n00b_zffi_cif   *cif      = &ffi_info->cif;
 
         cif->fptr = n00b_ffi_find_symbol(ffi_info->external_name,
-                                        ffi_info->dll_list);
+                                         ffi_info->dll_list);
 
         if (!cif->fptr) {
             // TODO: warn. For now, just error if it gets called.
             continue;
         }
 
-        int            n       = ffi_info->num_ext_params;
+        int             n       = ffi_info->num_ext_params;
         n00b_ffi_type **arglist = n00b_gc_array_alloc(n00b_ffi_type *, n);
 
         if (n < 0) {
@@ -84,8 +84,8 @@ n00b_setup_new_module_allocations(n00b_compile_ctx *cctx, n00b_vm_t *vm)
 {
     // This only needs to be called to add space for new modules.
 
-    int         old_modules = 0;
-    int         new_modules = n00b_list_len(vm->obj->module_contents);
+    int          old_modules = 0;
+    int          new_modules = n00b_list_len(vm->obj->module_contents);
     n00b_obj_t **new_allocs;
 
     if (vm->module_allocations) {
@@ -106,11 +106,11 @@ n00b_setup_new_module_allocations(n00b_compile_ctx *cctx, n00b_vm_t *vm)
 
     for (int i = old_modules; i < new_modules; i++) {
         n00b_module_t *m = n00b_list_get(vm->obj->module_contents,
-                                       i,
-                                       NULL);
+                                         i,
+                                         NULL);
 
         new_allocs[i] = n00b_gc_array_alloc(n00b_obj_t,
-                                           (m->static_size + 1) * 8);
+                                            (m->static_size + 1) * 8);
     }
 
     vm->module_allocations = new_allocs;
@@ -134,7 +134,7 @@ n00b_vm_save(n00b_vm_t *vm)
     if (vm->num_saved_runs == 1) {
         vm->obj->ccache[N00B_CCACHE_ORIG_SECTIONS] = vm->all_sections;
         vm->obj->ccache[N00B_CCACHE_ORIG_ATTR]     = vm->attrs;
-        vm->entry_point                           = vm->obj->default_entry;
+        vm->entry_point                            = vm->obj->default_entry;
     }
 
     vm->run_state = NULL;
@@ -150,7 +150,7 @@ n00b_vm_global_run_state_init(n00b_vm_t *vm)
     // state setup.
 
     vm->run_state = n00b_gc_alloc_mapped(n00b_zrun_state_t,
-                                        n00b_zrun_state_gc_bits);
+                                         (void *)n00b_zrun_state_gc_bits);
     n00b_vm_setup_ffi(vm);
 
     vm->last_saved_run_time = *n00b_now();
@@ -164,8 +164,8 @@ n00b_vm_global_run_state_init(n00b_vm_t *vm)
 
 #ifdef N00B_DEV
     vm->run_state->print_buf    = n00b_buffer_empty();
-    vm->run_state->print_stream = n00b_buffer_outstream(vm->run_state->print_buf,
-                                                       false);
+    vm->run_state->print_stream = n00b_outstream_buffer(vm->run_state->print_buf,
+                                                        false);
 #endif
 }
 
@@ -178,12 +178,12 @@ n00b_vm_gc_bits(uint64_t *bitmap, n00b_vm_t *vm)
 n00b_vm_t *
 n00b_vm_new(n00b_compile_ctx *cctx)
 {
-    n00b_vm_t *vm = n00b_gc_alloc_mapped(n00b_vm_t, n00b_vm_gc_bits);
+    n00b_vm_t *vm = n00b_gc_alloc_mapped(n00b_vm_t, (void *)n00b_vm_gc_bits);
 
     vm->obj = n00b_gc_alloc_mapped(n00b_zobject_file_t,
-                                  n00b_objfile_gc_bits);
+                                   (void *)n00b_objfile_gc_bits);
 
-    vm->obj->n00b_version   = n00b_current_version;
+    vm->obj->n00b_version    = n00b_current_version;
     vm->obj->module_contents = n00b_list(n00b_type_ref());
     vm->obj->func_info       = n00b_list(n00b_type_ref());
     vm->obj->ffi_info        = n00b_list(n00b_type_ref());
@@ -204,8 +204,8 @@ n00b_vm_reset(n00b_vm_t *vm)
 {
     void **cache = (void **)&vm->obj->ccache;
 
-    vm->module_allocations        = NULL;
-    vm->num_saved_runs            = 1; // Restore point is always 1.
+    vm->module_allocations         = NULL;
+    vm->num_saved_runs             = 1; // Restore point is always 1.
     cache[N00B_CCACHE_CUR_SCONSTS] = n00b_copy(cache[N00B_CCACHE_ORIG_SCONSTS]);
     cache[N00B_CCACHE_CUR_OCONSTS] = n00b_copy(cache[N00B_CCACHE_ORIG_OCONSTS]);
     cache[N00B_CCACHE_CUR_VCONSTS] = n00b_copy(cache[N00B_CCACHE_ORIG_VCONSTS]);
@@ -213,12 +213,12 @@ n00b_vm_reset(n00b_vm_t *vm)
     cache[N00B_CCACHE_CUR_GSCOPE]  = n00b_copy(cache[N00B_CCACHE_ORIG_ASCOPE]);
     cache[N00B_CCACHE_CUR_MODULES] = n00b_copy(cache[N00B_CCACHE_ORIG_MODULES]);
     cache[N00B_CCACHE_CUR_TYPES]   = n00b_copy(cache[N00B_CCACHE_ORIG_TYPES]);
-    vm->obj->module_contents      = n00b_copy(cache[N00B_CCACHE_ORIG_SORT]);
-    vm->obj->attr_spec            = n00b_copy(cache[N00B_CCACHE_ORIG_SPEC]);
-    vm->attrs                     = n00b_copy(cache[N00B_CCACHE_ORIG_ATTR]);
-    vm->all_sections              = n00b_copy(cache[N00B_CCACHE_ORIG_SECTIONS]);
-    vm->obj->static_contents      = n00b_copy(cache[N00B_CCACHE_ORIG_STATIC]);
-    vm->entry_point               = vm->obj->default_entry;
+    vm->obj->module_contents       = n00b_copy(cache[N00B_CCACHE_ORIG_SORT]);
+    vm->obj->attr_spec             = n00b_copy(cache[N00B_CCACHE_ORIG_SPEC]);
+    vm->attrs                      = n00b_copy(cache[N00B_CCACHE_ORIG_ATTR]);
+    vm->all_sections               = n00b_copy(cache[N00B_CCACHE_ORIG_SECTIONS]);
+    vm->obj->static_contents       = n00b_copy(cache[N00B_CCACHE_ORIG_STATIC]);
+    vm->entry_point                = vm->obj->default_entry;
 }
 
 void
@@ -239,8 +239,8 @@ n00b_vmthread_new(n00b_vm_t *vm)
     }
 
     n00b_vmthread_t *tstate = n00b_gc_alloc_mapped(n00b_vmthread_t,
-                                                 n00b_vmthread_gc_bits);
-    tstate->vm             = vm;
+                                                   (void *)n00b_vmthread_gc_bits);
+    tstate->vm              = vm;
 
     n00b_vmthread_reset(tstate);
 
@@ -265,8 +265,8 @@ n00b_vmthread_reset(n00b_vmthread_t *tstate)
     tstate->error      = false;
 
     tstate->current_module = n00b_list_get(tstate->vm->obj->module_contents,
-                                          tstate->vm->entry_point,
-                                          NULL);
+                                           tstate->vm->entry_point,
+                                           NULL);
 }
 
 void
@@ -275,9 +275,9 @@ n00b_vm_remove_compile_time_data(n00b_vm_t *vm)
     int n = n00b_list_len(vm->obj->module_contents);
 
     for (int i = 0; i < n; i++) {
-        n00b_module_t *m         = n00b_list_get(vm->obj->module_contents,
-                                       i,
-                                       NULL);
+        n00b_module_t *m        = n00b_list_get(vm->obj->module_contents,
+                                         i,
+                                         NULL);
         m->ct                   = NULL;
         m->module_scope->parent = NULL;
         uint64_t nsyms;
@@ -285,18 +285,18 @@ n00b_vm_remove_compile_time_data(n00b_vm_t *vm)
 
         for (uint64_t j = 0; j < nsyms; j++) {
             n00b_symbol_t *sym = syms[j];
-            sym->ct           = NULL;
+            sym->ct            = NULL;
 
             if (sym->kind == N00B_SK_FUNC) {
                 n00b_fn_decl_t *fn      = sym->value;
                 n00b_scope_t   *fnscope = fn->signature_info->fn_scope;
-                uint64_t       nsub;
-                void         **sub_syms = hatrack_dict_values(fnscope->symbols,
+                uint64_t        nsub;
+                void          **sub_syms = hatrack_dict_values(fnscope->symbols,
                                                       &nsub);
 
                 for (uint64_t k = 0; k < nsub; k++) {
                     n00b_symbol_t *sub = sub_syms[k];
-                    sub->ct           = NULL;
+                    sub->ct            = NULL;
                 }
 
                 fnscope  = fn->signature_info->formals;
@@ -304,7 +304,7 @@ n00b_vm_remove_compile_time_data(n00b_vm_t *vm)
 
                 for (uint64_t k = 0; k < nsub; k++) {
                     n00b_symbol_t *sub = sub_syms[k];
-                    sub->ct           = NULL;
+                    sub->ct            = NULL;
                 }
 
                 fn->cfg = NULL; // TODO: move to a ct object

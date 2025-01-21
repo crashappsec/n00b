@@ -631,6 +631,7 @@ _n00b_gopt_rule(int64_t start, ...)
     return result;
 }
 
+#if __FUTURE__
 static inline n00b_utf8_t *
 create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
 {
@@ -744,6 +745,7 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
 
     return s;
 }
+#endif
 
 void
 n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
@@ -815,6 +817,7 @@ needs_a_rule(n00b_gopt_cspec *cmd)
     return false;
 }
 
+#ifdef __FUTURE__
 static void
 add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
 {
@@ -860,6 +863,7 @@ add_gopt_auto_help(n00b_gopt_ctx *gctx)
         add_help_commands(gctx, n00b_list_get(subs, i, NULL));
     }
 }
+#endif
 
 void
 n00b_gopt_finalize(n00b_gopt_ctx *gctx)
@@ -1519,7 +1523,7 @@ n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
     }
     if (num == 0) {
         n00b_printf("[em]Error:[/] parsing failed.");
-        n00b_getopt_show_usage(gopt, n00b_new_utf8(""));
+        // n00b_getopt_show_usage(gopt, n00b_new_utf8(""));
         return NULL;
     }
 
@@ -1527,7 +1531,7 @@ n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
     if (n00b_list_len(res->errors)) {
         n00b_printf("[em]Error when parsing:[/] {}",
                     n00b_list_get(res->errors, 0, NULL));
-        n00b_getopt_show_usage(gopt, res->cmd);
+        // n00b_getopt_show_usage(gopt, res->cmd);
         return NULL;
     }
 

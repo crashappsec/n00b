@@ -24,7 +24,8 @@
 #include "base.h"
 
 /* This type represents a callback to de-allocate sub-objects before
- * the final free for an object allocated via MMM.
+ * the final free for an object allocated via MMM. It does not get
+ * called when you forgo MMM.
  *
  * We use it any time cleanup activity for objects not allocated via
  * mmm also need to defer cleanup. For instance, anything using locks
@@ -92,6 +93,12 @@ struct mmm_thread_st {
     bool          initialized;
 };
 
+typedef struct mmm_free_tids_st mmm_free_tids_t;
+struct mmm_free_tids_st {
+    mmm_free_tids_t *next;
+    uint64_t         tid;
+};
+
 // mmm_thread_acquire retrieves an initialized per-thread struct used by all of
 // the mmm code. The thread-specific details are implemented by the acquire
 // function set via mmm_setthreadfns. If hatrack is built with pthread support,
@@ -124,11 +131,8 @@ HATRACK_EXTERN void
 mmm_setthreadfns(mmm_thread_acquire_func acquirefn,
                  void                   *aux);
 
-extern _Atomic uint64_t mmm_epoch;
-
-HATRACK_EXTERN void
-mmm_retire(mmm_thread_t *, void *);
-
+extern _Atomic uint64_t           mmm_epoch;
+extern _Atomic(mmm_free_tids_t *) mmm_free_tids;
 /* This epoch system was inspired by my research into what was out
  * there that would be faster and easier to use than hazard
  * pointers. Particularly, IBR (Interval Based Reclaimation) seemed to
@@ -509,11 +513,6 @@ mmm_commit_write(void *ptr);
 HATRACK_EXTERN void
 mmm_help_commit(void *ptr);
 
-// Call this when we know no other thread ever could have seen the
-// data in question, as it can be freed immediately.
-HATRACK_EXTERN void
-mmm_retire_unused(void *ptr);
-
 static inline uint64_t
 mmm_get_write_epoch(void *ptr)
 {
@@ -540,7 +539,21 @@ mmm_copy_create_epoch(void *dst, void *src)
     mmm_set_create_epoch(dst, mmm_get_create_epoch(src));
 }
 
+#ifndef HATRACK_DONT_DEALLOC
+HATRACK_EXTERN void
+mmm_retire(mmm_thread_t *thread, void *ptr);
+
+// Call this when we know no other thread ever could have seen the
+// data in question, as it can be freed immediately.
+HATRACK_EXTERN void
+mmm_retire_unused(void *ptr);
+
 // Use this in migration functions to avoid unnecessary scanning of the
 // retire list, when we know the epoch won't have changed.
 HATRACK_EXTERN void
 mmm_retire_fast(mmm_thread_t *thread, void *ptr);
+#else
+#define mmm_retire(thread, ptr)
+#define mmm_retire_unused(ptr)
+#define mmm_retire_fast(thread, ptr)
+#endif

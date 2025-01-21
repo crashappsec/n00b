@@ -46,13 +46,13 @@ _show_pattern(n00b_tpat_node_t *pat)
 
 #define n00b_get_pnode(x) ((x) ? n00b_tree_get_contents(x) : NULL)
 
-extern bool        n00b_tcmp(int64_t, n00b_tree_node_t *);
-extern void        n00b_setup_treematch_patterns();
+extern bool         n00b_tcmp(int64_t, n00b_tree_node_t *);
+extern void         n00b_setup_treematch_patterns();
 extern n00b_type_t *n00b_node_to_type(n00b_module_t *,
-                                    n00b_tree_node_t *,
-                                    n00b_dict_t *);
+                                      n00b_tree_node_t *,
+                                      n00b_dict_t *);
 extern n00b_obj_t   n00b_node_to_callback(n00b_module_t *,
-                                        n00b_tree_node_t *);
+                                          n00b_tree_node_t *);
 
 static inline bool
 n00b_node_has_type(n00b_tree_node_t *node, n00b_node_kind_t expect)
@@ -73,11 +73,11 @@ n00b_get_litmod(n00b_pnode_t *p)
 
 // Return the first capture if there's a match, and NULL if not.
 extern n00b_tree_node_t *n00b_get_match_on_node(n00b_tree_node_t *,
-                                              n00b_tpat_node_t *);
+                                                n00b_tpat_node_t *);
 
 // Return every capture on match.
 extern n00b_list_t *n00b_apply_pattern_on_node(n00b_tree_node_t *,
-                                             n00b_tpat_node_t *);
+                                               n00b_tpat_node_t *);
 
 extern n00b_tpat_node_t *n00b_first_kid_id;
 extern n00b_tpat_node_t *n00b_2nd_kid_id;
@@ -91,7 +91,7 @@ extern n00b_tpat_node_t *n00b_extern_return;
 extern n00b_tpat_node_t *n00b_return_extract;
 extern n00b_tpat_node_t *n00b_find_pure;
 extern n00b_tpat_node_t *n00b_find_holds;
-extern n00b_tpat_node_t *n00b_find_allocs;
+extern n00b_tpat_node_t *n00b_find_allocation_records;
 extern n00b_tpat_node_t *n00b_find_extern_local;
 extern n00b_tpat_node_t *n00b_find_extern_box;
 extern n00b_tpat_node_t *n00b_param_extraction;

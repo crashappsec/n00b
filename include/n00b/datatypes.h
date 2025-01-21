@@ -3,9 +3,9 @@
 typedef struct hatrack_set_st n00b_set_t;
 typedef uint64_t              n00b_size_t;
 typedef struct timespec       n00b_duration_t;
+typedef struct n00b_stream_t   n00b_stream_t;
 
 #include "adts/dt_box.h"
-#include "core/dt_alloc.h"
 #include "core/dt_kargs.h"
 #include "core/dt_objects.h"
 #include "core/dt_literals.h"
@@ -25,7 +25,6 @@ typedef struct timespec       n00b_duration_t;
 #include "core/dt_exceptions.h"
 #include "adts/dt_mixed.h"
 #include "adts/dt_tuples.h"
-#include "adts/dt_streams.h"
 #include "util/dt_format.h"
 #include "compiler/dt_lex.h"
 #include "compiler/dt_errors.h"
@@ -52,12 +51,12 @@ typedef bool (*n00b_can_coerce_fn)(n00b_type_t *, n00b_type_t *);
 typedef void *(*n00b_coerce_fn)(void *, n00b_type_t *);
 typedef bool (*n00b_cmp_fn)(n00b_obj_t, n00b_obj_t);
 typedef n00b_obj_t (*n00b_literal_fn)(n00b_utf8_t *,
-                                    n00b_lit_syntax_t,
-                                    n00b_utf8_t *,
-                                    n00b_compile_error_t *);
+                                      n00b_lit_syntax_t,
+                                      n00b_utf8_t *,
+                                      n00b_compile_error_t *);
 typedef n00b_obj_t (*n00b_container_lit_fn)(n00b_type_t *,
-                                          n00b_list_t *,
-                                          n00b_utf8_t *);
+                                            n00b_list_t *,
+                                            n00b_utf8_t *);
 typedef n00b_str_t *(*n00b_format_fn)(n00b_obj_t, n00b_fmt_spec_t *);
 typedef n00b_type_t *(*n00b_ix_item_ty_fn)(n00b_type_t *);
 typedef void *(*n00b_view_fn)(n00b_obj_t, uint64_t *);

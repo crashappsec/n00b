@@ -5,18 +5,18 @@
 #define N00B_STATIC_ASCII_STR(var, contents) \
     n00b_utf8_t *var = n00b_new_utf8(contents)
 
-#define FORMAT_NOT_IN_FN()                     \
+#define FORMAT_NOT_IN_FN()                       \
     s = n00b_str_format(n00b_fmt_mod,            \
-                       n00b_box_u64(frameno++), \
-                       modname,                \
-                       n00b_box_u64(lineno))
+                        n00b_box_u64(frameno++), \
+                        modname,                 \
+                        n00b_box_u64(lineno))
 #define FORMAT_IN_FN()                                             \
     fnname = tstate->frame_stack[num_frames].targetfunc->funcname; \
-    s      = n00b_str_format(n00b_fmt_fn,                            \
-                       n00b_box_u64(frameno++),                \
-                       fnname,                                \
-                       modname,                               \
-                       n00b_box_u64(lineno))
+    s      = n00b_str_format(n00b_fmt_fn,                          \
+                        n00b_box_u64(frameno++),              \
+                        fnname,                               \
+                        modname,                              \
+                        n00b_box_u64(lineno))
 #define OUTPUT_FRAME() \
     n00b_ansi_render(s, f);
 
@@ -24,8 +24,8 @@ static inline n00b_list_t *
 format_one_frame(n00b_vmthread_t *tstate, int n)
 {
     n00b_list_t     *l = n00b_list(n00b_type_utf8());
-    uint64_t       *pc;
-    uint64_t       *line;
+    uint64_t        *pc;
+    uint64_t        *line;
     n00b_zfn_info_t *f;
     n00b_utf8_t     *modname;
     n00b_utf8_t     *fname;
@@ -40,9 +40,9 @@ format_one_frame(n00b_vmthread_t *tstate, int n)
     }
     else {
         n00b_vmframe_t *frame = &tstate->frame_stack[n];
-        modname              = frame->call_module->name;
-        pc                   = n00b_box_u64(frame->pc);
-        line                 = n00b_box_u64(frame->calllineno);
+        modname               = frame->call_module->name;
+        pc                    = n00b_box_u64(frame->pc);
+        line                  = n00b_box_u64(frame->calllineno);
     }
 
     if (n == 0) {
@@ -77,19 +77,19 @@ n00b_get_backtrace(n00b_vmthread_t *tstate)
         return n00b_callout(n00b_new_utf8("N00b is not running!"));
     }
 
-    int         nframes = tstate->num_frames;
+    int          nframes = tstate->num_frames;
     n00b_list_t *hdr     = n00b_list(n00b_type_utf8());
     n00b_grid_t *bt      = n00b_new(n00b_type_grid(),
-                             n00b_kw("start_cols",
-                                    n00b_ka(3),
-                                    "start_rows",
-                                    n00b_ka(nframes + 1),
-                                    "header_rows",
-                                    n00b_ka(1),
-                                    "container_tag",
-                                    n00b_ka(n00b_new_utf8("table2")),
-                                    "stripe",
-                                    n00b_ka(true)));
+                               n00b_kw("start_cols",
+                                       n00b_ka(3),
+                                       "start_rows",
+                                       n00b_ka(nframes + 1),
+                                       "header_rows",
+                                       n00b_ka(1),
+                                       "container_tag",
+                                       n00b_ka(n00b_new_utf8("table2")),
+                                       "stripe",
+                                       n00b_ka(true)));
 
     n00b_list_append(hdr, n00b_new_utf8("PC"));
     n00b_list_append(hdr, n00b_new_utf8("Location"));
@@ -114,7 +114,7 @@ n00b_get_backtrace(n00b_vmthread_t *tstate)
 static void
 n00b_vm_exception(n00b_vmthread_t *tstate, n00b_exception_t *exc)
 {
-    n00b_stream_t *f      = n00b_get_stderr();
+    n00b_stream_t *f      = n00b_stderr();
     n00b_grid_t   *bt     = n00b_get_backtrace(tstate);
     n00b_utf8_t   *to_out = n00b_rich_lit("[h2]Fatal Exception:[/] ");
 
@@ -124,24 +124,24 @@ n00b_vm_exception(n00b_vmthread_t *tstate, n00b_exception_t *exc)
 #if defined(N00B_DEBUG) && defined(N00B_BACKTRACE_SUPPORTED)
     int16_t  tmp;
     int16_t *widths1 = n00b_calculate_col_widths(exc->c_trace,
-                                                N00B_GRID_TERMINAL_DIM,
-                                                &tmp);
+                                                 N00B_GRID_TERMINAL_DIM,
+                                                 &tmp);
     int16_t *widths2 = n00b_calculate_col_widths(bt,
-                                                N00B_GRID_TERMINAL_DIM,
-                                                &tmp);
+                                                 N00B_GRID_TERMINAL_DIM,
+                                                 &tmp);
 
     for (int i = 0; i < 3; i++) {
         int w = n00b_max(widths1[i], widths2[i]);
 
         n00b_render_style_t *s = n00b_new(n00b_type_render_style(),
-                                        n00b_kw("min_size",
-                                               n00b_ka(w),
-                                               "max_size",
-                                               n00b_ka(w),
-                                               "left_pad",
-                                               n00b_ka(1),
-                                               "right_pad",
-                                               n00b_ka(1)));
+                                          n00b_kw("min_size",
+                                                  n00b_ka(w),
+                                                  "max_size",
+                                                  n00b_ka(w),
+                                                  "left_pad",
+                                                  n00b_ka(1),
+                                                  "right_pad",
+                                                  n00b_ka(1)));
         n00b_set_column_props(bt, i, s);
         n00b_set_column_props(exc->c_trace, i, s);
     }
@@ -149,10 +149,10 @@ n00b_vm_exception(n00b_vmthread_t *tstate, n00b_exception_t *exc)
     n00b_print(n00b_kw("stream", n00b_ka(f), "sep", n00b_ka('\n')), 2, to_out, bt);
 
 #ifdef N00B_DEV
-    n00b_stream_write_object(tstate->vm->run_state->print_stream,
-                            n00b_exception_get_message(exc),
-                            false);
-    n00b_stream_putc(tstate->vm->run_state->print_stream, '\n');
+    n00b_write(tstate->vm->run_state->print_stream,
+               n00b_exception_get_message(exc));
+
+    n00b_putc(tstate->vm->run_state->print_stream, '\n');
 #endif
 
     // This is currently just a stub that prints an rudimentary error
@@ -185,7 +185,7 @@ n00b_vm_exception(n00b_vmthread_t *tstate, n00b_exception_t *exc)
 #ifdef N00B_OMIT_UNDERFLOW_CHECKS
 #define STACK_REQUIRE_VALUES(_n)
 #else
-#define STACK_REQUIRE_VALUES(_n)                              \
+#define STACK_REQUIRE_VALUES(_n)                               \
     if (tstate->sp > &tstate->stack[N00B_STACK_SIZE - (_n)]) { \
         N00B_CRAISE("stack underflow");                        \
     }
@@ -199,7 +199,7 @@ n00b_vm_exception(n00b_vmthread_t *tstate, n00b_exception_t *exc)
 // for stack overflow for safety.
 #define STACK_REQUIRE_SLOTS(_n)              \
     if (tstate->sp - (_n) < tstate->stack) { \
-        N00B_CRAISE("stack overflow");        \
+        N00B_CRAISE("stack overflow");       \
     }
 
 #define SIMPLE_COMPARE(op)                          \
@@ -302,12 +302,12 @@ n00b_vm_module_enter(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 
 static void
 n00b_vmframe_push(n00b_vmthread_t     *tstate,
-                 n00b_zinstruction_t *i,
-                 n00b_module_t       *call_module,
-                 int32_t             call_pc,
-                 n00b_module_t       *target_module,
-                 n00b_zfn_info_t     *target_func,
-                 int32_t             target_lineno)
+                  n00b_zinstruction_t *i,
+                  n00b_module_t       *call_module,
+                  int32_t              call_pc,
+                  n00b_module_t       *target_module,
+                  n00b_zfn_info_t     *target_func,
+                  int32_t              target_lineno)
 {
     // TODO: Should probably recover call_pc off the stack when
     // needed, instead of adding the extra param here.
@@ -333,7 +333,7 @@ n00b_vmframe_push(n00b_vmthread_t     *tstate,
 static void
 n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 {
-    bool        b;
+    bool         b;
     n00b_obj_t   obj;
     n00b_type_t *t;
 
@@ -342,16 +342,14 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         STACK_REQUIRE_VALUES(1);
 
         obj = n00b_to_str(tstate->sp->rvalue,
-                         n00b_get_my_type(tstate->sp->rvalue));
+                          n00b_get_my_type(tstate->sp->rvalue));
 
         tstate->sp->rvalue = obj;
         return;
     case N00B_BI_REPR:
         STACK_REQUIRE_VALUES(1);
 
-        obj = n00b_repr(tstate->sp->rvalue,
-                       n00b_get_my_type(tstate->sp->rvalue));
-
+        obj                = n00b_repr(tstate->sp->rvalue);
         tstate->sp->rvalue = obj;
         return;
     case N00B_BI_COERCE:
@@ -380,7 +378,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         do {
             uint64_t n;
             tstate->sp->rvalue = n00b_get_view(tstate->sp->rvalue,
-                                              (int64_t *)&n);
+                                               (int64_t *)&n);
             --tstate->sp;
             tstate->sp[0].uint = n;
         } while (0);
@@ -401,33 +399,33 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         // clang-format on
 
 #define BINOP_INTEGERS(_op)       \
-    case N00B_T_I8:                \
+    case N00B_T_I8:               \
         BINOP_OBJ(_op, int8_t);   \
         break;                    \
-    case N00B_T_I32:               \
+    case N00B_T_I32:              \
         BINOP_OBJ(_op, int32_t);  \
         break;                    \
-    case N00B_T_INT:               \
+    case N00B_T_INT:              \
         BINOP_OBJ(_op, int64_t);  \
         break;                    \
-    case N00B_T_BYTE:              \
+    case N00B_T_BYTE:             \
         BINOP_OBJ(_op, uint8_t);  \
         break;                    \
-    case N00B_T_CHAR:              \
+    case N00B_T_CHAR:             \
         BINOP_OBJ(_op, uint32_t); \
         break;                    \
-    case N00B_T_U32:               \
+    case N00B_T_U32:              \
         BINOP_OBJ(_op, uint32_t); \
         break;                    \
-    case N00B_T_UINT:              \
+    case N00B_T_UINT:             \
         BINOP_OBJ(_op, uint64_t); \
         break
 
 #define BINOP_FLOATS(_op)       \
-    case N00B_T_F32:             \
+    case N00B_T_F32:            \
         BINOP_OBJ(_op, float);  \
         break;                  \
-    case N00B_T_F64:             \
+    case N00B_T_F64:            \
         BINOP_OBJ(_op, double); \
         break
 
@@ -495,8 +493,8 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         STACK_REQUIRE_VALUES(2);
 
         b = n00b_eq(i->type_info,
-                   tstate->sp[1].rvalue,
-                   tstate->sp[0].rvalue);
+                    tstate->sp[1].rvalue,
+                    tstate->sp[0].rvalue);
 
         ++tstate->sp;
         tstate->sp->rvalue = (n00b_obj_t)b;
@@ -505,8 +503,8 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         STACK_REQUIRE_VALUES(2);
 
         b = n00b_lt(i->type_info,
-                   tstate->sp[1].rvalue,
-                   tstate->sp[0].rvalue);
+                    tstate->sp[1].rvalue,
+                    tstate->sp[0].rvalue);
 
         ++tstate->sp;
         tstate->sp->rvalue = (n00b_obj_t)b;
@@ -515,8 +513,8 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         STACK_REQUIRE_VALUES(2);
 
         b = n00b_gt(i->type_info,
-                   tstate->sp[1].rvalue,
-                   tstate->sp[0].rvalue);
+                    tstate->sp[1].rvalue,
+                    tstate->sp[0].rvalue);
 
         ++tstate->sp;
         tstate->sp->rvalue = (n00b_obj_t)b;
@@ -541,16 +539,16 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         // value = sp[2]
 
         n00b_index_set(tstate->sp[2].rvalue,
-                      tstate->sp[0].rvalue,
-                      tstate->sp[1].rvalue);
+                       tstate->sp[0].rvalue,
+                       tstate->sp[1].rvalue);
 
         tstate->sp += 3;
         return;
     case N00B_BI_SLICE_GET:
         STACK_REQUIRE_VALUES(3);
         obj = n00b_slice_get(tstate->sp[2].rvalue,
-                            (int64_t)tstate->sp[1].rvalue,
-                            (int64_t)tstate->sp[0].rvalue);
+                             (int64_t)tstate->sp[1].rvalue,
+                             (int64_t)tstate->sp[0].rvalue);
 
         tstate->sp += 2;
         // type is already correct on the stack, since we're writing
@@ -565,9 +563,9 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         // value = sp[0]
 
         n00b_slice_set(tstate->sp[3].rvalue,
-                      (int64_t)tstate->sp[2].rvalue,
-                      (int64_t)tstate->sp[1].rvalue,
-                      tstate->sp[0].rvalue);
+                       (int64_t)tstate->sp[2].rvalue,
+                       (int64_t)tstate->sp[1].rvalue,
+                       tstate->sp[0].rvalue);
 
         tstate->sp += 4;
         return;
@@ -577,14 +575,14 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         // to the actual item type if only one item.
     case N00B_BI_CONTAINER_LIT:
         do {
-            uint64_t    n  = tstate->sp[0].uint;
+            uint64_t     n  = tstate->sp[0].uint;
             n00b_type_t *ct = i->type_info;
             n00b_list_t *xl;
 
             ++tstate->sp;
 
             xl = n00b_new(n00b_type_list(n00b_type_ref()),
-                         n00b_kw("length", n00b_ka(n)));
+                          n00b_kw("length", n00b_ka(n)));
 
             while (n--) {
                 n00b_list_set(xl, n, tstate->sp[0].vptr);
@@ -634,28 +632,28 @@ n00b_vm_0call(n00b_vmthread_t *tstate, n00b_zinstruction_t *i, int64_t ix)
     n00b_module_t *old_module = tstate->current_module;
 
     n00b_zfn_info_t *fn = n00b_list_get(tstate->vm->obj->func_info,
-                                      ix - 1,
-                                      NULL);
+                                        ix - 1,
+                                        NULL);
 
     int32_t call_pc = tstate->pc;
 
     tstate->pc             = fn->offset;
     tstate->current_module = n00b_list_get(tstate->vm->obj->module_contents,
-                                          fn->mid,
-                                          NULL);
+                                           fn->mid,
+                                           NULL);
 
     n00b_zinstruction_t *nexti = n00b_list_get(tstate->current_module->instructions,
-                                             tstate->pc,
-                                             NULL);
+                                               tstate->pc,
+                                               NULL);
 
     // push a frame onto the call stack
     n00b_vmframe_push(tstate,
-                     i,
-                     old_module,
-                     call_pc,
-                     tstate->current_module,
-                     fn,
-                     nexti->line_no);
+                      i,
+                      old_module,
+                      call_pc,
+                      tstate->current_module,
+                      fn,
+                      nexti->line_no);
 }
 
 static void
@@ -677,28 +675,28 @@ n00b_vm_call_module(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     int32_t call_pc        = tstate->pc;
     tstate->pc             = 0;
     tstate->current_module = n00b_list_get(tstate->vm->obj->module_contents,
-                                          i->module_id,
-                                          NULL);
+                                           i->module_id,
+                                           NULL);
 
     n00b_zinstruction_t *nexti = n00b_list_get(tstate->current_module->instructions,
-                                             tstate->pc,
-                                             NULL);
+                                               tstate->pc,
+                                               NULL);
 
     // push a frame onto the call stack
     n00b_vmframe_push(tstate,
-                     i,
-                     old_module,
-                     call_pc,
-                     tstate->current_module,
-                     NULL,
-                     nexti->line_no);
+                      i,
+                      old_module,
+                      call_pc,
+                      tstate->current_module,
+                      NULL,
+                      nexti->line_no);
 }
 
 static inline uint64_t
 ffi_possibly_box(n00b_vmthread_t     *tstate,
                  n00b_zinstruction_t *i,
                  n00b_type_t         *dynamic_type,
-                 int                 local_param)
+                 int                  local_param)
 {
     // TODO: Handle varargs.
     if (dynamic_type == NULL) {
@@ -706,7 +704,7 @@ ffi_possibly_box(n00b_vmthread_t     *tstate,
     }
 
     n00b_type_t *param = n00b_type_get_param(dynamic_type, local_param);
-    param             = n00b_resolve_and_unbox(param);
+    param              = n00b_resolve_and_unbox(param);
 
     if (n00b_type_is_concrete(param)) {
         return tstate->sp[local_param].uint;
@@ -750,21 +748,21 @@ ffi_possible_ret_munge(n00b_vmthread_t *tstate, n00b_type_t *at, n00b_type_t *ft
 
 static void
 n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
-                n00b_zinstruction_t *instr,
-                int64_t             ix,
-                n00b_type_t         *dynamic_type)
+                 n00b_zinstruction_t *instr,
+                 int64_t              ix,
+                 n00b_type_t         *dynamic_type)
 {
     n00b_ffi_decl_t *decl = n00b_list_get(tstate->vm->obj->ffi_info,
-                                        instr->arg,
-                                        NULL);
+                                          instr->arg,
+                                          NULL);
 
     if (decl == NULL) {
         N00B_CRAISE("Could not load external function.");
     }
 
     n00b_zffi_cif *ffiinfo     = &decl->cif;
-    int           local_param = 0;
-    void        **args;
+    int            local_param = 0;
+    void         **args;
 
     if (!ffiinfo->cif.nargs) {
         args = NULL;
@@ -796,14 +794,15 @@ n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
                 n00b_box_t value = {.u64 = raw};
 
                 n00b_box_t *box = n00b_new(n00b_type_box(n00b_type_i64()),
-                                         value);
-                args[n]        = n00b_ref_via_ffi_type(box,
-                                               ffiinfo->cif.arg_types[n]);
+                                           value);
+                args[n]         = n00b_ref_via_ffi_type(box,
+                                                ffiinfo->cif.arg_types[n]);
             }
 
-            if (n < 63 && ((1 << n) & ffiinfo->hold_info)) {
-                n00b_gc_add_hold(tstate->sp[i].rvalue);
-            }
+            // From old heap code.
+            // if (n < 63 && ((1 << n) & ffiinfo->hold_info)) {
+            // n00b_gc_add_hold(tstate->sp[i].rvalue);
+            // }
         }
     }
 
@@ -818,7 +817,7 @@ n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
         ffi_possible_ret_munge(tstate,
                                n00b_type_get_param(dynamic_type, local_param),
                                n00b_type_get_param(instr->type_info,
-                                                  local_param));
+                                                   local_param));
     }
 }
 
@@ -867,8 +866,8 @@ n00b_vm_return(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     uint64_t v             = tstate->sp[1].uint;
     tstate->pc             = (v >> 32u);
     tstate->current_module = n00b_list_get(tstate->vm->obj->module_contents,
-                                          (v & 0xFFFFFFFF),
-                                          NULL);
+                                           (v & 0xFFFFFFFF),
+                                           NULL);
 
     tstate->sp += 2;
 
@@ -909,8 +908,8 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             n00b_zinstruction_t *i;
 
             i = n00b_list_get(tstate->current_module->instructions,
-                             tstate->pc,
-                             NULL);
+                              tstate->pc,
+                              NULL);
 
 #ifdef N00B_VM_DEBUG
             static bool  debug_on = (bool)(N00B_VM_DEBUG_DEFAULT);
@@ -1221,17 +1220,17 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 STACK_REQUIRE_VALUES(2);
                 do {
                     n00b_value_t tmp = tstate->sp[0];
-                    tstate->sp[0]   = tstate->sp[1];
-                    tstate->sp[1]   = tmp;
+                    tstate->sp[0]    = tstate->sp[1];
+                    tstate->sp[1]    = tmp;
                 } while (0);
                 break;
             case N00B_ZLoadFromAttr:
                 STACK_REQUIRE_VALUES(1);
                 do {
-                    bool        found = true;
+                    bool         found = true;
                     n00b_utf8_t *key   = tstate->sp->vptr;
                     n00b_obj_t   val;
-                    uint64_t    flag = i->immediate;
+                    uint64_t     flag = i->immediate;
 
                     if (flag) {
                         val = n00b_vm_attr_get(tstate, key, &found);
@@ -1245,7 +1244,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                     // attr doesn't exist, which is why `found` is
                     // true by default.
                     if (found && n00b_type_is_value_type(i->type_info)) {
-                        n00b_box_t box      = n00b_unbox_obj((n00b_box_t *)val);
+                        n00b_box_t box     = n00b_unbox_obj((n00b_box_t *)val);
                         tstate->sp[0].vptr = box.v;
                     }
                     else {
@@ -1276,12 +1275,12 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                     }
 
                     n00b_vm_attr_set(tstate,
-                                    tstate->sp[1].vptr,
-                                    val,
-                                    i->type_info,
-                                    i->arg != 0,
-                                    false,
-                                    false);
+                                     tstate->sp[1].vptr,
+                                     val,
+                                     i->type_info,
+                                     i->arg != 0,
+                                     false,
+                                     false);
                     tstate->sp += 2;
                 } while (0);
                 break;
@@ -1296,9 +1295,9 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 STACK_REQUIRE_VALUES(2);
                 STACK_REQUIRE_SLOTS(2); // Usually 1, except w/ dict.
                 do {
-                    uint64_t   obj_len   = tstate->sp->uint;
-                    void     **view_slot = &(tstate->sp + 1)->rvalue;
-                    char      *p         = *(char **)view_slot;
+                    uint64_t    obj_len   = tstate->sp->uint;
+                    void      **view_slot = &(tstate->sp + 1)->rvalue;
+                    char       *p         = *(char **)view_slot;
                     n00b_box_t *box       = (n00b_box_t *)p;
 
                     --tstate->sp;
@@ -1369,8 +1368,8 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
 
                     // Does NOT check for coercible.
                     tstate->sp->uint = (uint64_t)n00b_types_are_compat(t1,
-                                                                      t2,
-                                                                      NULL);
+                                                                       t2,
+                                                                       NULL);
                 } while (0);
                 break;
             case N00B_ZCmp:
@@ -1534,10 +1533,9 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             case N00B_ZPrint:
                 STACK_REQUIRE_VALUES(1);
                 n00b_print(tstate->sp->rvalue);
-                n00b_stream_write_object(tstate->vm->run_state->print_stream,
-                                        tstate->sp->rvalue,
-                                        false);
-                n00b_stream_putc(tstate->vm->run_state->print_stream, '\n');
+                n00b_write(tstate->vm->run_state->print_stream,
+                           tstate->sp->rvalue);
+                n00b_putc(tstate->vm->run_state->print_stream, '\n');
                 ++tstate->sp;
                 break;
 #endif
@@ -1598,7 +1596,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             case N00B_ZUnpack:
                 for (int32_t x = 1; x <= i->arg; ++x) {
                     *tstate->sp[0].lvalue = n00b_tuple_get(tstate->r1,
-                                                          i->arg - x);
+                                                           i->arg - x);
                     ++tstate->sp;
                 }
                 break;
@@ -1608,17 +1606,18 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 break;
             case N00B_ZLockMutex:
                 STACK_REQUIRE_VALUES(1);
-                pthread_mutex_lock((pthread_mutex_t *)n00b_vm_variable(tstate,
-                                                                      i));
+                n00b_lock_acquire((n00b_lock_t *)n00b_vm_variable(tstate,
+                                                                  i));
                 break;
             case N00B_ZUnlockMutex:
                 STACK_REQUIRE_VALUES(1);
-                pthread_mutex_unlock((pthread_mutex_t *)n00b_vm_variable(tstate,
-                                                                        i));
+                n00b_lock_release((n00b_lock_t *)n00b_vm_variable(tstate,
+                                                                  i));
                 break;
             }
 
             ++tstate->pc;
+            n00b_thread_pause_if_stop_requested();
         }
     }
     N00B_EXCEPT
@@ -1658,16 +1657,16 @@ n00b_vmthread_run(n00b_vmthread_t *tstate)
     thread_runtime = tstate;
 
     n00b_zinstruction_t *i = n00b_list_get(tstate->current_module->instructions,
-                                         tstate->pc,
-                                         NULL);
+                                           tstate->pc,
+                                           NULL);
 
     n00b_vmframe_push(tstate,
-                     i,
-                     tstate->current_module,
-                     0,
-                     tstate->current_module,
-                     NULL,
-                     0);
+                      i,
+                      tstate->current_module,
+                      0,
+                      tstate->current_module,
+                      NULL,
+                      0);
 
     int result = n00b_vm_runloop(tstate);
     --tstate->num_frames;

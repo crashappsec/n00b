@@ -28,33 +28,6 @@ add_static_test_symbols()
                              strndup);
 }
 
-#if 0
-void
-test_automarshal()
-{
-    n00b_utf8_t    *str = n00b_rich_lit("[h4]Hello, [h6]world!");
-    n00b_alloc_hdr *hdr = ((n00b_alloc_hdr *)str) - 1;
-    hdr->cached_hash   = 0xffffffffffffffffULL;
-    hdr->cached_hash <<= 64;
-    hdr->cached_hash |= 0xffffffffffffffffUll;
-    n00b_buf_t *buf      = n00b_automarshal(str);
-    void      *addr     = buf->data;
-    int        dump_len = n00b_buffer_len(buf);
-    n00b_printf("[h2]Here's your temporary test");
-    n00b_print(n00b_hex_dump(addr, dump_len));
-    n00b_printf("[h2]Try unmarshalling LOL:");
-    n00b_utf8_t *ums = n00b_autounmarshal(buf);
-    n00b_mem_ptr p   = {.v = ums};
-    p.alloc -= 1;
-    n00b_print(n00b_hex_dump(addr, dump_len));
-    n00b_printf("[h2]If this prints, we win:");
-    n00b_print(ums);
-
-    // n00b_buf_t    *compressed = n00b_buffer_empty();
-    // n00b_stream_t *zstream    = n00b_buffer_outstream(compressed, true);
-}
-#endif
-
 static void
 one_parse(n00b_parser_t *parser, char *s)
 {

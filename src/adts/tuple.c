@@ -44,20 +44,18 @@ n00b_tuple_len(n00b_tuple_t *tup)
 static n00b_str_t *
 tuple_repr(n00b_tuple_t *tup)
 {
-    n00b_list_t *tparams = n00b_type_get_params(n00b_get_my_type(tup));
-    int         len     = tup->num_items;
-    n00b_list_t *items   = n00b_new(n00b_type_list(n00b_type_utf32()));
+    int          len   = tup->num_items;
+    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_utf32()));
 
     for (int i = 0; i < len; i++) {
-        n00b_type_t *one_type = n00b_list_get(tparams, i, NULL);
-        n00b_list_append(items, n00b_repr(tup->items[i], one_type));
+        n00b_list_append(items, n00b_repr(tup->items[i]));
     }
 
     n00b_str_t *sep    = n00b_get_comma_const();
     n00b_str_t *result = n00b_str_join(items, sep);
 
     result = n00b_str_concat(n00b_get_lparen_const(),
-                            n00b_str_concat(result, n00b_get_rparen_const()));
+                             n00b_str_concat(result, n00b_get_rparen_const()));
 
     return result;
 }
@@ -73,7 +71,7 @@ tuple_coerce(n00b_tuple_t *tup, n00b_type_t *dst)
 {
     n00b_list_t  *srcparams = n00b_type_get_params(n00b_get_my_type(tup));
     n00b_list_t  *dstparams = n00b_type_get_params(dst);
-    int          len       = tup->num_items;
+    int           len       = tup->num_items;
     n00b_tuple_t *res       = n00b_new(dst);
 
     for (int i = 0; i < len; i++) {
@@ -158,7 +156,7 @@ n00b_clean_internal_list(n00b_list_t *l)
 
     n00b_list_t *tup_types      = n00b_list(n00b_type_typespec());
     n00b_type_t *li_type        = n00b_new_typevar();
-    bool        requires_tuple = false;
+    bool         requires_tuple = false;
 
     for (int i = 0; i < len; i++) {
         n00b_type_t *t = n00b_get_my_type(n00b_list_get(items, i, NULL));
@@ -172,13 +170,13 @@ n00b_clean_internal_list(n00b_list_t *l)
 
     if (!requires_tuple) {
         n00b_type_t *res_type = n00b_type_resolve(n00b_get_my_type(items));
-        res_type->items      = n00b_type_resolve(li_type)->items;
+        res_type->items       = n00b_type_resolve(li_type)->items;
 
         return items;
     }
 
     return n00b_new(n00b_type_tuple_from_xlist(tup_types),
-                   n00b_kw("contents", n00b_ka(items)));
+                    n00b_kw("contents", n00b_ka(items)));
 }
 
 const n00b_vtable_t n00b_tuple_vtable = {

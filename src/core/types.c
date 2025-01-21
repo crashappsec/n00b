@@ -154,18 +154,21 @@ n00b_type_t *n00b_bi_types[N00B_NUM_BUILTIN_DTS] = {
     0,
 };
 
+// This is just hex w/ a different char set; max size would be 18 digits.
+static const char tv_letters[] = "jtvwxyzabcdefghi";
+
 n00b_type_universe_t n00b_type_universe;
 
 #ifdef N00B_TYPE_LOG
 
 static bool log_types = true;
 
-#define type_log(x, y)                               \
-    if (log_types) {                                 \
+#define type_log(x, y)                                \
+    if (log_types) {                                  \
         n00b_printf("[h2]{}:[/] [h1]{}[/] (line {})", \
-                   n00b_new_utf8(x),                  \
-                   n00b_type_resolve(y),              \
-                   n00b_box_i64(__LINE__));           \
+                    n00b_new_utf8(x),                 \
+                    n00b_type_resolve(y),             \
+                    n00b_box_i64(__LINE__));          \
     }
 
 void
@@ -187,11 +190,13 @@ type_end_log(void)
 typedef struct {
     n00b_sha_t  *sha;
     n00b_dict_t *memos;
-    int         tv_count;
+    int          tv_count;
 } type_hash_ctx;
 
-static uint64_t            n00b_default_next_typevar(void);
+static uint64_t             n00b_default_next_typevar(void);
 static n00b_next_typevar_fn next_typevar_fn = n00b_default_next_typevar;
+static pthread_key_t        n00b_tvar_start_key;
+static pthread_key_t        n00b_tvar_next_key;
 
 void
 n00b_type_set_gc_bits(uint64_t *bitfield, void *alloc)
@@ -211,9 +216,6 @@ n00b_acquire_typevar_id(void)
 {
     return (1ULL << 63) | next_typevar_fn();
 }
-
-static pthread_key_t n00b_tvar_start_key;
-static pthread_key_t n00b_tvar_next_key;
 
 static void
 n00b_thread_release_typevar(void *arg)
@@ -247,16 +249,17 @@ n00b_default_next_typevar(void)
 static n00b_type_t *
 n00b_alloc_base_type_object(int index)
 {
-    n00b_type_t *type = n00b_gc_alloc_mapped(n00b_type_t, n00b_type_set_gc_bits);
+    n00b_type_t *type = n00b_gc_alloc_mapped(n00b_type_t,
+                                             n00b_type_set_gc_bits);
     n00b_mem_ptr obj  = {.v = type};
     n00b_mem_ptr hdr  = (n00b_mem_ptr){.alloc = obj.alloc - 1};
 
-    type->base_index     = index;
-    type->typeid         = index;
+    type->base_index    = index;
+    type->typeid        = index;
     hdr.alloc->n00b_obj = true;
 
     n00b_bi_types[type->base_index] = type;
-    hdr.alloc->type                = n00b_bi_types[N00B_T_TYPESPEC];
+    hdr.alloc->type                 = n00b_bi_types[N00B_T_TYPESPEC];
 
     if (index) {
         n00b_universe_put(&n00b_type_universe, type);
@@ -275,11 +278,11 @@ alloc_type_list(void)
     hdr    = n00b_object_header(result);
 
     hdr->n00b_obj = true;
-    hdr->type      = n00b_bi_types[N00B_T_INTERNAL_TLIST];
+    hdr->type     = n00b_bi_types[N00B_T_INTERNAL_TLIST];
 
     // Create the empty list to hold up to two types.
     result->data      = n00b_gc_raw_alloc(sizeof(uint64_t *) * 2,
-                                    N00B_GC_SCAN_ALL);
+                                     N00B_GC_SCAN_ALL);
     result->append_ix = 0;
     result->length    = 2;
 
@@ -295,8 +298,8 @@ alloc_type_list(void)
 //
 // Additionally, we always return the object already in the store, when
 // there are dupes, unless it's a box.
-n00b_type_t *
-n00b_type_resolve(n00b_type_t *node)
+static inline n00b_type_t *
+_n00b_type_resolve(n00b_type_t *node)
 {
     n00b_type_t *next;
 
@@ -331,10 +334,14 @@ n00b_type_resolve(n00b_type_t *node)
     }
 }
 
-void
-n00b_lock_type(n00b_type_t *t)
+n00b_type_t *
+n00b_type_resolve(n00b_type_t *node)
 {
-    t->flags &= N00B_FN_TY_LOCK;
+    n00b_type_t *result;
+
+    result = _n00b_type_resolve(node);
+
+    return result;
 }
 
 static void
@@ -351,7 +358,7 @@ internal_type_hash(n00b_type_t *node, type_hash_ctx *ctx)
         node = n00b_type_resolve(node);
     }
 
-    uint64_t      num_tvars;
+    uint64_t       num_tvars;
     n00b_dt_kind_t kind = n00b_type_get_kind(node);
 
     if (kind == N00B_DT_KIND_box) {
@@ -400,7 +407,8 @@ internal_type_hash(n00b_type_t *node, type_hash_ctx *ctx)
     n00b_sha_int_update(ctx->sha, n);
 
     for (size_t i = 0; i < n; i++) {
-        n00b_type_t *t = n00b_list_get(node->items, i, NULL);
+        // This list shouldn't change.
+        n00b_type_t *t = n00b_private_list_get(node->items, i, NULL);
         assert(t != node);
         internal_type_hash(t, ctx);
     }
@@ -413,11 +421,11 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
     // someone requests a concrete type, we keep yielding shared
     // instances, since there is no more resolution that can happen.
 
-    n00b_buf_t     *buf;
+    n00b_buf_t    *buf;
     uint64_t       result;
-    n00b_type_t    *node = n00b_type_resolve(*nodeptr);
+    n00b_type_t   *node = n00b_type_resolve(*nodeptr);
     type_hash_ctx *ctx;
-    n00b_dt_kind_t  kind = n00b_type_get_kind(node);
+    n00b_dt_kind_t kind = n00b_type_get_kind(node);
 
     // Note that
     switch (kind) {
@@ -440,13 +448,14 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
         ctx->sha      = n00b_new(n00b_type_hash());
         ctx->tv_count = 0;
         ctx->memos    = n00b_new_unmanaged_dict(HATRACK_DICT_KEY_TYPE_PTR,
-                                            false,
-                                            false);
+                                             false,
+                                             false);
 
         internal_type_hash(node, ctx);
 
         buf    = n00b_sha_finish(ctx->sha);
         result = ((uint64_t *)buf->data)[0];
+        assert(result);
 
         little_64(result);
 
@@ -542,7 +551,7 @@ tspec_copy_internal(n00b_type_t *node, n00b_dict_t *dupes)
     // TODO: this is wrong for general purpose; uses global environment.
     // Need to do a base version that works for any type env.
 
-    node             = n00b_type_resolve(node);
+    node              = n00b_type_resolve(node);
     n00b_type_t *dupe = hatrack_dict_get(dupes, node, NULL);
 
     if (dupe != NULL) {
@@ -553,7 +562,7 @@ tspec_copy_internal(n00b_type_t *node, n00b_dict_t *dupes)
         return node;
     }
 
-    int            n    = n00b_type_get_num_params(node);
+    int             n    = n00b_type_get_num_params(node);
     n00b_dt_info_t *base = n00b_internal_type_base(node);
     n00b_type_t    *result;
 
@@ -592,9 +601,12 @@ tspec_copy_internal(n00b_type_t *node, n00b_dict_t *dupes)
 n00b_type_t *
 n00b_type_copy(n00b_type_t *node)
 {
+    n00b_type_t *result;
     n00b_dict_t *dupes = n00b_dict(n00b_type_ref(), n00b_type_ref());
 
-    return tspec_copy_internal(node, dupes);
+    result = tspec_copy_internal(node, dupes);
+
+    return result;
 }
 
 static n00b_type_t *
@@ -614,7 +626,7 @@ copy_if_needed(n00b_type_t *t)
 bool
 n00b_type_is_concrete(n00b_type_t *node)
 {
-    int         n;
+    int          n;
     n00b_list_t *param;
 
     node = n00b_type_resolve(node);
@@ -650,7 +662,7 @@ unify_type_variables(n00b_type_t *t1, n00b_type_t *t2)
 {
     int           bf_words    = n00b_get_num_bitfield_words();
     int64_t       num_options = 0;
-    n00b_type_t   *result      = n00b_new_typevar();
+    n00b_type_t  *result      = n00b_new_typevar();
     tv_options_t *t1_opts     = &t1->options;
     tv_options_t *t2_opts     = &t2->options;
     tv_options_t *res_opts    = &result->options;
@@ -681,12 +693,12 @@ unify_type_variables(n00b_type_t *t1, n00b_type_t *t2)
     for (int i = 0; i < nparams; i++) {
         if (i >= t1_arg_ct) {
             n00b_list_append(result->items,
-                            n00b_type_get_param(t2, i));
+                             n00b_type_get_param(t2, i));
         }
         else {
             if (i >= t2_arg_ct) {
                 n00b_list_append(result->items,
-                                n00b_type_get_param(t1, i));
+                                 n00b_type_get_param(t1, i));
             }
             else {
                 n00b_type_t *sub1 = n00b_type_get_param(t1, i);
@@ -856,7 +868,7 @@ unify_type_variables(n00b_type_t *t1, n00b_type_t *t2)
 
         if (t1_opts->value_type) {
             if (n00b_type_is_error(n00b_unify(t1_opts->value_type,
-                                            t2_opts->value_type))) {
+                                              t2_opts->value_type))) {
                 type_log("unify(t1, t2)", n00b_type_error());
                 return n00b_type_error();
             }
@@ -868,11 +880,11 @@ unify_type_variables(n00b_type_t *t1, n00b_type_t *t2)
 
     if (nparams != 0 && res_opts->value_type != NULL) {
         if (n00b_type_is_error(n00b_unify(t1_opts->value_type,
-                                        t2_opts->value_type))) {
+                                          t2_opts->value_type))) {
             if (n00b_type_is_error(
                     n00b_unify(res_opts->value_type,
-                              n00b_type_get_param(result,
-                                                 nparams - 1)))) {
+                               n00b_type_get_param(result,
+                                                   nparams - 1)))) {
                 type_log("unify(t1, t2)", n00b_type_error());
                 return n00b_type_error();
             }
@@ -911,7 +923,7 @@ unify_tv_with_concrete_type(n00b_type_t *t1,
 
     for (int i = 0; i < n00b_type_get_num_params(t1); i++) {
         n00b_type_t *sub = n00b_unify(n00b_type_get_param(t1, i),
-                                    n00b_type_get_param(t2, i));
+                                      n00b_type_get_param(t2, i));
 
         if (n00b_type_is_error(sub)) {
             type_log("unify(t1, t2)", n00b_type_error());
@@ -925,9 +937,9 @@ unify_tv_with_concrete_type(n00b_type_t *t1,
             // being a constant, but that's not done yet.
             return n00b_type_error();
         }
-        int         n   = n00b_type_get_num_params(t2);
+        int          n   = n00b_type_get_num_params(t2);
         n00b_type_t *sub = n00b_unify(n00b_type_get_param(t2, n - 1),
-                                    t1_opts->value_type);
+                                      t1_opts->value_type);
 
         if (n00b_type_is_error(sub)) {
             type_log("unify(t1, t2)", n00b_type_error());
@@ -941,8 +953,8 @@ unify_tv_with_concrete_type(n00b_type_t *t1,
     return t2;
 }
 
-n00b_type_t *
-n00b_unify(n00b_type_t *t1, n00b_type_t *t2)
+static inline n00b_type_t *
+_n00b_unify(n00b_type_t *t1, n00b_type_t *t2)
 {
     n00b_type_t *result;
     n00b_type_t *sub1;
@@ -951,7 +963,7 @@ n00b_unify(n00b_type_t *t1, n00b_type_t *t2)
     n00b_list_t *p1;
     n00b_list_t *p2;
     n00b_list_t *new_subs;
-    int         num_params = 0;
+    int          num_params = 0;
 
     if (!t1 || !t2) {
         return n00b_type_error();
@@ -1076,7 +1088,7 @@ unify_sub_nodes:
         p1       = n00b_type_get_params(t1);
         p2       = n00b_type_get_params(t2);
         new_subs = n00b_new(n00b_type_list(n00b_type_typespec()),
-                           n00b_kw("length", n00b_ka(num_params)));
+                            n00b_kw("length", n00b_ka(num_params)));
 
         for (int i = 0; i < num_params; i++) {
             sub1 = n00b_list_get(p1, i, NULL);
@@ -1153,7 +1165,7 @@ unify_sub_nodes:
         p1       = n00b_type_get_params(t1);
         p2       = n00b_type_get_params(t2);
         new_subs = n00b_new(n00b_type_list(n00b_type_typespec()),
-                           n00b_kw("length", n00b_ka(num_params)));
+                            n00b_kw("length", n00b_ka(num_params)));
 
         for (int i = 0; i < f1_params - 2; i++) {
             sub1       = n00b_list_get(p1, i, NULL);
@@ -1215,13 +1227,22 @@ unify_sub_nodes:
     return result;
 }
 
+n00b_type_t *
+n00b_unify(n00b_type_t *t1, n00b_type_t *t2)
+{
+    n00b_type_t *result;
+    result = _n00b_unify(t1, t2);
+
+    return result;
+}
+
 // 'exact' match is mainly used for comparing declarations to
 // other types. It needs to ignore boxes though.
 //
 // TODO: Need to revisit this with the new generics.
 //
-n00b_type_exact_result_t
-n00b_type_cmp_exact(n00b_type_t *t1, n00b_type_t *t2)
+static inline n00b_type_exact_result_t
+_n00b_type_cmp_exact(n00b_type_t *t1, n00b_type_t *t2)
 {
     t1 = n00b_type_resolve(t1);
     t2 = n00b_type_resolve(t2);
@@ -1323,8 +1344,15 @@ n00b_type_cmp_exact(n00b_type_t *t1, n00b_type_t *t2)
     }
 }
 
-// This is just hex w/ a different char set; max size would be 18 digits.
-static const char tv_letters[] = "jtvwxyzabcdefghi";
+n00b_type_exact_result_t
+n00b_type_cmp_exact(n00b_type_t *t1, n00b_type_t *t2)
+{
+    n00b_type_exact_result_t result;
+
+    result = _n00b_type_cmp_exact(t1, t2);
+
+    return result;
+}
 
 static inline n00b_str_t *
 create_typevar_name(int64_t num)
@@ -1352,11 +1380,11 @@ internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
     }
 
     if (n00b_partial_inference(t)) {
-        bool        list_ok  = n00b_list_syntax_possible(t);
-        bool        set_ok   = n00b_set_syntax_possible(t);
-        bool        dict_ok  = n00b_dict_syntax_possible(t);
-        bool        tuple_ok = n00b_tuple_syntax_possible(t);
-        int         num_ok   = 0;
+        bool         list_ok  = n00b_list_syntax_possible(t);
+        bool         set_ok   = n00b_set_syntax_possible(t);
+        bool         dict_ok  = n00b_dict_syntax_possible(t);
+        bool         tuple_ok = n00b_tuple_syntax_possible(t);
+        int          num_ok   = 0;
         n00b_list_t *parts    = n00b_list(n00b_type_utf8());
         n00b_utf8_t *res;
 
@@ -1387,15 +1415,15 @@ internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
             }
             else {
                 res = n00b_cstr_format("{}{}",
-                                      n00b_list_get(parts, 0, NULL),
-                                      n00b_new_utf8("["));
+                                       n00b_list_get(parts, 0, NULL),
+                                       n00b_new_utf8("["));
             }
             break;
         default:
             res = n00b_cstr_format("${}{}",
-                                  n00b_str_join(parts,
-                                               n00b_new_utf8("_or_")),
-                                  n00b_new_utf8("["));
+                                   n00b_str_join(parts,
+                                                 n00b_new_utf8("_or_")),
+                                   n00b_new_utf8("["));
             break;
         }
 
@@ -1410,8 +1438,8 @@ internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 
         for (int i = 1; i < num; i++) {
             n00b_utf8_t *one = n00b_internal_type_repr(n00b_type_get_param(t, i),
-                                                     memos,
-                                                     nexttv);
+                                                       memos,
+                                                       nexttv);
 
             res = n00b_cstr_format("{}, {}", res, one);
         }
@@ -1444,18 +1472,18 @@ internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 static inline n00b_str_t *
 internal_repr_container(n00b_type_t *type,
                         n00b_dict_t *memos,
-                        int64_t    *nexttv)
+                        int64_t     *nexttv)
 {
-    int         num_types = n00b_list_len(type->items);
+    int          num_types = n00b_list_len(type->items);
     n00b_list_t *to_join   = n00b_list(n00b_type_utf8());
-    int         i         = 0;
+    int          i         = 0;
     n00b_type_t *subnode;
     n00b_str_t  *substr;
 
     n00b_list_append(to_join,
-                    n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring",
-                                   n00b_ka(n00b_internal_type_name(type)))));
+                     n00b_new(n00b_type_utf8(),
+                              n00b_kw("cstring",
+                                      n00b_ka(n00b_internal_type_name(type)))));
     n00b_list_append(to_join, n00b_get_lbrak_const());
 
     int n = type->items ? 0 : n00b_list_len(type->items);
@@ -1488,9 +1516,9 @@ first_loop_start:
 static inline n00b_str_t *
 internal_repr_func(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 {
-    int         num_types = n00b_list_len(t->items);
+    int          num_types = n00b_list_len(t->items);
     n00b_list_t *to_join   = n00b_list(n00b_type_utf8());
-    int         i         = 0;
+    int          i         = 0;
     n00b_type_t *subnode;
     n00b_str_t  *substr;
 
@@ -1554,9 +1582,9 @@ n00b_internal_type_repr(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
         return internal_repr_func(t, memos, nexttv);
     case N00B_DT_KIND_box:
         return n00b_cstr_format("{}(boxed)",
-                               n00b_internal_type_repr(n00b_type_unbox(t),
-                                                      memos,
-                                                      nexttv));
+                                n00b_internal_type_repr(n00b_type_unbox(t),
+                                                        memos,
+                                                        nexttv));
     default:
         assert(false);
     }
@@ -1568,7 +1596,7 @@ static n00b_str_t *
 n00b_type_repr(n00b_type_t *t)
 {
     n00b_dict_t *memos = n00b_dict(n00b_type_ref(), n00b_type_utf8());
-    int64_t     n     = 0;
+    int64_t      n     = 0;
 
     return n00b_internal_type_repr(n00b_type_resolve(t), memos, &n);
 }
@@ -1587,6 +1615,14 @@ const n00b_vtable_t n00b_type_spec_vtable = {
 static void
 setup_primitive_types(void)
 {
+    n00b_heap_register_root(n00b_default_heap,
+                            n00b_bi_types,
+                            N00B_NUM_BUILTIN_DTS);
+
+    n00b_heap_register_root(n00b_default_heap,
+                            &n00b_type_universe,
+                            sizeof(n00b_type_universe_t));
+
     n00b_alloc_base_type_object(N00B_T_TYPESPEC);
 
     for (int i = 0; i < N00B_NUM_BUILTIN_DTS; i++) {
@@ -1614,44 +1650,45 @@ void
 n00b_initialize_global_types(void)
 {
     if (!inited) {
-        n00b_gc_register_root(n00b_bi_types, N00B_NUM_BUILTIN_DTS);
-        n00b_gc_register_root(&n00b_type_universe,
-                             sizeof(n00b_type_universe_t) / sizeof(uint64_t));
         n00b_universe_init(&n00b_type_universe);
-
         setup_primitive_types();
         inited = true;
     }
 }
 
 #if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
-#define DECLARE_ONE_PARAM_FN(tname, idnumber)                       \
-    n00b_type_t *                                                    \
-        _n00b_type_##tname(n00b_type_t *sub, char *file, int line)    \
-    {                                                               \
-        n00b_type_t *ts     = n00b_type_typespec();                   \
-        n00b_type_t *result = _n00b_new(file, line, ts, idnumber, 0); \
-        n00b_list_t *items  = result->items;                         \
-        n00b_list_append(items, sub);                                \
-                                                                    \
-        type_hash_and_dedupe(&result);                              \
-                                                                    \
-        return result;                                              \
+#define DECLARE_ONE_PARAM_FN(tname, idnumber)                      \
+    n00b_type_t *                                                  \
+        _n00b_type_##tname(n00b_type_t *sub, char *file, int line) \
+    {                                                              \
+        n00b_type_t *ts     = n00b_type_typespec();                \
+        n00b_type_t *result = _n00b_new(NULL,                      \
+                                        file,                      \
+                                        line,                      \
+                                        ts,                        \
+                                        idnumber,                  \
+                                        0);                        \
+        n00b_list_t *items  = result->items;                       \
+        n00b_list_append(items, sub);                              \
+                                                                   \
+        type_hash_and_dedupe(&result);                             \
+                                                                   \
+        return result;                                             \
     }
 
 #else
-#define DECLARE_ONE_PARAM_FN(tname, idnumber)       \
-    n00b_type_t *                                    \
+#define DECLARE_ONE_PARAM_FN(tname, idnumber)         \
+    n00b_type_t *                                     \
         n00b_type_##tname(n00b_type_t *sub)           \
-    {                                               \
+    {                                                 \
         n00b_type_t *ts     = n00b_type_typespec();   \
         n00b_type_t *result = n00b_new(ts, idnumber); \
-        n00b_list_t *items  = result->items;         \
-        n00b_list_append(items, sub);                \
-                                                    \
-        type_hash_and_dedupe(&result);              \
-                                                    \
-        return result;                              \
+        n00b_list_t *items  = result->items;          \
+        n00b_list_append(items, sub);                 \
+                                                      \
+        type_hash_and_dedupe(&result);                \
+                                                      \
+        return result;                                \
     }
 #endif
 
@@ -1662,12 +1699,13 @@ extern int TMP_DEBUG;
 n00b_type_t *
 _n00b_type_list(n00b_type_t *sub, char *file, int line)
 {
-    n00b_type_t *result = _n00b_new(file,
-                                  line,
-                                  n00b_type_typespec(),
-                                  N00B_T_LIST);
+    n00b_type_t *result = _n00b_new(NULL,
+                                    file,
+                                    line,
+                                    n00b_type_typespec(),
+                                    N00B_T_LIST);
 
-    n00b_list_append(result->items, sub);
+    n00b_private_list_append(result->items, sub);
     type_hash_and_dedupe(&result);
 
     return result;
@@ -1738,7 +1776,7 @@ n00b_type_t *
 n00b_type_dict(n00b_type_t *sub1, n00b_type_t *sub2)
 {
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
-                                 N00B_T_DICT);
+                                   N00B_T_DICT);
     n00b_list_t *items  = result->items;
 
     n00b_list_append(items, sub1);
@@ -1752,7 +1790,7 @@ n00b_type_dict(n00b_type_t *sub1, n00b_type_t *sub2)
 n00b_type_t *
 n00b_type_tuple(int64_t nitems, ...)
 {
-    va_list     args;
+    va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(), N00B_T_TUPLE);
     n00b_list_t *items  = result->items;
 
@@ -1787,9 +1825,9 @@ n00b_type_tuple_from_xlist(n00b_list_t *items)
 n00b_type_t *
 n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
 {
-    va_list     args;
+    va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
-                                 N00B_T_FUNCDEF);
+                                   N00B_T_FUNCDEF);
     n00b_list_t *items  = result->items;
 
     va_start(args, nparams);
@@ -1810,9 +1848,9 @@ n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
 n00b_type_t *
 n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
 {
-    va_list     args;
+    va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
-                                 N00B_T_FUNCDEF);
+                                   N00B_T_FUNCDEF);
     n00b_list_t *items  = result->items;
 
     va_start(args, nparams);
@@ -1837,9 +1875,9 @@ n00b_type_t *
 n00b_type_fn(n00b_type_t *ret, n00b_list_t *params, bool va)
 {
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
-                                 N00B_T_FUNCDEF);
+                                   N00B_T_FUNCDEF);
     n00b_list_t *items  = result->items;
-    int         n      = n00b_list_len(params);
+    int          n      = n00b_list_len(params);
 
     // Copy the list to be safe.
     for (int i = 0; i < n; i++) {
@@ -1889,8 +1927,8 @@ n00b_get_promotion_type(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 
     if (id2 > id1) {
         n00b_type_hash_t swap = id1;
-        id1                  = id2;
-        id2                  = swap;
+        id1                   = id2;
+        id2                   = swap;
     }
 
     switch (id1) {
@@ -1969,7 +2007,7 @@ n00b_type_t *
 n00b_new_typevar()
 {
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
-                                 N00B_T_GENERIC);
+                                   N00B_T_GENERIC);
 
     result->options.container_options = n00b_get_all_containers_bitfield();
     result->items                     = n00b_list(n00b_type_typespec());

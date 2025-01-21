@@ -6,14 +6,14 @@ store_static_item(n00b_compile_ctx *ctx, void *value)
 {
     n00b_static_memory *mem  = ctx->memory_layout;
     n00b_mem_ptr        item = (n00b_mem_ptr){.v = value};
-    uint64_t           result;
+    uint64_t            result;
 
     if (mem->num_items == mem->alloc_len) {
         n00b_mem_ptr *items;
 
         items = n00b_gc_array_alloc_mapped(n00b_mem_ptr,
-                                          mem->num_items + getpagesize() / 8,
-                                          N00B_GC_SCAN_ALL);
+                                           mem->num_items + getpagesize() / 8,
+                                           N00B_GC_SCAN_ALL);
         if (mem->num_items) {
             memcpy(items, mem->items, mem->num_items * 8);
         }
@@ -169,8 +169,8 @@ _n00b_layout_const_obj(n00b_compile_ctx *cctx, n00b_obj_t obj, ...)
 static void
 layout_static(n00b_compile_ctx *cctx,
               n00b_module_t    *fctx,
-              void           **view,
-              uint64_t         n)
+              void            **view,
+              uint64_t          n)
 {
     for (unsigned int i = 0; i < n; i++) {
         n00b_symbol_t *my_sym_copy = view[i];
@@ -189,10 +189,10 @@ layout_static(n00b_compile_ctx *cctx,
         case N00B_SK_ENUM_VAL:
             if (n00b_types_are_compat(sym->type, n00b_type_utf8(), NULL)) {
                 sym->static_offset = n00b_layout_const_obj(cctx,
-                                                          sym->value,
-                                                          fctx,
-                                                          sym->ct->declaration_node,
-                                                          sym->name);
+                                                           sym->value,
+                                                           fctx,
+                                                           sym->ct->declaration_node,
+                                                           sym->name);
             }
             break;
         case N00B_SK_VARIABLE:
@@ -200,10 +200,10 @@ layout_static(n00b_compile_ctx *cctx,
             // ahead and stick them in static data always.
             if (n00b_sym_is_declared_const(sym)) {
                 sym->static_offset = n00b_layout_const_obj(cctx,
-                                                          sym->value,
-                                                          fctx,
-                                                          sym->ct->declaration_node,
-                                                          sym->name);
+                                                           sym->value,
+                                                           fctx,
+                                                           sym->ct->declaration_node,
+                                                           sym->name);
                 break;
             }
             else {
@@ -255,26 +255,26 @@ layout_stack(void **view, uint64_t n)
 static void
 layout_func(n00b_module_t *ctx,
             n00b_symbol_t *sym,
-            int           i)
+            int            i)
 {
-    uint64_t       n;
+    uint64_t        n;
     n00b_fn_decl_t *decl       = sym->value;
     n00b_scope_t   *scope      = decl->signature_info->fn_scope;
-    void         **view       = hatrack_dict_values_sort(scope->symbols, &n);
-    int            frame_size = layout_stack(view, n);
+    void          **view       = hatrack_dict_values_sort(scope->symbols, &n);
+    int             frame_size = layout_stack(view, n);
 
     decl->frame_size = frame_size;
 
     if (decl->once) {
         decl->sc_bool_offset = n00b_layout_static_obj(ctx,
-                                                     sizeof(bool),
-                                                     8);
+                                                      sizeof(bool),
+                                                      8);
         decl->sc_lock_offset = n00b_layout_static_obj(ctx,
-                                                     sizeof(pthread_mutex_t),
-                                                     8);
+                                                      sizeof(n00b_lock_t),
+                                                      8);
         decl->sc_memo_offset = n00b_layout_static_obj(ctx,
-                                                     sizeof(void *),
-                                                     8);
+                                                      sizeof(void *),
+                                                      8);
     }
 }
 

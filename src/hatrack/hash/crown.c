@@ -211,6 +211,7 @@ crown_new_size(char size, void *aux)
     return ret;
 }
 
+#include <stdio.h>
 void
 crown_init(crown_t *self, void *aux)
 {
@@ -340,7 +341,11 @@ crown_get(crown_t *self, hatrack_hash_t hv, bool *found)
 }
 
 void *
-crown_put_mmm(crown_t *self, mmm_thread_t *thread, hatrack_hash_t hv, void *item, bool *found)
+crown_put_mmm(crown_t       *self,
+              mmm_thread_t  *thread,
+              hatrack_hash_t hv,
+              void          *item,
+              bool          *found)
 {
     void          *ret;
     crown_store_t *store;
@@ -406,7 +411,10 @@ crown_add(crown_t *self, hatrack_hash_t hv, void *item)
 }
 
 void *
-crown_remove_mmm(crown_t *self, mmm_thread_t *thread, hatrack_hash_t hv, bool *found)
+crown_remove_mmm(crown_t       *self,
+                 mmm_thread_t  *thread,
+                 hatrack_hash_t hv,
+                 bool          *found)
 {
     void          *ret;
     crown_store_t *store;
@@ -463,7 +471,10 @@ crown_view(crown_t *self, uint64_t *num, bool sort)
  *  class wraps this operation in mmm.
  */
 hatrack_view_t *
-crown_view_fast_mmm(crown_t *self, mmm_thread_t *thread, uint64_t *num, bool sort)
+crown_view_fast_mmm(crown_t      *self,
+                    mmm_thread_t *thread,
+                    uint64_t     *num,
+                    bool          sort)
 {
     hatrack_view_t *view;
     hatrack_view_t *p;

@@ -28,7 +28,7 @@ remove_extra_slashes(n00b_utf8_t *result)
 n00b_utf8_t *
 n00b_get_user_dir(n00b_utf8_t *user)
 {
-    n00b_utf8_t    *result;
+    n00b_utf8_t   *result;
     struct passwd *pw;
 
     if (user == NULL) {
@@ -130,15 +130,15 @@ raw_path_tilde_expand(n00b_utf8_t *in)
     if (n00b_str_codepoint_len(home) == 1) {
         n00b_list_set(parts, 0, n00b_empty_string());
         parts = n00b_list_plus(n00b_str_split(n00b_get_user_dir(NULL),
-                                            n00b_get_slash_const()),
-                              parts);
+                                              n00b_get_slash_const()),
+                               parts);
     }
     else {
         home->data++;
         n00b_list_set(parts, 0, n00b_empty_string());
         parts = n00b_list_plus(n00b_str_split(n00b_get_user_dir(home),
-                                            n00b_get_slash_const()),
-                              parts);
+                                              n00b_get_slash_const()),
+                               parts);
         home->data--;
     }
 
@@ -168,7 +168,7 @@ n00b_resolve_path(n00b_utf8_t *s)
             n00b_str_split(s, n00b_get_slash_const()));
     default:
         parts = n00b_str_split(n00b_get_current_directory(),
-                              n00b_get_slash_const());
+                               n00b_get_slash_const());
         n00b_list_plus_eq(parts, n00b_str_split(s, n00b_get_slash_const()));
         return internal_normalize_and_join(parts);
     }
@@ -179,11 +179,11 @@ n00b_path_join(n00b_list_t *items)
 {
     n00b_utf8_t *result;
     n00b_utf8_t *tmp;
-    uint8_t    *p;
-    int         len   = 0; // Total length of output.
-    int         first = 0; // First array index we'll use.
-    int         last  = n00b_list_len(items);
-    int         tmplen;    // Length of individual strings.
+    uint8_t     *p;
+    int          len   = 0; // Total length of output.
+    int          first = 0; // First array index we'll use.
+    int          last  = n00b_list_len(items);
+    int          tmplen;    // Length of individual strings.
 
     for (int i = 0; i < last; i++) {
         tmp = n00b_list_get(items, i, NULL);
@@ -279,13 +279,13 @@ typedef struct {
     n00b_utf8_t *sc_up;
     n00b_list_t *result;
     n00b_utf8_t *resolved;
-    bool        recurse;
-    bool        yield_links;
-    bool        yield_dirs;
-    bool        follow_links;
-    bool        ignore_special;
-    bool        done_with_safety_checks;
-    bool        have_recursed;
+    bool         recurse;
+    bool         yield_links;
+    bool         yield_dirs;
+    bool         follow_links;
+    bool         ignore_special;
+    bool         done_with_safety_checks;
+    bool         have_recursed;
 } n00b_walk_ctx;
 
 static n00b_utf8_t *
@@ -308,7 +308,7 @@ internal_path_walk(n00b_walk_ctx *ctx)
 {
     DIR           *dirobj;
     struct dirent *entry;
-    n00b_utf8_t    *saved;
+    n00b_utf8_t   *saved;
     struct stat    file_info;
 
     if (!ctx->done_with_safety_checks) {
@@ -401,7 +401,7 @@ actual_directory:
                 ctx->resolved->data[n] = 0;
 
                 n00b_list_append(ctx->result,
-                                n00b_resolve_path(n00b_new_utf8(buf)));
+                                 n00b_resolve_path(n00b_new_utf8(buf)));
             }
             else {
                 if (ctx->yield_links) {
@@ -525,7 +525,7 @@ n00b_path_trim_slashes(n00b_str_t *s)
     }
 
     n00b_utf8_t *n     = n00b_to_utf8(s);
-    int         b_len = n00b_str_byte_len(n);
+    int          b_len = n00b_str_byte_len(n);
 
     if (n->data[--b_len] != '/') {
         return n;

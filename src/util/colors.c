@@ -26,8 +26,7 @@ get_color_table()
                                       n00b_ka(_marshaled_color_table),
                                       "length",
                                       n00b_ka(44237)));
-        n00b_stream_t *s = n00b_new(n00b_type_stream(),
-                                  n00b_kw("buffer", n00b_ka(b)));
+        n00b_stream_t *s = n00b_instream_buffer(b);
 
         color_table = n00b_unmarshal(s);
 #endif
@@ -38,7 +37,7 @@ get_color_table()
 n00b_color_t
 n00b_lookup_color(n00b_utf8_t *name)
 {
-    bool        found  = false;
+    bool         found  = false;
     n00b_color_t result = (n00b_color_t)(int64_t)hatrack_dict_get(
         get_color_table(),
         name,

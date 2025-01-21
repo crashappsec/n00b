@@ -10,36 +10,34 @@
 
 #include "n00b.h"
 
-static thread_local n00b_karg_info_t *kcache[N00B_MAX_KARGS_NESTING_DEPTH];
-static thread_local int              kargs_next_entry = 0;
+typedef struct {
+    n00b_alloc_hdr   h;
+    n00b_karg_info_t ka;
+    n00b_one_karg_t  args[N00B_MAX_KEYWORD_SIZE];
+} static_karg_t;
+
+static thread_local static_karg_t kcache[N00B_MAX_KARGS_NESTING_DEPTH];
+static thread_local int           kargs_next_entry = 0;
+static thread_local bool          init_kargs       = false;
 
 const int kargs_cache_mod = N00B_MAX_KARGS_NESTING_DEPTH - 1;
-
-static thread_local bool init_kargs = false;
 
 static n00b_karg_info_t *
 n00b_kargs_acquire()
 {
     if (!init_kargs) {
-        n00b_gc_register_root(kcache, N00B_MAX_KARGS_NESTING_DEPTH);
-
         for (int i = 0; i < N00B_MAX_KARGS_NESTING_DEPTH; i++) {
-            n00b_karg_info_t *karg = n00b_gc_alloc_mapped(n00b_karg_info_t,
-                                                        N00B_GC_SCAN_ALL);
-            n00b_alloc_hdr   *h    = n00b_object_header(karg);
-            h->type               = n00b_type_kargs();
-            h->n00b_obj          = true;
-
-            karg->args = n00b_gc_array_alloc(n00b_one_karg_t,
-                                            N00B_MAX_KEYWORD_SIZE);
-            kcache[i]  = karg;
+            static_karg_t *ska = &kcache[i];
+            ska->h.type        = n00b_type_kargs();
+            ska->h.n00b_obj    = true;
+            ska->ka.args       = ska->args;
         }
         init_kargs = true;
     }
 
     kargs_next_entry &= kargs_cache_mod;
 
-    n00b_karg_info_t *result = kcache[kargs_next_entry++];
+    n00b_karg_info_t *result = &kcache[kargs_next_entry++].ka;
 
     return result;
 }
@@ -85,7 +83,7 @@ n00b_karg_info_t *
 n00b_get_kargs(va_list args)
 {
     n00b_obj_t cur;
-    va_list   arg_copy;
+    va_list    arg_copy;
 
     va_copy(arg_copy, args);
 
@@ -108,9 +106,9 @@ n00b_get_kargs(va_list args)
 n00b_karg_info_t *
 n00b_get_kargs_and_count(va_list args, int *nargs)
 {
-    va_list   arg_copy;
+    va_list    arg_copy;
     n00b_obj_t cur;
-    int       count = 0;
+    int        count = 0;
 
     va_copy(arg_copy, args);
 

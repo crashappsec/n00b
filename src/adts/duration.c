@@ -89,11 +89,11 @@ duration_atomize(n00b_utf8_t *s)
 {
     n00b_utf8_t *one;
     n00b_list_t *result = n00b_list(n00b_type_utf8());
-    int         l      = n00b_str_byte_len(s);
-    char       *p      = s->data;
-    char       *end    = p + l;
-    int         start  = 0;
-    int         cur    = 0;
+    int          l      = n00b_str_byte_len(s);
+    char        *p      = s->data;
+    char        *end    = p + l;
+    int          start  = 0;
+    int          cur    = 0;
 
     while (p < end) {
         while (p < end && isdigit(*p)) {
@@ -134,13 +134,13 @@ duration_atomize(n00b_utf8_t *s)
     return result;
 }
 
-#define SEC_PER_MIN  60
-#define SEC_PER_HR   (SEC_PER_MIN * 60)
-#define SEC_PER_DAY  (SEC_PER_HR * 24)
-#define SEC_PER_WEEK (SEC_PER_DAY * 7)
-#define SEC_PER_YEAR (SEC_PER_DAY * 365)
-#define NS_PER_MS    1000000
-#define NS_PER_US    1000
+#define SEC_PER_MIN   60
+#define SEC_PER_HR    (SEC_PER_MIN * 60)
+#define SEC_PER_DAY   (SEC_PER_HR * 24)
+#define SEC_PER_WEEK  (SEC_PER_DAY * 7)
+#define SEC_PER_YEAR  (SEC_PER_DAY * 365)
+#define NS_PER_MS     1000000
+#define NS_PER_US     1000
 #define N00B_MAX_UINT (~0ULL)
 
 static inline int64_t
@@ -255,7 +255,7 @@ tv_nano_multiple(n00b_utf8_t *s)
 
 static bool
 str_to_duration(n00b_utf8_t          *s,
-                struct timespec     *ts,
+                struct timespec      *ts,
                 n00b_compile_error_t *err)
 {
     n00b_list_t *atoms = duration_atomize(s);
@@ -265,13 +265,13 @@ str_to_duration(n00b_utf8_t          *s,
         return false;
     }
 
-    int         i   = 0;
-    int         n   = n00b_list_len(atoms);
-    __uint128_t sec = 0;
-    __uint128_t sub = 0;
-    __uint128_t tmp;
-    int64_t     multiple;
-    bool        neg;
+    int          i   = 0;
+    int          n   = n00b_list_len(atoms);
+    __uint128_t  sec = 0;
+    __uint128_t  sub = 0;
+    __uint128_t  tmp;
+    int64_t      multiple;
+    bool         neg;
     n00b_utf8_t *tmpstr;
 
     while (i < n) {
@@ -327,14 +327,21 @@ static void
 duration_init(struct timespec *ts, va_list args)
 {
     n00b_utf8_t         *to_parse = NULL;
-    int64_t             sec      = -1;
-    int64_t             nanosec  = -1;
+    int64_t              sec      = -1;
+    int64_t              nanosec  = -1;
+    struct timeval      *tv       = NULL;
     n00b_compile_error_t err;
 
     n00b_karg_va_init(args);
     n00b_kw_ptr("to_parse", args);
-    n00b_kw_uint64("sec", args);
-    n00b_kw_uint64("nanosec", args);
+    n00b_kw_ptr("timeval", tv);
+    n00b_kw_uint64("sec", sec);
+    n00b_kw_uint64("nanosec", nanosec);
+
+    if (tv) {
+        TIMEVAL_TO_TIMESPEC(tv, ts);
+        return;
+    }
 
     if (to_parse) {
         if (!str_to_duration(to_parse, ts, &err)) {
@@ -360,7 +367,7 @@ repr_sec(int64_t n)
 {
     n00b_list_t *l = n00b_list(n00b_type_utf8());
     n00b_utf8_t *s;
-    int64_t     tmp;
+    int64_t      tmp;
 
     if (n >= SEC_PER_YEAR) {
         tmp = n / SEC_PER_YEAR;
@@ -475,8 +482,8 @@ duration_repr(n00b_duration_t *ts)
 
     if (ts->tv_sec && ts->tv_nsec) {
         return n00b_cstr_format("{} {}",
-                               repr_sec(ts->tv_sec),
-                               repr_ns(ts->tv_nsec));
+                                repr_sec(ts->tv_sec),
+                                repr_ns(ts->tv_nsec));
     }
 
     if (ts->tv_sec) {
@@ -485,14 +492,14 @@ duration_repr(n00b_duration_t *ts)
     return repr_ns(ts->tv_nsec);
 }
 
-static bool
-duration_eq(n00b_duration_t *t1, n00b_duration_t *t2)
+bool
+n00b_duration_eq(n00b_duration_t *t1, n00b_duration_t *t2)
 {
     return (t1->tv_sec == t2->tv_sec && t1->tv_nsec == t2->tv_nsec);
 }
 
-static bool
-duration_gt(n00b_duration_t *t1, n00b_duration_t *t2)
+bool
+n00b_duration_gt(n00b_duration_t *t1, n00b_duration_t *t2)
 {
     if (t1->tv_sec > t2->tv_sec) {
         return true;
@@ -504,8 +511,8 @@ duration_gt(n00b_duration_t *t1, n00b_duration_t *t2)
     return t1->tv_nsec > t2->tv_nsec;
 }
 
-static bool
-duration_lt(n00b_duration_t *t1, n00b_duration_t *t2)
+bool
+n00b_duration_lt(n00b_duration_t *t1, n00b_duration_t *t2)
 {
     if (t1->tv_sec < t2->tv_sec) {
         return true;
@@ -523,7 +530,7 @@ n00b_duration_diff(n00b_duration_t *t1, n00b_duration_t *t2)
     n00b_duration_t *result = n00b_new(n00b_type_duration());
     n00b_duration_t *b, *l;
 
-    if (duration_gt(t1, t2)) {
+    if (n00b_duration_gt(t1, t2)) {
         b = t1;
         l = t2;
     }
@@ -542,8 +549,8 @@ n00b_duration_diff(n00b_duration_t *t1, n00b_duration_t *t2)
     return result;
 }
 
-static bool
-duration_add(n00b_duration_t *t1, n00b_duration_t *t2)
+n00b_duration_t *
+n00b_duration_add(n00b_duration_t *t1, n00b_duration_t *t2)
 {
     n00b_duration_t *result = n00b_new(n00b_type_duration());
 
@@ -579,11 +586,11 @@ const n00b_vtable_t n00b_duration_vtable = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)duration_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)duration_repr,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)duration_lit,
-        [N00B_BI_EQ]           = (n00b_vtable_entry)duration_eq,
-        [N00B_BI_LT]           = (n00b_vtable_entry)duration_lt,
-        [N00B_BI_GT]           = (n00b_vtable_entry)duration_gt,
+        [N00B_BI_EQ]           = (n00b_vtable_entry)n00b_duration_eq,
+        [N00B_BI_LT]           = (n00b_vtable_entry)n00b_duration_lt,
+        [N00B_BI_GT]           = (n00b_vtable_entry)n00b_duration_gt,
         [N00B_BI_GC_MAP]       = (n00b_vtable_entry)N00B_GC_SCAN_NONE,
-        [N00B_BI_ADD]          = (n00b_vtable_entry)duration_add,
+        [N00B_BI_ADD]          = (n00b_vtable_entry)n00b_duration_add,
         [N00B_BI_SUB]          = (n00b_vtable_entry)n00b_duration_diff,
         [N00B_BI_FINALIZER]    = NULL,
     },

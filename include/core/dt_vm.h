@@ -343,8 +343,8 @@ typedef enum : uint8_t {
 
 typedef struct n00b_static_memory {
     n00b_mem_ptr *items;
-    uint32_t     num_items;
-    uint32_t     alloc_len;
+    uint32_t      num_items;
+    uint32_t      alloc_len;
 } n00b_static_memory;
 
 // We'll make the main VM container, n00b_vm_t an object type (N00B_T_VM) so that
@@ -356,11 +356,11 @@ typedef struct n00b_static_memory {
 // and values (ints, strings, etc).
 typedef struct {
     n00b_zop_t   op;
-    uint8_t     pad;
-    int32_t     module_id;
-    int32_t     line_no;
-    int32_t     arg;
-    int64_t     immediate;
+    uint8_t      pad;
+    int32_t      module_id;
+    int32_t      line_no;
+    int32_t      arg;
+    int64_t      immediate;
     n00b_type_t *type_info;
 } n00b_zinstruction_t;
 
@@ -369,29 +369,29 @@ typedef struct {
     n00b_type_t *tid;
     // Nim casts this around as a pointer, but it's always used as an integer
     // index into an array.
-    int64_t     impl;
-    int32_t     mid;
-    bool        ffi;
-    bool        skip_boxes;
+    int64_t      impl;
+    int32_t      mid;
+    bool         ffi;
+    bool         skip_boxes;
 } n00b_zcallback_t;
 
 // stack values have no indicator of what's actually stored, instead relying on
 // instructions to assume correctly what's present.
 typedef union n00b_value_t {
-    void              *vptr;
+    void               *vptr;
     n00b_zcallback_t   *callback;
     n00b_obj_t         *lvalue;
-    char              *cptr;
+    char               *cptr;
     union n00b_value_t *fp;         // saved fp
     n00b_obj_t          rvalue;
-    uint64_t           static_ptr; // offset into static_data
+    uint64_t            static_ptr; // offset into static_data
     // saved pc / module_id, along with unsigned int values where
     // we don't care about the type field for the operation.
-    uint64_t           uint;
-    int64_t            sint; // signed int values.
+    uint64_t            uint;
+    int64_t             sint; // signed int values.
     n00b_box_t          box;
-    double             dbl;
-    bool               boolean;
+    double              dbl;
+    bool                boolean;
 } n00b_value_t;
 
 // Might want to trim a bit out of it, but for right now, an going to not.
@@ -399,7 +399,7 @@ typedef struct n00b_ffi_decl_t n00b_zffi_info_t;
 
 typedef struct {
     n00b_type_t *tid;
-    int64_t     offset;
+    int64_t      offset;
 } n00b_zsymbol_t;
 
 typedef struct {
@@ -419,10 +419,10 @@ typedef struct {
     n00b_type_t *tid;
     n00b_str_t  *shortdoc;
     n00b_str_t  *longdoc;
-    int32_t     mid;    // module_id
-    int32_t     offset; // offset to start of instructions in module
-    int32_t     size;   // Stack frame size.
-    int32_t     static_lock;
+    int32_t      mid;    // module_id
+    int32_t      offset; // offset to start of instructions in module
+    int32_t      size;   // Stack frame size.
+    int32_t      static_lock;
 } n00b_zfn_info_t;
 
 enum {
@@ -461,13 +461,13 @@ typedef union {
 } n00b_version_t;
 
 typedef struct {
-    void              *ccache[N00B_CCACHE_LEN];
+    void               *ccache[N00B_CCACHE_LEN];
     struct n00b_spec_t *attr_spec;
     n00b_static_memory *static_contents;
     n00b_list_t        *module_contents; // tspec_ref: n00b_zmodule_info_t
     n00b_list_t        *func_info;       // tspec_ref: n00b_zfn_info_t
     n00b_list_t        *ffi_info;        // tspec_ref: n00b_zffi_info_t
-    int                ffi_info_entries;
+    int                 ffi_info_entries;
     // CCACHE == 'compilation cache', which means stuff we use to
     // re-start incremental compilation; we *could* rebuild this stuff
     // when needed, but these things shouldn't be too large.
@@ -476,37 +476,37 @@ typedef struct {
     //
 
     n00b_version_t n00b_version;
-    int32_t       first_entry;    // Initial entry point.
-    int32_t       default_entry;  // The module to whitch we reset.
-    bool          using_attrs;    // Should move into object.
-    bool          root_populated; // This too.
+    int32_t        first_entry;    // Initial entry point.
+    int32_t        default_entry;  // The module to whitch we reset.
+    bool           using_attrs;    // Should move into object.
+    bool           root_populated; // This too.
 } n00b_zobject_file_t;
 
 typedef struct {
     struct n00b_module_t *call_module;
     struct n00b_module_t *targetmodule;
     n00b_zfn_info_t      *targetfunc;
-    int32_t              calllineno;
-    int32_t              targetline;
-    uint32_t             pc;
+    int32_t               calllineno;
+    int32_t               targetline;
+    uint32_t              pc;
 } n00b_vmframe_t;
 
 typedef struct {
     n00b_zinstruction_t *lastset;
-    void               *contents;
+    void                *contents;
     n00b_type_t         *type; // Value types will not generally be boxed.
-    bool                is_set;
-    bool                locked;
-    bool                lock_on_write;
-    int32_t             module_lock;
-    bool                override;
+    bool                 is_set;
+    bool                 locked;
+    bool                 lock_on_write;
+    int32_t              module_lock;
+    bool                 override;
 } n00b_attr_contents_t;
 
 typedef struct {
     // The stuff in this struct isn't saved out; it needs to be
     // reinitialized on each startup.
 #ifdef N00B_DEV
-    n00b_buf_t    *print_buf;
+    n00b_buf_t   *print_buf;
     n00b_stream_t *print_stream;
 #endif
 } n00b_zrun_state_t;
@@ -521,8 +521,8 @@ typedef struct {
     n00b_duration_t      creation_time;
     n00b_duration_t      first_saved_run_time;
     n00b_duration_t      last_saved_run_time;
-    uint32_t            num_saved_runs;
-    int32_t             entry_point;
+    uint32_t             num_saved_runs;
+    int32_t              entry_point;
 } n00b_vm_t;
 
 typedef struct {

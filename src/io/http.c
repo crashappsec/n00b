@@ -24,7 +24,7 @@ format_cookies(n00b_dict_t *cookies)
 
     for (unsigned int i = 0; i < n; i++) {
         n00b_utf8_t *s = n00b_to_utf8(view[i].key);
-        view[i].key   = s;
+        view[i].key    = s;
         len += n00b_str_byte_len(s);
 
         s             = n00b_to_utf8(view[i].value);
@@ -37,7 +37,7 @@ format_cookies(n00b_dict_t *cookies)
 
     for (unsigned int i = 0; i < n; i++) {
         n00b_utf8_t *s = view[i].key;
-        int         l = n00b_str_byte_len(s);
+        int          l = n00b_str_byte_len(s);
 
         memcpy(p, s->data, l);
         p += l;
@@ -63,17 +63,24 @@ n00b_basic_http_teardown(n00b_basic_http_t *self)
 }
 
 static size_t
-http_out_to_stream(char *ptr, size_t size, size_t nmemb, n00b_basic_http_t *self)
+http_out_to_stream(char              *ptr,
+                   size_t             size,
+                   size_t             nmemb,
+                   n00b_basic_http_t *self)
 {
-    return n00b_stream_raw_write(self->output_stream, size * nmemb, ptr);
+    n00b_stream_write_memory(self->output_stream, ptr, size * nmemb);
+    return size;
 }
 
 static size_t
-internal_http_send(char *ptr, size_t size, size_t nmemb, n00b_basic_http_t *self)
+internal_http_send(char              *ptr,
+                   size_t             size,
+                   size_t             nmemb,
+                   n00b_basic_http_t *self)
 {
-    size_t     to_write  = size * nmemb;
-    n00b_buf_t *out       = n00b_stream_read(self->to_send, to_write);
-    size_t     to_return = n00b_buffer_len(out);
+    size_t      to_write  = size * nmemb;
+    n00b_buf_t *out       = n00b_read(self->to_send, to_write, NULL);
+    size_t      to_return = n00b_buffer_len(out);
 
     memcpy(ptr, out->data, to_return);
 
@@ -86,47 +93,47 @@ n00b_basic_http_set_gc_bits(uint64_t *bitmap, n00b_basic_http_t *self)
     n00b_mark_raw_to_addr(bitmap, self, &self->errbuf);
 }
 
-#define HTTP_CORE_COMMON_START(provided_url, vararg_name) \
-    n00b_basic_http_response_t *result;                    \
-    int64_t                    connect_timeout = -1;      \
-    int64_t                    total_timeout   = -1;      \
-    n00b_str_t                 *aws_sig         = NULL;    \
-    n00b_str_t                 *access_key      = NULL;    \
-    n00b_dict_t                *cookies         = NULL;    \
-    n00b_basic_http_t          *connection      = NULL;    \
-                                                          \
-    n00b_karg_only_init(vararg_name);                      \
-    n00b_kw_int64("connect_timeout", connect_timeout);     \
-    n00b_kw_int64("total_timeout", total_timeout);         \
-    n00b_kw_ptr("aws_sig", aws_sig);                       \
-    n00b_kw_ptr("access_key", access_key);                 \
-    n00b_kw_ptr("cookies", cookies);                       \
-                                                          \
+#define HTTP_CORE_COMMON_START(provided_url, vararg_name)   \
+    n00b_basic_http_response_t *result;                     \
+    int64_t                     connect_timeout = -1;       \
+    int64_t                     total_timeout   = -1;       \
+    n00b_str_t                 *aws_sig         = NULL;     \
+    n00b_str_t                 *access_key      = NULL;     \
+    n00b_dict_t                *cookies         = NULL;     \
+    n00b_basic_http_t          *connection      = NULL;     \
+                                                            \
+    n00b_karg_only_init(vararg_name);                       \
+    n00b_kw_int64("connect_timeout", connect_timeout);      \
+    n00b_kw_int64("total_timeout", total_timeout);          \
+    n00b_kw_ptr("aws_sig", aws_sig);                        \
+    n00b_kw_ptr("access_key", access_key);                  \
+    n00b_kw_ptr("cookies", cookies);                        \
+                                                            \
     connection = n00b_new(n00b_type_http(),                 \
-                         n00b_kw("url",                    \
-                                n00b_ka(provided_url),     \
-                                "connect_timeout",        \
-                                n00b_ka(connect_timeout),  \
-                                "total_timeout",          \
-                                n00b_ka(total_timeout),    \
-                                "aws_sig",                \
-                                n00b_ka(aws_sig),          \
-                                "access_key",             \
-                                n00b_ka(access_key),       \
-                                "cookies",                \
-                                n00b_ka(cookies)));        \
+                          n00b_kw("url",                    \
+                                  n00b_ka(provided_url),    \
+                                  "connect_timeout",        \
+                                  n00b_ka(connect_timeout), \
+                                  "total_timeout",          \
+                                  n00b_ka(total_timeout),   \
+                                  "aws_sig",                \
+                                  n00b_ka(aws_sig),         \
+                                  "access_key",             \
+                                  n00b_ka(access_key),      \
+                                  "cookies",                \
+                                  n00b_ka(cookies)));       \
     result     = n00b_gc_alloc_mapped(n00b_basic_http_response_t, N00B_GC_SCAN_ALL)
 
-#define HTTP_CORE_COMMON_END()                            \
+#define HTTP_CORE_COMMON_END()                             \
     n00b_basic_http_run_request(connection);               \
-    result->code = connection->code;                      \
-                                                          \
-    if (connection->errbuf && connection->errbuf[0]) {    \
+    result->code = connection->code;                       \
+                                                           \
+    if (connection->errbuf && connection->errbuf[0]) {     \
         result->error = n00b_new_utf8(connection->errbuf); \
-    }                                                     \
-                                                          \
-    result->contents = connection->buf;                   \
-                                                          \
+    }                                                      \
+                                                           \
+    result->contents = connection->buf;                    \
+                                                           \
     return result
 
 n00b_basic_http_response_t *
@@ -147,9 +154,9 @@ _n00b_http_upload(n00b_str_t *url, n00b_buf_t *data, ...)
     n00b_basic_http_raw_setopt(connection, CURLOPT_READFUNCTION, internal_http_send);
     n00b_basic_http_raw_setopt(connection, CURLOPT_READDATA, (void *)connection);
     n00b_basic_http_raw_setopt(connection,
-                              CURLOPT_INFILESIZE_LARGE,
-                              n00b_vp(data->byte_len));
-    connection->to_send = n00b_buffer_instream(data);
+                               CURLOPT_INFILESIZE_LARGE,
+                               n00b_vp(data->byte_len));
+    connection->to_send = n00b_instream_buffer(data);
 
     HTTP_CORE_COMMON_END();
 }
@@ -159,10 +166,10 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
 {
     int64_t       connect_timeout = -1;
     int64_t       total_timeout   = -1;
-    n00b_str_t    *url             = NULL;
-    n00b_str_t    *aws_sig         = NULL;
-    n00b_str_t    *access_key      = NULL;
-    n00b_dict_t   *cookies         = NULL;
+    n00b_str_t   *url             = NULL;
+    n00b_str_t   *aws_sig         = NULL;
+    n00b_str_t   *access_key      = NULL;
+    n00b_dict_t  *cookies         = NULL;
     n00b_stream_t *output_stream   = NULL;
 
     ensure_curl();
@@ -177,7 +184,7 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
     n00b_kw_ptr("url", url);
     n00b_kw_ptr("output_stream", output_stream);
 
-    pthread_mutex_init(&self->lock, NULL);
+    n00b_lock_init(&self->lock);
 
     // TODO: Do these in the near future (after objects)
     // bool       cert_info  = false;
@@ -195,8 +202,8 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
 
     if (connect_timeout >= 0) {
         n00b_basic_http_raw_setopt(self,
-                                  CURLOPT_CONNECTTIMEOUT_MS,
-                                  n00b_vp(connect_timeout));
+                                   CURLOPT_CONNECTTIMEOUT_MS,
+                                   n00b_vp(connect_timeout));
     }
 
     if (aws_sig != NULL) {
@@ -216,7 +223,7 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
     }
     else {
         self->buf           = n00b_buffer_empty();
-        self->output_stream = n00b_buffer_outstream(self->buf, true);
+        self->output_stream = n00b_outstream_buffer(self->buf, true);
     }
 
     n00b_basic_http_raw_setopt(self, CURLOPT_WRITEFUNCTION, http_out_to_stream);

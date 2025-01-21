@@ -1,5 +1,6 @@
 #pragma once
 #define N00B_GC_SHOW_COLLECT_STACK_TRACES
+
 // Home of anything remotely configurable. Don't change this file;
 // update the meson config.
 //
@@ -66,11 +67,7 @@
 #error "HATRACK_PER_INSTANCE_AUX must be defined for n00b to compile."
 #endif
 
-#if defined(N00B_GC_FULL_TRACE) && !defined(N00B_GC_STATS)
-#define N00B_GC_STATS
-#endif
-
-#if defined(N00B_FULL_MEMCHECK) && !defined(N00B_GC_STATS)
+#if defined(N00B_GC_SHOW_COLLECT_STACK_TRACES)
 #define N00B_GC_STATS
 #endif
 
@@ -137,9 +134,26 @@
 #define N00B_EMPTY_BUFFER_ALLOC 128
 #endif
 
-#ifndef N00B_DEFAULT_ARENA_SIZE
+#ifndef N00B_DEFAULT_HEAP_SIZE
 // This is the size any test case that prints a thing grows to awfully fast.
-#define N00B_DEFAULT_ARENA_SIZE (1 << 24)
+#define N00B_DEFAULT_HEAP_SIZE (1 << 26) // normally 24
+#endif
+
+#ifndef N00B_START_SCRATCH_HEAP_SIZE
+#define N00B_START_SCRATCH_HEAP_SIZE (1 << 22)
+#endif
+
+// Needs to be enough to store initial type universe.
+#ifndef N00B_START_TYPE_HEAP_SIZE
+#define N00B_START_TYPE_HEAP_SIZE (1 << 21)
+#endif
+
+#ifndef N00B_START_THREAD_HEAP_SIZE
+#define N00B_START_THREAD_HEAP_SIZE (1 << 24)
+#endif
+
+#ifndef N00B_MARSHAL_CHUNK_SIZE
+#define N00B_MARSHAL_CHUNK_SIZE 512
 #endif
 
 #ifndef N00B_STACK_SIZE
@@ -225,6 +239,25 @@
 #undef N00B_PACKAGE_INIT_MODULE
 #endif
 #define N00B_PACKAGE_INIT_MODULE "__init"
+
+#define N00B_DEFAULT_DEBUG_PORT 5233
+
+#ifndef N00B_IDLE_IO_SLEEP
+#define N00B_IDLE_IO_SLEEP 500
+#endif
+
+#ifndef N00B_CALLBACK_THREAD_POLL_INTERVAL
+#define N00B_CALLBACK_THREAD_POLL_INTERVAL 5000000
+#endif
+
+// Number of extra stack words to capture per-thread to account for
+// any stack frame that might happen in the gc thread after the stack
+// is captured, etc.
+#ifndef N00B_STACK_SLOP
+#define N00B_STACK_SLOP -32
+#endif
+
+#define N00B_USE_POLL_FOR_CALLBACKS
 
 // Current N00b version info.
 #define N00B_VERS_MAJOR   0x00

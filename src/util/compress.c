@@ -8,19 +8,21 @@ dummy_write_callback(n00b_archive_ctx *a, void *thunk)
 
 static la_ssize_t
 archive_write_cb(n00b_archive_ctx *a,
-                 void            *client_data,
-                 const void      *buffer,
-                 size_t           length)
+                 void             *client_data,
+                 const void       *buffer,
+                 size_t            length)
 {
     n00b_stream_t *stream = (n00b_stream_t *)client_data;
 
-    return n00b_stream_raw_write(stream, length, (void *)buffer);
+    n00b_stream_write_memory(stream, length, (void *)buffer);
+
+    return length;
 }
 
 void
 n00b_compress(n00b_buf_t              *buffer,
-             n00b_stream_t           *outstream,
-             n00b_compression_suite_t suite)
+              n00b_stream_t            *outstream,
+              n00b_compression_suite_t suite)
 {
     n00b_archive_ctx *ctx = archive_write_new();
 

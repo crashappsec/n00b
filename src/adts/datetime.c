@@ -4,14 +4,14 @@ static inline bool
 us_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
 {
     n00b_utf8_t *month_part = n00b_new_utf8("");
-    int         ix         = 0;
-    int         l          = n00b_str_byte_len(input);
-    int         day        = 0;
-    int         year       = 0;
-    int         daylen;
-    int         yearlen;
-    int         start_ix;
-    char       *s;
+    int          ix         = 0;
+    int          l          = n00b_str_byte_len(input);
+    int          day        = 0;
+    int          year       = 0;
+    int          daylen;
+    int          yearlen;
+    int          start_ix;
+    char        *s;
 
     if (!input || n00b_str_byte_len(input) == 0) {
         return false;
@@ -212,9 +212,9 @@ us_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
 static inline bool
 other_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
 {
-    int         l = n00b_str_byte_len(input);
-    char       *s = input->data;
-    char       *e = s + l;
+    int          l = n00b_str_byte_len(input);
+    char        *s = input->data;
+    char        *e = s + l;
     n00b_utf8_t *day;
 
     while (s < e) {
@@ -632,7 +632,7 @@ to_native_date_and_or_time(n00b_utf8_t *input, n00b_date_time_t *result)
 
 try_a_slice:
     if (ix != -1) {
-        int         l    = n00b_str_codepoint_len(input);
+        int          l    = n00b_str_codepoint_len(input);
         n00b_utf8_t *date = n00b_to_utf8(n00b_str_slice(input, 0, ix));
         n00b_utf8_t *time = n00b_to_utf8(n00b_str_slice(input, ix + 1, l));
 
@@ -655,7 +655,7 @@ try_a_slice:
     ix = n00b_str_find(input, n00b_new_utf8(":"));
 
     if (ix != -1) {
-        int              last_space = -1;
+        int               last_space = -1;
         n00b_utf32_t     *as_32      = n00b_to_utf32(input);
         n00b_codepoint_t *cptr       = (n00b_codepoint_t *)as_32->data;
 
@@ -691,16 +691,17 @@ static void
 datetime_init(n00b_date_time_t *self, va_list args)
 {
     n00b_utf8_t *to_parse   = NULL;
-    int32_t     hr         = -1;
-    int32_t     min        = -1;
-    int32_t     sec        = -1;
-    int32_t     month      = -1;
-    int32_t     day        = -1;
-    int32_t     year       = YEAR_NOT_SET;
-    int32_t     offset_hr  = -100;
-    int32_t     offset_min = 0;
-    int32_t     offset_sec = 0;
-    int64_t     fracsec    = -1;
+    int32_t      hr         = -1;
+    int32_t      min        = -1;
+    int32_t      sec        = -1;
+    int32_t      month      = -1;
+    int32_t      day        = -1;
+    int32_t      year       = YEAR_NOT_SET;
+    int32_t      offset_hr  = -100;
+    int32_t      offset_min = 0;
+    int32_t      offset_sec = 0;
+    int64_t      fracsec    = -1;
+    int64_t      timestamp  = -1;
 
     n00b_karg_va_init(args);
     n00b_kw_ptr("to_parse", args);
@@ -714,6 +715,32 @@ datetime_init(n00b_date_time_t *self, va_list args)
     n00b_kw_int32("offset_min", offset_min);
     n00b_kw_int32("offset_sec", offset_sec);
     n00b_kw_int64("fracsec", fracsec);
+    n00b_kw_int64("timestamp", timestamp);
+
+    if (timestamp != -1) {
+        localtime_r((time_t *)&timestamp, &self->dt);
+        n00b_type_t *t = n00b_get_my_type(self);
+
+        if (n00b_type_is_datetime(t)) {
+            self->have_time   = true;
+            self->have_sec    = true;
+            self->have_month  = true;
+            self->have_year   = true;
+            self->have_day    = true;
+            self->have_offset = true;
+            return;
+        }
+        if (n00b_type_is_date(t)) {
+            self->have_month = true;
+            self->have_year  = true;
+            self->have_day   = true;
+            return;
+        }
+        self->have_time   = true;
+        self->have_sec    = true;
+        self->have_offset = true;
+        return;
+    }
 
     if (to_parse != NULL) {
         to_parse = n00b_to_utf8(to_parse);

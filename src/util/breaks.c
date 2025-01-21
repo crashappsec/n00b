@@ -25,9 +25,9 @@ n00b_get_grapheme_breaks(const n00b_str_t *s, int32_t start_ix, int32_t end_ix)
     }
 
     n00b_break_info_t *res   = n00b_alloc_break_structure(s, 1);
-    int32_t           state = 0;
-    int32_t           cps   = n00b_str_codepoint_len(s);
-    int32_t           len;
+    int32_t            state = 0;
+    int32_t            cps   = n00b_str_codepoint_len(s);
+    int32_t            len;
 
     if (start_ix < 0) {
         start_ix += cps;
@@ -107,7 +107,7 @@ n00b_get_line_breaks(const n00b_str_t *s)
     }
 
     n00b_break_info_t *res = n00b_alloc_break_structure(s, 6); // 2^6 = 64.
-    int32_t           l   = n00b_str_codepoint_len(s);
+    int32_t            l   = n00b_str_codepoint_len(s);
 
     if (n00b_str_is_u32(s)) {
         int32_t *p = (int32_t *)(s->data);
@@ -138,17 +138,17 @@ n00b_get_all_line_break_ops(const n00b_str_t *s)
         return NULL;
     }
 
-    int32_t           l   = n00b_str_codepoint_len(s);
+    int32_t            l   = n00b_str_codepoint_len(s);
     n00b_break_info_t *res = n00b_alloc_break_structure(s, 0);
-    char             *br_raw;
+    char              *br_raw;
 
     if (n00b_str_is_u32(s)) {
         br_raw = (char *)n00b_gc_raw_alloc(l, NULL);
-        set_linebreaks_utf32((int32_t *)s->data, l, "en", br_raw);
+        set_linebreaks_utf32((const utf32_t *)s->data, l, "en", br_raw);
     }
     else {
         br_raw = (char *)n00b_gc_raw_alloc(s->byte_len, NULL);
-        set_linebreaks_utf8_per_code_point((int8_t *)s->data,
+        set_linebreaks_utf8_per_code_point((const utf8_t *)s->data,
                                            s->byte_len,
                                            "en",
                                            br_raw);
@@ -167,8 +167,8 @@ static int32_t
 n00b_find_hwrap(const n00b_str_t *s, int32_t offset, int32_t width)
 {
     n00b_utf32_t *str = n00b_to_utf32(s);
-    uint32_t    *u32 = (uint32_t *)str->data;
-    int          l   = n00b_str_codepoint_len(str);
+    uint32_t     *u32 = (uint32_t *)str->data;
+    int           l   = n00b_str_codepoint_len(str);
 
     for (int i = offset; i < l; i++) {
         width -= n00b_codepoint_width(u32[i]);
@@ -199,16 +199,16 @@ n00b_wrap_text(const n00b_str_t *s, int32_t width, int32_t hang)
 
     n00b_break_info_t *line_breaks  = n00b_get_line_breaks(s);
     n00b_break_info_t *break_ops    = n00b_get_all_line_break_ops(s);
-    int32_t           n            = 32 - __builtin_clz(width);
-    int32_t           l            = n00b_str_codepoint_len(s);
+    int32_t            n            = 32 - __builtin_clz(width);
+    int32_t            l            = n00b_str_codepoint_len(s);
     n00b_break_info_t *res          = n00b_alloc_break_structure(s, n);
-    int32_t           cur_start    = 0;
-    int32_t           last_ok_br   = 0;
-    int32_t           lb_ix        = 0;
-    int32_t           bo_ix        = 0;
-    int32_t           hard_wrap_ix = n00b_find_hwrap(s, 0, width);
-    int32_t           hang_width   = width - hang;
-    int32_t           next_lb;
+    int32_t            cur_start    = 0;
+    int32_t            last_ok_br   = 0;
+    int32_t            lb_ix        = 0;
+    int32_t            bo_ix        = 0;
+    int32_t            hard_wrap_ix = n00b_find_hwrap(s, 0, width);
+    int32_t            hang_width   = width - hang;
+    int32_t            next_lb;
 
     if (line_breaks->num_breaks == 0) {
         next_lb = l;

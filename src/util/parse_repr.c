@@ -1,6 +1,11 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+static n00b_utf8_t *
+group_format_via_rule(n00b_grammar_t *grammar, n00b_rule_group_t *ginfo);
+static n00b_utf8_t *
+group_format_via_nt(n00b_grammar_t *grammar, n00b_rule_group_t *ginfo);
+
 n00b_utf8_t *
 n00b_repr_parse_node(n00b_parse_node_t *n)
 {
@@ -40,7 +45,7 @@ n00b_repr_parse_node(n00b_parse_node_t *n)
 
     if (n->cost != 0) {
         n00b_utf8_t *cost = n00b_cstr_format(" [h6]cost = {}[/] ", n->cost);
-        rest             = n00b_str_concat(rest, cost);
+        rest              = n00b_str_concat(rest, cost);
     }
 
     return n00b_str_concat(name, rest);
@@ -51,8 +56,13 @@ n00b_repr_term(n00b_grammar_t *grammar, int64_t id)
 {
     if (id < N00B_START_TOK_ID) {
         if (n00b_codepoint_is_printable(id)) {
-            return n00b_cstr_format("'{}'",
-                                   n00b_utf8_repeat((n00b_codepoint_t)id, 1));
+            char buf[10] = {
+                '\'',
+            };
+            int l      = utf8proc_encode_char((n00b_codepoint_t)id,
+                                         (void *)&buf[1]);
+            buf[l + 1] = '\'';
+            return n00b_new_utf8(buf);
         }
         return n00b_cstr_format("'U+{:h}'", id);
     }
@@ -156,15 +166,15 @@ n00b_repr_group(n00b_grammar_t *g, n00b_rule_group_t *group)
         }
         else {
             return n00b_cstr_format("([aqua]{}[/])+",
-                                   base);
+                                    base);
         }
     }
     else {
         return n00b_cstr_format("({}){}{}, {}]",
-                               base,
-                               n00b_new_utf8("["),
-                               group->min,
-                               group->max);
+                                base,
+                                n00b_new_utf8("["),
+                                group->min,
+                                group->max);
     }
 }
 
@@ -175,7 +185,14 @@ n00b_parse_repr_item(n00b_grammar_t *g, n00b_pitem_t *item)
     case N00B_P_NULL:
         return n00b_new_utf8("ε");
     case N00B_P_GROUP:
-        return n00b_repr_group(g, item->contents.group);
+        if (g->hide_groups && !g->suspend_group_hiding) {
+            return group_format_via_rule(g, item->contents.group);
+        }
+        else {
+            return group_format_via_nt(g, item->contents.group);
+        }
+
+        //        return n00b_repr_group(g, item->contents.group);
     case N00B_P_NT:
         return n00b_repr_nonterm(g, item->contents.nonterm, false);
     case N00B_P_TERMINAL:
@@ -206,26 +223,33 @@ n00b_parse_repr_item(n00b_grammar_t *g, n00b_pitem_t *item)
             return n00b_new_utf8("«AsciiLower»");
         case N00B_P_BIC_SPACE:
             return n00b_new_utf8("«WhiteSpace»");
-	default:
-	  return n00b_new_utf8("«?»");
+        case N00B_P_BIC_JSON_STR_CONTENTS:
+            return n00b_new_utf8("«JsonStrChr»");
+        case N00B_P_BIC_HEX_DIGIT:
+            return n00b_new_utf8("«HexDigit»");
+        case N00B_P_BIC_NONZERO_ASCII_DIGIT:
+            return n00b_new_utf8("«NonZeroDigit»");
+        default:
+            return n00b_new_utf8("«?»");
         }
     case N00B_P_SET:;
+        printf("add in repr: %p\n", item);
         n00b_list_t *l = n00b_list(n00b_type_utf8());
-        int         n = n00b_list_len(item->contents.items);
+        int          n = n00b_list_len(item->contents.items);
 
         for (int i = 0; i < n; i++) {
             n00b_list_append(l,
-                            n00b_parse_repr_item(g,
-                                                n00b_list_get(item->contents.items,
-                                                             i,
-                                                             NULL)));
+                             n00b_parse_repr_item(g,
+                                                  n00b_list_get(item->contents.items,
+                                                                i,
+                                                                NULL)));
         }
 
         return n00b_cstr_format("{}{}]",
-                               n00b_new_utf8("["),
-                               n00b_str_join(l, n00b_new_utf8("|")));
+                                n00b_new_utf8("["),
+                                n00b_str_join(l, n00b_new_utf8("|")));
     default:
-      n00b_unreachable();
+        n00b_unreachable();
     }
 }
 
@@ -240,7 +264,7 @@ n00b_utf8_t *
 n00b_repr_rule(n00b_grammar_t *g, n00b_list_t *items, int dot_location)
 {
     n00b_list_t *pieces = n00b_list(n00b_type_utf8());
-    int         n      = n00b_list_len(items);
+    int          n      = n00b_list_len(items);
 
     for (int i = 0; i < n; i++) {
         if (i == dot_location) {
@@ -283,7 +307,7 @@ op_to_string(n00b_earley_op op)
     case N00B_EO_FIRST_GROUP_ITEM:
         return n00b_new_utf8("Start Group");
     default:
-      n00b_unreachable();
+        n00b_unreachable();
     }
 }
 
@@ -306,7 +330,7 @@ repr_subtree_info(n00b_subtree_info_t si)
     case N00B_SI_GROUP_ITEM_END:
         return n00b_new_utf8("⊥i");
     default:
-      n00b_unreachable();      
+        n00b_unreachable();
     }
 }
 
@@ -316,8 +340,8 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
 {
     n00b_list_t    *result      = n00b_list(n00b_type_utf8());
     n00b_grammar_t *g           = parser->grammar;
-    bool           last_state  = false;
-    bool           first_state = false;
+    bool            last_state  = false;
+    bool            first_state = false;
 
     if (n00b_list_len(parser->states) - 2 == cur->estate_id) {
         last_state = true;
@@ -333,13 +357,13 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
     n00b_earley_item_t *start = cur->start_item;
 
     if (cur->double_dot) {
-        nt                   = n00b_repr_nonterm(g,
-                              N00B_GID_SHOW_GROUP_LHS,
-                              true);
+        nt                    = n00b_repr_nonterm(g,
+                               N00B_GID_SHOW_GROUP_LHS,
+                               true);
         n00b_parse_rule_t *pr = n00b_list_get(start->group->contents->rules,
-                                            0,
-                                            NULL);
-        rule                 = n00b_repr_rule(g, pr->contents, cur->cursor);
+                                              0,
+                                              NULL);
+        rule                  = n00b_repr_rule(g, pr->contents, cur->cursor);
     }
     else {
         nt   = n00b_repr_nonterm(g, start->ruleset_id, true);
@@ -377,9 +401,9 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
     }
 
     n00b_utf8_t         *links;
-    uint64_t            n;
+    uint64_t             n;
     n00b_earley_item_t **clist = hatrack_set_items_sort(start->parent_states,
-                                                       &n);
+                                                        &n);
 
     if (!n) {
         links = n00b_rich_lit(" [i]Predicted by:[/] «Root» ");
@@ -392,9 +416,9 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
             n00b_earley_item_t *rent = clist[i];
 
             n00b_utf8_t *s = n00b_cstr_format(" {}:{}",
-                                            rent->estate_id,
-                                            rent->eitem_index);
-            links         = n00b_str_concat(links, s);
+                                              rent->estate_id,
+                                              rent->eitem_index);
+            links          = n00b_str_concat(links, s);
         }
     }
 
@@ -409,9 +433,9 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
         for (uint64_t i = 0; i < n; i++) {
             n00b_earley_item_t *ei = clist[i];
             n00b_utf8_t        *s  = n00b_cstr_format(" {}:{}",
-                                            ei->estate_id,
-                                            ei->eitem_index);
-            links                 = n00b_str_concat(links, s);
+                                              ei->estate_id,
+                                              ei->eitem_index);
+            links                  = n00b_str_concat(links, s);
         }
     }
 
@@ -423,9 +447,9 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
         for (uint64_t i = 0; i < n; i++) {
             n00b_earley_item_t *ei = clist[i];
             n00b_utf8_t        *s  = n00b_cstr_format(" {}:{}",
-                                            ei->estate_id,
-                                            ei->eitem_index);
-            links                 = n00b_str_concat(links, s);
+                                              ei->estate_id,
+                                              ei->eitem_index);
+            links                  = n00b_str_concat(links, s);
         }
     }
 
@@ -436,8 +460,8 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
             n00b_utf8_t *pstr;
 
             pstr  = n00b_cstr_format(" [i]Prev item end:[/] {}:{}",
-                                   prev->estate_id,
-                                   prev->eitem_index);
+                                    prev->estate_id,
+                                    prev->eitem_index);
             links = n00b_str_concat(links, pstr);
         }
     }
@@ -445,27 +469,27 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
     if (cur->previous_scan) {
         n00b_utf8_t *scan;
         scan  = n00b_cstr_format(" [i]Prior scan:[/] {}:{}",
-                               cur->previous_scan->estate_id,
-                               cur->previous_scan->eitem_index);
+                                cur->previous_scan->estate_id,
+                                cur->previous_scan->eitem_index);
         links = n00b_str_concat(scan, links);
     }
 
     if (start) {
         links = n00b_str_concat(links,
-                               n00b_cstr_format(" [i]Node Location:[/] {}:{}",
-                                               cur->start_item->estate_id,
-                                               cur->start_item->eitem_index));
+                                n00b_cstr_format(" [i]Node Location:[/] {}:{}",
+                                                 cur->start_item->estate_id,
+                                                 cur->start_item->eitem_index));
     }
 
     if (cur->penalty) {
         links = n00b_str_concat(links,
-                               n00b_cstr_format(" [em]-{}[/]", cur->penalty));
+                                n00b_cstr_format(" [em]-{}[/]", cur->penalty));
     }
 
     if (cur->group) {
         links = n00b_str_concat(links,
-                               n00b_cstr_format(" (gid: {:x})",
-                                               cur->ruleset_id));
+                                n00b_cstr_format(" (gid: {:x})",
+                                                 cur->ruleset_id));
     }
 
     links = n00b_str_strip(links);
@@ -496,15 +520,15 @@ add_min_max_info(n00b_utf8_t *base, n00b_rule_group_t *group)
         }
         else {
             return n00b_cstr_format("([aqua]{}[/])+",
-                                   base);
+                                    base);
         }
     }
     else {
         return n00b_cstr_format("([aqua]{}[/]){}{}, {}]",
-                               base,
-                               n00b_new_utf8("["),
-                               group->min,
-                               group->max);
+                                base,
+                                n00b_new_utf8("["),
+                                group->min,
+                                group->max);
     }
 }
 
@@ -525,78 +549,11 @@ group_format_via_nt(n00b_grammar_t *grammar, n00b_rule_group_t *ginfo)
     return add_min_max_info(nt_repr, ginfo);
 }
 
-n00b_utf8_t *
-n00b_pitem_repr(n00b_grammar_t *g, n00b_pitem_t *item)
-{
-    switch (item->kind) {
-    case N00B_P_NULL:
-        return n00b_new_utf8("ε");
-    case N00B_P_GROUP:
-        if (g->hide_groups && !g->suspend_group_hiding) {
-            return group_format_via_rule(g, item->contents.group);
-        }
-        else {
-            return group_format_via_nt(g, item->contents.group);
-        }
-
-        return n00b_repr_group(g, item->contents.group);
-    case N00B_P_NT:;
-        n00b_nonterm_t *nt = n00b_get_nonterm(g, item->contents.nonterm);
-        return n00b_repr_nonterm_lhs(g, nt);
-    case N00B_P_TERMINAL:
-        return n00b_repr_term(g, item->contents.terminal);
-    case N00B_P_ANY:
-        return n00b_new_utf8("«Any»");
-    case N00B_P_BI_CLASS:
-        switch (item->contents.class) {
-        case N00B_P_BIC_ID_START:
-            return n00b_new_utf8("«IdStart»");
-        case N00B_P_BIC_ID_CONTINUE:
-            return n00b_new_utf8("«IdContinue»");
-        case N00B_P_BIC_N00B_ID_START:
-            return n00b_new_utf8("«N00bIdStart»");
-        case N00B_P_BIC_N00B_ID_CONTINUE:
-            return n00b_new_utf8("«N00bIdContinue»");
-        case N00B_P_BIC_DIGIT:
-            return n00b_new_utf8("«Digit»");
-        case N00B_P_BIC_ANY_DIGIT:
-            return n00b_new_utf8("«UDigit»");
-        case N00B_P_BIC_UPPER:
-            return n00b_new_utf8("«Upper»");
-        case N00B_P_BIC_UPPER_ASCII:
-            return n00b_new_utf8("«AsciiUpper»");
-        case N00B_P_BIC_LOWER:
-            return n00b_new_utf8("«Lower»");
-        case N00B_P_BIC_LOWER_ASCII:
-            return n00b_new_utf8("«AsciiLower»");
-        case N00B_P_BIC_SPACE:
-            return n00b_new_utf8("«WhiteSpace»");
-        }
-    case N00B_P_SET:;
-        n00b_list_t *l = n00b_list(n00b_type_utf8());
-        int         n = n00b_list_len(item->contents.items);
-
-        for (int i = 0; i < n; i++) {
-            n00b_list_append(l,
-                            n00b_parse_repr_item(g,
-                                                n00b_list_get(item->contents.items,
-                                                             i,
-                                                             NULL)));
-        }
-
-        return n00b_cstr_format("{}{}]",
-                               n00b_new_utf8("["),
-                               n00b_str_join(l, n00b_new_utf8("|")));
-    default:
-      n00b_unreachable();
-    }
-}
-
 static inline n00b_utf8_t *
 format_rule_items(n00b_grammar_t *g, n00b_parse_rule_t *pr, int dot_location)
 {
     n00b_list_t *pieces = n00b_list(n00b_type_utf8());
-    int         n      = n00b_list_len(pr->contents);
+    int          n      = n00b_list_len(pr->contents);
 
     for (int i = 0; i < n; i++) {
         if (i == dot_location) {
@@ -605,7 +562,7 @@ format_rule_items(n00b_grammar_t *g, n00b_parse_rule_t *pr, int dot_location)
 
         // Current issue in getopts: pulling an NT here not a pitem.
         n00b_pitem_t *item = n00b_list_get(pr->contents, i, NULL);
-        n00b_list_append(pieces, n00b_pitem_repr(g, item));
+        n00b_list_append(pieces, n00b_parse_repr_item(g, item));
     }
 
     if (n == dot_location) {
@@ -647,7 +604,7 @@ n00b_format_one_production(n00b_grammar_t *g, n00b_parse_rule_t *pr)
 n00b_list_t *
 n00b_format_nt_productions(n00b_grammar_t *g, n00b_nonterm_t *nt)
 {
-    int         n      = n00b_list_len(nt->rules);
+    int          n      = n00b_list_len(nt->rules);
     n00b_list_t *result = n00b_list(n00b_type_ref());
 
     for (int i = 0; i < n; i++) {
@@ -668,12 +625,12 @@ n00b_grammar_format(n00b_grammar_t *grammar)
     int32_t n = (int32_t)n00b_list_len(grammar->rules);
 
     n00b_grid_t *grid = n00b_new(n00b_type_grid(),
-                               n00b_kw("start_cols",
-                                      n00b_ka(4),
-                                      "header_rows",
-                                      n00b_ka(0),
-                                      "container_tag",
-                                      n00b_ka(n00b_new_utf8("flow"))));
+                                 n00b_kw("start_cols",
+                                         n00b_ka(4),
+                                         "header_rows",
+                                         n00b_ka(0),
+                                         "container_tag",
+                                         n00b_ka(n00b_new_utf8("flow"))));
 
     n00b_utf8_t *snap = n00b_new_utf8("snap");
     n00b_set_column_style(grid, 0, snap);
@@ -739,17 +696,17 @@ n00b_forest_format(n00b_list_t *trees)
     n00b_grid_t *cur;
 
     cur = n00b_new_cell(n00b_cstr_format("{} trees returned.", num_trees),
-                       n00b_new_utf8("h1"));
+                        n00b_new_utf8("h1"));
 
     n00b_list_append(glist, cur);
 
     for (int i = 0; i < num_trees; i++) {
         cur = n00b_new_cell(n00b_cstr_format("Parse #{} of {}", i + 1, num_trees),
-                           n00b_new_utf8("h4"));
+                            n00b_new_utf8("h4"));
         n00b_list_append(glist, cur);
         n00b_tree_node_t *t = n00b_list_get(trees,
-                                          i,
-                                          NULL);
+                                            i,
+                                            NULL);
         if (!t) {
             continue;
         }
@@ -766,11 +723,11 @@ add_highlights(n00b_parser_t *parser, n00b_list_t *row, int eix, int v)
         return;
     }
 
-    int64_t    key = eix;
-    int64_t    cur = v;
+    int64_t     key = eix;
+    int64_t     cur = v;
     n00b_set_t *s   = hatrack_dict_get(parser->debug_highlights,
-                                    (void *)key,
-                                    NULL);
+                                     (void *)key,
+                                     NULL);
 
     if (!s) {
         return;
@@ -788,14 +745,14 @@ n00b_grid_t *
 n00b_repr_state_table(n00b_parser_t *parser, bool show_all)
 {
     n00b_grid_t *grid = n00b_new(n00b_type_grid(),
-                               n00b_kw("start_cols",
-                                      n00b_ka(show_all ? 6 : 4),
-                                      "header_rows",
-                                      n00b_ka(0),
-                                      "container_tag",
-                                      n00b_ka(n00b_new_utf8("table2")),
-                                      "stripe",
-                                      n00b_ka(true)));
+                                 n00b_kw("start_cols",
+                                         n00b_ka(show_all ? 6 : 4),
+                                         "header_rows",
+                                         n00b_ka(0),
+                                         "container_tag",
+                                         n00b_ka(n00b_new_utf8("table2")),
+                                         "stripe",
+                                         n00b_ka(true)));
 
     n00b_utf8_t *snap = n00b_new_utf8("snap");
     n00b_utf8_t *flex = n00b_new_utf8("flex");
@@ -841,7 +798,7 @@ n00b_repr_state_table(n00b_parser_t *parser, bool show_all)
 
         for (int j = 0; j < m; j++) {
             n00b_earley_item_t *item     = n00b_list_get(s->items, j, NULL);
-            int                rule_len = n00b_list_len(item->rule->contents);
+            int                 rule_len = n00b_list_len(item->rule->contents);
 
             if (show_all || rule_len == item->cursor) {
                 row = n00b_repr_earley_item(parser, item, j);

@@ -41,7 +41,7 @@ n00b_apply_container_style(n00b_renderable_t *item, n00b_utf8_t *tag)
     }
     else {
         item->current_style = n00b_layer_styles(tag_style,
-                                               item->current_style);
+                                                item->current_style);
     }
 }
 
@@ -61,7 +61,7 @@ n00b_enforce_container_style(n00b_obj_t obj, n00b_utf8_t *tag, bool recurse)
         return;
     case N00B_T_RENDERABLE:;
         n00b_renderable_t *r = (n00b_renderable_t *)obj;
-        r->current_style    = n00b_lookup_cell_style(tag);
+        r->current_style     = n00b_lookup_cell_style(tag);
         n00b_enforce_container_style(r->raw_item, tag, recurse);
         return;
     case N00B_T_GRID:;
@@ -76,8 +76,8 @@ n00b_enforce_container_style(n00b_obj_t obj, n00b_utf8_t *tag, bool recurse)
                     t = n00b_get_my_type(r->raw_item);
                     if (n00b_type_is_string(t)) {
                         n00b_str_apply_style((n00b_str_t *)r->raw_item,
-                                            n00b_lookup_text_style(tag),
-                                            false);
+                                             n00b_lookup_text_style(tag),
+                                             false);
                     }
                 }
             }
@@ -110,11 +110,11 @@ get_styled_pad(uint32_t width, n00b_style_t style)
 static n00b_list_t *
 pad_lines_vertically(n00b_render_style_t *gs,
                      n00b_list_t         *list,
-                     int32_t             height,
-                     int32_t             width)
+                     int32_t              height,
+                     int32_t              width)
 {
-    int32_t      len  = n00b_list_len(list);
-    int32_t      diff = height - len;
+    int32_t       len  = n00b_list_len(list);
+    int32_t       diff = height - len;
     n00b_utf32_t *pad;
     n00b_list_t  *res;
 
@@ -122,7 +122,7 @@ pad_lines_vertically(n00b_render_style_t *gs,
         pad = get_styled_pad(width, n00b_style_get_pad_color(gs));
     }
     else {
-        pad            = n00b_utf32_repeat(' ', width);
+        pad             = n00b_utf32_repeat(' ', width);
         n00b_utf32_t *l = n00b_to_utf32(n00b_list_get(list, len - 1, NULL));
 
         pad->styling = l->styling;
@@ -130,7 +130,7 @@ pad_lines_vertically(n00b_render_style_t *gs,
     switch (gs->alignment) {
     case N00B_ALIGN_BOTTOM:
         res = n00b_new(n00b_type_list(n00b_type_utf32()),
-                      n00b_kw("length", n00b_ka(height)));
+                       n00b_kw("length", n00b_ka(height)));
 
         for (int i = 0; i < diff; i++) {
             n00b_list_append(res, pad);
@@ -140,7 +140,7 @@ pad_lines_vertically(n00b_render_style_t *gs,
 
     case N00B_ALIGN_MIDDLE:
         res = n00b_new(n00b_type_list(n00b_type_utf32()),
-                      n00b_kw("length", n00b_ka(height)));
+                       n00b_kw("length", n00b_ka(height)));
 
         for (int i = 0; i < diff / 2; i++) {
             n00b_list_append(res, pad);
@@ -170,7 +170,7 @@ renderable_init(n00b_renderable_t *item, va_list args)
 {
     n00b_obj_t  *obj              = NULL;
     n00b_utf8_t *tag              = NULL;
-    bool        prefer_str_style = true;
+    bool         prefer_str_style = true;
 
     n00b_karg_va_init(args);
 
@@ -191,11 +191,11 @@ renderable_init(n00b_renderable_t *item, va_list args)
 
 bool
 n00b_install_renderable(n00b_grid_t       *grid,
-                       n00b_renderable_t *cell,
-                       int               start_row,
-                       int               end_row,
-                       int               start_col,
-                       int               end_col)
+                        n00b_renderable_t *cell,
+                        int                start_row,
+                        int                end_row,
+                        int                start_col,
+                        int                end_col)
 {
     int i, j = 0;
 
@@ -230,8 +230,8 @@ n00b_install_renderable(n00b_grid_t       *grid,
 void
 n00b_expand_columns(n00b_grid_t *grid, uint64_t num)
 {
-    uint16_t           new_cols = grid->num_cols + num;
-    size_t             sz       = new_cols * (grid->num_rows + grid->spare_rows);
+    uint16_t            new_cols = grid->num_cols + num;
+    size_t              sz       = new_cols * (grid->num_rows + grid->spare_rows);
     n00b_renderable_t **cells    = n00b_gc_array_alloc(n00b_renderable_t *, sz);
     n00b_renderable_t **p        = grid->cells;
 
@@ -255,9 +255,9 @@ n00b_grid_expand_rows(n00b_grid_t *grid, uint64_t num)
         return;
     }
 
-    int                old_num  = grid->num_rows * grid->num_cols;
-    uint16_t           new_rows = grid->num_rows + num;
-    size_t             sz       = grid->num_cols * (new_rows + grid->spare_rows);
+    int                 old_num  = grid->num_rows * grid->num_cols;
+    uint16_t            new_rows = grid->num_rows + num;
+    size_t              sz       = grid->num_cols * (new_rows + grid->spare_rows);
     n00b_renderable_t **cells    = n00b_gc_array_alloc(n00b_renderable_t *, sz);
     for (int i = 0; i < old_num; i++) {
         cells[i] = grid->cells[i];
@@ -281,11 +281,11 @@ n00b_grid_add_row(n00b_grid_t *grid, n00b_obj_t container)
     switch (n00b_base_type(container)) {
     case N00B_T_RENDERABLE:
         n00b_install_renderable(grid,
-                               (n00b_renderable_t *)container,
-                               grid->row_cursor,
-                               grid->row_cursor + 1,
-                               0,
-                               grid->num_cols);
+                                (n00b_renderable_t *)container,
+                                grid->row_cursor,
+                                grid->row_cursor + 1,
+                                0,
+                                grid->num_cols);
         grid->row_cursor++;
         return;
 
@@ -293,16 +293,16 @@ n00b_grid_add_row(n00b_grid_t *grid, n00b_obj_t container)
     case N00B_T_UTF8:
     case N00B_T_UTF32: {
         n00b_renderable_t *r = n00b_new(n00b_type_renderable(),
-                                      n00b_kw("obj",
-                                             n00b_ka(container),
-                                             "tag",
-                                             n00b_ka(n00b_new_utf8("td"))));
+                                        n00b_kw("obj",
+                                                n00b_ka(container),
+                                                "tag",
+                                                n00b_ka(n00b_new_utf8("td"))));
         n00b_install_renderable(grid,
-                               r,
-                               grid->row_cursor,
-                               grid->row_cursor + 1,
-                               0,
-                               grid->num_cols);
+                                r,
+                                grid->row_cursor,
+                                grid->row_cursor + 1,
+                                0,
+                                grid->num_cols);
         grid->row_cursor++;
         return;
     }
@@ -310,7 +310,7 @@ n00b_grid_add_row(n00b_grid_t *grid, n00b_obj_t container)
         flex_view_t *items = flexarray_view((flexarray_t *)container);
 
         for (int i = 0; i < grid->num_cols; i++) {
-            int       err = false;
+            int        err = false;
             n00b_obj_t x   = flexarray_view_next(items, &err);
             if (err || x == NULL) {
                 x = (n00b_obj_t)n00b_to_utf32(n00b_empty_string());
@@ -336,16 +336,16 @@ n00b_grid_add_row(n00b_grid_t *grid, n00b_obj_t container)
 static void
 grid_init(n00b_grid_t *grid, va_list args)
 {
-    int32_t     start_rows    = 1;
-    int32_t     start_cols    = 1;
-    int32_t     spare_rows    = 16;
+    int32_t      start_rows    = 1;
+    int32_t      start_cols    = 1;
+    int32_t      spare_rows    = 16;
     n00b_list_t *contents      = NULL;
     n00b_utf8_t *container_tag = n00b_new_utf8("table");
     n00b_utf8_t *th_tag        = NULL;
     n00b_utf8_t *td_tag        = NULL;
-    int32_t     header_rows   = 0;
-    int32_t     header_cols   = 0;
-    bool        stripe        = false;
+    int32_t      header_rows   = 0;
+    int32_t      header_cols   = 0;
+    bool         stripe        = false;
 
     n00b_karg_va_init(args);
     n00b_kw_int32("start_rows", start_rows);
@@ -407,11 +407,11 @@ grid_init(n00b_grid_t *grid, va_list args)
     }
 
     n00b_renderable_t *self = n00b_new(n00b_type_renderable(),
-                                     n00b_kw("tag",
-                                            n00b_ka(container_tag),
-                                            "obj",
-                                            n00b_ka(grid)));
-    grid->self             = self;
+                                       n00b_kw("tag",
+                                               n00b_ka(container_tag),
+                                               "obj",
+                                               n00b_ka(grid)));
+    grid->self              = self;
 
     grid->col_props = NULL;
     grid->row_props = NULL;
@@ -484,12 +484,12 @@ n00b_grid_set_all_contents(n00b_grid_t *g, n00b_list_t *rows)
 
     for (int64_t i = 0; i < nrows; i++) {
         n00b_list_t *view    = n00b_list_get(rows, i, NULL);
-        uint64_t    viewlen = n00b_list_len(view);
+        uint64_t     viewlen = n00b_list_len(view);
 
         for (uint64_t j = 0; j < viewlen; j++) {
             n00b_obj_t         item = n00b_list_get(view, j, NULL);
             n00b_renderable_t *cell = n00b_new(n00b_type_renderable(),
-                                             n00b_kw("obj", n00b_ka(item)));
+                                               n00b_kw("obj", n00b_ka(item)));
 
             n00b_install_renderable(g, cell, i, i + 1, j, j + 1);
         }
@@ -498,10 +498,10 @@ n00b_grid_set_all_contents(n00b_grid_t *g, n00b_list_t *rows)
 
 void
 n00b_grid_add_col_span(n00b_grid_t       *grid,
-                      n00b_renderable_t *contents,
-                      int64_t           row,
-                      int64_t           start_col,
-                      int64_t           num_cols)
+                       n00b_renderable_t *contents,
+                       int64_t            row,
+                       int64_t            start_col,
+                       int64_t            num_cols)
 {
     int64_t end_col;
 
@@ -521,10 +521,10 @@ n00b_grid_add_col_span(n00b_grid_t       *grid,
 
 void
 n00b_grid_add_row_span(n00b_grid_t       *grid,
-                      n00b_renderable_t *contents,
-                      int64_t           col,
-                      int64_t           start_row,
-                      int64_t           num_rows)
+                       n00b_renderable_t *contents,
+                       int64_t            col,
+                       int64_t            start_row,
+                       int64_t            num_rows)
 {
     int64_t end_row;
 
@@ -546,7 +546,7 @@ static inline int16_t
 get_column_render_overhead(n00b_grid_t *grid)
 {
     n00b_render_style_t *gs     = grid_style(grid);
-    int16_t             result = gs->left_pad + gs->right_pad;
+    int16_t              result = gs->left_pad + gs->right_pad;
 
     if (gs->borders & N00B_BORDER_LEFT) {
         result += 1;
@@ -566,7 +566,7 @@ get_column_render_overhead(n00b_grid_t *grid)
 static inline int
 column_text_width(n00b_grid_t *grid, int col)
 {
-    int        max_width = 0;
+    int         max_width = 0;
     n00b_str_t *s;
 
     for (int i = 0; i < grid->num_rows; i++) {
@@ -585,7 +585,7 @@ column_text_width(n00b_grid_t *grid, int col)
             s = (n00b_str_t *)cell->raw_item;
 
             n00b_list_t *arr = n00b_str_split(s, n00b_str_newline());
-            int         len = n00b_list_len(arr);
+            int          len = n00b_list_len(arr);
 
             for (int j = 0; j < len; j++) {
                 n00b_utf32_t *item = n00b_to_utf32(n00b_list_get(arr, j, NULL));
@@ -610,10 +610,10 @@ column_text_width(n00b_grid_t *grid, int col)
 int16_t *
 n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_width)
 {
-    size_t              term_width;
-    int16_t            *result = n00b_gc_array_value_alloc(uint16_t,
-                                               grid->num_cols);
-    int16_t             sum    = get_column_render_overhead(grid);
+    size_t               term_width;
+    int16_t             *result = n00b_gc_array_value_alloc(uint16_t,
+                                                grid->num_cols);
+    int16_t              sum    = get_column_render_overhead(grid);
     n00b_render_style_t *props;
 
     for (int i = 0; i < grid->num_cols; i++) {
@@ -836,14 +836,14 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
 static inline n00b_utf32_t *
 pad_and_style_line(n00b_grid_t       *grid,
                    n00b_renderable_t *cell,
-                   int16_t           width,
+                   int16_t            width,
                    n00b_utf32_t      *line)
 {
     n00b_alignment_t align = cell->current_style->alignment & N00B_HORIZONTAL_MASK;
-    int64_t         len   = n00b_str_render_len(line);
-    uint8_t         lnum  = cell->current_style->left_pad;
-    uint8_t         rnum  = cell->current_style->right_pad;
-    int64_t         diff  = width - len - lnum - rnum;
+    int64_t          len   = n00b_str_render_len(line);
+    uint8_t          lnum  = cell->current_style->left_pad;
+    uint8_t          rnum  = cell->current_style->right_pad;
+    int64_t          diff  = width - len - lnum - rnum;
     n00b_utf32_t    *lpad;
     n00b_utf32_t    *rpad;
 
@@ -878,8 +878,8 @@ pad_and_style_line(n00b_grid_t       *grid,
     // Eventually should make this configurable.
     if (cell_style & N00B_STY_BG) {
         n00b_str_layer_style(copy,
-                            cell_style & (N00B_STY_BG | N00B_STY_BG_BITS),
-                            0);
+                             cell_style & (N00B_STY_BG | N00B_STY_BG_BITS),
+                             0);
     }
 
     int last_style = copy->styling->num_entries - 1;
@@ -897,29 +897,29 @@ static inline uint16_t
 str_render_cell(n00b_grid_t       *grid,
                 n00b_utf32_t      *s,
                 n00b_renderable_t *cell,
-                int16_t           width,
-                int16_t           height)
+                int16_t            width,
+                int16_t            height)
 {
     n00b_render_style_t *col_style = get_col_props(grid,
-                                                  cell->start_col);
+                                                   cell->start_col);
     n00b_render_style_t *row_style = get_row_props(grid,
-                                                  cell->start_row);
+                                                   cell->start_row);
     n00b_render_style_t *cs        = n00b_layer_styles(col_style,
-                                              row_style);
+                                                row_style);
     n00b_list_t         *res       = n00b_new(
         n00b_type_list(n00b_type_utf32()));
 
     cs                  = n00b_layer_styles(cs, cell->current_style);
     cell->current_style = cs;
 
-    int               pad      = cs->left_pad + cs->right_pad;
+    int                pad      = cs->left_pad + cs->right_pad;
     n00b_utf32_t      *pad_line = pad_and_style_line(grid,
-                                               cell,
-                                               width,
-                                               n00b_empty_string());
+                                                cell,
+                                                width,
+                                                n00b_empty_string());
     n00b_break_info_t *line_starts;
     n00b_utf32_t      *line;
-    int               i;
+    int                i;
 
     for (i = 0; i < cs->top_pad; i++) {
         n00b_list_append(res, pad_line);
@@ -927,7 +927,7 @@ str_render_cell(n00b_grid_t       *grid,
 
     if (cs->disable_wrap) {
         n00b_list_t *arr = n00b_str_split(s, n00b_str_newline());
-        bool        err;
+        bool         err;
 
         for (i = 0; i < n00b_list_len(arr); i++) {
             n00b_utf32_t *one = n00b_to_utf32(n00b_list_get(arr, i, &err));
@@ -935,18 +935,18 @@ str_render_cell(n00b_grid_t       *grid,
                 break;
             }
             n00b_list_append(res,
-                            n00b_str_truncate(one,
-                                             width,
-                                             n00b_kw("use_render_width",
-                                                    n00b_ka(true))));
+                             n00b_str_truncate(one,
+                                               width,
+                                               n00b_kw("use_render_width",
+                                                       n00b_ka(true))));
         }
     }
     else {
         line_starts = n00b_wrap_text(s, width - pad, cs->wrap);
         for (i = 0; i < line_starts->num_breaks - 1; i++) {
             line = n00b_str_slice(s,
-                                 line_starts->breaks[i],
-                                 line_starts->breaks[i + 1]);
+                                  line_starts->breaks[i],
+                                  line_starts->breaks[i + 1]);
             line = n00b_str_strip(line);
             n00b_list_append(res, pad_and_style_line(grid, cell, width, line));
         }
@@ -973,8 +973,8 @@ str_render_cell(n00b_grid_t       *grid,
 static uint16_t
 render_to_cache(n00b_grid_t       *grid,
                 n00b_renderable_t *cell,
-                int16_t           width,
-                int16_t           height)
+                int16_t            width,
+                int16_t            height)
 {
     switch (n00b_base_type(cell->raw_item)) {
     case N00B_T_UTF8:
@@ -995,10 +995,10 @@ render_to_cache(n00b_grid_t       *grid,
 
     case N00B_T_GRID:
         cell->render_cache = n00b_grid_render(cell->raw_item,
-                                             n00b_kw("width",
-                                                    n00b_ka(width),
-                                                    "height",
-                                                    n00b_ka(height)));
+                                              n00b_kw("width",
+                                                      n00b_ka(width),
+                                                      "height",
+                                                      n00b_ka(height)));
         return n00b_list_len(cell->render_cache);
 
     default:
@@ -1010,15 +1010,15 @@ render_to_cache(n00b_grid_t       *grid,
 
 static inline void
 grid_add_blank_cell(n00b_grid_t *grid,
-                    uint16_t    row,
-                    uint16_t    col,
-                    int16_t     width,
-                    int16_t     height)
+                    uint16_t     row,
+                    uint16_t     col,
+                    int16_t      width,
+                    int16_t      height)
 {
     n00b_utf32_t      *empty = n00b_to_utf32(n00b_empty_string());
     n00b_renderable_t *cell  = n00b_new(n00b_type_renderable(),
-                                     n00b_kw("obj",
-                                            n00b_ka(empty)));
+                                       n00b_kw("obj",
+                                               n00b_ka(empty)));
 
     n00b_install_renderable(grid, cell, row, row + 1, col, col + 1);
     render_to_cache(grid, cell, width, height);
@@ -1027,8 +1027,8 @@ grid_add_blank_cell(n00b_grid_t *grid,
 static inline int16_t *
 grid_pre_render(n00b_grid_t *grid, int16_t *col_widths)
 {
-    int16_t            *row_heights = n00b_gc_array_value_alloc(int16_t *,
-                                                    grid->num_rows);
+    int16_t             *row_heights = n00b_gc_array_value_alloc(int16_t *,
+                                                     grid->num_rows);
     n00b_render_style_t *gs          = grid_style(grid);
 
     // Run through and tell the individual items to render.
@@ -1098,14 +1098,14 @@ static inline void
 grid_add_top_pad(n00b_grid_t *grid, n00b_list_t *lines, int16_t width)
 {
     n00b_render_style_t *gs  = grid_style(grid);
-    int                 top = gs->top_pad;
+    int                  top = gs->top_pad;
 
     if (!top) {
         return;
     }
 
     n00b_utf32_t *pad = get_styled_pad(width,
-                                      n00b_style_get_pad_color(gs));
+                                       n00b_style_get_pad_color(gs));
 
     for (int i = 0; i < top; i++) {
         n00b_list_append(lines, pad);
@@ -1116,14 +1116,14 @@ static inline void
 grid_add_bottom_pad(n00b_grid_t *grid, n00b_list_t *lines, int16_t width)
 {
     n00b_render_style_t *gs     = grid_style(grid);
-    int                 bottom = gs->bottom_pad;
+    int                  bottom = gs->bottom_pad;
 
     if (!bottom) {
         return;
     }
 
     n00b_utf32_t *pad = get_styled_pad(width,
-                                      n00b_style_get_pad_color(gs));
+                                       n00b_style_get_pad_color(gs));
 
     for (int i = 0; i < bottom; i++) {
         n00b_list_append(lines, pad);
@@ -1158,8 +1158,8 @@ static inline void
 grid_add_top_border(n00b_grid_t *grid, n00b_list_t *lines, int16_t *col_widths)
 {
     n00b_render_style_t *gs           = grid_style(grid);
-    int32_t             border_width = 0;
-    int                 vertical_borders;
+    int32_t              border_width = 0;
+    int                  vertical_borders;
     n00b_border_theme_t *draw_chars;
     n00b_utf32_t        *s, *lpad, *rpad;
     n00b_codepoint_t    *p;
@@ -1229,11 +1229,11 @@ grid_add_top_border(n00b_grid_t *grid, n00b_list_t *lines, int16_t *col_widths)
 static inline void
 grid_add_bottom_border(n00b_grid_t *grid,
                        n00b_list_t *lines,
-                       int16_t    *col_widths)
+                       int16_t     *col_widths)
 {
     n00b_render_style_t *gs           = grid_style(grid);
-    int32_t             border_width = 0;
-    int                 vertical_borders;
+    int32_t              border_width = 0;
+    int                  vertical_borders;
     n00b_border_theme_t *draw_chars;
     n00b_utf32_t        *s, *lpad, *rpad;
     n00b_codepoint_t    *p;
@@ -1302,13 +1302,13 @@ grid_add_bottom_border(n00b_grid_t *grid,
 
 static inline void
 grid_add_horizontal_rule(n00b_grid_t *grid,
-                         int         row,
+                         int          row,
                          n00b_list_t *lines,
-                         int16_t    *col_widths)
+                         int16_t     *col_widths)
 {
     n00b_render_style_t *gs           = grid_style(grid);
-    int32_t             border_width = 0;
-    int                 vertical_borders;
+    int32_t              border_width = 0;
+    int                  vertical_borders;
     n00b_border_theme_t *draw_chars;
     n00b_utf32_t        *s, *lpad, *rpad;
     n00b_codepoint_t    *p;
@@ -1388,7 +1388,7 @@ grid_add_left_pad(n00b_grid_t *grid, int height)
 {
     n00b_render_style_t *gs   = grid_style(grid);
     n00b_list_t         *res  = n00b_new(n00b_type_list(n00b_type_utf32()),
-                              n00b_kw("length", n00b_ka(height)));
+                                n00b_kw("length", n00b_ka(height)));
     n00b_utf32_t        *lpad = n00b_empty_string();
 
     if (gs->left_pad > 0) {
@@ -1413,7 +1413,7 @@ grid_add_right_pad(n00b_grid_t *grid, n00b_list_t *lines)
     }
 
     n00b_utf32_t *rpad = get_styled_pad(gs->right_pad,
-                                       n00b_style_get_pad_color(gs));
+                                        n00b_style_get_pad_color(gs));
 
     for (int i = 0; i < n00b_list_len(lines); i++) {
         n00b_utf32_t *s = n00b_to_utf32(n00b_list_get(lines, i, NULL));
@@ -1468,7 +1468,7 @@ static void
 crop_vertically(n00b_grid_t *grid, n00b_list_t *lines, int32_t height)
 {
     n00b_render_style_t *gs   = grid_style(grid);
-    int32_t             diff = height - n00b_list_len(lines);
+    int32_t              diff = height - n00b_list_len(lines);
 
     switch (gs->alignment & N00B_VERTICAL_MASK) {
     case N00B_ALIGN_BOTTOM:
@@ -1479,8 +1479,8 @@ crop_vertically(n00b_grid_t *grid, n00b_list_t *lines, int32_t height)
     case N00B_ALIGN_MIDDLE:
         for (int i = 0; i < height; i++) {
             n00b_list_set(lines,
-                         i,
-                         n00b_list_get(lines, i + (diff >> 1), NULL));
+                          i,
+                          n00b_list_get(lines, i + (diff >> 1), NULL));
         }
         break;
     default:
@@ -1498,7 +1498,7 @@ align_and_crop_grid_line(n00b_grid_t *grid, n00b_utf32_t *line, int32_t width)
     n00b_style_t         pad_style = n00b_style_get_pad_color(gs);
 
     // Called on one grid line if we need to align or crop it.
-    int32_t      diff = width - n00b_str_render_len(line);
+    int32_t       diff = width - n00b_str_render_len(line);
     n00b_utf32_t *pad;
 
     if (diff > 0) {
@@ -1523,17 +1523,17 @@ align_and_crop_grid_line(n00b_grid_t *grid, n00b_utf32_t *line, int32_t width)
     else {
         // We need to crop. For now, we ONLY crop from the right.
         return n00b_str_truncate(line,
-                                (int64_t)width,
-                                n00b_kw("use_render_width",
-                                       n00b_ka(1)));
+                                 (int64_t)width,
+                                 n00b_kw("use_render_width",
+                                         n00b_ka(1)));
     }
 }
 
 static n00b_list_t *
 align_and_crop_grid(n00b_grid_t *grid,
                     n00b_list_t *lines,
-                    int32_t     width,
-                    int32_t     height)
+                    int32_t      width,
+                    int32_t      height)
 {
     int num_lines = n00b_list_len(lines);
 
@@ -1569,10 +1569,10 @@ align_and_crop_grid(n00b_grid_t *grid,
 static inline bool
 grid_add_cell_contents(n00b_grid_t *grid,
                        n00b_list_t *lines,
-                       uint16_t    r,
-                       uint16_t    c,
-                       int16_t    *col_widths,
-                       int16_t    *row_heights)
+                       uint16_t     r,
+                       uint16_t     c,
+                       int16_t     *col_widths,
+                       int16_t     *row_heights)
 {
     // This is the one that fills a single cell.  Returns true if the
     // caller should render vertical interior borders (if wanted). The
@@ -1580,7 +1580,7 @@ grid_add_cell_contents(n00b_grid_t *grid,
     // though.
 
     n00b_renderable_t *cell = *n00b_cell_address(grid, r, c);
-    int               i;
+    int                i;
 
     if (cell->end_col - cell->start_col == 1 && cell->end_row - cell->start_row == 1) {
         for (i = 0; i < n00b_list_len(lines); i++) {
@@ -1588,8 +1588,8 @@ grid_add_cell_contents(n00b_grid_t *grid,
                 n00b_list_get(lines, i, NULL));
             n00b_utf32_t *piece = n00b_to_utf32(
                 n00b_list_get(cell->render_cache,
-                             i,
-                             NULL));
+                              i,
+                              NULL));
             if (i < grid->num_cols && !n00b_str_codepoint_len(piece)) {
                 n00b_style_t pad_style = n00b_style_get_pad_color(
                     grid_style(grid));
@@ -1607,10 +1607,10 @@ grid_add_cell_contents(n00b_grid_t *grid,
 
     // For spans, just return the one block of the grid, along with
     // any interior borders.
-    uint16_t            row_offset   = r - cell->start_row;
-    uint16_t            col_offset   = c - cell->start_col;
-    int                 start_width  = 0;
-    int                 start_height = 0;
+    uint16_t             row_offset   = r - cell->start_row;
+    uint16_t             col_offset   = c - cell->start_col;
+    int                  start_width  = 0;
+    int                  start_height = 0;
     n00b_render_style_t *gs           = grid_style(grid);
 
     if (gs->borders & N00B_INTERIOR_VERTICAL) {
@@ -1642,12 +1642,12 @@ grid_add_cell_contents(n00b_grid_t *grid,
     for (i = row_offset; i < row_offset + num_rows; i++) {
         n00b_utf32_t *s     = n00b_to_utf32(n00b_list_get(lines, i, NULL));
         n00b_utf32_t *piece = n00b_to_utf32(n00b_list_get(cell->render_cache,
-                                                       i,
-                                                       NULL));
+                                                          i,
+                                                          NULL));
 
-        piece             = n00b_str_slice(piece,
-                              start_width,
-                              start_width + num_cols);
+        piece              = n00b_str_slice(piece,
+                               start_width,
+                               start_width + num_cols);
         n00b_utf32_t *line = n00b_str_concat(s, piece);
         n00b_list_set(lines, i, line);
     }
@@ -1684,7 +1684,7 @@ _n00b_grid_render(n00b_grid_t *grid, ...)
 
     if (width == 0) {
         return n00b_new(n00b_type_list(n00b_type_utf32()),
-                       n00b_kw("length", n00b_ka(0)));
+                        n00b_kw("length", n00b_ka(0)));
     }
 
     int16_t *col_widths  = n00b_calculate_col_widths(grid, width, &grid->width);
@@ -1710,14 +1710,14 @@ _n00b_grid_render(n00b_grid_t *grid, ...)
     // they should do anything.
 
     n00b_render_style_t *gs      = grid_style(grid);
-    uint16_t            h_alloc = grid->num_rows + 1 + gs->top_pad + gs->bottom_pad;
+    uint16_t             h_alloc = grid->num_rows + 1 + gs->top_pad + gs->bottom_pad;
 
     for (int i = 0; i < grid->num_rows; i++) {
         h_alloc += row_heights[i];
     }
 
     n00b_list_t *result = n00b_new(n00b_type_list(n00b_type_utf32()),
-                                 n00b_kw("length", n00b_ka(h_alloc)));
+                                   n00b_kw("length", n00b_ka(h_alloc)));
 
     grid_add_top_pad(grid, result, width);
     grid_add_top_border(grid, result, col_widths);
@@ -1760,8 +1760,8 @@ n00b_grid_to_str(n00b_grid_t *g)
     n00b_list_t *l = n00b_grid_render(g);
     // join will force utf32 on the newline.
     return n00b_str_join(l,
-                        n00b_str_newline(),
-                        n00b_kw("add_trailing", n00b_ka(true)));
+                         n00b_str_newline(),
+                         n00b_kw("add_trailing", n00b_ka(true)));
 }
 
 void
@@ -1779,8 +1779,8 @@ n00b_grid_set_cell_contents(n00b_grid_t *g, int row, int col, n00b_obj_t item)
         break;
     case N00B_T_GRID: {
         n00b_grid_t *subobj = (n00b_grid_t *)item;
-        int         tcells = subobj->num_rows * subobj->num_cols;
-        cell               = subobj->self;
+        int          tcells = subobj->num_rows * subobj->num_cols;
+        cell                = subobj->self;
 
         for (int i = 0; i < tcells; i++) {
             n00b_renderable_t *item = subobj->cells[i];
@@ -1793,7 +1793,7 @@ n00b_grid_set_cell_contents(n00b_grid_t *g, int row, int col, n00b_obj_t item)
                 n00b_render_style_t *sty;
 
                 sty = n00b_layer_styles(((n00b_grid_t *)sub)->self->current_style,
-                                       g->self->current_style);
+                                        g->self->current_style);
 
                 ((n00b_grid_t *)sub)->self->current_style = sty;
             }
@@ -1812,10 +1812,10 @@ n00b_grid_set_cell_contents(n00b_grid_t *g, int row, int col, n00b_obj_t item)
         }
 
         cell = n00b_new(n00b_type_renderable(),
-                       n00b_kw("tag",
-                              n00b_ka(tag),
-                              "obj",
-                              n00b_ka(item)));
+                        n00b_kw("tag",
+                                n00b_ka(tag),
+                                "obj",
+                                n00b_ka(item)));
         break;
 
     default:
@@ -1850,19 +1850,19 @@ _n00b_ordered_list(n00b_list_t *items, ...)
 
     items = n00b_list_copy(items);
 
-    int64_t      n   = n00b_list_len(items);
+    int64_t       n   = n00b_list_len(items);
     n00b_utf32_t *dot = n00b_utf32_repeat('.', 1);
     n00b_grid_t  *res = n00b_new(n00b_type_grid(),
-                              n00b_kw("start_rows",
-                                     n00b_ka(n),
-                                     "start_cols",
-                                     n00b_ka(2),
-                                     "container_tag",
-                                     n00b_ka(n00b_new_utf8("ol"))));
+                                n00b_kw("start_rows",
+                                        n00b_ka(n),
+                                        "start_cols",
+                                        n00b_ka(2),
+                                        "container_tag",
+                                        n00b_ka(n00b_new_utf8("ol"))));
 
     n00b_render_style_t *bp    = n00b_lookup_cell_style(bullet_style);
-    float               log   = log10((float)n);
-    int                 width = (int)(log + .5) + 1 + 1;
+    float                log   = log10((float)n);
+    int                  width = (int)(log + .5) + 1 + 1;
 
     // Above, one + 1 is because log returns one less than what we
     // need for the int with, and the other is for the period /
@@ -1889,14 +1889,14 @@ _n00b_ordered_list(n00b_list_t *items, ...)
         case N00B_T_UTF8:
         case N00B_T_UTF32:
             li = n00b_new(n00b_type_renderable(),
-                         n00b_kw("obj",
-                                n00b_to_utf32((n00b_str_t *)obj),
-                                "tag",
-                                item_style));
+                          n00b_kw("obj",
+                                  n00b_to_utf32((n00b_str_t *)obj),
+                                  "tag",
+                                  item_style));
             break;
         case N00B_T_GRID:
             li = n00b_new(n00b_type_renderable(),
-                         n00b_kw("obj", obj, "tag", item_style));
+                          n00b_kw("obj", obj, "tag", item_style));
             break;
         default:
             N00B_CRAISE("Invalid object type for list.");
@@ -1921,17 +1921,17 @@ _n00b_unordered_list(n00b_list_t *items, ...)
 
     items = n00b_list_copy(items);
 
-    int64_t             n        = n00b_list_len(items);
+    int64_t              n        = n00b_list_len(items);
     n00b_grid_t         *res      = n00b_new(n00b_type_grid(),
-                              n00b_kw("start_rows",
-                                     n00b_ka(n),
-                                     "start_cols",
-                                     n00b_ka(2),
-                                     "container_tag",
-                                     n00b_ka(n00b_new_utf8("ul"))));
+                                n00b_kw("start_rows",
+                                        n00b_ka(n),
+                                        "start_cols",
+                                        n00b_ka(2),
+                                        "container_tag",
+                                        n00b_ka(n00b_new_utf8("ul"))));
     n00b_utf32_t        *bull_str = n00b_utf32_repeat(bullet_cp, 1);
     n00b_renderable_t   *bullet   = n00b_to_str_renderable(bull_str,
-                                                     bullet_style);
+                                                       bullet_style);
     n00b_render_style_t *bp       = n00b_lookup_cell_style(bullet_style);
 
     bp->dims.units += bp->left_pad + bp->right_pad;
@@ -1951,14 +1951,14 @@ _n00b_unordered_list(n00b_list_t *items, ...)
         case N00B_T_UTF8:
         case N00B_T_UTF32:
             li = n00b_new(n00b_type_renderable(),
-                         n00b_kw("obj",
-                                n00b_to_utf32((n00b_str_t *)obj),
-                                "tag",
-                                item_style));
+                          n00b_kw("obj",
+                                  n00b_to_utf32((n00b_str_t *)obj),
+                                  "tag",
+                                  item_style));
             break;
         case N00B_T_GRID:
             li = n00b_new(n00b_type_renderable(),
-                         n00b_kw("obj", obj, "tag", item_style));
+                          n00b_kw("obj", obj, "tag", item_style));
             break;
         default:
             N00B_CRAISE("Invalid object type for list.");
@@ -1977,19 +1977,19 @@ n00b_grid_flow(uint64_t items, ...)
     va_list contents;
 
     n00b_grid_t *res = n00b_new(n00b_type_grid(),
-                              n00b_kw("start_rows",
-                                     n00b_ka(items),
-                                     "start_cols",
-                                     n00b_ka(1),
-                                     "container_tag",
-                                     n00b_ka(n00b_new_utf8("flow"))));
+                                n00b_kw("start_rows",
+                                        n00b_ka(items),
+                                        "start_cols",
+                                        n00b_ka(1),
+                                        "container_tag",
+                                        n00b_ka(n00b_new_utf8("flow"))));
 
     va_start(contents, items);
     for (uint64_t i = 0; i < items; i++) {
         n00b_grid_set_cell_contents(res,
-                                   i,
-                                   0,
-                                   (n00b_obj_t)va_arg(contents, n00b_obj_t));
+                                    i,
+                                    0,
+                                    (n00b_obj_t)va_arg(contents, n00b_obj_t));
     }
     va_end(contents);
 
@@ -2000,13 +2000,13 @@ n00b_grid_t *
 n00b_grid_flow_from_list(n00b_list_t *items)
 {
     n00b_grid_t *res = n00b_new(n00b_type_grid(),
-                              n00b_kw("start_rows",
-                                     n00b_ka(n00b_list_len(items)),
-                                     "start_cols",
-                                     n00b_ka(1),
-                                     "container_tag",
-                                     n00b_ka(n00b_new_utf8("flow"))));
-    int         l   = n00b_list_len(items);
+                                n00b_kw("start_rows",
+                                        n00b_ka(n00b_list_len(items)),
+                                        "start_cols",
+                                        n00b_ka(1),
+                                        "container_tag",
+                                        n00b_ka(n00b_new_utf8("flow"))));
+    int          l   = n00b_list_len(items);
 
     for (int i = 0; i < l; i++) {
         void *item = n00b_list_get(items, i, NULL);
@@ -2021,12 +2021,12 @@ n00b_callout(n00b_str_t *s)
 {
     n00b_renderable_t *r   = n00b_to_str_renderable(s, n00b_new_utf8("callout"));
     n00b_grid_t       *res = n00b_new(n00b_type_grid(),
-                              n00b_kw("start_rows",
-                                     n00b_ka(1),
-                                     "start_cols",
-                                     n00b_ka(1),
-                                     "container_tag",
-                                     n00b_ka(n00b_new_utf8("callout_cell"))));
+                                n00b_kw("start_rows",
+                                        n00b_ka(1),
+                                        "start_cols",
+                                        n00b_ka(1),
+                                        "container_tag",
+                                        n00b_ka(n00b_new_utf8("callout_cell"))));
     n00b_grid_set_cell_contents(res, 0, 0, r);
     n00b_set_column_style(res, 0, n00b_new_utf8("callout_cell"));
 
@@ -2038,12 +2038,12 @@ n00b_new_cell(n00b_str_t *s, n00b_utf8_t *style)
 {
     n00b_renderable_t *r   = n00b_to_str_renderable(s, style);
     n00b_grid_t       *res = n00b_new(n00b_type_grid(),
-                              n00b_kw("start_rows",
-                                     n00b_ka(1),
-                                     "start_cols",
-                                     n00b_ka(1),
-                                     "container_tag",
-                                     n00b_ka(n00b_new_utf8("flow"))));
+                                n00b_kw("start_rows",
+                                        n00b_ka(1),
+                                        "start_cols",
+                                        n00b_ka(1),
+                                        "container_tag",
+                                        n00b_ka(n00b_new_utf8("flow"))));
     n00b_grid_set_cell_contents(res, 0, 0, r);
     n00b_set_column_style(res, 0, n00b_new_utf8("flow"));
 
@@ -2052,10 +2052,10 @@ n00b_new_cell(n00b_str_t *s, n00b_utf8_t *style)
 
 n00b_grid_t *
 n00b_grid_horizontal_flow(n00b_list_t *items,
-                         uint64_t    max_columns,
-                         uint64_t    total_width,
-                         n00b_utf8_t *table_style,
-                         n00b_utf8_t *cell_style)
+                          uint64_t     max_columns,
+                          uint64_t     total_width,
+                          n00b_utf8_t *table_style,
+                          n00b_utf8_t *cell_style)
 {
     uint64_t list_len   = n00b_list_len(items);
     uint64_t start_cols = n00b_min(list_len, max_columns);
@@ -2070,23 +2070,23 @@ n00b_grid_horizontal_flow(n00b_list_t *items,
     }
 
     n00b_grid_t *res = n00b_new(n00b_type_grid(),
-                              n00b_kw("start_rows",
-                                     n00b_ka(start_rows),
-                                     "start_cols",
-                                     n00b_ka(start_cols),
-                                     "container_tag",
-                                     n00b_ka(table_style),
-                                     "td_tag",
-                                     n00b_ka(cell_style)));
+                                n00b_kw("start_rows",
+                                        n00b_ka(start_rows),
+                                        "start_cols",
+                                        n00b_ka(start_cols),
+                                        "container_tag",
+                                        n00b_ka(table_style),
+                                        "td_tag",
+                                        n00b_ka(cell_style)));
 
     for (uint64_t i = 0; i < list_len; i++) {
         int row = i / start_cols;
         int col = i % start_cols;
 
         n00b_grid_set_cell_contents(res,
-                                   row,
-                                   col,
-                                   n00b_list_get(items, i, NULL));
+                                    row,
+                                    col,
+                                    n00b_list_get(items, i, NULL));
     }
 
     return res;
@@ -2101,7 +2101,7 @@ static n00b_dict_t *
 copy_props(n00b_dict_t *old)
 {
     uint64_t             n;
-    n00b_dict_t          *res  = n00b_dict(n00b_type_int(), n00b_type_ref());
+    n00b_dict_t         *res  = n00b_dict(n00b_type_int(), n00b_type_ref());
     hatrack_dict_item_t *view = hatrack_dict_items_sort(old, &n);
 
     for (uint64_t i = 0; i < n; i++) {
@@ -2116,19 +2116,19 @@ copy_props(n00b_dict_t *old)
 static n00b_grid_t *
 n00b_grid_copy(n00b_grid_t *orig)
 {
-    n00b_grid_t *result  = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_rows",
-                                        n00b_ka(orig->num_rows),
-                                        "start_cols",
-                                        n00b_ka(orig->num_cols),
-                                        "spare_rows",
-                                        n00b_ka(orig->spare_rows),
-                                        "header_rows",
-                                        n00b_ka(orig->header_rows),
-                                        "header_cols",
-                                        n00b_ka(orig->header_cols),
-                                        "stripe",
-                                        n00b_ka(orig->stripe)));
+    n00b_grid_t *result = n00b_new(n00b_type_grid(),
+                                   n00b_kw("start_rows",
+                                           n00b_ka(orig->num_rows),
+                                           "start_cols",
+                                           n00b_ka(orig->num_cols),
+                                           "spare_rows",
+                                           n00b_ka(orig->spare_rows),
+                                           "header_rows",
+                                           n00b_ka(orig->header_rows),
+                                           "header_cols",
+                                           n00b_ka(orig->header_cols),
+                                           "stripe",
+                                           n00b_ka(orig->stripe)));
     result->width       = orig->width;
     result->height      = orig->height;
     result->td_tag_name = orig->td_tag_name;
@@ -2155,40 +2155,40 @@ n00b_grid_copy(n00b_grid_t *orig)
 
 // For instantiating w/o varargs.
 n00b_grid_t *
-n00b_grid(int32_t     start_rows,
-         int32_t     start_cols,
-         n00b_utf8_t *table_tag,
-         n00b_utf8_t *th_tag,
-         n00b_utf8_t *td_tag,
-         int         header_rows,
-         int         header_cols,
-         int         s)
+n00b_grid(int32_t      start_rows,
+          int32_t      start_cols,
+          n00b_utf8_t *table_tag,
+          n00b_utf8_t *th_tag,
+          n00b_utf8_t *td_tag,
+          int          header_rows,
+          int          header_cols,
+          int          s)
 {
     return n00b_new(n00b_type_grid(),
-                   n00b_kw("start_rows",
-                          n00b_ka(start_rows),
-                          "start_cols",
-                          n00b_ka(start_cols),
-                          "container_tag",
-                          n00b_ka(table_tag),
-                          "th_tag",
-                          n00b_ka(th_tag),
-                          "td_tag",
-                          n00b_ka(td_tag),
-                          "header_rows",
-                          n00b_ka(header_rows),
-                          "header_cols",
-                          n00b_ka(header_cols),
-                          "stripe",
-                          n00b_ka(s)));
+                    n00b_kw("start_rows",
+                            n00b_ka(start_rows),
+                            "start_cols",
+                            n00b_ka(start_cols),
+                            "container_tag",
+                            n00b_ka(table_tag),
+                            "th_tag",
+                            n00b_ka(th_tag),
+                            "td_tag",
+                            n00b_ka(td_tag),
+                            "header_rows",
+                            n00b_ka(header_rows),
+                            "header_cols",
+                            n00b_ka(header_cols),
+                            "stripe",
+                            n00b_ka(s)));
 }
 
 typedef struct {
     n00b_utf8_t      *tag;
     n00b_codepoint_t *padstr;
     n00b_grid_t      *grid;
-    void            *callback;
-    void            *thunk;
+    void             *callback;
+    void             *thunk;
     n00b_set_t       *to_collapse;
     n00b_list_t      *state_stack;
     n00b_utf8_t      *nl;
@@ -2197,23 +2197,23 @@ typedef struct {
     n00b_codepoint_t  lchar;
     n00b_codepoint_t  hchar;
     n00b_codepoint_t  vchar;
-    int              vpad;
-    int              ipad;
-    int              no_nl;
+    int               vpad;
+    int               ipad;
+    int               no_nl;
     n00b_style_t      style;
-    int              depth; // Previous depth.
-    int64_t          pad_ix;
-    int64_t          done_at_this_depth;
-    int64_t          total_at_this_depth;
-    bool             root;
-    bool             cycle;
+    int               depth; // Previous depth.
+    int64_t           pad_ix;
+    int64_t           done_at_this_depth;
+    int64_t           total_at_this_depth;
+    bool              root;
+    bool              cycle;
 } tree_fmt_t;
 
 typedef struct {
     n00b_utf8_t     *tag;
     n00b_grid_t     *grid;
-    void           *callback;
-    void           *thunk;
+    void            *callback;
+    void            *thunk;
     n00b_utf8_t     *nl;
     n00b_set_t      *to_collapse;
     n00b_list_t     *depth_positions;
@@ -2224,13 +2224,13 @@ typedef struct {
     n00b_codepoint_t lchar;
     n00b_codepoint_t hchar;
     n00b_codepoint_t vchar;
-    int             vpad;
-    int             ipad;
-    int             no_nl;
+    int              vpad;
+    int              ipad;
+    int              no_nl;
     n00b_style_t     style;
-    bool            cycle;
-    bool            at_start;
-    bool            show_cycles;
+    bool             cycle;
+    bool             at_start;
+    bool             show_cycles;
 } tree_fmt_new_t;
 
 typedef n00b_utf8_t *(*thunk_cb)(void *, void *);
@@ -2245,11 +2245,11 @@ build_grid_tree_pad(tree_fmt_new_t *ctx)
         return n00b_new_utf8("");
     }
 
-    int              num_cps = (depth - 1) * (ctx->vpad + 1) + ctx->ipad;
+    int               num_cps = (depth - 1) * (ctx->vpad + 1) + ctx->ipad;
     n00b_codepoint_t *arr     = alloca(num_cps * sizeof(n00b_codepoint_t));
     n00b_codepoint_t *p       = arr;
-    int64_t          pos;
-    int64_t          tot;
+    int64_t           pos;
+    int64_t           tot;
 
     // Because we treat the root specially, start this at 1, not 0.
     for (int i = 1; i < depth - 1; i++) {
@@ -2286,10 +2286,10 @@ build_grid_tree_pad(tree_fmt_new_t *ctx)
     }
 
     n00b_utf32_t *pad = n00b_new(n00b_type_utf32(),
-                               n00b_kw("length",
-                                      n00b_ka((int64_t)(p - arr)),
-                                      "codepoints",
-                                      n00b_ka(arr)));
+                                 n00b_kw("length",
+                                         n00b_ka((int64_t)(p - arr)),
+                                         "codepoints",
+                                         n00b_ka(arr)));
     n00b_str_set_style(pad, ctx->style);
 
     return pad;
@@ -2307,11 +2307,11 @@ reset_builder_ctx(tree_fmt_new_t *ctx)
 static bool
 new_tree_builder(n00b_tree_node_t *node, int depth, tree_fmt_new_t *ctx)
 {
-    int64_t    my_position;
-    int64_t    total_in_group;
+    int64_t     my_position;
+    int64_t     total_in_group;
     n00b_str_t *repr;
-    bool       result   = true;
-    void      *contents = n00b_tree_get_contents(node);
+    bool        result   = true;
+    void       *contents = n00b_tree_get_contents(node);
 
     if (!ctx->depth_positions) {
         reset_builder_ctx(ctx);
@@ -2350,8 +2350,8 @@ new_tree_builder(n00b_tree_node_t *node, int depth, tree_fmt_new_t *ctx)
     if (ctx->cycle) {
         // repr = n00b_str_concat(repr, n00b_cstr_format("[h6] (CYCLES)[/] "));
         repr = n00b_cstr_format("{} [h6](CYCLE #{})[/] ",
-                               repr,
-                               hatrack_dict_get(ctx->cycle_nodes, node, NULL));
+                                repr,
+                                hatrack_dict_get(ctx->cycle_nodes, node, NULL));
     }
 
     if (ctx->no_nl) {
@@ -2434,9 +2434,9 @@ build_tree_output(n00b_tree_node_t *node, tree_fmt_t *info, bool last)
     }
 
     n00b_str_t       *line = n00b_tree_get_contents(node);
-    int              i;
+    int               i;
     n00b_codepoint_t *prev_pad = info->padstr;
-    int              last_len = info->pad_ix;
+    int               last_len = info->pad_ix;
 
     if (line != NULL) {
         if (info->no_nl) {
@@ -2445,7 +2445,7 @@ build_tree_output(n00b_tree_node_t *node, tree_fmt_t *info, bool last)
             if (ix != -1) {
                 line = n00b_str_slice(line, 0, ix);
                 line = n00b_str_concat(line,
-                                      n00b_utf32_repeat(0x2026, 1));
+                                       n00b_utf32_repeat(0x2026, 1));
             }
         }
     }
@@ -2456,7 +2456,7 @@ build_tree_output(n00b_tree_node_t *node, tree_fmt_t *info, bool last)
     if (!info->root) {
         info->pad_ix += info->vpad + info->ipad + 1;
         info->padstr = n00b_gc_array_value_alloc(n00b_codepoint_t,
-                                                info->pad_ix);
+                                                 info->pad_ix);
         for (i = 0; i < last_len; i++) {
             if (prev_pad[i] == info->tchar || prev_pad[i] == info->vchar) {
                 info->padstr[i] = info->vchar;
@@ -2487,10 +2487,10 @@ build_tree_output(n00b_tree_node_t *node, tree_fmt_t *info, bool last)
         }
 
         n00b_utf32_t *pad = n00b_new(n00b_type_utf32(),
-                                   n00b_kw("length",
-                                          n00b_ka(i),
-                                          "codepoints",
-                                          n00b_ka(info->padstr)));
+                                     n00b_kw("length",
+                                             n00b_ka(i),
+                                             "codepoints",
+                                             n00b_ka(info->padstr)));
         n00b_str_set_style(pad, info->style);
         line = n00b_str_concat(pad, line);
     }
@@ -2510,7 +2510,7 @@ build_tree_output(n00b_tree_node_t *node, tree_fmt_t *info, bool last)
         info->padstr[last_len] = 'x';
     }
 
-    int              my_pad_ix = info->pad_ix;
+    int               my_pad_ix = info->pad_ix;
     n00b_codepoint_t *my_pad    = info->padstr;
 
     for (i = 0; i < num_kids; i++) {
@@ -2577,12 +2577,12 @@ _n00b_grid_tree_new(n00b_tree_node_t *tree, ...)
     n00b_codepoint_t lchar    = 0x2514;
     n00b_codepoint_t hchar    = 0x2500;
     n00b_codepoint_t vchar    = 0x2502;
-    int32_t         vpad     = 2;
-    int32_t         ipad     = 1;
-    bool            no_nl    = true;
+    int32_t          vpad     = 2;
+    int32_t          ipad     = 1;
+    bool             no_nl    = true;
     n00b_utf8_t     *tag      = n00b_new_utf8("tree_item");
-    void           *callback = NULL;
-    void           *thunk    = NULL;
+    void            *callback = NULL;
+    void            *thunk    = NULL;
 
     n00b_karg_only_init(tree);
     n00b_kw_codepoint("pad", pad);
@@ -2611,10 +2611,10 @@ _n00b_grid_tree_new(n00b_tree_node_t *tree, ...)
     }
 
     n00b_grid_t *result = n00b_new(n00b_type_grid(),
-                                 n00b_kw("container_tag",
-                                        n00b_ka(n00b_new_utf8("flow")),
-                                        "td_tag",
-                                        n00b_ka(tag)));
+                                   n00b_kw("container_tag",
+                                           n00b_ka(n00b_new_utf8("flow")),
+                                           "td_tag",
+                                           n00b_ka(tag)));
 
     tree_fmt_new_t fmt_info = {
         .pad      = pad,
@@ -2634,14 +2634,14 @@ _n00b_grid_tree_new(n00b_tree_node_t *tree, ...)
     };
 
     n00b_tree_walk_with_cycles(tree,
-                              (n00b_walker_fn)new_tree_builder,
-                              (n00b_walker_fn)grid_cycle_callback,
-                              &fmt_info);
+                               (n00b_walker_fn)new_tree_builder,
+                               (n00b_walker_fn)grid_cycle_callback,
+                               &fmt_info);
 
     fmt_info.show_cycles = true;
 
     if (fmt_info.cycle_nodes != NULL) {
-        uint64_t          n;
+        uint64_t           n;
         n00b_tree_node_t **nodes = (void *)hatrack_dict_keys_sort(
             fmt_info.cycle_nodes,
             &n);
@@ -2656,9 +2656,9 @@ _n00b_grid_tree_new(n00b_tree_node_t *tree, ...)
             n00b_renderable_t *item = n00b_to_str_renderable(s, fmt_info.tag);
             n00b_grid_add_row(fmt_info.grid, item);
             n00b_tree_walk_with_cycles(nodes[i],
-                                      (n00b_walker_fn)new_tree_builder,
-                                      NULL,
-                                      &fmt_info);
+                                       (n00b_walker_fn)new_tree_builder,
+                                       NULL,
+                                       &fmt_info);
         }
     }
 
@@ -2682,11 +2682,11 @@ _n00b_grid_tree(n00b_tree_node_t *tree, ...)
     n00b_codepoint_t lchar     = 0x2514;
     n00b_codepoint_t hchar     = 0x2500;
     n00b_codepoint_t vchar     = 0x2502;
-    int32_t         vpad      = 2;
-    int32_t         ipad      = 1;
-    bool            no_nl     = true;
+    int32_t          vpad      = 2;
+    int32_t          ipad      = 1;
+    bool             no_nl     = true;
     n00b_utf8_t     *tag       = n00b_new_utf8("tree_item");
-    void           *converter = NULL;
+    void            *converter = NULL;
 
     n00b_karg_only_init(tree);
     n00b_kw_codepoint("pad", pad);
@@ -2702,7 +2702,7 @@ _n00b_grid_tree(n00b_tree_node_t *tree, ...)
 
     if (converter != NULL) {
         tree = n00b_tree_str_transform(tree,
-                                      (n00b_str_t * (*)(void *)) converter);
+                                       (n00b_str_t * (*)(void *)) converter);
     }
 
     if (vpad < 1) {
@@ -2713,10 +2713,10 @@ _n00b_grid_tree(n00b_tree_node_t *tree, ...)
     }
 
     n00b_grid_t *result = n00b_new(n00b_type_grid(),
-                                 n00b_kw("container_tag",
-                                        n00b_ka(n00b_new_utf8("flow")),
-                                        "td_tag",
-                                        n00b_ka(tag)));
+                                   n00b_kw("container_tag",
+                                           n00b_ka(n00b_new_utf8("flow")),
+                                           "td_tag",
+                                           n00b_ka(tag)));
 
     tree_fmt_t fmt_info = {
         .pad    = pad,
@@ -2763,10 +2763,10 @@ n00b_to_grid_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
 
         if (!nrows) {
             return n00b_new(n00b_type_grid(),
-                           n00b_kw("start_rows",
-                                  n00b_ka(0),
-                                  "start_cols",
-                                  n00b_ka(0)));
+                            n00b_kw("start_rows",
+                                    n00b_ka(0),
+                                    "start_cols",
+                                    n00b_ka(0)));
         }
 
         n00b_type_t *t = n00b_get_my_type(n00b_list_get(items, 0, NULL));
@@ -2774,13 +2774,13 @@ n00b_to_grid_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
             N00B_CRAISE("Not implemented yet.");
         }
         if (!n00b_types_are_compat(t,
-                                  n00b_type_list(n00b_type_utf8()),
-                                  NULL)) {
+                                   n00b_type_list(n00b_type_utf8()),
+                                   NULL)) {
             N00B_CRAISE("Currently only strings are supported in tables.");
         }
         for (int i = 0; i < nrows; i++) {
             n00b_list_t *l   = n00b_list_get(items, i, NULL);
-            int         len = n00b_list_len(l);
+            int          len = n00b_list_len(l);
 
             if (len > ncols) {
                 ncols = len;
@@ -2788,14 +2788,14 @@ n00b_to_grid_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
         }
 
         n00b_grid_t *result = n00b_new(n00b_type_grid(),
-                                     n00b_kw("start_rows",
-                                            n00b_ka(nrows),
-                                            "start_cols",
-                                            n00b_ka(ncols),
-                                            "header_rows",
-                                            n00b_ka(1),
-                                            "stripe",
-                                            n00b_ka(true)));
+                                       n00b_kw("start_rows",
+                                               n00b_ka(nrows),
+                                               "start_cols",
+                                               n00b_ka(ncols),
+                                               "header_rows",
+                                               n00b_ka(1),
+                                               "stripe",
+                                               n00b_ka(true)));
 
         for (int i = 0; i < nrows; i++) {
             n00b_list_t *l = n00b_list_get(items, i, NULL);
@@ -2816,8 +2816,6 @@ const n00b_vtable_t n00b_grid_vtable = {
         [N00B_BI_GC_MAP]        = (n00b_vtable_entry)n00b_grid_set_gc_bits,
         [N00B_BI_CONTAINER_LIT] = (n00b_vtable_entry)n00b_to_grid_lit,
         [N00B_BI_COPY]          = (n00b_vtable_entry)n00b_grid_copy,
-        // Explicit because some compilers don't seem to always properly
-        // zero it (Was sometimes crashing on a `n00b_stream_t` on my mac).
         [N00B_BI_FINALIZER]     = NULL,
     },
 };

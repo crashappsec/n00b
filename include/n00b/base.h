@@ -25,6 +25,7 @@
 #include <pwd.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <poll.h>
 
 #include <sys/select.h>
 #include <sys/types.h>
@@ -36,6 +37,7 @@
 #include <sys/utsname.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <arpa/inet.h>
 
 #if defined(__linux__)
@@ -72,6 +74,12 @@ forkpty(int *, char *, struct termios *, struct winsize *);
 
 typedef struct hatrack_dict_t n00b_dict_t;
 typedef struct hatrack_set_st n00b_set_t;
+
+// While the hatrack data structures are done in a way that's
+// independent of n00b, the memory management is core to everything
+// EXCEPT for the locking code, which memory management does use.
+#include "core/locks.h"
+#include "core/heap.h"
 
 #include "n00b/datatypes.h"
 

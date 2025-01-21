@@ -421,16 +421,18 @@ static inline void
 init_style_db()
 {
     if (style_dictionary == NULL) {
-        n00b_gc_register_root(&style_dictionary, 1);
         style_dictionary = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+        n00b_gc_register_root(&style_dictionary, 1);
     }
 }
 
 void
 n00b_set_style(n00b_utf8_t *name, n00b_render_style_t *style)
 {
+    n00b_push_heap(n00b_thread_master_heap);
     init_style_db();
     hatrack_dict_put(style_dictionary, name, style);
+    n00b_pop_heap();
 }
 
 // Returns a COPY of the style so that it doesn't get accidentially
@@ -438,19 +440,22 @@ n00b_set_style(n00b_utf8_t *name, n00b_render_style_t *style)
 n00b_render_style_t *
 n00b_lookup_cell_style(n00b_utf8_t *name)
 {
+    n00b_push_heap(n00b_thread_master_heap);
     init_style_db();
 
     n00b_render_style_t *entry = hatrack_dict_get(style_dictionary,
-                                                 name,
-                                                 NULL);
+                                                  name,
+                                                  NULL);
 
     if (!entry) {
+        n00b_pop_heap();
         return NULL;
     }
 
     n00b_render_style_t *result = n00b_new(n00b_type_render_style());
 
     memcpy(result, entry, sizeof(n00b_render_style_t));
+    n00b_pop_heap();
     return result;
 }
 
@@ -459,28 +464,28 @@ n00b_style_init(n00b_render_style_t *style, va_list args)
 {
     n00b_color_t fg_color        = -1;
     n00b_color_t bg_color        = -1;
-    bool        bold            = false;
-    bool        italic          = false;
-    bool        strikethru      = false;
-    bool        underline       = false;
-    bool        duline          = false;
-    bool        reverse         = false;
-    bool        fit_text        = false;
-    bool        disable_wrap    = false;
-    double      width_pct       = -1;
-    int64_t     flex_units      = -1;
-    int32_t     min_size        = -1;
-    int32_t     max_size        = -1;
-    int32_t     top_pad         = -1;
-    int32_t     bottom_pad      = -1;
-    int32_t     left_pad        = -1;
-    int32_t     right_pad       = -1;
-    int32_t     wrap_hang       = -1;
+    bool         bold            = false;
+    bool         italic          = false;
+    bool         strikethru      = false;
+    bool         underline       = false;
+    bool         duline          = false;
+    bool         reverse         = false;
+    bool         fit_text        = false;
+    bool         disable_wrap    = false;
+    double       width_pct       = -1;
+    int64_t      flex_units      = -1;
+    int32_t      min_size        = -1;
+    int32_t      max_size        = -1;
+    int32_t      top_pad         = -1;
+    int32_t      bottom_pad      = -1;
+    int32_t      left_pad        = -1;
+    int32_t      right_pad       = -1;
+    int32_t      wrap_hang       = -1;
     n00b_color_t pad_color       = 0xffffffff;
-    int32_t     alignment       = -1;
-    int32_t     enabled_borders = -1;
-    char       *border_theme    = NULL;
-    char       *tag             = NULL;
+    int32_t      alignment       = -1;
+    int32_t      enabled_borders = -1;
+    char        *border_theme    = NULL;
+    char        *tag             = NULL;
 
     n00b_karg_va_init(args);
     n00b_kw_int32("fg_color", fg_color);
@@ -610,7 +615,7 @@ n00b_style_init(n00b_render_style_t *style, va_list args)
 
     if (enabled_borders != -1) {
         n00b_style_set_borders(style,
-                              (n00b_border_set_t)enabled_borders);
+                               (n00b_border_set_t)enabled_borders);
     }
 
     if (tag != NULL) {
@@ -620,7 +625,7 @@ n00b_style_init(n00b_render_style_t *style, va_list args)
 
 n00b_render_style_t *
 n00b_layer_styles(n00b_render_style_t *s1,
-                 n00b_render_style_t *s2)
+                  n00b_render_style_t *s2)
 {
     if (!s1 || !s2) {
         return NULL;
@@ -741,11 +746,13 @@ n00b_style_exists(n00b_utf8_t *name)
 static void
 static_style(char *name, n00b_render_style_t *s)
 {
+    n00b_push_heap(n00b_thread_master_heap);
     n00b_render_style_t *copy = n00b_new(n00b_type_render_style());
     memcpy(copy, s, sizeof(n00b_render_style_t));
     copy->name = n00b_new_utf8(name);
 
     n00b_set_style(copy->name, copy);
+    n00b_pop_heap();
 }
 
 void
@@ -788,12 +795,12 @@ n00b_grid_t *
 n00b_style_details(n00b_render_style_t *s)
 {
     n00b_grid_t *grid = n00b_new(n00b_type_grid(),
-                               n00b_kw("start_cols",
-                                      n00b_ka(2),
-                                      "header_cols",
-                                      n00b_ka(1),
-                                      "stripe",
-                                      n00b_ka(true)));
+                                 n00b_kw("start_cols",
+                                         n00b_ka(2),
+                                         "header_cols",
+                                         n00b_ka(1),
+                                         "stripe",
+                                         n00b_ka(true)));
 
     n00b_list_t *row  = n00b_new_table_row();
     n00b_utf8_t *nope = n00b_rich_lit("[i]Not set[/]");
@@ -923,7 +930,7 @@ n00b_style_details(n00b_render_style_t *s)
     row = n00b_new_table_row();
 
     n00b_list_append(row, n00b_new_utf8("Wrap: "));
-    int64_t     wrap = n00b_style_get_wrap(s);
+    int64_t      wrap = n00b_style_get_wrap(s);
     n00b_utf8_t *hang = n00b_style_hang_set(s) ? n00b_new_utf8("y") : n00b_new_utf8("n");
 
     switch (wrap) {
@@ -982,8 +989,6 @@ const n00b_vtable_t n00b_render_style_vtable = {
     .methods     = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_style_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
-        // Explicit because some compilers don't seem to always properly
-        // zero it (Was sometimes crashing on a `n00b_stream_t` on my mac).
         [N00B_BI_FINALIZER]   = NULL,
     },
 };

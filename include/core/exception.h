@@ -66,61 +66,61 @@
 // You MUST NOT put the try/except block code in curly braces!
 //
 
-#define N00B_TRY                                                          \
-    jmp_buf                   _n00bx_jmpbuf;                               \
-    int                       _n00bx_setjmp_val;                           \
-    n00b_exception_stack_t    *_n00bx_stack;                                \
-    n00b_exception_frame_t    *_n00bx_frame;                                \
-    volatile int              _n00bx_exception_state   = N00B_EXCEPTION_OK; \
-    volatile n00b_exception_t *_n00bx_current_exception = NULL;             \
-                                                                         \
-    _n00bx_stack      = n00b_exception_push_frame(&_n00bx_jmpbuf);            \
+#define N00B_TRY                                                             \
+    jmp_buf                    _n00bx_jmpbuf;                                \
+    int                        _n00bx_setjmp_val;                            \
+    n00b_exception_stack_t    *_n00bx_stack;                                 \
+    n00b_exception_frame_t    *_n00bx_frame;                                 \
+    volatile int               _n00bx_exception_state   = N00B_EXCEPTION_OK; \
+    volatile n00b_exception_t *_n00bx_current_exception = NULL;              \
+                                                                             \
+    _n00bx_stack      = n00b_exception_push_frame(&_n00bx_jmpbuf);           \
     _n00bx_frame      = _n00bx_stack->top;                                   \
     _n00bx_setjmp_val = setjmp(_n00bx_jmpbuf);                               \
-                                                                         \
+                                                                             \
     if (!_n00bx_setjmp_val) {
-#define N00B_EXCEPT                                           \
-    }                                                        \
-    else                                                     \
-    {                                                        \
+#define N00B_EXCEPT                                              \
+    }                                                            \
+    else                                                         \
+    {                                                            \
         _n00bx_current_exception = _n00bx_stack->top->exception; \
         _n00bx_setjmp_val        = setjmp(_n00bx_jmpbuf);        \
         if (!_n00bx_setjmp_val) {
-#define N00B_LFINALLY(user_label)                                          \
-    }                                                                     \
-    else                                                                  \
-    {                                                                     \
-        _n00bx_exception_state            = N00B_EXCEPTION_IN_HANDLER;       \
+#define N00B_LFINALLY(user_label)                                             \
+    }                                                                         \
+    else                                                                      \
+    {                                                                         \
+        _n00bx_exception_state            = N00B_EXCEPTION_IN_HANDLER;        \
         _n00bx_frame->exception->previous = (void *)_n00bx_current_exception; \
         _n00bx_current_exception          = _n00bx_stack->top->exception;     \
-    }                                                                     \
-    }                                                                     \
-    _n00bx_finally_##user_label:                                            \
-    {                                                                     \
+    }                                                                         \
+    }                                                                         \
+    _n00bx_finally_##user_label:                                              \
+    {                                                                         \
         if (!setjmp(_n00bx_jmpbuf)) {
 // The goto here avoids strict checking for unused labels.
-#define N00B_LTRY_END(user_label)                                          \
-    goto _n00bx_try_end_##user_label;                                       \
-    }                                                                     \
-    else                                                                  \
-    {                                                                     \
-        _n00bx_exception_state            = N00B_EXCEPTION_IN_HANDLER;       \
+#define N00B_LTRY_END(user_label)                                             \
+    goto _n00bx_try_end_##user_label;                                         \
+    }                                                                         \
+    else                                                                      \
+    {                                                                         \
+        _n00bx_exception_state            = N00B_EXCEPTION_IN_HANDLER;        \
         _n00bx_frame->exception->previous = (void *)_n00bx_current_exception; \
         _n00bx_current_exception          = _n00bx_stack->top->exception;     \
-    }                                                                     \
-    }                                                                     \
-    _n00bx_try_end_##user_label : _n00bx_stack->top = _n00bx_frame->next;       \
-    if (_n00bx_exception_state == N00B_EXCEPTION_IN_HANDLER                  \
-        || _n00bx_exception_state == N00B_EXCEPTION_NOT_HANDLED) {           \
-        if (!_n00bx_frame->next) {                                          \
-            n00b_exception_uncaught((void *)_n00bx_current_exception);       \
-        }                                                                 \
-        n00b_exception_free_frame(_n00bx_frame, _n00bx_stack);                 \
+    }                                                                         \
+    }                                                                         \
+    _n00bx_try_end_##user_label : _n00bx_stack->top = _n00bx_frame->next;     \
+    if (_n00bx_exception_state == N00B_EXCEPTION_IN_HANDLER                   \
+        || _n00bx_exception_state == N00B_EXCEPTION_NOT_HANDLED) {            \
+        if (!_n00bx_frame->next) {                                            \
+            n00b_exception_uncaught((void *)_n00bx_current_exception);        \
+        }                                                                     \
+        n00b_exception_free_frame(_n00bx_frame, _n00bx_stack);                \
         _n00bx_stack->top->exception = (void *)_n00bx_current_exception;      \
         _n00bx_frame                 = _n00bx_stack->top;                     \
         _n00bx_frame->exception      = (void *)_n00bx_current_exception;      \
-        longjmp(*(_n00bx_frame->buf), 1);                                   \
-    }                                                                     \
+        longjmp(*(_n00bx_frame->buf), 1);                                     \
+    }                                                                         \
     n00b_exception_free_frame(_n00bx_frame, _n00bx_stack);
 
 #define N00B_LJUMP_TO_FINALLY(user_label) goto _n00bx_finally_##user_label
@@ -144,17 +144,17 @@ extern thread_local n00b_exception_stack_t __exception_stack;
     n00b_exception_raise(                                    \
         n00b_alloc_exception(s, __VA_OPT__(, ) __VA_ARGS__), \
         n00b_trace(),                                        \
-        __FILE__,                                           \
+        __FILE__,                                            \
         __LINE__)
 
 #define N00B_RAISE(s, ...)                                      \
     n00b_exception_raise(                                       \
         n00b_alloc_str_exception(s __VA_OPT__(, ) __VA_ARGS__), \
         n00b_trace(),                                           \
-        __FILE__,                                              \
+        __FILE__,                                               \
         __LINE__)
 
-#define N00B_RERAISE()                                 \
+#define N00B_RERAISE()                                   \
     _n00bx_exception_state = N00B_EXCEPTION_NOT_HANDLED; \
     longjmp(*(_n00bx_current_frame->buf), 1)
 
@@ -174,13 +174,13 @@ enum : int64_t {
 };
 
 n00b_exception_stack_t *n00b_exception_push_frame(jmp_buf *);
-void                   n00b_exception_free_frame(n00b_exception_frame_t *,
-                                                n00b_exception_stack_t *);
-void                   n00b_exception_uncaught(n00b_exception_t *);
-void                   n00b_exception_raise(n00b_exception_t *,
-                                           n00b_grid_t *,
-                                           char *,
-                                           int) __attribute((__noreturn__));
+void                    n00b_exception_free_frame(n00b_exception_frame_t *,
+                                                  n00b_exception_stack_t *);
+void                    n00b_exception_uncaught(n00b_exception_t *);
+void                    n00b_exception_raise(n00b_exception_t *,
+                                             n00b_grid_t *,
+                                             char *,
+                                             int) __attribute((__noreturn__));
 n00b_utf8_t            *n00b_repr_exception_stack_no_vm(n00b_utf8_t *);
 
 static inline n00b_utf8_t *
@@ -203,16 +203,17 @@ n00b_exception_get_message(n00b_exception_t *exception)
 
 void n00b_exception_register_uncaught_handler(void (*)(n00b_exception_t *));
 
-#define N00B_RAISE_SYS()                                                     \
-    {                                                                       \
-        char buf[BUFSIZ];                                                   \
-        strerror_r(errno, buf, BUFSIZ);                                     \
+#define N00B_RAISE_SYS()                                                         \
+    {                                                                            \
+        char buf[BUFSIZ];                                                        \
+        strerror_r(errno, buf, BUFSIZ);                                          \
         N00B_RAISE(n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(buf))), \
-                  n00b_kw("error_code", n00b_ka(errno)));                     \
+                   n00b_kw("error_code", n00b_ka(errno)));                       \
     }
 
 extern thread_local n00b_exception_stack_t __exception_stack;
 
+#if 0
 static inline void
 n00b_raise_errcode(int code)
 {
@@ -223,19 +224,28 @@ n00b_raise_errcode(int code)
     if (strerror_r(code, msg, 2048)) {}
     N00B_RAISE(n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(msg))));
 }
+#else
+#define n00b_raise_errcode(code)                                \
+    {                                                           \
+        char msg[2048] = {                                      \
+            0,                                                  \
+        };                                                      \
+        if (strerror_r(code, msg, 2048)) {}                     \
+        N00B_RAISE(n00b_new(n00b_type_utf8(),                   \
+                            n00b_kw("cstring", n00b_ka(msg)))); \
+    }
+#endif
 
-static inline void
-n00b_raise_errno()
-{
-    n00b_raise_errcode(errno);
-}
+#define n00b_raise_errno() n00b_raise_errcode(errno)
 
-#define n00b_unreachable()                                   \
+#define n00b_unreachable()                                  \
     {                                                       \
-        n00b_utf8_t *s = n00b_cstr_format(                    \
+        n00b_utf8_t *s = n00b_cstr_format(                  \
             "Reached code that the developer "              \
             "(wrongly) believed was unreachable, at {}:{}", \
-            n00b_new_utf8(__FILE__),                         \
-            n00b_box_i32(__LINE__));                         \
-        N00B_RAISE(s);                                       \
+            n00b_new_utf8(__FILE__),                        \
+            n00b_box_i32(__LINE__));                        \
+        N00B_RAISE(s);                                      \
     }
+
+extern void n00b_default_uncaught_handler(n00b_exception_t *exception);

@@ -1,10 +1,36 @@
 // When n00b is actually used as a library, call this, because the
 // constructors are likely to not get called properly.
-
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-char **n00b_stashed_argv;
-char **n00b_stashed_envp;
+char              **n00b_stashed_argv;
+char              **n00b_stashed_envp;
+static n00b_list_t *exit_handlers = NULL;
+
+static void
+n00b_on_exit(void)
+{
+    void (*handler)(void) = n00b_list_pop(exit_handlers);
+
+    while (handler) {
+        handler();
+        handler = n00b_list_pop(exit_handlers);
+    }
+}
+
+void
+n00b_add_exit_handler(void (*handler)(void))
+{
+    n00b_push_heap(n00b_thread_master_heap);
+
+    if (!exit_handlers) {
+        exit_handlers = n00b_list(n00b_type_ref());
+        atexit(n00b_on_exit);
+    }
+
+    n00b_list_append(exit_handlers, handler);
+    n00b_pop_heap();
+}
 
 static void
 n00b_register_builtins(void)
@@ -23,7 +49,7 @@ n00b_list_t *
 n00b_get_program_arguments(void)
 {
     n00b_list_t *result = n00b_list(n00b_type_utf8());
-    char      **cur    = n00b_stashed_argv + 1; // Skip argv0.
+    char       **cur    = n00b_stashed_argv + 1; // Skip argv0.
 
     while (*cur != NULL) {
         n00b_list_append(result, n00b_new_utf8(*cur));
@@ -72,16 +98,16 @@ load_env(n00b_dict_t *environment_vars)
             continue;
         }
         n00b_utf8_t *key   = n00b_new(n00b_type_utf8(),
-                                  n00b_kw("length",
-                                         n00b_ka(len1),
-                                         "cstring",
-                                         n00b_ka(item)));
+                                    n00b_kw("length",
+                                            n00b_ka(len1),
+                                            "cstring",
+                                            n00b_ka(item)));
         n00b_utf8_t *value = n00b_new_utf8(val);
 
         hatrack_dict_put(environment_vars, key, value);
         assert(hatrack_dict_get(environment_vars, key, NULL) == value);
     }
-    n00b_gc_register_root(&environment_vars, 1);
+    n00b_gc_register_root(&cached_environment_vars, 1);
 }
 
 n00b_utf8_t *
@@ -89,7 +115,7 @@ n00b_get_env(n00b_utf8_t *name)
 {
     if (cached_environment_vars == NULL) {
         cached_environment_vars = n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                                        n00b_type_utf8()));
+                                                          n00b_type_utf8()));
         load_env(cached_environment_vars);
     }
 
@@ -100,7 +126,7 @@ n00b_dict_t *
 n00b_environment(void)
 {
     n00b_dict_t *result = n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                               n00b_type_utf8()));
+                                                  n00b_type_utf8()));
 
     load_env(result);
 
@@ -122,7 +148,7 @@ n00b_n00b_root(void)
             N00B_TRY
             {
                 n00b_utf8_t *tmp2 = n00b_cstr_format("{}/../..", tmp);
-                n00b_root       = n00b_resolve_path(tmp2);
+                n00b_root         = n00b_resolve_path(tmp2);
             }
             N00B_EXCEPT
             {
@@ -203,10 +229,10 @@ n00b_init_path(void)
 n00b_utf8_t *
 n00b_path_search(n00b_utf8_t *package, n00b_utf8_t *module)
 {
-    uint64_t     n_items;
+    uint64_t      n_items;
     n00b_utf8_t  *munged     = NULL;
     n00b_utf8_t **extensions = (void *)hatrack_dict_keys_sort(n00b_extensions,
-                                                             &n_items);
+                                                              &n_items);
 
     if (package != NULL && n00b_str_codepoint_len(package) != 0) {
         n00b_list_t *parts = n00b_str_split(package, n00b_new_utf8("."));
@@ -224,7 +250,7 @@ n00b_path_search(n00b_utf8_t *package, n00b_utf8_t *module)
             for (int j = 0; j < (int)n_items; j++) {
                 n00b_utf8_t *ext = extensions[j];
                 n00b_str_t  *s   = n00b_cstr_format("{}/{}.{}", dir, munged, ext);
-                s               = n00b_to_utf8(s);
+                s                = n00b_to_utf8(s);
 
                 struct stat info;
 
@@ -240,7 +266,7 @@ n00b_path_search(n00b_utf8_t *package, n00b_utf8_t *module)
             for (int j = 0; j < (int)n_items; j++) {
                 n00b_utf8_t *ext = extensions[j];
                 n00b_str_t  *s   = n00b_cstr_format("{}/{}.{}", dir, module, ext);
-                s               = n00b_to_utf8(s);
+                s                = n00b_to_utf8(s);
 
                 struct stat info;
 
@@ -270,6 +296,7 @@ _n00b_set_package_search_path(n00b_utf8_t *dir, ...)
 
     va_end(args);
 }
+
 #ifdef N00B_STATIC_FFI_BINDING
 #define FSTAT(x) n00b_add_static_function(n00b_new_utf8(#x), x)
 #else
@@ -315,10 +342,12 @@ static void
 n00b_initialize_library(void)
 {
     n00b_init_program_timestamp();
-    n00b_init_std_streams();
+    n00b_io_init();
 }
 
 extern void n00b_crash_init();
+
+bool n00b_startup_complete = false;
 
 __attribute__((constructor)) void
 n00b_init(int argc, char **argv, char **envp)
@@ -326,22 +355,28 @@ n00b_init(int argc, char **argv, char **envp)
     static int inited = false;
 
     if (!inited) {
-        inited           = true;
+        inited            = true;
         n00b_stashed_argv = argv;
         n00b_stashed_envp = envp;
 
-        n00b_backtrace_init(argv[0]);
-        n00b_gc_openssl();
         n00b_initialize_gc();
-        n00b_gc_register_root(&cached_environment_vars, 1);
+
         n00b_gc_register_root(&n00b_root, 1);
         n00b_gc_register_root(&n00b_path, 1);
         n00b_gc_register_root(&n00b_extensions, 1);
-        n00b_gc_set_finalize_callback((void *)n00b_finalize_allocation);
+        n00b_gc_register_root(&cached_environment_vars, 1);
+        n00b_gc_register_root(&mmm_free_tids, sizeof(mmm_free_tids) / 8);
         n00b_initialize_global_types();
+        n00b_thread_register();
+        n00b_backtrace_init(argv[0]);
+        n00b_gc_set_system_finalizer((void *)n00b_finalize_allocation);
         n00b_crash_init();
         n00b_init_path();
         n00b_initialize_library();
         n00b_register_builtins();
+        n00b_restart_the_world();
+        n00b_startup_complete = true;
+
+        n00b_launch_io_loop();
     }
 }

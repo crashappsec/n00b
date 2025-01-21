@@ -39,18 +39,18 @@ typedef struct {
     n00b_tree_node_t  *cur;
     n00b_module_t     *module_ctx;
     n00b_token_t      *cached_token;
-    hatstack_t       *root_stack;
+    hatstack_t        *root_stack;
     n00b_checkpoint_t *jump_state;
-    int32_t           token_ix;
-    int32_t           cache_ix;
-    int32_t           loop_depth;
-    int32_t           switch_depth;
+    int32_t            token_ix;
+    int32_t            cache_ix;
+    int32_t            loop_depth;
+    int32_t            switch_depth;
     // This is used to figure out whether we should allow a newline
     // after a ), ] or }. If we're inside a literal definition, we
     // allow it. If we're in a literal definition context, the newline
     // is okay, otherwise it is not.
-    int32_t           lit_depth;
-    bool              in_function;
+    int32_t            lit_depth;
+    bool               in_function;
 } parse_ctx;
 
 #ifdef N00B_PARSE_DEBUG
@@ -67,8 +67,8 @@ static inline n00b_token_t *_tok_cur(parse_ctx *);
     _start_node(ctx, kind, consume_token)
 #endif
 
-#define DEBUG_CUR(x)                                           \
-    {                                                          \
+#define DEBUG_CUR(x)                                             \
+    {                                                            \
         n00b_utf8_t *prefix = n00b_new_utf8(x);                  \
         n00b_print(n00b_format_one_token(tok_cur(ctx), prefix)); \
     }
@@ -83,15 +83,15 @@ n00b_end_checkpoint(parse_ctx *ctx)
 
 static inline __attribute__((noreturn)) void
 n00b_exit_to_checkpoint(parse_ctx  *ctx,
-                       int         code,
-                       const char *f,
-                       int         line,
-                       const char *fn)
+                        int         code,
+                        const char *f,
+                        int         line,
+                        const char *fn)
 {
 #ifdef N00B_PARSE_DEBUG
     printf("Bailed @%s:%d (func = %s)\n", f, line, fn);
     n00b_print(n00b_format_one_token(tok_cur(ctx),
-                                   n00b_new_utf8("Current token: ")));
+                                     n00b_new_utf8("Current token: ")));
 #endif
     longjmp(ctx->jump_state->env, code);
 }
@@ -99,27 +99,27 @@ n00b_exit_to_checkpoint(parse_ctx  *ctx,
 #define DECLARE_CHECKPOINT() \
     int checkpoint_error = 0;
 
-#define ENTER_CHECKPOINT()                       \
-    if (!checkpoint_error) {                     \
+#define ENTER_CHECKPOINT()                        \
+    if (!checkpoint_error) {                      \
         n00b_checkpoint_t *cp = new_checkpoint(); \
-        cp->prev             = ctx->jump_state;  \
-        cp->fn               = (char *)__func__; \
-        ctx->jump_state      = cp;               \
-        checkpoint_error     = setjmp(cp->env);  \
-        if (checkpoint_error != 0) {             \
-            ctx->jump_state = cp->prev;          \
-        }                                        \
+        cp->prev              = ctx->jump_state;  \
+        cp->fn                = (char *)__func__; \
+        ctx->jump_state       = cp;               \
+        checkpoint_error      = setjmp(cp->env);  \
+        if (checkpoint_error != 0) {              \
+            ctx->jump_state = cp->prev;           \
+        }                                         \
     }
 
 #define CHECKPOINT_STATUS() (checkpoint_error)
 
 #define END_CHECKPOINT() n00b_end_checkpoint(ctx)
-#define THROW(code)                  \
+#define THROW(code)                   \
     n00b_exit_to_checkpoint(ctx,      \
-                           code,     \
-                           __FILE__, \
-                           __LINE__, \
-                           __func__)
+                            code,     \
+                            __FILE__, \
+                            __LINE__, \
+                            __func__)
 
 #ifdef N00B_PARSE_DEBUG
 static inline void _consume(parse_ctx *, int);
@@ -127,27 +127,27 @@ static inline void _consume(parse_ctx *, int);
 static inline void _consume(parse_ctx *);
 #endif
 
-static void             identifier(parse_ctx *);
-static void             body(parse_ctx *, n00b_pnode_t *);
-static inline bool      line_skip_recover(parse_ctx *);
-static void             one_tspec_node(parse_ctx *);
-static void             typeof_stmt(parse_ctx *, bool);
-static void             switch_stmt(parse_ctx *, bool);
-static void             continue_stmt(parse_ctx *);
-static void             break_stmt(parse_ctx *);
-static void             return_stmt(parse_ctx *);
+static void              identifier(parse_ctx *);
+static void              body(parse_ctx *, n00b_pnode_t *);
+static inline bool       line_skip_recover(parse_ctx *);
+static void              one_tspec_node(parse_ctx *);
+static void              typeof_stmt(parse_ctx *, bool);
+static void              switch_stmt(parse_ctx *, bool);
+static void              continue_stmt(parse_ctx *);
+static void              break_stmt(parse_ctx *);
+static void              return_stmt(parse_ctx *);
 static n00b_tree_node_t *expression(parse_ctx *);
 static n00b_tree_node_t *assign(parse_ctx *, n00b_tree_node_t *, n00b_node_kind_t);
 static n00b_tree_node_t *member_expr(parse_ctx *, n00b_tree_node_t *);
 static n00b_tree_node_t *index_expr(parse_ctx *, n00b_tree_node_t *);
 static n00b_tree_node_t *call_expr(parse_ctx *, n00b_tree_node_t *);
 static n00b_tree_node_t *section(parse_ctx *, n00b_tree_node_t *);
-static bool             literal(parse_ctx *);
+static bool              literal(parse_ctx *);
 static n00b_tree_node_t *label_stmt(parse_ctx *);
-static void             assert_stmt(parse_ctx *);
-static void             use_stmt(parse_ctx *);
-static void             basic_member_expr(parse_ctx *);
-static void             formal_list(parse_ctx *);
+static void              assert_stmt(parse_ctx *);
+static void              use_stmt(parse_ctx *);
+static void              basic_member_expr(parse_ctx *);
+static void              formal_list(parse_ctx *);
 static n00b_node_kind_t  variable_decl(parse_ctx *);
 static n00b_tree_node_t *shl_expr_rhs(parse_ctx *);
 static n00b_tree_node_t *shr_expr_rhs(parse_ctx *);
@@ -272,8 +272,8 @@ _tok_cur(parse_ctx *ctx)
 {
     if (!ctx->cached_token || ctx->token_ix != ctx->cache_ix) {
         ctx->cached_token = n00b_list_get(ctx->module_ctx->ct->tokens,
-                                         ctx->token_ix,
-                                         NULL);
+                                          ctx->token_ix,
+                                          NULL);
         ctx->cache_ix     = ctx->token_ix;
     }
 
@@ -283,7 +283,7 @@ _tok_cur(parse_ctx *ctx)
     }
 
     n00b_utf8_t *prefix = n00b_cstr_format("parse.c line {}: tok_cur(ctx) = ",
-                                         n00b_box_i32(line));
+                                           n00b_box_i32(line));
 
     n00b_print(n00b_format_one_token(ctx->cached_token, prefix));
 #endif
@@ -307,10 +307,10 @@ _add_parse_error(parse_ctx *ctx, n00b_compile_error_t code, ...)
 
     va_start(args, code);
     n00b_base_add_error(ctx->module_ctx->ct->errors,
-                       code,
-                       n00b_token_get_location_str(tok_cur(ctx)),
-                       n00b_err_severity_error,
-                       args);
+                        code,
+                        n00b_token_get_location_str(tok_cur(ctx)),
+                        n00b_err_severity_error,
+                        args);
     ctx->module_ctx->ct->fatal_errors = true;
     va_end(args);
 }
@@ -320,20 +320,20 @@ _add_parse_error(parse_ctx *ctx, n00b_compile_error_t code, ...)
 
 // For minor errors that don't involve a raise.
 static void
-_error_at_node(parse_ctx          *ctx,
+_error_at_node(parse_ctx           *ctx,
                n00b_tree_node_t    *n,
                n00b_compile_error_t code,
                ...)
 {
-    va_list      args;
+    va_list       args;
     n00b_pnode_t *p = (n00b_pnode_t *)n00b_tree_get_contents(n);
 
     va_start(args, code);
     n00b_base_add_error(ctx->module_ctx->ct->errors,
-                       code,
-                       n00b_token_get_location_str(p->token),
-                       n00b_err_severity_error,
-                       args);
+                        code,
+                        n00b_token_get_location_str(p->token),
+                        n00b_err_severity_error,
+                        args);
     ctx->module_ctx->ct->fatal_errors = true;
     va_end(args);
 }
@@ -342,17 +342,17 @@ _error_at_node(parse_ctx          *ctx,
     _error_at_node(ctx, n, code, N00B_VA(__VA_ARGS__))
 
 static void __attribute__((noreturn))
-_raise_err_at_node(parse_ctx          *ctx,
+_raise_err_at_node(parse_ctx           *ctx,
                    n00b_pnode_t        *n,
                    n00b_compile_error_t code,
-                   bool                bail,
-                   const char         *f,
-                   int                 line,
-                   const char         *fn)
+                   bool                 bail,
+                   const char          *f,
+                   int                  line,
+                   const char          *fn)
 {
     n00b_compile_error *err = n00b_new_error(0);
-    err->code              = code;
-    err->loc               = n00b_token_get_location_str(n->token);
+    err->code               = code;
+    err->loc                = n00b_token_get_location_str(n->token);
     n00b_list_append(ctx->module_ctx->ct->errors, err);
 
     if (bail) {
@@ -442,7 +442,7 @@ err_skip_stmt(parse_ctx *ctx, n00b_compile_error_t code)
 static inline n00b_token_t *
 previous_token(parse_ctx *ctx)
 {
-    int          i   = ctx->token_ix;
+    int           i   = ctx->token_ix;
     n00b_token_t *tok = NULL;
 
     while (i--) {
@@ -545,8 +545,8 @@ static n00b_token_kind_t
 lookahead(parse_ctx *ctx, int num, bool skip_newline)
 {
     n00b_token_t *saved_cache    = ctx->cached_token;
-    int64_t      saved_tok_ix   = ctx->token_ix;
-    int64_t      saved_cache_ix = ctx->cache_ix;
+    int64_t       saved_tok_ix   = ctx->token_ix;
+    int64_t       saved_cache_ix = ctx->cache_ix;
 
     while (num > 0) {
         tok_raw_advance_once(ctx);
@@ -581,7 +581,7 @@ lookahead(parse_ctx *ctx, int num, bool skip_newline)
 static n00b_token_kind_t
 _match(parse_ctx *ctx, ...)
 {
-    va_list          args;
+    va_list           args;
     n00b_token_kind_t possibility;
     n00b_token_kind_t current_tt = tok_cur(ctx)->kind;
 
@@ -668,7 +668,7 @@ adopt_kid(parse_ctx *ctx, n00b_tree_node_t *node)
 
     n00b_pnode_t *parent = current_parse_node(ctx);
     n00b_pnode_t *kid    = (n00b_pnode_t *)n00b_tree_get_contents(node);
-    kid->sibling_id     = parent->total_kids++;
+    kid->sibling_id      = parent->total_kids++;
 
     n00b_tree_adopt_node(ctx->cur, node);
 }
@@ -692,7 +692,7 @@ _start_node(parse_ctx *ctx, n00b_node_kind_t kind, bool consume_token)
     }
 
     n00b_tree_node_t *result = n00b_tree_add_node(parent, child);
-    ctx->cur                = result;
+    ctx->cur                 = result;
 
 #ifdef N00B_PARSE_DEBUG
     printf("started node: ");
@@ -721,7 +721,7 @@ temporary_tree(parse_ctx *ctx, n00b_node_kind_t nt)
     n00b_type_t      *pn     = n00b_type_parse_node();
     n00b_type_t      *tt     = n00b_type_tree(pn);
     n00b_tree_node_t *result = n00b_new(tt, n00b_kw("contents", n00b_ka(tmproot)));
-    ctx->cur                = result;
+    ctx->cur                 = result;
 
     return result;
 }
@@ -736,21 +736,21 @@ restore_tree(parse_ctx *ctx)
     return result;
 }
 
-#define binop_restore_and_return(ctx, op)                \
-    {                                                    \
-        n00b_tree_node_t *result = restore_tree(ctx);     \
+#define binop_restore_and_return(ctx, op)                  \
+    {                                                      \
+        n00b_tree_node_t *result = restore_tree(ctx);      \
         n00b_pnode_t     *pnode  = n00b_get_pnode(result); \
-        pnode->extra_info       = (void *)op;            \
-        return result;                                   \
+        pnode->extra_info        = (void *)op;             \
+        return result;                                     \
     }
 
-#define binop_assign(ctx, expr, op)                                        \
-    {                                                                      \
+#define binop_assign(ctx, expr, op)                                          \
+    {                                                                        \
         n00b_tree_node_t *tmp = assign(ctx, expr, n00b_nt_binary_assign_op); \
         n00b_pnode_t     *pn  = n00b_get_pnode(tmp);                         \
-                                                                           \
-        pn->extra_info = (void *)(op);                                     \
-        adopt_kid(ctx, tmp);                                               \
+                                                                             \
+        pn->extra_info = (void *)(op);                                       \
+        adopt_kid(ctx, tmp);                                                 \
     }
 
 static void
@@ -1756,7 +1756,7 @@ for_stmt(parse_ctx *ctx, bool label)
             // in pass 2
             n00b_pnode_t     *pn = n00b_tree_get_contents(ctx->cur);
             n00b_loop_info_t *li = pn->extra_info;
-            li->ranged          = true;
+            li->ranged           = true;
         }
         break;
     case n00b_tt_from:
@@ -1803,7 +1803,7 @@ static void
 case_body(parse_ctx *ctx)
 {
     n00b_tree_node_t *expr;
-    volatile int     safety_check = 0;
+    volatile int      safety_check = 0;
 
     start_node(ctx, n00b_nt_body, true);
 
@@ -2598,8 +2598,8 @@ list_lit(parse_ctx *ctx)
     }
 
     n00b_lit_info_t *li = (n00b_lit_info_t *)current_parse_node(ctx)->extra_info;
-    li->litmod         = tok_cur(ctx)->literal_modifier;
-    li->st             = ST_List;
+    li->litmod          = tok_cur(ctx)->literal_modifier;
+    li->st              = ST_List;
 
     end_node(ctx);
     ctx->lit_depth--;
@@ -2651,8 +2651,8 @@ finish_lit:
     }
 
     n00b_lit_info_t *li = (n00b_lit_info_t *)current_parse_node(ctx)->extra_info;
-    li->litmod         = tok_cur(ctx)->literal_modifier;
-    li->st             = ST_Dict;
+    li->litmod          = tok_cur(ctx)->literal_modifier;
+    li->st              = ST_Dict;
 
     ctx->lit_depth--;
 
@@ -2684,8 +2684,8 @@ tuple_lit(parse_ctx *ctx)
 
     ctx->lit_depth--;
     n00b_lit_info_t *li = (n00b_lit_info_t *)current_parse_node(ctx)->extra_info;
-    li->litmod         = tok_cur(ctx)->literal_modifier;
-    li->st             = ST_Tuple;
+    li->litmod          = tok_cur(ctx)->literal_modifier;
+    li->st              = ST_Tuple;
 
     if (expect(ctx, n00b_tt_rparen) && num_items < 2) {
         current_parse_node(ctx)->kind = n00b_nt_paren_expr;
@@ -2810,7 +2810,7 @@ static void
 field_property(parse_ctx *ctx)
 {
     n00b_token_t *tok = tok_cur(ctx);
-    char        *txt = n00b_identifier_text(tok)->data;
+    char         *txt = n00b_identifier_text(tok)->data;
 
     switch (txt[0]) {
     case 'c':
@@ -2860,10 +2860,10 @@ field_property(parse_ctx *ctx)
         else {
             if (!strcmp(txt, "range")) {
                 property_range(ctx);
-                int              nkids = ctx->cur->num_kids;
+                int               nkids = ctx->cur->num_kids;
                 n00b_tree_node_t *range = ctx->cur->children[nkids - 1];
                 n00b_pnode_t     *pn    = n00b_tree_get_contents(range);
-                pn->token              = tok;
+                pn->token               = tok;
             }
             else {
                 invalid_field_part(ctx);
@@ -4053,7 +4053,7 @@ body(parse_ctx *ctx, n00b_pnode_t *docstring_target)
 {
     // TODO: should 100% have docstrings be a constexpr instead
     // of just a string literal as the only option.
-    volatile int     safety_check = 0;
+    volatile int      safety_check = 0;
     n00b_tree_node_t *expr;
 
     opt_one_newline(ctx);
@@ -4260,10 +4260,10 @@ module(parse_ctx *ctx)
 {
     n00b_tree_node_t *expr;
     n00b_pnode_t     *root   = n00b_new(n00b_type_parse_node(),
-                                ctx,
-                                n00b_nt_module);
+                                  ctx,
+                                  n00b_nt_module);
     n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_parse_node()),
-                                      n00b_kw("contents", n00b_ka(root)));
+                                        n00b_kw("contents", n00b_ka(root)));
 
     ctx->cur = result;
 
@@ -4450,14 +4450,14 @@ static n00b_utf8_t *
 repr_one_node(n00b_pnode_t *one)
 {
     node_type_info_t *info = (node_type_info_t *)&node_type_info[one->kind];
-    n00b_utf8_t       *name = n00b_new_utf8(info->name);
-    n00b_utf8_t       *xtra;
-    n00b_utf8_t       *doc;
+    n00b_utf8_t      *name = n00b_new_utf8(info->name);
+    n00b_utf8_t      *xtra;
+    n00b_utf8_t      *doc;
     char             *fmt = "[h1]{}[/][h2]{}[/][h3]{}[/] ";
 
     if (info->show_contents && one->token != NULL) {
         n00b_utf8_t *token_text = n00b_token_raw_content(one->token);
-        xtra                   = n00b_in_parens(token_text);
+        xtra                    = n00b_in_parens(token_text);
     }
     else {
         xtra = n00b_empty_string();
@@ -4505,7 +4505,7 @@ n00b_grid_t *
 n00b_format_ptree(n00b_module_t *ctx)
 {
     return n00b_grid_tree(ctx->ct->parse_tree,
-                         n00b_kw("converter", n00b_ka(repr_one_node)));
+                          n00b_kw("converter", n00b_ka(repr_one_node)));
 }
 
 static inline void
@@ -4586,7 +4586,7 @@ n00b_parse_type(n00b_module_t *module_ctx)
 
     n00b_pnode_t     *root = n00b_new(n00b_type_parse_node(), ctx, n00b_nt_lit_tspec);
     n00b_tree_node_t *t    = n00b_new(n00b_type_tree(n00b_type_parse_node()),
-                                 n00b_kw("contents", n00b_ka(root)));
+                                   n00b_kw("contents", n00b_ka(root)));
 
     ctx.cur                    = t;
     module_ctx->ct->parse_tree = ctx.cur;
@@ -4601,8 +4601,6 @@ const n00b_vtable_t n00b_parse_node_vtable = {
     .num_entries = N00B_BI_NUM_FUNCS,
     .methods     = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)parse_node_init,
-        // Explicit because some compilers don't seem to always properly
-        // zero it (Was sometimes crashing on a `n00b_stream_t` on my mac).
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)n00b_pnode_set_gc_bits,
         [N00B_BI_FINALIZER]   = NULL,
         NULL,

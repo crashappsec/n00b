@@ -18,33 +18,12 @@
 
 static n00b_dict_t *style_keywords = NULL;
 
-#if 0
-#include "static/richlit.c"
-
-static inline void
-init_style_keywords()
-{
-
-    if (style_keywords == NULL) {
-        n00b_buf_t    *b = n00b_new(n00b_type_buffer(),
-                               n00b_kw("raw",
-                                      n00b_ka(_marshaled_style_keywords),
-                                      "length",
-                                      n00b_ka(1426)));
-        n00b_stream_t *s = n00b_new(n00b_type_stream(),
-                                  n00b_kw("buffer", n00b_ka(b)));
-
-        n00b_gc_register_root(&style_keywords, 1);
-        style_keywords = n00b_unmarshal(s);
-    }
-}
-#else
 static inline void
 init_style_keywords()
 {
     if (style_keywords == NULL) {
         n00b_gc_register_root(&style_keywords, 1);
-        n00b_dict_t *d  = n00b_dict(n00b_type_utf8(), n00b_type_int());
+        n00b_dict_t *d = n00b_dict(n00b_type_utf8(), n00b_type_int());
         style_keywords = d;
 
         hatrack_dict_add(d, n00b_new_utf8("no"), (void *)1LLU);
@@ -85,16 +64,14 @@ init_style_keywords()
         */
     }
 }
-#endif
-
-#define rich_tok_emit()                       \
-    if (p != start) {                         \
-        slice = n00b_new(n00b_type_utf8(),      \
-                        n00b_kw("cstring",     \
-                               n00b_ka(start), \
-                               "length",      \
-                               p - start));   \
-        n00b_list_append(ret, slice);          \
+#define rich_tok_emit()                          \
+    if (p != start) {                            \
+        slice = n00b_new(n00b_type_utf8(),       \
+                         n00b_kw("cstring",      \
+                                 n00b_ka(start), \
+                                 "length",       \
+                                 p - start));    \
+        n00b_list_append(ret, slice);            \
     }
 
 // tokenize the text between '[' and ']' into useful bits.
@@ -102,9 +79,9 @@ static n00b_list_t *
 tokenize_rich_tag(n00b_utf8_t *s)
 {
     n00b_list_t *ret   = n00b_new(n00b_type_list(n00b_type_utf8()));
-    char       *p     = s->data;
-    char       *end   = s->data + n00b_str_byte_len(s);
-    char       *start = p;
+    char        *p     = s->data;
+    char        *end   = s->data + n00b_str_byte_len(s);
+    char        *start = p;
     n00b_utf8_t *slice;
 
     while (p < end) {
@@ -194,7 +171,7 @@ static inline n00b_tag_item_t *
 alloc_tag_item(n00b_tag_parse_ctx *ctx)
 {
     n00b_tag_item_t *out = n00b_gc_alloc_mapped(n00b_tag_item_t, n00b_tag_gc_bits);
-    out->name           = ctx->not_matched;
+    out->name            = ctx->not_matched;
 
     if (ctx->negating == true) {
         out->flags |= N00B_F_NEG;
@@ -239,7 +216,7 @@ try_style_keyword(n00b_tag_parse_ctx *ctx)
     }
 
     n00b_tag_item_t *out = alloc_tag_item(ctx);
-    out->contents.kw_ix = n;
+    out->contents.kw_ix  = n;
     out->flags |= N00B_F_STYLE_KW;
     return true;
 }
@@ -263,7 +240,7 @@ try_cell_style(n00b_tag_parse_ctx *ctx)
     }
 
     n00b_tag_item_t *out = alloc_tag_item(ctx);
-    out->contents.style = n00b_str_style(rs);
+    out->contents.style  = n00b_str_style(rs);
     out->flags |= N00B_F_STYLE_CELL;
 
     return true;
@@ -280,7 +257,7 @@ try_color(n00b_tag_parse_ctx *ctx)
     }
 
     n00b_tag_item_t *out = alloc_tag_item(ctx);
-    out->contents.color = color;
+    out->contents.color  = color;
     out->flags |= N00B_F_STYLE_COLOR;
 
     return true;
@@ -318,8 +295,8 @@ internal_parse_style_lit(n00b_tag_parse_ctx *ctx)
             }
             else {
                 ctx->not_matched = n00b_cstr_format("{} {}",
-                                                   ctx->not_matched,
-                                                   text);
+                                                    ctx->not_matched,
+                                                    text);
             }
 
             if (try_style_keyword(ctx)) {
@@ -393,9 +370,9 @@ parse_style_lit(n00b_style_ctx *ctx)
 static inline void
 n00b_extract_style_blocks(n00b_style_ctx *ctx, char *original_input)
 {
-    int              n   = strlen(original_input);
-    char            *p   = original_input;
-    char            *end = p + n;
+    int               n   = strlen(original_input);
+    char             *p   = original_input;
+    char             *end = p + n;
     n00b_codepoint_t  cp;
     n00b_fmt_frame_t *style_first = NULL;
     n00b_fmt_frame_t *style_cur   = NULL;
@@ -417,7 +394,7 @@ n00b_extract_style_blocks(n00b_style_ctx *ctx, char *original_input)
                 tag_text[tag_ix++] = 0;
                 in_tag             = false;
                 tmp                = n00b_gc_alloc_mapped(n00b_fmt_frame_t,
-                                          n00b_frame_gc_bits);
+                                           n00b_frame_gc_bits);
                 tmp->start         = unstyled_cp;
                 tmp->raw_contents  = n00b_new_utf8(tag_text);
                 if (style_first == NULL) {
@@ -471,7 +448,7 @@ n00b_extract_style_blocks(n00b_style_ctx *ctx, char *original_input)
     }
     if (in_tag) {
         N00B_RAISE(n00b_cstr_format("EOF in style marker in string: {}",
-                                  original_input));
+                                    original_input));
     }
     unstyled_string[unstyled_ix] = 0;
     ctx->style_text              = n00b_new_utf8(unstyled_string);
@@ -498,11 +475,11 @@ apply_one_atom(n00b_style_ctx *ctx, n00b_tag_item_t *atom, uint32_t op)
     case N00B_F_STYLE_COLOR:
         if (atom->flags & N00B_F_BGCOLOR) {
             ctx->cur_style = n00b_set_bg_color(ctx->cur_style,
-                                              atom->contents.color);
+                                               atom->contents.color);
         }
         else {
             ctx->cur_style = n00b_set_fg_color(ctx->cur_style,
-                                              atom->contents.color);
+                                               atom->contents.color);
         }
         return;
     default:
@@ -568,8 +545,8 @@ static void
 convert_parse_to_style(n00b_style_ctx *ctx)
 {
     n00b_tag_item_t *tag_atom;
-    int             n = n00b_list_len(ctx->style_directions);
-    int             op_kind;
+    int              n = n00b_list_len(ctx->style_directions);
+    int              op_kind;
 
     ctx->cur_style = 0;
     ctx->stack     = alloca(sizeof(n00b_tag_item_t **) * n);

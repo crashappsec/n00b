@@ -176,16 +176,16 @@ _n00b_kw_float(n00b_karg_info_t *provided, char *name, double *ptr)
 
 #ifdef N00B_DEBUG_KARGS
 #define n00b_kw(...) n00b_pass_kargs(N00B_PP_NARG(__VA_ARGS__), \
-                                   (char *)__FILE__,         \
-                                   (int)__LINE__,            \
-                                   __VA_ARGS__),             \
-                    NULL
+                                     (char *)__FILE__,          \
+                                     (int)__LINE__,             \
+                                     __VA_ARGS__),              \
+                     NULL
 #else
 #define n00b_kw(...) n00b_pass_kargs(N00B_PP_NARG(__VA_ARGS__), __VA_ARGS__), NULL
 #endif
-#define n00b_karg_only_init(last)                           \
-    va_list _args;                                         \
-    va_start(_args, last);                                 \
+#define n00b_karg_only_init(last)                             \
+    va_list _args;                                            \
+    va_start(_args, last);                                    \
     n00b_karg_info_t *_n00b_karg = va_arg(_args, n00b_obj_t); \
     va_end(_args);
 

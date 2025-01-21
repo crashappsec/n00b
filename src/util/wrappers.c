@@ -11,8 +11,7 @@ n00b_wrapper_join(n00b_list_t *l, const n00b_str_t *joiner)
 n00b_str_t *
 n00b_wrapper_repr(n00b_obj_t obj)
 {
-    n00b_type_t *t = n00b_type_resolve(n00b_get_my_type(obj));
-    return n00b_repr(obj, t);
+    return n00b_repr(obj);
 }
 
 n00b_str_t *
