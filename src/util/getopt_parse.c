@@ -279,6 +279,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
         n00b_utf8_t *msg = n00b_cstr_format("Unknown option: [em]{}[/] ",
                                             name_pnode->info.token->value);
         n00b_list_append(ctx->errors, msg);
+        printf("Death 1.\n");
         return;
     }
 
@@ -286,6 +287,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
                                                   name,
                                                   NULL);
     if (!cur_option) {
+        printf("Death 2.\n");
         return;
     }
 
@@ -347,6 +349,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
 
             existing->value = val;
             existing->n     = 1;
+            printf("Death 4.\n");
             return;
 
             // Choices should all have more than one value.
@@ -479,6 +482,9 @@ gopt_extract_spec(n00b_gopt_extraction_ctx *ctx)
     case N00B_GTNT_INT_NT:
     case N00B_GTNT_BOOL_NT:
     case N00B_GTNT_WORD_NT:
+        extract_args(ctx);
+        ctx->intree = n;
+        return;
     case N00B_GTNT_OPT_JUNK_MULTI:
     case N00B_GTNT_OPT_JUNK_SOLO:
     case N00B_GTNT_OPTION_RULE:
@@ -603,9 +609,17 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
 
         n00b_parse_node_t *bad_kid = n00b_tree_get_contents(cur->children[0]);
 
-        msg = n00b_cstr_format("Got [em]{}[/] when expecting a [em]{}[/].",
-                               bad_kid->info.token->value,
-                               pn->info.name);
+        if (!(strcmp(pn->info.name->data, "ε"))) {
+            msg = n00b_cstr_format("Unexpected input: [em]{}[/].",
+                                   bad_kid->info.token->value);
+        }
+        else {
+            msg = n00b_cstr_format(
+                "Unexpected [em]{}[/] "
+                "when expecting a [em]{}[/].",
+                bad_kid->info.token->value,
+                pn->info.name);
+        }
         n00b_list_append(ctx->errors, msg);
         return;
     }
@@ -757,6 +771,7 @@ convert_parse_tree(n00b_gopt_ctx *gctx, n00b_parser_t *p, n00b_tree_node_t *node
     result->args   = ctx.args;
     result->errors = ctx.errors;
     result->cmd    = ctx.deepest_path;
+    result->tree   = node;
 
     return result;
 }

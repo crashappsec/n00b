@@ -147,6 +147,8 @@ struct n00b_parse_rule_t {
     // For penalty rules. We track the original rule so that we can
     // more easily reconstruct the intended tree structure.
     n00b_parse_rule_t *link;
+    n00b_utf8_t       *doc;
+    n00b_utf8_t       *short_doc;
     // Used when creating error rules; it denotes that the nonterminal
     // would be nullable if we allow a token omission, and that we
     // generated rules for single token omission that respect that
@@ -447,41 +449,48 @@ extern n00b_pitem_t      *n00b_group_items(n00b_grammar_t *p,
                                            n00b_list_t    *pitems,
                                            int             min,
                                            int             max);
-extern n00b_parse_rule_t *n00b_ruleset_add_rule(n00b_grammar_t *,
-                                                n00b_nonterm_t *,
-                                                n00b_list_t *,
-                                                int);
-extern void               n00b_parser_set_default_start(n00b_grammar_t *,
-                                                        n00b_nonterm_t *);
-extern void               n00b_internal_parse(n00b_parser_t *,
-                                              n00b_nonterm_t *);
-extern void               n00b_parse_token_list(n00b_parser_t *,
-                                                n00b_list_t *,
-                                                n00b_nonterm_t *);
-extern void               n00b_parse_string(n00b_parser_t *,
-                                            n00b_str_t *,
-                                            n00b_nonterm_t *);
-extern void               n00b_parse_string_list(n00b_parser_t *,
+extern n00b_parse_rule_t *_n00b_ruleset_add_rule(n00b_grammar_t *,
+                                                 n00b_nonterm_t *,
                                                  n00b_list_t *,
-                                                 n00b_nonterm_t *);
-extern n00b_nonterm_t    *n00b_pitem_get_ruleset(n00b_grammar_t *,
-                                                 n00b_pitem_t *);
-extern n00b_grid_t       *n00b_grammar_to_grid(n00b_grammar_t *);
-extern n00b_grid_t       *n00b_parse_state_format(n00b_parser_t *, bool);
-extern n00b_grid_t       *n00b_forest_format(n00b_list_t *);
-extern n00b_utf8_t       *n00b_repr_token_info(n00b_token_info_t *);
-extern int64_t            n00b_token_stream_codepoints(n00b_parser_t *,
-                                                       void **);
-extern int64_t            n00b_token_stream_strings(n00b_parser_t *, void **);
-extern n00b_grid_t       *n00b_get_parse_state(n00b_parser_t *, bool);
-extern n00b_grid_t       *n00b_format_parse_state(n00b_parser_t *, bool);
-extern n00b_grid_t       *n00b_grammar_format(n00b_grammar_t *);
-extern void               n00b_parser_reset(n00b_parser_t *);
-extern n00b_utf8_t       *n00b_repr_parse_node(n00b_parse_node_t *);
-extern n00b_list_t       *n00b_parse_get_parses(n00b_parser_t *);
-extern void              *n00b_parse_tree_walk(n00b_parser_t *,
-                                               n00b_tree_node_t *,
-                                               void *);
+                                                 int,
+                                                 n00b_utf8_t *);
+#define n00b_ruleset_add_rule(g, nt, l, i) \
+    _n00b_ruleset_add_rule(g, nt, l, i, NULL)
+
+extern void            n00b_parser_set_default_start(n00b_grammar_t *,
+                                                     n00b_nonterm_t *);
+extern void            n00b_internal_parse(n00b_parser_t *,
+                                           n00b_nonterm_t *);
+extern void            n00b_parse_token_list(n00b_parser_t *,
+                                             n00b_list_t *,
+                                             n00b_nonterm_t *);
+extern void            n00b_parse_string(n00b_parser_t *,
+                                         n00b_str_t *,
+                                         n00b_nonterm_t *);
+extern void            n00b_parse_string_list(n00b_parser_t *,
+                                              n00b_list_t *,
+                                              n00b_nonterm_t *);
+extern n00b_nonterm_t *n00b_pitem_get_ruleset(n00b_grammar_t *,
+                                              n00b_pitem_t *);
+extern n00b_grid_t    *n00b_grammar_to_grid(n00b_grammar_t *);
+extern n00b_grid_t    *n00b_parse_state_format(n00b_parser_t *, bool);
+extern n00b_grid_t    *n00b_forest_format(n00b_list_t *);
+extern n00b_utf8_t    *n00b_repr_token_info(n00b_token_info_t *);
+extern int64_t         n00b_token_stream_codepoints(n00b_parser_t *,
+                                                    void **);
+extern int64_t         n00b_token_stream_strings(n00b_parser_t *, void **);
+extern n00b_grid_t    *n00b_get_parse_state(n00b_parser_t *, bool);
+extern n00b_grid_t    *n00b_format_parse_state(n00b_parser_t *, bool);
+extern n00b_grid_t    *n00b_grammar_format(n00b_grammar_t *);
+extern void            n00b_parser_reset(n00b_parser_t *);
+extern n00b_utf8_t    *n00b_repr_parse_node(n00b_parse_node_t *);
+extern n00b_list_t    *n00b_parse_get_parses(n00b_parser_t *);
+extern void           *n00b_parse_tree_walk(n00b_parser_t *,
+                                            n00b_tree_node_t *,
+                                            void *);
+extern n00b_utf8_t    *n00b_repr_rule(n00b_grammar_t *,
+                                      n00b_list_t *,
+                                      int);
 
 static inline n00b_pitem_t *
 n00b_new_pitem(n00b_pitem_kind kind)

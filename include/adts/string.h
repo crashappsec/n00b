@@ -123,6 +123,25 @@ n00b_to_cstring(n00b_str_t *s)
     return s->data;
 }
 
+static inline int
+n00b_str_index_width(const n00b_str_t *s)
+{
+    if (!s || !n00b_str_codepoint_len(s)) {
+        return 0;
+    }
+    if (n00b_str_is_u32(s)) {
+        return 4;
+    }
+
+    int n = n00b_str_byte_len(s);
+    for (int i = 0; i < n; i++) {
+        if (s->data[i] & 0x80) {
+            return 4;
+        }
+    }
+    return 1;
+}
+
 extern n00b_list_t *n00b_u8_map(n00b_list_t *);
 extern bool         n00b_str_eq(n00b_str_t *, n00b_str_t *);
 extern char        *n00b_to_cstr(void *);

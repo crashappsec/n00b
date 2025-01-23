@@ -167,6 +167,8 @@ internal_walker(walk_ctx *ctx, n00b_tree_node_t *cur)
         return;
     }
     ctx->depth++;
+    assert(!cur->num_kids || cur->children);
+
     for (int64_t i = 0; i < cur->num_kids; i++) {
         internal_walker(ctx, cur->children[i]);
     }

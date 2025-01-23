@@ -13,6 +13,10 @@ n00b_list_init(n00b_list_t *list, va_list args)
 
     n00b_rw_lock_init(&list->lock);
 
+    // Asserts the lock is never around code that would wait long
+    // enough to impair the GC.
+    n00b_rw_lock_set_nosleep(&list->lock);
+
     n00b_type_t *t = n00b_get_my_type(list);
 
     if (n00b_type_requires_gc_scan(n00b_type_get_param(t, 0))) {

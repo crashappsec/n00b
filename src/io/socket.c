@@ -16,7 +16,6 @@ n00b_io_socket_open(int64_t fd, n00b_io_impl_info_t *impl)
     cookie->id     = fd;
 
     evutil_make_socket_nonblocking(handle);
-
     n00b_acquire_party(new);
     n00b_stream_t *result = n00b_add_or_replace(new,
                                                 base->io_fd_cache,

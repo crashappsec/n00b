@@ -175,7 +175,7 @@ one_lookup_try(n00b_compile_ctx *ctx,
     result->full_uri   = attempt;
     result->modref     = key;
 
-    n00b_buf_t   *b = n00b_new(n00b_type_buffer(),
+    n00b_buf_t    *b = n00b_new(n00b_type_buffer(),
                              n00b_kw("length",
                                      n00b_ka(n00b_str_byte_len(contents)),
                                      "ptr",

@@ -34,20 +34,23 @@ typedef struct {
 // This needs to stay in sync w/ n00b_alloc_hdr
 typedef struct n00b_marshaled_hdr {
     uint64_t     empty_guard;
-    uint64_t     next_offset;
     n00b_type_t *type;
-    int64_t      scan_fn_id; // Only marshaled for non-object types.
-    uint32_t     alloc_len;
-    uint32_t     request_len;
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     char *alloc_file;
-    int   alloc_line;
+#endif
+    uint32_t alloc_len;
+
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    int16_t alloc_line;
 #endif
 
-    uint32_t    n00b_obj      : 1;
-    uint32_t    n00b_finalize : 1;
+    uint32_t    n00b_marshal_end : 1;
+    uint32_t    n00b_ptr_scan    : 1;
+    uint32_t    n00b_obj         : 1;
+    uint32_t    n00b_finalize    : 1;
+    uint32_t    n00b_moved       : 1;
     __uint128_t cached_hash;
-    alignas(N00B_FORCED_ALIGNMENT) uint64_t data[];
+    alignas(N00B_FORCED_ALIGNMENT) uint64_t data[0];
 } n00b_marshaled_hdr;
 
 // When we're on the unmarshaling side, we buffer until we see the end

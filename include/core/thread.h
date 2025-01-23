@@ -4,46 +4,111 @@
 typedef struct n00b_thread_t n00b_thread_t;
 
 struct n00b_thread_t {
+    // This reserves space for MMM's use; the n00b_thread_t * is
+    // transparently cast to it, so this must be first.
     mmm_thread_t mmm_info;
     pthread_t    pthread_id;
     void        *base; // base pointer of stack
     void        *cur;  // current stack 'top'.
 };
 
-extern void           n00b_thread_stack_region(n00b_thread_t *);
-extern n00b_thread_t *n00b_thread_self(void);
-extern n00b_thread_t *n00b_thread_register(void);
-extern void           n00b_thread_unregister(void *);
-extern int            n00b_thread_spawn(void *(*)(void *), void *);
-extern void           n00b_thread_enter_run_state(void);
-extern void           n00b_thread_leave_run_state(void);
-extern void           n00b_thread_pause_if_stop_requested(void);
+// Global thread cooperation is going to happen w/o worrying about
+// contention deadlock. Instead, we are going to use CAS and sleeps to
+// ensure lock freedom.
+//
+// There will be one global thread-state array, but there will be
+// three global states:
+//
+// 1. GO. All threads may proceed.
+//
+// 2. YIELD! The world is stopping; all threads must stop when they
+//    check in. Threads must check in whenever they might pause (e.g.,
+//    sleep), whenever they wake up, whenever they are allocating
+//    dynamic memory, and every N VM instructions.
+//
+//    Once all threads are stopped, the requestor gets to run, and
+//    then must RESTART the world, moving the global state back to the
+//    'RUN' state.
+//
+// 3. STOP. If threads come on line during this state for any reason
+// (i.e., waking up), they must immediately wait for restart.
+//
+// We don't actually need to distinguish between YIELD and STOP since
+// the thread who starts the stop-the-world waits around for all other
+// threads to yield, and at that point nobody would come along and get
+// confused anyway. But for now, I made it 3 states to make it easier to
+// understand internal state when debugging.
+//
+// To avoid ABA issues, we swap in a random 62 bit value (instead of a
+// thread ID). The bottom two bits of that value consist of the global
+// state.
+//
+// When we CAS, we only CAS a pointer to a thread-local data structure.
+typedef enum : int8_t {
+    n00b_gts_exited      = -1,
+    n00b_gts_not_started = 0,
+    n00b_gts_go          = 1,
+    n00b_gts_yield       = 2,
+    n00b_gts_stop        = 3,
+    // Used only at the thread level for clarity.
+} n00b_global_thread_state_t;
 
-extern void n00b_stop_the_world(void);
-extern void n00b_restart_the_world(void);
+// This has an upper bound of 2^16 concurrent threads. But that allows us
+// to fit all our state in 128 bits
+typedef struct {
+    n00b_thread_t             *leader;
+    uint32_t                   epoch;
+    int16_t                    running;
+    n00b_global_thread_state_t state;
+} n00b_global_thread_info_t;
 
-#define N00B_WITH_WORLD_STOPPED(stuff_to_do) \
-    n00b_stop_the_world();                   \
-    stuff_to_do;                             \
-    n00b_restart_the_world()
+// Use the first one on thread first start-up only.
+extern void n00b_gts_start(void);
+extern void n00b_gts_suspend(void);
+extern void n00b_gts_resume(void);
+extern void n00b_gts_checkin(void);
+extern void n00b_gts_quit(void);
+extern void n00b_gts_stop_the_world(void);
+extern void n00b_gts_restart_the_world(void);
+
+extern void                       n00b_thread_stack_region(n00b_thread_t *);
+extern n00b_thread_t             *n00b_thread_self(void);
+extern n00b_thread_t             *n00b_thread_register(void);
+extern void                       n00b_thread_unregister(void *);
+extern int                        n00b_thread_spawn(void *(*)(void *), void *);
+extern n00b_global_thread_state_t n00b_get_thread_state(void);
+extern int                        n00b_thread_run_count(void);
 
 typedef struct {
     void *(*true_cb)(void *);
     void *true_arg;
 } n00b_tbundle_t;
 
-extern void n00b_static_c_backtrace();
-
 static inline int
-n00b_nanosleep(n00b_duration_t *rqtp, n00b_duration_t *rmtp)
+n00b_nanosleep_raw(n00b_duration_t *rqtp, n00b_duration_t *rmtp)
 {
     int result;
-    n00b_thread_leave_run_state();
+    n00b_gts_suspend();
     result = nanosleep(rqtp, rmtp);
-    n00b_thread_enter_run_state();
+    n00b_gts_resume();
 
     return result;
 }
+
+static inline void
+n00b_nanosleep(uint64_t s, uint64_t ns)
+{
+    struct timespec ts        = {.tv_sec = s, .tv_nsec = ns};
+    struct timespec remainder = ts;
+
+    n00b_gts_suspend();
+    while (nanosleep((void *)&ts, (void *)&remainder)) {
+        ts = remainder;
+    }
+    n00b_gts_resume();
+}
+// 1/1000th of a second
+#define N00B_GTS_POLL_DURATION_NS 100000
 
 #ifdef N00B_USE_INTERNAL_API
 extern n00b_thread_t            *n00b_thread_list_acquire(void);
@@ -52,6 +117,8 @@ extern void                      n00b_lock_register(n00b_lock_t *);
 extern void                      n00b_lock_unregister(n00b_lock_t *);
 extern void                      n00b_thread_unlock_all(void);
 extern bool                      n00b_current_process_is_exiting(void);
+extern void                      n00b_initialize_global_thread_info(void);
+extern void                      n00b_thread_bootstrap_initialization();
+extern void                      n00b_thread_get_gta_slot();
 extern _Atomic(n00b_thread_t *) *n00b_global_thread_list;
-extern __thread mmm_thread_t    *n00b_mmm_thread_ref;
 #endif

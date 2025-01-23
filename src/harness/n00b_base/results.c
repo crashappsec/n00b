@@ -39,8 +39,8 @@ n00b_show_err_diffs(n00b_utf8_t *fname, n00b_list_t *expected, n00b_list_t *actu
         int n = n00b_list_len(actual);
 
         for (int i = 0; i < n; i++) {
-            uint64_t u64     = (uint64_t)n00b_list_get(actual, i, NULL);
-            err              = (n00b_compile_error_t)u64;
+            uint64_t u64      = (uint64_t)n00b_list_get(actual, i, NULL);
+            err               = (n00b_compile_error_t)u64;
             n00b_utf8_t *code = n00b_err_code_to_str(err);
             n00b_printf("[b]{}:[/] [em]{}", n00b_box_u64(i + 1), code);
         }
@@ -68,8 +68,8 @@ n00b_show_dev_compile_info(n00b_compile_ctx *ctx)
 
     for (int j = 0; j < n00b_list_len(ctx->entry_point->fn_def_syms); j++) {
         n00b_symbol_t  *sym  = n00b_list_get(ctx->entry_point->fn_def_syms,
-                                         j,
-                                         NULL);
+                                           j,
+                                           NULL);
         n00b_fn_decl_t *decl = sym->value;
         n00b_printf("[h1]CFG for Function {}{}", sym->name, sym->type);
         n00b_print(n00b_cfg_repr(decl->cfg));
@@ -103,19 +103,19 @@ show_gridview(void)
     n00b_grid_t *success_grid = n00b_new(
         n00b_type_grid(),
         n00b_kw("start_cols",
-               n00b_ka(2),
-               "header_rows",
-               n00b_ka(1),
-               "container_tag",
-               n00b_ka(n00b_new_utf8("error_grid"))));
+                n00b_ka(2),
+                "header_rows",
+                n00b_ka(1),
+                "container_tag",
+                n00b_ka(n00b_new_utf8("error_grid"))));
     n00b_grid_t *fail_grid = n00b_new(
         n00b_type_grid(),
         n00b_kw("start_cols",
-               n00b_ka(2),
-               "header_rows",
-               n00b_ka(1),
-               "container_tag",
-               n00b_ka(n00b_new_utf8("error_grid"))));
+                n00b_ka(2),
+                "header_rows",
+                n00b_ka(1),
+                "container_tag",
+                n00b_ka(n00b_new_utf8("error_grid"))));
 
     n00b_list_t *row = n00b_list(n00b_type_utf8());
 
@@ -140,7 +140,7 @@ show_gridview(void)
         row = n00b_list(n00b_type_utf8());
 
         n00b_utf8_t *num = n00b_cstr_format("[em]{}",
-                                          n00b_box_u64(item->case_number));
+                                            n00b_box_u64(item->case_number));
         n00b_list_append(row, num);
         n00b_list_append(row, item->path);
 
@@ -171,11 +171,11 @@ possibly_warn()
     n00b_grid_t *oops_grid = n00b_new(
         n00b_type_grid(),
         n00b_kw("start_cols",
-               n00b_ka(1),
-               "header_rows",
-               n00b_ka(0),
-               "container_tag",
-               n00b_ka(n00b_new_utf8("error_grid"))));
+                n00b_ka(1),
+                "header_rows",
+                n00b_ka(0),
+                "container_tag",
+                n00b_ka(n00b_new_utf8("error_grid"))));
 
     for (int i = 0; i < n00b_test_total_items; i++) {
         n00b_test_kat *item = &n00b_test_info[i];
@@ -233,8 +233,8 @@ n00b_report_results_and_exit(void)
     }
 
     n00b_printf("Passed [em]{}[/] out of [em]{}[/] run tests.",
-               n00b_box_u64(n00b_test_number_passed),
-               n00b_box_u64(n00b_test_total_tests));
+                n00b_box_u64(n00b_test_number_passed),
+                n00b_box_u64(n00b_test_total_tests));
 
     if (n00b_test_number_failed != 0) {
         show_gridview();

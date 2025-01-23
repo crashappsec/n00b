@@ -1,6 +1,5 @@
 #pragma once
-#define N00B_GC_SHOW_COLLECT_STACK_TRACES
-
+#undef N00B_FULL_MEMCHECK
 // Home of anything remotely configurable. Don't change this file;
 // update the meson config.
 //
@@ -88,6 +87,10 @@
 #define N00B_GC_FULL_TRACE_DEFAULT 1
 #endif
 
+// This is a bit misnamed. It means 'minimum if nothing is explicitly
+// supplied'.  Generally the user can supply a speicific width, and we
+// query the terminal for rendering. But this is the fallback if we
+// get nothing passed and nothing from the terminal...
 #ifndef N00B_MIN_RENDER_WIDTH
 #define N00B_MIN_RENDER_WIDTH 80
 #endif
@@ -136,20 +139,29 @@
 
 #ifndef N00B_DEFAULT_HEAP_SIZE
 // This is the size any test case that prints a thing grows to awfully fast.
-#define N00B_DEFAULT_HEAP_SIZE (1 << 26) // normally 24
+#define N00B_DEFAULT_HEAP_SIZE (1 << 24) // normally 24
+#endif
+
+#ifndef N00B_SYSTEM_HEAP_SIZE
+// Can't be any smaller than this for startup.
+#define N00B_SYSTEM_HEAP_SIZE (1 << 20)
+#endif
+
+#ifndef N00B_DEBUG_HEAP_SIZE
+#define N00B_DEBUG_HEAP_SIZE (1 << 22)
 #endif
 
 #ifndef N00B_START_SCRATCH_HEAP_SIZE
-#define N00B_START_SCRATCH_HEAP_SIZE (1 << 22)
+#define N00B_START_SCRATCH_HEAP_SIZE (1 << 18)
 #endif
 
 // Needs to be enough to store initial type universe.
 #ifndef N00B_START_TYPE_HEAP_SIZE
-#define N00B_START_TYPE_HEAP_SIZE (1 << 21)
+#define N00B_START_TYPE_HEAP_SIZE (1 << 14)
 #endif
 
 #ifndef N00B_START_THREAD_HEAP_SIZE
-#define N00B_START_THREAD_HEAP_SIZE (1 << 24)
+#define N00B_START_THREAD_HEAP_SIZE (1 << 15)
 #endif
 
 #ifndef N00B_MARSHAL_CHUNK_SIZE
@@ -240,7 +252,7 @@
 #endif
 #define N00B_PACKAGE_INIT_MODULE "__init"
 
-#define N00B_DEFAULT_DEBUG_PORT 5233
+#define N00B_DEFAULT_DEBUG_PORT 5238
 
 #ifndef N00B_IDLE_IO_SLEEP
 #define N00B_IDLE_IO_SLEEP 500
@@ -250,14 +262,40 @@
 #define N00B_CALLBACK_THREAD_POLL_INTERVAL 5000000
 #endif
 
+/*
+ * Since all our I/O is asynchonous by default, when someone chooses
+ * to exit a process with n00b_exit(), they probably don't want to
+ * exit immediately... they want to wait for any queued I/O to finish
+ * first.
+ *
+ * However, it's incredibly easy for programs to have I/O feedback
+ * cycles that keep a program alive forever.
+ *
+ * Calling n00b_thread_exit() makes no attempt to shut down the
+ * program; the I/O loop and callbacks can run forever. But when you
+ * call n00b_exit(), we want to let a reasonable amount of queued I/O
+ * process, and allow at least a few cycles (lots of real deliveries
+ * will include multiple hops, and we always add a cycle there.
+ *
+ * The default should generally amount to up to a tenth of a second of
+ * waiting on exit.
+ *
+ */
+#ifndef N00B_IO_SHUTDOWN_NSEC
+#define N00B_IO_SHUTDOWN_NSEC 200000000ULL
+#endif
+
+#ifndef N00B_ASYNC_IO_CALLBACKS
+#undef N00B_ASYNC_IO_CALLBACKS
+#endif
+
 // Number of extra stack words to capture per-thread to account for
 // any stack frame that might happen in the gc thread after the stack
 // is captured, etc.
 #ifndef N00B_STACK_SLOP
+// -32
 #define N00B_STACK_SLOP -32
 #endif
-
-#define N00B_USE_POLL_FOR_CALLBACKS
 
 // Current N00b version info.
 #define N00B_VERS_MAJOR   0x00

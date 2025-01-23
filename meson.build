@@ -176,6 +176,7 @@ n00b_c_args = c_args
 
 n00b_core = [
     'src/core/init.c',
+    'src/core/exit.c',    
     'src/core/heap.c',
     'src/core/collect.c',    
     'src/core/kargs.c',
@@ -190,7 +191,9 @@ n00b_core = [
     'src/core/validation.c',
     'src/core/rtsetup.c',
     'src/core/thread.c',
-    'src/core/thread_coop.c',    
+    'src/core/thread_coop.c',
+    'src/core/locks.c',
+    'src/core/lock_registry.c',    
 ]
 n00b_adts = [
     'src/adts/string.c',
@@ -283,8 +286,8 @@ n00b_util = [
     'src/util/getopt_parse.c',
     'src/util/getopt_docs.c',
     'src/util/markdown.c',
-    'src/util/locks.c',
     'src/util/json.c',
+    'src/util/highlights.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
@@ -364,42 +367,37 @@ libatomic_dep = cc.find_library('atomic', required : false)
 libmath_dep = cc.find_library('m', required : false)
 libthreads_dep = dependency('threads', required : true)
 
-# Need to add these as a subproject, but for the moment just assume them.
-libevent_core_dep = cc.find_library('event_core', required : true)
-libevent_extra_dep = cc.find_library('event_extra', required : true)
-libevent_openssl_dep = cc.find_library('event_openssl', required : true)
-libevent_pthreads_dep = cc.find_library('event_pthreads', required : true)
-
-event_deps = [
-               libevent_core_dep,
-               libevent_extra_dep,
-               libevent_openssl_dep,
-               libevent_pthreads_dep,
-]               
-              
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
-libbacktrace = subproject('libbacktrace').get_variable('libbacktrace_dep')
+if (host_machine.system() == 'darwin')
+  linuxheaders_dep = declare_dependency()
+else
+  linuxheaders_dep = subproject('linuxheaders').get_variable('linuxheaders_dep')
+endif
+libbacktrace_dep = subproject('libbacktrace').get_variable('libbacktrace_dep')
 libffi_dep = subproject('libffi').get_variable('libffi_dep')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
 openssl_dep = subproject('openssl').get_variable('openssl_dep')
-# libcurl depends on openssl so override its dependency first
+# libcurl and libevent depend on openssl so override its dependency first
 libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
+libevent_dep = subproject('libevent').get_variable('libevent_dep')
 
 if get_option('show_preprocessor_config').enabled()
     c_args = c_args + ['-DN00B_SHOW_PREPROC_CONFIG']
 endif
 
 deps = [
-  libbacktrace,
+  libbacktrace_dep,
   libcurl_dep,
+  libevent_dep,
   libffi_dep,
   libmath_dep,
   libthreads_dep,
   libunibreak_dep,
   libutf8proc_dep,
+  linuxheaders_dep,
   openssl_dep,
-] + event_deps
+]
 link_with = [
 ]
 

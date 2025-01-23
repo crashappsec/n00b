@@ -70,10 +70,20 @@ n00b_has_repr(void *addr)
         return false;
     }
 
+    if (((int64_t)t->base_index) < 0) {
+        return false;
+    }
+    if (t->base_index >= N00B_NUM_BUILTIN_DTS) {
+        return false;
+    }
+
     if (n00b_base_type_info[t->base_index].vtable->methods[N00B_BI_REPR]) {
         return true;
     }
 
+    if (n00b_base_type_info[t->base_index].vtable->methods[N00B_BI_TO_STR]) {
+        return true;
+    }
     return false;
 }
 

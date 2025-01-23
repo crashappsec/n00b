@@ -384,7 +384,9 @@ n00b_io_fd_open(int64_t fd, n00b_io_impl_info_t *impl)
     cookie->id         = fd;
 
     // Lock us; we'll unlock it when we've finished initializing.
+    n00b_lock_debugging_on();
     n00b_acquire_party(new);
+    n00b_lock_debugging_off();
     n00b_stream_t *result = n00b_add_or_replace(new,
                                                 base->io_fd_cache,
                                                 (void *)fd);
@@ -398,7 +400,9 @@ n00b_io_fd_open(int64_t fd, n00b_io_impl_info_t *impl)
 
     add_file_info(result, perms);
 
+    n00b_lock_debugging_on();
     n00b_release_party(result);
+    n00b_lock_debugging_off();
 
     return result;
 }
@@ -418,7 +422,7 @@ n00b_io_fd_subscribe(n00b_stream_sub_t *info, n00b_io_subscription_kind kind)
 
     if (kind == n00b_io_sk_read) {
         info->source->read_active = true;
-        n00b_stream_add(src_cookie->read_event, NULL);
+        n00b_event_add(src_cookie->read_event, NULL);
     }
     else {
         // Here, we don't add a libevent2 event or timeout; the event only
@@ -442,6 +446,43 @@ n00b_fd_open(int fd)
     }
 
     return n00b_io_fd_open(fd, &n00b_fileio_impl);
+}
+
+static n00b_stream_t *__n00b_stdin_cache  = NULL;
+static n00b_stream_t *__n00b_stdout_cache = NULL;
+static n00b_stream_t *__n00b_stderr_cache = NULL;
+static pthread_once_t stdio_init          = PTHREAD_ONCE_INIT;
+void
+n00b_stdio_init(void)
+{
+    __n00b_stdin_cache  = n00b_fd_open(fileno(stdin));
+    __n00b_stdout_cache = n00b_fd_open(fileno(stdout));
+    __n00b_stderr_cache = n00b_fd_open(fileno(stderr));
+
+    n00b_gc_register_root(&__n00b_stdin_cache, 1);
+    n00b_gc_register_root(&__n00b_stdout_cache, 1);
+    n00b_gc_register_root(&__n00b_stderr_cache, 1);
+}
+
+n00b_stream_t *
+n00b_stdin(void)
+{
+    pthread_once(&stdio_init, n00b_stdio_init);
+    return __n00b_stdin_cache;
+}
+
+n00b_stream_t *
+n00b_stdout(void)
+{
+    pthread_once(&stdio_init, n00b_stdio_init);
+    return __n00b_stdout_cache;
+}
+
+n00b_stream_t *
+n00b_stderr(void)
+{
+    pthread_once(&stdio_init, n00b_stdio_init);
+    return __n00b_stderr_cache;
 }
 
 n00b_utf8_t *
@@ -602,13 +643,27 @@ const n00b_vtable_t n00b_file_vtable = {
 n00b_buf_t *
 n00b_read_binary_file(n00b_str_t *path, bool lock)
 {
-    n00b_stream_t     *f      = n00b_new(n00b_type_file(),
-                                path,
-                                n00b_fm_read_only,
-                                n00b_kw("exclusive_lock",
-                                        n00b_ka(lock),
-                                        "enable_blocking_io",
-                                        n00b_ka(true)));
+    bool           err = false;
+    n00b_stream_t *f;
+
+    N00B_TRY
+    {
+        f = n00b_new(n00b_type_file(),
+                     path,
+                     n00b_fm_read_only,
+                     n00b_kw("exclusive_lock",
+                             n00b_ka(lock)));
+    }
+    N00B_EXCEPT
+    {
+        err = true;
+    }
+    N00B_TRY_END;
+
+    if (err) {
+        return NULL;
+    }
+
     n00b_ev2_cookie_t *cookie = f->cookie;
 
     if (!n00b_is_regular_file(f)) {
@@ -642,4 +697,16 @@ n00b_read_binary_file(n00b_str_t *path, bool lock)
     close(cookie->id);
 
     return result;
+}
+
+n00b_utf8_t *
+n00b_read_utf8_file(n00b_str_t *path, bool lock)
+{
+    n00b_buf_t *b = n00b_read_binary_file(path, lock);
+
+    if (!b) {
+        return NULL;
+    }
+
+    return n00b_buf_to_utf8_string(b);
 }

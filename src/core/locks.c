@@ -1,6 +1,10 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+#ifdef N00B_DEBUG_LOCKS
+_Atomic bool __n00b_lock_debug = false;
+#endif
+
 void
 n00b_raw_lock_init(n00b_lock_t *l)
 {
@@ -15,20 +19,42 @@ n00b_raw_condition_init(n00b_condition_t *c)
 }
 
 bool
-n00b_lock_acquire_if_unlocked(n00b_lock_t *l)
+_n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
 {
+    assert(n00b_thread_self());
+
     switch (pthread_mutex_trylock(&l->lock)) {
     case EBUSY:
         if (l->thread == n00b_thread_self()) {
+            add_lock_record(l, file, line);
             l->level++;
-            //            printf("acquired by %p\n", l->thread);
+#ifdef N00B_DEBUG_LOCKS
+            if (__n00b_lock_debug) {
+                printf("lock %p: acquired by %p @%s:%d\n",
+                       l,
+                       l->thread,
+                       file,
+                       line);
+            }
+#endif
             return true;
         }
         return false;
     case 0:
         l->thread = n00b_thread_self();
+        add_lock_record(l, file, line);
+        assert(!l->level);
+
         n00b_lock_register(l);
-        //        printf("acquired by %p\n", l->thread);
+#ifdef N00B_DEBUG_LOCKS
+        if (__n00b_lock_debug) {
+            printf("lock %p: acquired by %p @%s:%d\n",
+                   l,
+                   l->thread,
+                   file,
+                   line);
+        }
+#endif
         return true;
     case EINVAL:
         abort();
@@ -39,44 +65,70 @@ n00b_lock_acquire_if_unlocked(n00b_lock_t *l)
 }
 
 void
-n00b_lock_acquire_raw(n00b_lock_t *l)
+_n00b_lock_acquire_raw(n00b_lock_t *l, char *file, int line)
 {
-    if (!n00b_lock_acquire_if_unlocked(l)) {
-        /*        printf("lock %p: %p blocking (held by %p)\n",
-                       l,
-                       n00b_thread_self(),
-                       l->thread);
-        */
+    if (!_n00b_lock_acquire_if_unlocked(l, file, line)) {
+#ifdef N00B_DEBUG_LOCKS
+        if (__n00b_lock_debug) {
+            printf("lock %p: %p blocking (held by %p) @%s:%d\n",
+                   l,
+                   n00b_thread_self(),
+                   l->thread,
+                   file,
+                   line);
+        }
+
+#endif
+
         pthread_mutex_lock(&l->lock);
         n00b_lock_register(l);
-        /*        printf("lock %p: %p unblocked (acquiring.).\n",
-                         l,
-                         n00b_thread_self());
-        */
+        add_lock_record(l, file, line);
+        assert(!l->level);
+#ifdef N00B_DEBUG_LOCKS
+        if (__n00b_lock_debug) {
+            printf("lock %p: %p unblocked (acquiring.) (thread %p) @%s:%d\n",
+                   l,
+                   n00b_thread_self(),
+                   l->thread,
+                   file,
+                   line);
+        }
+#endif
         l->thread = n00b_thread_self();
     }
 }
 
 void
-n00b_lock_acquire(n00b_lock_t *l)
+_n00b_lock_acquire(n00b_lock_t *l, char *file, int line)
 {
-    if (!n00b_lock_acquire_if_unlocked(l)) {
-        /*
-        printf("lock %p: %p blocking (held by %p)\n",
-               l,
-               n00b_thread_self(),
-               l->thread);
-        */
+    if (!_n00b_lock_acquire_if_unlocked(l, file, line)) {
+#ifdef N00B_DEBUG_LOCKS
+        if (__n00b_lock_debug) {
+            printf("lock %p: %p blocking (held by %p) @%s:%d\n",
+                   l,
+                   n00b_thread_self(),
+                   l->thread,
+                   file,
+                   line);
+        }
+#endif
 
-        n00b_thread_leave_run_state();
+        n00b_gts_suspend();
         pthread_mutex_lock(&l->lock);
+        n00b_gts_resume();
+
         n00b_lock_register(l);
-        /*
-        printf("lock %p: %p unblocked (acquiring.).\n",
-               l,
-               n00b_thread_self());
-        */
-        n00b_thread_enter_run_state();
+        add_lock_record(l, file, line);
+        assert(!l->level);
+#ifdef N00B_DEBUG_LOCKS
+        if (__n00b_lock_debug) {
+            printf("lock %p: %p unblocked @%s:%d\n",
+                   l,
+                   n00b_thread_self(),
+                   file,
+                   line);
+        }
+#endif
         l->thread = n00b_thread_self();
     }
 }
@@ -89,16 +141,35 @@ n00b_lock_release(n00b_lock_t *l)
         return;
     }
 
+#ifdef N00B_DEBUG_LOCKS
+    if (__n00b_lock_debug) {
+        printf("%p: released by l->thread: %p.\n",
+               l,
+               n00b_thread_self());
+    }
+#endif
+
+    l->thread = NULL;
+    clear_lock_records(l);
     n00b_lock_unregister(l);
     pthread_mutex_unlock(&l->lock);
-
-    //    printf("released by l->thread: %p.\n", l->thread);
 }
 
 void
 n00b_lock_release_all(n00b_lock_t *l)
 {
-    l->level = 0;
+#ifdef N00B_DEBUG_LOCKS
+    if (__n00b_lock_debug) {
+        printf("%p: released by l->thread: %p.\n",
+               l,
+               n00b_thread_self());
+    }
+#endif
+
+    l->level  = 0;
+    l->thread = NULL;
+    clear_lock_records(l);
+    assert(!l->locks);
     n00b_lock_unregister(l);
     pthread_mutex_unlock(&l->lock);
 }
@@ -122,10 +193,9 @@ n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *l, bool wait)
     if (!wait) {
         int res;
 
-        n00b_thread_leave_run_state();
+        n00b_gts_suspend();
         res = pthread_rwlock_rdlock(&l->lock);
-
-        n00b_thread_enter_run_state();
+        n00b_gts_resume();
 
         if (res) {
             n00b_raise_errno();
@@ -178,57 +248,3 @@ const n00b_vtable_t n00b_condition_vtable = {
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_NONE,
     },
 };
-
-int64_t
-n00b_wait(n00b_notifier_t *n, int ms_timeout)
-{
-    uint64_t result;
-    ssize_t  err;
-
-    n00b_thread_leave_run_state();
-
-    if (ms_timeout == 0) {
-        ms_timeout = -1;
-    }
-
-    struct pollfd ctx = {
-        .fd     = n->pipe[0],
-        .events = POLLIN | POLLHUP | POLLERR,
-    };
-
-    if (poll(&ctx, 1, ms_timeout) != 1) {
-        return -1LL;
-    }
-
-    if (ctx.revents & POLLHUP) {
-        return 0LL;
-    }
-
-    do {
-        err = read(n->pipe[0], &result, sizeof(uint64_t));
-    } while ((err < 1) && (errno == EAGAIN || errno == EINTR));
-
-    n00b_thread_enter_run_state();
-
-    if (err < 1) {
-        n00b_raise_errno();
-    }
-
-    return result;
-}
-
-// In locks.h
-#ifdef N00B_LOCK_DEBUG
-static pthread_once_t n00b_lock_debug_init = PTHREAD_ONCE_INIT;
-#define n00b_lock_debug_init() \
-    pthread_once(&n00b_lock_debug_init, n00b_lock_debug_setup)
-
-extern void n00b_lock_debug_setup();
-extern void n00b_debug_lock(void *x, char *kind);
-extern void n00b_debug_unlock(void *x);
-
-#else
-#define n00b_lock_debug_init()
-#define n00b_debug_lock(x, y)
-#define n00b_debug_unlock(x)
-#endif

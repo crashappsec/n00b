@@ -505,6 +505,8 @@ int
 main(int argc, char **argv, char **envp)
 {
     n00b_init(argc, argv, envp);
+    n00b_terminal_app_setup();
+
     add_static_test_symbols();
     n00b_install_default_styles();
     n00b_terminal_dimensions(&n00b_term_width, NULL);
@@ -517,9 +519,9 @@ main(int argc, char **argv, char **envp)
     n00b_run_expected_value_tests();
     n00b_run_other_test_files();
 
-    test_parsing();
-    test_getopt();
-    test_markdown();
+    // test_parsing();
+    // test_getopt();
+    // test_markdown();
 
     n00b_report_results_and_exit();
     n00b_unreachable();

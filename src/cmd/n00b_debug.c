@@ -50,6 +50,7 @@ process_debug_msg(n00b_stream_t *conn, void *raw, void *aux)
 }
 
 static n00b_utf8_t *ctrl_c = NULL;
+static n00b_utf8_t *q_key  = NULL;
 
 static void
 logger_handle_stdin(n00b_stream_t *p1, void *m, void *aux)
@@ -61,10 +62,16 @@ logger_handle_stdin(n00b_stream_t *p1, void *m, void *aux)
     if (!ctrl_c) {
         n00b_gc_register_root(&ctrl_c, 1);
         ctrl_c = n00b_new_utf8("\x03");
+        q_key  = n00b_new_utf8("q");
     }
 
     if (n00b_str_starts_with(s, ctrl_c)) {
         n00b_printf("[em]Shutting down[/] due to [em]Ctrl-C[/].");
+        n00b_exit(0);
+    }
+
+    if (n00b_str_starts_with(s, q_key)) {
+        n00b_printf("[em]Shutting down[/] ([em]Q[/] pressed).");
         n00b_exit(0);
     }
 }
@@ -116,7 +123,7 @@ main(int argc, char *argv[], char *envp[])
     n00b_terminal_app_setup();
     n00b_disable_debug_server();
 
-    n00b_debug_callout("Congrats, you have a n00b logging server.");
+    n00b_debug_callout("Congrats, you have a n00b debug logging server.");
 
     n00b_utf8_t *addr      = n00b_get_env(n00b_new_utf8("N00B_DEBUG_ADDRESS"));
     n00b_utf8_t *str_port  = n00b_get_env(n00b_new_utf8("N00B_DEBUG_PORT"));
@@ -168,7 +175,5 @@ main(int argc, char *argv[], char *envp[])
                                            NULL,
                                            log_accept);
 
-    n00b_wait_for_io_shutdown();
-    n00b_printf("[h1]Debug server exiting.");
-    n00b_exit(0);
+    n00b_thread_exit(0);
 }

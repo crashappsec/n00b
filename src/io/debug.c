@@ -1,25 +1,27 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static pthread_once_t debugging_init        = PTHREAD_ONCE_INIT;
-static bool           skip_debugging        = false;
-static bool           allow_unknown_topics  = true;
-static bool           debug_autosubscribe   = true;
-static n00b_utf8_t   *n00b_debug_namespace  = NULL;
-static n00b_stream_t *n00b_debug_proxy      = NULL;
-static n00b_stream_t *n00b_debug_connection = NULL;
-static n00b_stream_t *n00b_stderr_cache     = NULL;
-static n00b_dict_t   *n00b_debug_topics     = NULL;
-static n00b_utf8_t   *n00b_debug_prefix     = NULL;
-static bool           local_only            = false;
-static bool           show_time             = false;
-static bool           show_date             = false;
-static bool           raw_address           = false;
-static bool           hex_for_values        = true;
-static bool           unquote_strings       = true;
-static char          *type_format           = "([i]{}[/])";
-static char          *topic_format          = ":[atomic lime]{}";
-static char          *dt_format             = "@{}[/]";
-static char          *payload_sep           = ": ";
+static pthread_once_t  debugging_init        = PTHREAD_ONCE_INIT;
+static bool            skip_debugging        = false;
+static bool            allow_unknown_topics  = true;
+static bool            debug_autosubscribe   = true;
+static n00b_utf8_t    *n00b_debug_namespace  = NULL;
+static n00b_stream_t  *n00b_debug_proxy      = NULL;
+static n00b_stream_t  *n00b_debug_connection = NULL;
+static n00b_stream_t  *n00b_stderr_cache     = NULL;
+static n00b_dict_t    *n00b_debug_topics     = NULL;
+static n00b_utf8_t    *n00b_debug_prefix     = NULL;
+static bool            local_only            = false;
+static bool            show_time             = false;
+static bool            show_date             = false;
+static bool            raw_address           = false;
+static bool            hex_for_values        = true;
+static bool            unquote_strings       = true;
+static char           *type_format           = "([i]{}[/])";
+static char           *topic_format          = ":[atomic lime]{}";
+static char           *dt_format             = "@{}[/]";
+static char           *payload_sep           = ": ";
+static _Atomic int64_t outstanding_dmsgs     = 0;
 
 static n00b_utf8_t *
 n00b_format_metadata(n00b_message_t *msg)
@@ -122,11 +124,6 @@ n00b_disable_debugging(void)
 {
     skip_debugging = true;
 }
-void
-n00b_enable_debugging(void)
-{
-    skip_debugging = false;
-}
 
 void
 n00b_disable_debug_server(void)
@@ -137,6 +134,7 @@ n00b_disable_debug_server(void)
 static void
 n00b_debug_output_cb(void *ignore, n00b_message_t *msg, void *thunk)
 {
+    n00b_push_heap(n00b_internal_heap);
     n00b_utf8_t *output    = n00b_format_metadata(msg);
     n00b_utf8_t *formatted = NULL;
 
@@ -164,6 +162,7 @@ n00b_debug_output_cb(void *ignore, n00b_message_t *msg, void *thunk)
             }
         }
         else {
+            cprintf("WTF: %s\n", n00b_get_my_type(msg->payload));
             if (raw_address) {
                 formatted = n00b_cstr_format("->@{:x}", msg->payload);
             }
@@ -192,6 +191,9 @@ n00b_debug_output_cb(void *ignore, n00b_message_t *msg, void *thunk)
     output = n00b_str_concat(output, formatted);
 
     n00b_write(n00b_stderr(), output);
+
+    atomic_fetch_add(&outstanding_dmsgs, -1);
+    n00b_pop_heap();
 }
 
 static void
@@ -247,11 +249,10 @@ n00b_establish_debug_fd(void)
 
     n00b_debug_connection = n00b_connect(ip);
 
-    n00b_utf8_t *s;
+    n00b_utf8_t *s = NULL;
 
     if (!n00b_debug_connection) {
         handle_debug_socket_close(NULL, NULL, NULL);
-        s = n00b_cstr_format("[h2]Cannot connect to debug server.\n");
     }
     else {
         n00b_add_marshaling(n00b_debug_connection);
@@ -263,9 +264,13 @@ n00b_establish_debug_fd(void)
         n00b_io_subscribe_to_writes(n00b_debug_proxy,
                                     n00b_debug_connection,
                                     NULL);
-        s = n00b_cstr_format("[h2]Connected to server at {}.\n", ip);
+        s = n00b_cstr_format(
+            "[h2]Connected to debug logging server at {}.[/]\n",
+            ip);
     }
-    n00b_write(n00b_stderr(), s);
+    if (s) {
+        n00b_write(n00b_stderr(), s);
+    }
 }
 
 void
@@ -278,9 +283,9 @@ n00b_restart_debugging(void)
     n00b_io_set_repr(n00b_debug_proxy, n00b_new_utf8("[debug proxy]"));
 }
 
-static void
-n00b_launch_debugging(void)
+void static n00b_launch_debugging(void)
 {
+    n00b_push_heap(n00b_internal_heap);
     n00b_gc_register_root(&n00b_debug_namespace, 1);
     n00b_gc_register_root(&n00b_debug_proxy, 1);
     n00b_gc_register_root(&n00b_debug_connection, 1);
@@ -294,6 +299,14 @@ n00b_launch_debugging(void)
     n00b_establish_debug_fd();
 
     n00b_io_set_repr(n00b_debug_proxy, n00b_new_utf8("[debug proxy]"));
+    n00b_pop_heap();
+}
+
+void
+n00b_enable_debugging(void)
+{
+    skip_debugging = false;
+    pthread_once(&debugging_init, n00b_launch_debugging);
 }
 
 static n00b_stream_t *
@@ -328,6 +341,7 @@ n00b_get_debug_topic(void *topic_info, bool create)
         }
 
         topic = n00b_get_topic(tname, n00b_debug_namespace);
+
         if (debug_autosubscribe) {
             n00b_topic_subscribe(topic, n00b_debug_proxy);
         }
@@ -358,6 +372,7 @@ _n00b_debug(void *tname, void *v, ...)
 
     pthread_once(&debugging_init, n00b_launch_debugging);
 
+    n00b_push_heap(n00b_internal_heap);
     n00b_stream_t *topic = n00b_get_debug_topic(tname, false);
 
     va_list values;
@@ -368,8 +383,10 @@ _n00b_debug(void *tname, void *v, ...)
 
     do {
         n00b_topic_post(topic, v);
+        atomic_fetch_add(&outstanding_dmsgs, 1);
         v = va_arg(values, void *);
     } while (v);
+    n00b_pop_heap();
 }
 
 void
@@ -384,4 +401,33 @@ n00b_debug_object(void *tname, void *obj)
                    n00b_str_concat(n00b_get_newline_const(),
                                    n00b_hex_debug_repr(b->data)));
     }
+}
+
+void
+_n00b_debug_internal_subscribe(char *topic, ...)
+{
+    va_list args;
+    va_start(args, topic);
+
+    pthread_once(&debugging_init, n00b_launch_debugging);
+
+    while (topic) {
+        n00b_topic_subscribe(n00b_get_topic(n00b_new_utf8(topic),
+                                            n00b_debug_namespace),
+                             n00b_debug_proxy);
+        topic = va_arg(args, char *);
+    }
+    va_end(args);
+}
+
+void
+n00b_debug_start_shutdown(void)
+{
+    skip_debugging = true;
+}
+
+bool
+n00b_is_debug_shutdown_queue_processed(void)
+{
+    return atomic_read(&outstanding_dmsgs) == 0;
 }

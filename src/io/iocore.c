@@ -1,5 +1,4 @@
 #define N00B_USE_INTERNAL_API
-
 #include "n00b.h"
 
 // TODO (nothing urgent):
@@ -8,7 +7,7 @@
 // 5) Seek / tell aka get_location / set_location
 // 6) fileno
 // 7) Compress migration
-// 8) add a polymorphic n00b_lock() and use it when automarshaling.
+// 8) add_to_backlog a polymorphic n00b_lock() and use it when automarshaling.
 // 9) Either remove open_impl from the list, or come up w/ a good generic
 //     interface for the needed parameters.
 // 10) Buffer needs to use the write cursor instead of always
@@ -20,18 +19,18 @@
 // different event types be managed as separate impls, which
 // makes sense given semantics are different for timers, signals, etc.
 
-#define cname(e) n00b_stream_repr(e)->data
-
 static n00b_dict_t     *impls;
 static n00b_thread_t   *n00b_io_thread;
-static n00b_condition_t exiting_cv;
-static bool             exit_requested           = false;
-static bool             io_has_exited            = false;
+static n00b_notifier_t *exit_notifier            = NULL;
+bool                    n00b_io_has_exited       = false;
 static bool             raise_on_uncaught_errors = true;
 static struct event    *loop_timeout;
 static n00b_lock_t      event_loop_lock;
 n00b_stream_base_t     *n00b_system_event_base = NULL;
 static pthread_once_t   io_roots               = PTHREAD_ONCE_INIT;
+
+#define exit_requested() exit_notifier != NULL
+
 bool
 n00b_in_io_thread(void)
 {
@@ -47,7 +46,7 @@ n00b_io_impl_register(n00b_utf8_t *name, n00b_io_impl_info_t *info)
         info->cookie = (void *)n00b_system_event_base;
     }
 
-    //    n00b_push_heap(n00b_thread_master_heap);
+    //    n00b_push_heap(n00b_internal_heap);
     n00b_utf8_t *s = n00b_str_copy(name);
     //    n00b_pop_heap();
 
@@ -68,12 +67,12 @@ n00b_post_close(n00b_stream_t *event)
     event->close_notified = true;
 
     if (c->write_event) {
-        n00b_stream_del(c->write_event);
+        n00b_event_del(c->write_event);
         c->write_event = NULL;
     }
 
     if (c->read_event) {
-        n00b_stream_del(c->read_event);
+        n00b_event_del(c->read_event);
         c->read_event = NULL;
     }
 
@@ -130,26 +129,149 @@ n00b_stream_init(n00b_stream_t *event, va_list args)
     n00b_initialize_event(event, impl, perms, et, cookie);
 }
 
-static n00b_utf8_t *
+n00b_utf8_t *
 n00b_stream_repr(n00b_stream_t *e)
 {
+    n00b_utf8_t *name;
+
     if (e->repr) {
         return e->repr;
     }
 
     if (e->impl && e->impl->repr_impl) {
         n00b_io_repr_fn fn = e->impl->repr_impl;
-        return (*fn)(e);
+        name               = (*fn)(e);
+    }
+    else {
+        int64_t id        = *(int64_t *)e->cookie;
+        char    buf[1024] = {
+            0,
+        };
+
+        snprintf(buf, 1023, "%llu (%s)", id, e->impl->name->data);
+        name = n00b_new_utf8(buf);
     }
 
-    int64_t id           = *(int64_t *)e->cookie;
-    char    result[1024] = {
-        0,
-    };
+    char read  = e->closed_for_read ? '-' : '+';
+    char write = e->closed_for_write ? '-' : '+';
+    return n00b_cstr_format("{} {}r {}w\n",
+                            name,
+                            n00b_utf8_repeat(read, 1),
+                            n00b_utf8_repeat(write, 1));
+}
 
-    snprintf(result, 1023, "%llu (%s)", id, e->impl->name->data);
+static inline n00b_utf8_t *
+build_filter_list(n00b_list_t *from)
+{
+    if (!from || !n00b_list_len(from)) {
+        return n00b_rich_lit("[i]None.");
+    }
+    n00b_list_t *l = n00b_list(n00b_type_utf8());
+    int          n = n00b_list_len(from);
+    for (int i = 0; i < n; i++) {
+        n00b_stream_filter_t *f = n00b_list_get(from, i, NULL);
+        n00b_list_append(l, n00b_to_utf8(f->name));
+    }
 
-    return n00b_new_utf8(result);
+    return n00b_str_join(l, n00b_new_utf8(", "));
+}
+
+n00b_utf8_t *
+n00b_stream_filter_repr(n00b_stream_t *e)
+{
+    n00b_utf8_t *result;
+
+    result = n00b_rich_lit("[h3]Read filters: ");
+    result = n00b_str_concat(result, build_filter_list(e->read_filters));
+    result = n00b_str_concat(result, n00b_rich_lit("\n[h3]Write filters: "));
+    result = n00b_str_concat(result, build_filter_list(e->write_filters));
+
+    return result;
+}
+
+n00b_utf8_t *
+one_subscription_repr(n00b_stream_t *s, n00b_io_subscription_kind k)
+{
+    n00b_dict_t *d = n00b_stream_get_subscriptions(s, k);
+
+    if (!d) {
+        return NULL;
+    }
+    n00b_list_t *subs = n00b_dict_keys(d);
+    n00b_list_t *l    = n00b_list(n00b_type_utf8());
+    int          n    = n00b_list_len(subs);
+
+    if (!n) {
+        return NULL;
+    }
+
+    for (int i = 0; i < n; i++) {
+        n00b_stream_t *sink = n00b_list_get(subs, i, NULL);
+        n00b_list_append(l,
+                         n00b_str_concat(n00b_new_utf8("\n"), n00b_stream_repr(sink)));
+    }
+
+    char *cname;
+
+    switch (k) {
+    case n00b_io_sk_read:
+        cname = "Read";
+        break;
+    case n00b_io_sk_pre_write:
+        cname = "Pre-write";
+        break;
+    case n00b_io_sk_post_write:
+        cname = "Post-write";
+        break;
+    case n00b_io_sk_error:
+        cname = "Err";
+        break;
+    default:
+        cname = "Close";
+        break;
+    }
+
+    return n00b_cstr_format("[h6]{} subscriptions:[/]\n{}\n",
+                            n00b_new_utf8(cname),
+                            n00b_str_join(l, n00b_new_utf8("\n  ")));
+}
+
+n00b_utf8_t *
+n00b_stream_subs_repr(n00b_stream_t *e)
+{
+    n00b_utf8_t *r = NULL;
+    n00b_utf8_t *t;
+
+    for (int i = n00b_io_sk_read; i <= n00b_io_sk_close; i++) {
+        t = one_subscription_repr(e, i);
+        if (!r) {
+            r = t;
+        }
+        else {
+            if (t) {
+                r = n00b_str_concat(r, t);
+            }
+        }
+    }
+
+    if (!r) {
+        return n00b_rich_lit("[h6]No subscriptions.\n");
+    }
+
+    return r;
+}
+
+n00b_utf8_t *
+n00b_stream_full_repr(n00b_stream_t *s)
+{
+    n00b_utf8_t *result = n00b_stream_repr(s);
+    result              = n00b_str_concat(result, n00b_new_utf8("\n"));
+    result              = n00b_str_concat(result, n00b_stream_subs_repr(s));
+    result              = n00b_str_concat(result, n00b_stream_filter_repr(s));
+    result              = n00b_str_concat(result,
+                             n00b_rich_lit("\n[h5]--------------------[/]\n"));
+
+    return result;
 }
 
 bool
@@ -182,7 +304,9 @@ n00b_add_or_replace(n00b_stream_t *new, n00b_dict_t *dict, void *key)
     }
 
     n00b_stream_t *found = hatrack_dict_get(dict, key, NULL);
+    n00b_lock_debugging_on();
     n00b_acquire_party(found);
+    n00b_lock_debugging_off();
 
     while (found->closed_for_read || found->closed_for_write) {
         n00b_stream_t *assure = hatrack_dict_get(dict, key, NULL);
@@ -194,12 +318,16 @@ n00b_add_or_replace(n00b_stream_t *new, n00b_dict_t *dict, void *key)
         }
         else {
             hatrack_dict_put(dict, key, new);
+            n00b_lock_debugging_on();
             n00b_release_party(found);
+            n00b_lock_debugging_off();
             return new;
         }
     }
 
+    n00b_lock_debugging_on();
     n00b_release_party(found);
+    n00b_lock_debugging_off();
     return found;
 }
 
@@ -288,7 +416,7 @@ n00b_purge_subscription_list_on_boundary(n00b_dict_t *s)
         if (!sub->timeout) {
             continue;
         }
-        n00b_stream_add(sub->to_event, sub->timeout);
+        n00b_event_add(sub->to_event, sub->timeout);
     }
 }
 
@@ -387,13 +515,11 @@ n00b_ev2_r(evutil_socket_t fd, short event_type, void *info)
 #ifdef N00B_INTERNAL_DEBUG
         n00b_ev2_cookie_t *cookie = party->cookie;
 
-        /*
         if (party->etype == n00b_io_ev_socket) {
             cprintf("\nev2(%d->r):\n%s\n",
                     (int)cookie->id,
                     n00b_hex_dump(buf->data, n00b_len(buf)));
         }
-        */
 #endif
 
         n00b_list_t *to_post = n00b_handle_read_operation(party, buf);
@@ -453,7 +579,7 @@ n00b_ev2_w(evutil_socket_t fd, short event_type, void *info)
 
     if (!request) {
 not_done:
-        n00b_stream_add(cookie->write_event, NULL);
+        n00b_event_add(cookie->write_event, NULL);
         n00b_release_party(party);
         return;
     }
@@ -461,14 +587,11 @@ not_done:
     ssize_t n = write((int)cookie->id, write_start, request);
 
 #ifdef N00B_INTERNAL_DEBUG
-    /*
-
-if (party->etype == n00b_io_ev_socket) {
-    cprintf("\nev2(w->%d):\n%s\n",
-            (int)cookie->id,
-            n00b_hex_dump(write_start, n));
-}
-    */
+    if (party->etype == n00b_io_ev_socket) {
+        cprintf("\nev2(w->%d):\n%s\n",
+                (int)cookie->id,
+                n00b_hex_dump(write_start, n));
+    }
 
 #endif
 
@@ -478,7 +601,6 @@ if (party->etype == n00b_io_ev_socket) {
             party->error            = true;
             n00b_post_close(party);
             n00b_post_errno(party);
-            n00b_release_party(party);
         }
         goto not_done;
     }
@@ -520,11 +642,11 @@ n00b_io_ev_unsubscribe(n00b_stream_sub_t *info)
     n00b_ev2_cookie_t *src_cookie = source->cookie;
 
     if (src_cookie->read_event && !info->source->read_active) {
-        n00b_stream_del(src_cookie->read_event);
+        n00b_event_del(src_cookie->read_event);
     }
 
     if (src_cookie->write_event && !info->source->write_active) {
-        n00b_stream_del(src_cookie->write_event);
+        n00b_event_del(src_cookie->write_event);
     }
 }
 
@@ -534,7 +656,7 @@ n00b_io_enqueue_fd_read(n00b_stream_t *party, uint64_t len)
     n00b_ev2_cookie_t *cookie = party->cookie;
     // This should be unnecessary; should already be queued.
     // But just in case.
-    n00b_stream_add(cookie->read_event, NULL);
+    n00b_event_add(cookie->read_event, NULL);
     return true;
 }
 
@@ -556,7 +678,7 @@ n00b_io_enqueue_fd_write(n00b_stream_t *party, void *msg)
     if (cookie->backlog && n00b_list_len(cookie->backlog) != 0) {
 add_to_backlog:
         n00b_list_append(cookie->backlog, msg);
-        n00b_stream_add(cookie->write_event, NULL);
+        n00b_event_add(cookie->write_event, NULL);
         return NULL;
     }
 
@@ -571,17 +693,19 @@ add_to_backlog:
     cookie->pending_ix    = 0;
 
     // Tell libevent we have something to write.
-    n00b_stream_add(cookie->write_event, NULL);
+    n00b_event_add(cookie->write_event, NULL);
     return NULL;
 }
 
 static inline void
-acquire_event_loop(void)
+_acquire_event_loop(char *f, int l)
 {
-    if (!n00b_lock_acquire_if_unlocked(&event_loop_lock)) {
+    if (!_n00b_lock_acquire_if_unlocked(&event_loop_lock, f, l)) {
         abort();
     }
 }
+
+#define acquire_event_loop() _acquire_event_loop(__FILE__, __LINE__)
 
 static inline void
 release_event_loop(void)
@@ -595,18 +719,11 @@ n00b_suspend_io(void)
     n00b_lock_acquire(&event_loop_lock);
 }
 
-void
-n00b_resume_io(void)
-{
-    release_event_loop();
-}
-
 extern void n00b_process_queue(void);
 
 bool
 n00b_io_run_base(n00b_stream_base_t *eb, int flags)
 {
-    acquire_event_loop();
     n00b_process_queue();
 
     // This is technically a double-lock; the libevent API locks. But
@@ -619,19 +736,18 @@ n00b_io_run_base(n00b_stream_base_t *eb, int flags)
     sigaddset(&cur_set, SIGPIPE);
     pthread_sigmask(SIG_BLOCK, &cur_set, &saved_set);
 
-    int result;
+    bool result;
 
-    n00b_acquire_event_base(eb);
+    struct event_base *libevent2_event_base = eb->event_ctx;
+    if (!libevent2_event_base) {
+        return false;
+    }
 
-    event_base_loopcontinue(eb->event_ctx);
-    result = event_base_loop(eb->event_ctx, flags);
-
-    n00b_release_event_base(eb);
+    event_base_loopcontinue(libevent2_event_base);
+    result = event_base_loop(libevent2_event_base, flags);
 
     pthread_sigmask(SIG_SETMASK, &saved_set, 0);
-    release_event_loop();
-
-    n00b_thread_pause_if_stop_requested();
+    n00b_gts_checkin();
 
     return result;
 }
@@ -639,7 +755,10 @@ n00b_io_run_base(n00b_stream_base_t *eb, int flags)
 static void
 n00b_dislikes_libevent(int severity, const char *msg)
 {
-    fprintf(stderr, "%d: %s\n", severity, msg);
+    if (severity >= 1) {
+        fprintf(stderr, "%d: %s\n", severity, msg);
+        n00b_static_c_backtrace();
+    }
 }
 
 static inline void
@@ -650,15 +769,14 @@ setup_libevent(void)
                             n00b_free_compat);
 
     if (!n00b_system_event_base) {
-        //        n00b_push_heap(n00b_thread_master_heap);
+        n00b_push_heap(n00b_internal_heap);
         n00b_system_event_base = n00b_new_base();
-        //        n00b_pop_heap();
+        n00b_pop_heap();
     }
 
     event_set_log_callback(n00b_dislikes_libevent);
-    // event_enable_debug_mode();
-    // event_enable_debug_logging(EVENT_DBG_ALL);
-    // event_set_fatal_callback(tmp_gc_nhack);
+    event_enable_debug_mode();
+    event_enable_debug_logging(EVENT_DBG_ALL);
 
 #ifdef WIN32
     evthread_use_pthreads();
@@ -683,11 +801,12 @@ static void
 n00b_io_register_subscription(n00b_stream_sub_t        *sub,
                               n00b_io_subscription_kind kind)
 {
-    /*
+#ifdef N00B_INTERNAL_DEBUG
     printf("sub: %s (sink) to %s (source)\n",
            n00b_repr(sub->sink)->data,
            n00b_repr(sub->source)->data);
-    */
+#endif
+
     n00b_stream_t *src  = sub->source;
     n00b_stream_t *sink = sub->sink;
     // TODO: some type checking.
@@ -735,6 +854,9 @@ n00b_io_close(n00b_stream_t *party)
 static void
 n00b_stream_cycle_check(n00b_stream_t *source, n00b_stream_t *sink)
 {
+    n00b_list_t *l;
+    int          n;
+
     if ((sink->write_start_subs
          && hatrack_dict_get(sink->write_start_subs, source, NULL) != NULL)
         || (sink->write_subs
@@ -742,18 +864,33 @@ n00b_stream_cycle_check(n00b_stream_t *source, n00b_stream_t *sink)
         N00B_CRAISE("Subscription causes an IO cycle.");
     }
 
-    n00b_list_t *l = n00b_dict_keys(sink->write_start_subs);
-    int          n = n00b_list_len(l);
+    if (sink->write_start_subs) {
+        l = n00b_dict_keys(sink->write_start_subs);
+        if (!l) {
+            n = 0;
+        }
+        else {
+            n = n00b_list_len(l);
+        }
 
-    for (int i = 0; i < n; i++) {
-        n00b_stream_t *next_sink = n00b_list_get(l, i, NULL);
-        n00b_acquire_party(next_sink);
-        n00b_stream_cycle_check(source, next_sink);
-        n00b_release_party(next_sink);
+        for (int i = 0; i < n; i++) {
+            n00b_stream_t *next_sink = n00b_list_get(l, i, NULL);
+            n00b_acquire_party(next_sink);
+            n00b_stream_cycle_check(source, next_sink);
+            n00b_release_party(next_sink);
+        }
+    }
+    if (!sink->write_subs) {
+        return;
     }
 
     l = n00b_dict_keys(sink->write_subs);
-    n = n00b_list_len(l);
+    if (!l) {
+        n = 0;
+    }
+    else {
+        n = n00b_list_len(l);
+    }
 
     for (int i = 0; i < n; i++) {
         n00b_stream_t *next_sink = n00b_list_get(l, i, NULL);
@@ -794,7 +931,10 @@ n00b_raw_subscribe(n00b_stream_t            *source,
     n00b_stream_sub_t *sub = n00b_alloc_subscription(source);
     sub->source            = source;
     sub->sink              = sink;
-    sub->timeout           = n00b_duration_to_timeval(timeout);
+
+    if (timeout) {
+        sub->timeout = n00b_duration_to_timeval(timeout);
+    }
 
     n00b_io_register_subscription(sub, kind);
 
@@ -819,6 +959,7 @@ n00b_raw_subscribe(n00b_stream_t            *source,
     }
 
     if (timeout) {
+        n00b_static_c_backtrace();
         sub->to_event = evtimer_new(n00b_system_event_base->event_ctx,
                                     timeout_purge,
                                     sub);
@@ -847,6 +988,8 @@ n00b_io_subscribe(n00b_stream_t            *source,
         n00b_release_party(sink);
     }
 
+    n00b_release_party(source);
+
     return result;
 }
 
@@ -869,7 +1012,7 @@ n00b_raw_unsubscribe(n00b_stream_sub_t *sub)
     hatrack_dict_remove(subs, sub->sink);
 
     if (sub->timeout) {
-        n00b_stream_del(sub->to_event);
+        n00b_event_del(sub->to_event);
     }
 
     if (!n00b_stream_has_remaining_subscribers(source, sub->kind)) {
@@ -961,6 +1104,8 @@ n00b_handle_read_operation(n00b_stream_t *party, void *buf)
     if (!n) {
         return wl;
     }
+
+    // cprintf("Read op on stream: %s\n", n00b_stream_full_repr(party));
 
     for (int i = 0; i < n; i++) {
         n00b_stream_filter_t *filter = n00b_list_get(party->read_filters,
@@ -1089,22 +1234,24 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
         return;
     }
 
-    int                   n    = n00b_list_len(party->write_filters);
-    n00b_list_t          *msgs = n00b_list(n00b_type_ref());
+    /*    cprintf("Write op (%s) on stream: %s\n",
+                n00b_get_my_type(msg),
+                n00b_stream_full_repr(party));
+    */
+    n00b_list_t          *filters = party->write_filters;
+    int                   n       = n00b_list_len(filters);
+    n00b_list_t          *msgs    = n00b_list(n00b_type_ref());
     n00b_stream_filter_t *filter;
 
     n00b_list_append(msgs, msg);
 
     for (int i = 0; i < n; i++) {
-        filter = n00b_list_get(party->write_filters,
-                               i,
-                               NULL);
-
-        msgs = one_write_filter_level(filter, party, msgs);
+        assert(n == n00b_list_len(filters));
+        filter = n00b_list_get(filters, i, NULL);
+        msgs   = one_write_filter_level(filter, party, msgs);
 
         if (!msgs) {
             n00b_release_party(party);
-
             return;
         }
     }
@@ -1136,7 +1283,6 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
     }
 
     n00b_release_party(party);
-
     return;
 }
 
@@ -1236,6 +1382,7 @@ n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
 typedef struct {
     n00b_condition_t cv;
     n00b_list_t     *msgs;
+    n00b_stream_t   *from_stream;
 } drain_ctx;
 
 static void
@@ -1244,7 +1391,7 @@ collect_items(n00b_stream_t *stream, void *msg, void *aux)
     drain_ctx *ctx = aux;
     n00b_list_append(ctx->msgs, msg);
 
-    if (n00b_at_eof(stream)) {
+    if (n00b_at_eof(ctx->from_stream)) {
         n00b_condition_notify_one(&ctx->cv, NULL);
     }
 }
@@ -1257,6 +1404,7 @@ n00b_stream_read_all(n00b_stream_t *stream)
     // all up.
     //
     // Otherwise, we return the list of objects.
+    int n;
 
     n00b_acquire_party(stream);
 
@@ -1265,20 +1413,20 @@ n00b_stream_read_all(n00b_stream_t *stream)
         return NULL;
     }
 
-    drain_ctx *ctx = n00b_gc_alloc_mapped(drain_ctx, N00B_GC_SCAN_ALL);
-    ctx->msgs      = n00b_list(n00b_type_ref());
+    drain_ctx *ctx   = n00b_gc_alloc_mapped(drain_ctx, N00B_GC_SCAN_ALL);
+    ctx->msgs        = n00b_list(n00b_type_ref());
+    ctx->from_stream = stream;
 
     n00b_raw_condition_init(&ctx->cv);
 
     n00b_stream_sub_t *sub = n00b_io_add_read_callback(stream,
                                                        (void *)collect_items,
                                                        ctx);
-
     n00b_release_party(stream);
     n00b_condition_wait_then_unlock(&ctx->cv);
     n00b_io_unsubscribe(sub);
 
-    int n = n00b_list_len(ctx->msgs);
+    n = n00b_list_len(ctx->msgs);
 
     if (!n) {
         return NULL;
@@ -1349,10 +1497,31 @@ n00b_io_loop_once(void)
 void
 n00b_io_loop_drain(void)
 {
-    while (event_base_loopbreak(n00b_system_event_base->event_ctx))
-        ;
+    // Allow a bit of recursion but not an eternal amount.
+    // Otherwise, we'd just keep going until the callback queue is empty.
+    n00b_duration_t *to_add = n00b_new(n00b_type_duration(),
+                                       n00b_kw("nanosec",
+                                               n00b_ka(N00B_IO_SHUTDOWN_NSEC)));
 
-    n00b_io_run_base(n00b_system_event_base, EVLOOP_NONBLOCK);
+    n00b_debug_start_shutdown();
+
+    n00b_acquire_event_base(n00b_system_event_base);
+    acquire_event_loop();
+
+    while (!n00b_is_debug_shutdown_queue_processed()) {
+        n00b_io_loop_once();
+        n00b_process_queue();
+    }
+    release_event_loop();
+    n00b_release_event_base(n00b_system_event_base);
+
+    n00b_duration_t *now = n00b_now();
+    n00b_duration_t *end = n00b_duration_add(now, to_add);
+
+    while (n00b_duration_gt(end, n00b_now())) {
+        n00b_io_loop_once();
+        n00b_process_queue();
+    }
 }
 
 #if defined(N00B_DEBUG)
@@ -1362,15 +1531,27 @@ extern int16_t *n00b_calculate_col_widths(n00b_grid_t *, int16_t, int16_t *);
 static void *
 run_io_loop(void *ignore)
 {
+    n00b_exception_t *exc;
+    bool              do_thread_exit = false;
+
     N00B_TRY
     {
-        while (!exit_requested) {
+#ifndef N00B_ASYNC_IO_CALLBACKS
+        n00b_ioqueue_launch_callback_thread();
+        n00b_acquire_event_base(n00b_system_event_base);
+        while (!(exit_requested())) {
             n00b_io_loop_once();
         }
+#else
+        while (!(exit_requested())) {
+            n00b_ioqueue_launch_callback_thread();
+            n00b_io_loop_once();
+        }
+#endif
     }
     N00B_EXCEPT
     {
-        n00b_exception_t *exc = N00B_X_CUR();
+        exc = N00B_X_CUR();
 #if defined(N00B_DEBUG) && defined(N00B_BACKTRACE_SUPPORTED)
         int16_t  tmp;
         int16_t *widths = n00b_calculate_col_widths(exc->c_trace,
@@ -1396,26 +1577,26 @@ run_io_loop(void *ignore)
 
             while (event_base_loopbreak(n00b_system_event_base->event_ctx))
                 ;
+
             release_event_loop();
         }
 #endif
-
         N00B_JUMP_TO_FINALLY();
     }
     N00B_FINALLY
     {
         event_base_loopcontinue(n00b_system_event_base->event_ctx);
-        n00b_condition_lock_acquire(&exiting_cv);
         n00b_io_loop_drain();
-
-        io_has_exited = true;
-        n00b_condition_notify_all(&exiting_cv);
-        n00b_condition_lock_release_all(&exiting_cv);
-
-        n00b_thread_exit(0);
+        n00b_io_has_exited = true;
+        n00b_notify(exit_notifier, 1ULL);
+        do_thread_exit = true;
+        n00b_release_event_base(n00b_system_event_base);
     }
     N00B_TRY_END;
 
+    if (do_thread_exit) {
+        n00b_thread_exit(0);
+    }
     return NULL;
 }
 
@@ -1426,22 +1607,26 @@ io_loop_break(int unused1, short unused2, void *unused3)
 
 extern void n00b_ioqueue_setup(void);
 
-static void
-internal_io_setup(void)
+void
+n00b_internal_io_setup(void)
 {
-    n00b_static_condition_init(exiting_cv);
     n00b_static_lock_init(event_loop_lock);
 
+    n00b_push_heap(n00b_internal_heap);
     impls = n00b_dict(n00b_type_utf8(), n00b_type_ref());
     setup_libevent();
     n00b_system_event_base->system = true;
 
-    exit_requested = false;
-    io_has_exited  = false;
+    n00b_io_has_exited = false;
 
     struct event_config *sb_config = event_config_new();
 
     event_config_require_features(sb_config, EV_FEATURE_FDS);
+
+    n00b_gc_register_root(&n00b_system_event_base, 1);
+    n00b_gc_register_root(&loop_timeout, 1);
+    n00b_gc_register_root(&n00b_io_thread, 1);
+    n00b_gc_register_root(&impls, 1);
 
     n00b_system_event_base->event_ctx = event_base_new_with_config(sb_config);
 
@@ -1476,51 +1661,48 @@ internal_io_setup(void)
                              io_loop_break,
                              NULL);
 
-    n00b_stream_add(loop_timeout, &tv);
+    n00b_event_add(loop_timeout, &tv);
 
     n00b_stream_t *sio = n00b_stdout();
     n00b_io_set_repr(sio, n00b_new_utf8("[stdout]"));
-    //    n00b_merge_ansi(sio, 0, 0, false);
+    // n00b_merge_ansi(sio, 0, 0, false);
     sio = n00b_stderr();
-    //    n00b_merge_ansi(sio, 0, 0, false);
+    //  n00b_merge_ansi(sio, 0, 0, false);
     n00b_io_set_repr(sio, n00b_new_utf8("[stderr]"));
     sio = n00b_stdin();
     n00b_io_set_repr(sio, n00b_new_utf8("[stdin]"));
 
     n00b_io_thread = n00b_thread_self();
     n00b_ioqueue_setup();
+    n00b_pop_heap();
 }
 
 bool
 n00b_wait_for_io_shutdown(void)
 {
-    n00b_condition_lock_acquire(&exiting_cv);
-    if (n00b_in_io_thread()) {
-        n00b_condition_lock_release_all(&exiting_cv);
-        return true;
-    }
+    // This should really only be used by threads that have
+    // asked for the program to exit.
 
-    if (io_has_exited) {
-        n00b_condition_lock_release_all(&exiting_cv);
-        return true;
-    }
+    assert(exit_notifier);
+    n00b_wait(exit_notifier, -1);
 
-    n00b_condition_wait(&exiting_cv);
-    n00b_condition_lock_release_all(&exiting_cv);
     return true;
 }
 
 void
 n00b_io_begin_shutdown(void)
 {
-    exit_requested = true;
+    n00b_push_heap(n00b_internal_heap);
+    exit_notifier = n00b_new_notifier();
+    n00b_pop_heap();
 }
 
 void
 n00b_io_init(void)
 {
     n00b_gc_register_root(&impls, 1);
-    n00b_gc_register_root(&n00b_system_event_base, 1);
+    n00b_gc_register_root(&n00b_system_event_base,
+                          sizeof(n00b_system_event_base) / 8);
     n00b_gc_register_root(&loop_timeout, 1);
 }
 
@@ -1529,7 +1711,6 @@ static bool is_running = false;
 static void *
 launch_once(void *ignore)
 {
-    internal_io_setup();
     if (is_running) {
         n00b_static_c_backtrace();
         return NULL;
@@ -1538,6 +1719,7 @@ launch_once(void *ignore)
     run_io_loop(NULL);
     is_running = false;
 
+    n00b_thread_exit(0);
     return NULL;
 }
 

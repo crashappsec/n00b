@@ -452,7 +452,8 @@ ruleset_add_rule_internal(n00b_grammar_t     *g,
                           n00b_list_t        *items,
                           int                 cost,
                           n00b_parse_rule_t  *penalty,
-                          n00b_parse_rule_t **old)
+                          n00b_parse_rule_t **old,
+                          n00b_utf8_t        *doc)
 {
     if (g->finalized) {
         N00B_CRAISE("Cannot modify grammar after first parse w/o a reset.");
@@ -469,6 +470,7 @@ ruleset_add_rule_internal(n00b_grammar_t     *g,
     rule->cost              = cost;
     rule->penalty_rule      = penalty ? true : false;
     rule->link              = penalty;
+    rule->doc               = doc;
 
     if (rule_exists(ruleset, rule, old)) {
         return NULL;
@@ -481,15 +483,16 @@ ruleset_add_rule_internal(n00b_grammar_t     *g,
 }
 
 n00b_parse_rule_t *
-n00b_ruleset_add_rule(n00b_grammar_t *g,
-                      n00b_nonterm_t *nt,
-                      n00b_list_t    *items,
-                      int             cost)
+_n00b_ruleset_add_rule(n00b_grammar_t *g,
+                       n00b_nonterm_t *nt,
+                       n00b_list_t    *items,
+                       int             cost,
+                       n00b_utf8_t    *doc)
 {
     n00b_parse_rule_t *new;
     n00b_parse_rule_t *old = NULL;
 
-    new = ruleset_add_rule_internal(g, nt, items, cost, NULL, &old);
+    new = ruleset_add_rule_internal(g, nt, items, cost, NULL, &old, doc);
 
     if (new) {
         return new;
@@ -540,16 +543,17 @@ create_one_error_rule_set(n00b_grammar_t *g, int rule_ix)
                                                           r,
                                                           0,
                                                           NULL,
+                                                          NULL,
                                                           NULL);
 
         r = n00b_list(n00b_type_ref());
         n00b_list_append(r, n00b_new_pitem(N00B_P_NULL));
-        ruleset_add_rule_internal(g, nt_err, r, 0, ok, NULL);
+        ruleset_add_rule_internal(g, nt_err, r, 0, ok, NULL, NULL);
 
         r = n00b_list(n00b_type_ref());
         n00b_list_append(r, n00b_new_pitem(N00B_P_ANY));
         n00b_list_append(r, pi);
-        ruleset_add_rule_internal(g, nt_err, r, 0, ok, NULL);
+        ruleset_add_rule_internal(g, nt_err, r, 0, ok, NULL, NULL);
 
         n00b_list_set(l, i, pi_err);
     }

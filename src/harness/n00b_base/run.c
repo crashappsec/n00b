@@ -194,7 +194,7 @@ n00b_run_expected_value_tests(void)
 
         if (!pid) {
             close(pipefds[0]);
-            exit(run_one_item(item));
+            n00b_exit(run_one_item(item));
         }
 
         close(pipefds[1]);

@@ -8,10 +8,10 @@ n00b_condition_open(n00b_condition_t *cv, void *aux)
                                                     N00B_GC_SCAN_ALL);
     cookie->condition        = cv;
     cookie->aux              = aux;
-    n00b_stream_t *res        = n00b_alloc_party(&n00b_condition_impl,
-                                         cookie,
-                                         n00b_io_perm_w,
-                                         n00b_io_ev_condition);
+    n00b_stream_t *res       = n00b_alloc_party(&n00b_condition_impl,
+                                          cookie,
+                                          n00b_io_perm_w,
+                                          n00b_io_ev_condition);
 
     n00b_debug("cv", n00b_rich_lit("[h6]Condition opened"));
 

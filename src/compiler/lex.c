@@ -1113,7 +1113,13 @@ n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
         return ctx->ct->fatal_errors;
     }
 
-    n00b_obj_t raw = n00b_stream_read_all(stream);
+    n00b_obj_t raw;
+
+    if (!ctx->source) {
+        ctx->source = n00b_stream_read_all(stream);
+    }
+
+    raw = ctx->source;
 
     lex_state_t lex_info = {
         .token_id   = 0,

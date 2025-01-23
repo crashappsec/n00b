@@ -6,7 +6,7 @@ enter_md_block(MD_BLOCKTYPE type, void *detail, void *extra)
 {
     n00b_md_build_ctx *ctx  = (n00b_md_build_ctx *)extra;
     n00b_md_node_t    *node = n00b_gc_alloc_mapped(n00b_md_build_ctx,
-                                              N00B_GC_SCAN_ALL);
+                                                N00B_GC_SCAN_ALL);
 
     node->node_type = convert_block_kind(type);
 
@@ -63,7 +63,7 @@ enter_md_span(MD_SPANTYPE type, void *detail, void *extra)
 {
     n00b_md_build_ctx *ctx  = (n00b_md_build_ctx *)extra;
     n00b_md_node_t    *node = n00b_gc_alloc_mapped(n00b_md_build_ctx,
-                                              N00B_GC_SCAN_ALL);
+                                                N00B_GC_SCAN_ALL);
 
     node->node_type = convert_span_kind(type);
 
@@ -105,14 +105,14 @@ md_text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size, void *extra)
 {
     n00b_md_build_ctx *ctx  = (n00b_md_build_ctx *)extra;
     n00b_md_node_t    *node = n00b_gc_alloc_mapped(n00b_md_build_ctx,
-                                              N00B_GC_SCAN_ALL);
+                                                N00B_GC_SCAN_ALL);
 
     node->node_type   = convert_text_kind(type);
     node->detail.text = n00b_new(n00b_type_utf8(),
-                                n00b_kw("length",
-                                       n00b_ka(size),
-                                       "cstring",
-                                       n00b_ka(text)));
+                                 n00b_kw("length",
+                                         n00b_ka(size),
+                                         "cstring",
+                                         n00b_ka(text)));
 
     n00b_tree_add_node(ctx->cur, node);
 
@@ -245,8 +245,8 @@ static n00b_utf8_t *
 n00b_repr_md_node(n00b_md_node_t *node)
 {
     n00b_utf8_t *ret = n00b_cstr_format("[atomic lime]{}[/] ({})",
-                                      md_node_type_to_name(node->node_type),
-                                      node->node_type);
+                                        md_node_type_to_name(node->node_type),
+                                        node->node_type);
     n00b_utf8_t *extra;
 
     switch (node->node_type) {
@@ -284,7 +284,7 @@ n00b_parse_markdown(n00b_str_t *s)
 
     n00b_md_node_t   *r = n00b_gc_alloc_mapped(n00b_md_node_t, N00B_GC_SCAN_ALL);
     n00b_tree_node_t *t = n00b_new_tree_node(n00b_type_ref(), r);
-    r->node_type       = N00B_MD_DOCUMENT;
+    r->node_type        = N00B_MD_DOCUMENT;
 
     n00b_md_build_ctx build_ctx = {
         .cur = t,
@@ -307,8 +307,8 @@ typedef struct {
     n00b_list_t      *entities;
     n00b_utf8_t      *str;
     n00b_grid_t      *table;
-    int              row_count;
-    bool             keep_soft_newlines;
+    int               row_count;
+    bool              keep_soft_newlines;
 } md_grid_ctx;
 
 static inline void
@@ -356,7 +356,7 @@ md_block_merge_and_style(md_grid_ctx *ctx, char *s, n00b_list_t *saved)
     n00b_utf8_t       *style = s ? n00b_new_utf8(s) : NULL;
     n00b_renderable_t *r;
     n00b_grid_t       *g;
-    int               l;
+    int                l;
 
     md_newline(ctx);
 
@@ -377,12 +377,12 @@ md_block_merge_and_style(md_grid_ctx *ctx, char *s, n00b_list_t *saved)
     default:
         l = n00b_list_len(ctx->entities);
         g = n00b_new(n00b_type_grid(),
-                    n00b_kw("start_rows",
-                           n00b_ka(l),
-                           "start_cols",
-                           n00b_ka(1),
-                           "container_tag",
-                           n00b_new_utf8("flow")));
+                     n00b_kw("start_rows",
+                             n00b_ka(l),
+                             "start_cols",
+                             n00b_ka(1),
+                             "container_tag",
+                             n00b_new_utf8("flow")));
 
         for (int i = 0; i < l; i++) {
             n00b_renderable_t *item = n00b_list_get(ctx->entities, i, NULL);
@@ -409,7 +409,7 @@ md_node_to_grid(md_grid_ctx *ctx)
     n00b_list_t    *saved_entities;
     n00b_utf8_t    *saved_str;
     n00b_grid_t    *saved_table;
-    int            saved_row_count;
+    int             saved_row_count;
 
     switch (n->node_type) {
     case N00B_MD_SPAN_EM:
@@ -497,19 +497,19 @@ finish_span:
     case N00B_MD_SPAN_LATEX:
     case N00B_MD_SPAN_LATEX_DISPLAY:
         n00b_str_apply_style(ctx->str,
-                            n00b_lookup_text_style(n00b_new_utf8("code")),
-                            false);
+                             n00b_lookup_text_style(n00b_new_utf8("code")),
+                             false);
         goto finish_span;
     case N00B_MD_SPAN_A:
         if (n->detail.a.href.size) {
             n00b_str_apply_style(ctx->str,
-                                n00b_lookup_text_style(n00b_new_utf8("link")),
-                                false);
+                                 n00b_lookup_text_style(n00b_new_utf8("link")),
+                                 false);
             ctx->str = n00b_cstr_format(
                 "{} [i]({})[/]",
                 ctx->str,
                 n00b_cstring((char *)n->detail.a.href.text,
-                            n->detail.a.href.size));
+                             n->detail.a.href.size));
         }
         goto finish_span;
     case N00B_MD_SPAN_IMG:
@@ -518,23 +518,23 @@ finish_span:
                 "{}image [em]\"{}\"[/] @[link]{}[/]] ",
                 n00b_new_utf8("["),
                 n00b_cstring((char *)n->detail.img.title.text,
-                            n->detail.img.title.size),
+                             n->detail.img.title.size),
                 n00b_cstring((char *)n->detail.img.src.text,
-                            n->detail.img.src.size));
+                             n->detail.img.src.size));
         }
         else {
             ctx->str = n00b_cstr_format(
                 "{}image @[link]{}[/]]",
                 n00b_new_utf8("["),
                 n00b_cstring((char *)n->detail.img.src.text,
-                            n->detail.img.src.size));
+                             n->detail.img.src.size));
         }
         goto finish_span;
     case N00B_MD_SPAN_WIKI_LINK:
         ctx->str = n00b_cstr_format("[link]{}[/] [i]({})[/]",
-                                   ctx->str,
-                                   n00b_cstring((char *)n->detail.img.src.text,
-                                               n->detail.img.src.size));
+                                    ctx->str,
+                                    n00b_cstring((char *)n->detail.img.src.text,
+                                                 n->detail.img.src.size));
         goto finish_span;
     case N00B_MD_BLOCK_HR:
         // Right now, don't have a hard rule primitive.
@@ -555,9 +555,9 @@ finish_span:
     case N00B_MD_BLOCK_UL:
         md_newline(ctx);
         n00b_list_append(saved_entities,
-                        n00b_new(n00b_type_renderable(),
-                                n00b_kw("obj",
-                                       n00b_unordered_list(ctx->entities))));
+                         n00b_new(n00b_type_renderable(),
+                                  n00b_kw("obj",
+                                          n00b_unordered_list(ctx->entities))));
         ;
 finish_block:
         ctx->entities = saved_entities;
@@ -565,9 +565,9 @@ finish_block:
     case N00B_MD_BLOCK_OL:
         md_newline(ctx);
         n00b_list_append(saved_entities,
-                        n00b_new(n00b_type_renderable(),
-                                n00b_kw("obj",
-                                       n00b_ordered_list(ctx->entities))));
+                         n00b_new(n00b_type_renderable(),
+                                  n00b_kw("obj",
+                                          n00b_ordered_list(ctx->entities))));
         goto finish_block;
     case N00B_MD_BLOCK_LI:
         md_block_merge_and_style(ctx, "li", saved_entities);
@@ -606,12 +606,12 @@ finish_block:
 
         if (!ctx->table) {
             ctx->table = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_rows",
-                                        n00b_ka(1),
-                                        "start_cols",
-                                        n00b_list_len(ctx->entities),
-                                        "stripe",
-                                        n00b_ka(true)));
+                                  n00b_kw("start_rows",
+                                          n00b_ka(1),
+                                          "start_cols",
+                                          n00b_list_len(ctx->entities),
+                                          "stripe",
+                                          n00b_ka(true)));
         }
 
         n00b_grid_add_row(ctx->table, ctx->entities);
@@ -632,12 +632,12 @@ finish_block:
     case N00B_MD_BLOCK_TH:
         if (!ctx->table) {
             ctx->table = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_rows",
-                                        n00b_ka(1),
-                                        "start_cols",
-                                        n00b_list_len(ctx->entities),
-                                        "stripe",
-                                        n00b_ka(true)));
+                                  n00b_kw("start_rows",
+                                          n00b_ka(1),
+                                          "start_cols",
+                                          n00b_list_len(ctx->entities),
+                                          "stripe",
+                                          n00b_ka(true)));
         }
 
         n00b_grid_add_row(ctx->table, ctx->entities);
@@ -674,6 +674,5 @@ n00b_markdown_to_grid(n00b_str_t *s, bool keep_soft_newlines)
 
     md_node_to_grid(&ctx);
 
-    assert(n00b_list_len(ctx.entities) == 1);
     return n00b_list_get(ctx.entities, 0, NULL);
 }

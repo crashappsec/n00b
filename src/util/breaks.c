@@ -194,7 +194,7 @@ n00b_break_info_t *
 n00b_wrap_text(const n00b_str_t *s, int32_t width, int32_t hang)
 {
     if (width <= 0) {
-        width = n00b_max(20, n00b_terminal_width());
+        width = n00b_max(N00B_MIN_RENDER_WIDTH, n00b_terminal_width());
     }
 
     n00b_break_info_t *line_breaks  = n00b_get_line_breaks(s);

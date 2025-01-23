@@ -3,7 +3,7 @@
 typedef struct hatrack_set_st n00b_set_t;
 typedef uint64_t              n00b_size_t;
 typedef struct timespec       n00b_duration_t;
-typedef struct n00b_stream_t   n00b_stream_t;
+typedef struct n00b_stream_t  n00b_stream_t;
 
 #include "adts/dt_box.h"
 #include "core/dt_kargs.h"
@@ -20,7 +20,6 @@ typedef struct n00b_stream_t   n00b_stream_t;
 #include "core/dt_types.h"
 #include "adts/dt_grids.h"
 #include "adts/dt_buffers.h"
-#include "io/dt_io.h"
 #include "crypto/dt_crypto.h"
 #include "core/dt_exceptions.h"
 #include "adts/dt_mixed.h"

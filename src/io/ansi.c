@@ -559,6 +559,10 @@ ansify_region(const n00b_utf32_t *s,
     char             *outp     = buf;
     n00b_utf8_t      *tmp;
 
+    if (from == to) {
+        return NULL;
+    }
+
     if (style != N00B_UNSTYLED) {
         result = ansi_get_style_start(style);
     }
@@ -586,7 +590,10 @@ ansify_region(const n00b_utf32_t *s,
         break;
     }
 
-    *outp  = 0;
+    *outp = 0;
+    if (outp == buf) {
+        return ansi_get_style_end();
+    }
     tmp    = n00b_new_utf8(buf);
     result = n00b_str_concat(result, tmp);
     tmp    = ansi_get_style_end();
@@ -675,17 +682,21 @@ n00b_ansify_line(const n00b_utf32_t *s)
         }
 
         if (ss > cur) {
-            tmp    = ansify_region(s, cur, n00b_min(ss, l), sbase);
-            cur    = ss;
-            result = n00b_str_concat(result, tmp);
+            tmp = ansify_region(s, cur, n00b_min(ss, l), sbase);
+            cur = ss;
+            if (tmp) {
+                result = n00b_str_concat(result, tmp);
+            }
         }
 
         if (ss <= cur && se >= cur) {
             int32_t      stopat = n00b_min(se, l);
             n00b_style_t sty    = s->styling->styles[i].info;
             tmp                 = ansify_region(s, cur, stopat, sty);
-            result              = n00b_str_concat(result, tmp);
-            cur                 = stopat;
+            if (tmp) {
+                result = n00b_str_concat(result, tmp);
+            }
+            cur = stopat;
         }
 
         if (cur == l) {
@@ -694,11 +705,13 @@ n00b_ansify_line(const n00b_utf32_t *s)
     }
 
     if (cur != l) {
-        tmp    = ansify_region(s, cur, l, sbase);
+        if (tmp) {
+            tmp = ansify_region(s, cur, l, sbase);
+        }
         result = n00b_str_concat(result, tmp);
     }
 
-    return result;
+    return n00b_to_utf8(result);
 }
 
 void
@@ -847,17 +860,25 @@ n00b_filter_merge_ansi(n00b_stream_t *party, ansi_filter_ctx *ctx, void *msg)
         int32_t       end  = n00b_str_codepoint_len(line);
 
         if (end > ctx->width && ctx->truncate) {
-            end    = internal_truncate_to_width(line, end, ctx->width);
-            result = n00b_str_concat(result, n00b_ansify_line(line));
+            internal_truncate_to_width(line, end, ctx->width);
+            n00b_utf8_t *line8 = n00b_ansify_line(line);
+            if (line8) {
+                result = n00b_str_concat(result, line8);
+            }
+            else {
+                result = n00b_str_concat(result, n00b_get_newline_const());
+            }
         }
         else {
             n00b_utf8_t *part = n00b_ansify_line(line);
 
-            if (result) {
+            if (result && part) {
                 result = n00b_cstr_format("{}{}", result, part);
             }
             else {
-                result = part;
+                if (part) {
+                    result = part;
+                }
             }
         }
     }
@@ -873,6 +894,42 @@ n00b_filter_merge_ansi(n00b_stream_t *party, ansi_filter_ctx *ctx, void *msg)
     return l;
 }
 
+n00b_utf8_t *
+n00b_ansify(n00b_str_t *s, bool truncate, int hang)
+{
+    s = n00b_to_utf32(s);
+
+    n00b_list_t  *lines;
+    n00b_utf32_t *processed = NULL;
+    int           width     = n00b_max(n00b_terminal_width(),
+                         N00B_MIN_RENDER_WIDTH);
+
+    if (!n00b_str_ends_with(s, n00b_get_newline_const())) {
+        s = n00b_str_concat(s, n00b_get_newline_const());
+    }
+    if (truncate) {
+        lines = n00b_str_split(s, n00b_get_newline_const());
+    }
+    else {
+        lines = n00b_str_wrap(s, width, hang);
+    }
+
+    int n = n00b_list_len(lines);
+
+    for (int i = 0; i < n; i++) {
+        n00b_utf32_t *line = n00b_list_get(lines, i, NULL);
+        int32_t       end  = n00b_str_codepoint_len(line);
+
+        if (truncate && end > width) {
+            internal_truncate_to_width(line, end, width);
+        }
+
+        processed = n00b_str_concat(processed, n00b_ansify_line(line));
+    }
+
+    return n00b_to_utf8(processed);
+}
+
 // Note that there's currently no way to resize via API.
 void
 n00b_merge_ansi(n00b_stream_t *party,
@@ -884,10 +941,7 @@ n00b_merge_ansi(n00b_stream_t *party,
                                                 N00B_GC_SCAN_ALL);
 
     if (width <= 0) {
-        width = n00b_terminal_width();
-    }
-    if (width < N00B_MIN_RENDER_WIDTH) {
-        width = N00B_MIN_RENDER_WIDTH;
+        width = n00b_max(n00b_terminal_width(), N00B_MIN_RENDER_WIDTH);
     }
 
     ctx->width    = width;

@@ -40,6 +40,9 @@ buffer_init(n00b_buf_t *obj, va_list args)
     }
 
     n00b_static_rw_lock_init(obj->lock);
+    // Asserts the lock is never around code that would wait long
+    // enough to impair the GC.
+    n00b_rw_lock_set_nosleep(&obj->lock);
 
     if (length == 0) {
         obj->alloc_len = N00B_EMPTY_BUFFER_ALLOC;
@@ -588,6 +591,59 @@ buffer_view(n00b_buf_t *inbuf, uint64_t *outlen)
     *outlen = result->byte_len;
 
     return result->data;
+}
+
+int64_t
+_n00b_buffer_find(n00b_buf_t *b, n00b_buf_t *sub, ...)
+{
+    int64_t start = 0;
+    int64_t end   = -1;
+
+    n00b_karg_only_init(sub);
+
+    n00b_kw_int64("start", start);
+    n00b_kw_int64("end", end);
+
+    uint64_t blen   = n00b_len(b);
+    uint64_t sublen = n00b_len(sub);
+
+    if (start < 0) {
+        start += blen;
+    }
+    if (start < 0) {
+        return -1;
+    }
+    if (end < 0) {
+        end += blen + 1;
+    }
+    if (end <= start) {
+        return -1;
+    }
+    if ((uint64_t)end > blen) {
+        end = blen;
+    }
+    if (sublen == 0) {
+        return start;
+    }
+
+    char *bp   = b->data + start;
+    char *endp = b->data + end - sublen;
+    char *subp;
+    char *p;
+
+    while (bp <= endp) {
+next_start:
+        p    = bp;
+        subp = sub->data;
+        for (uint64_t i = 0; i < sublen; i++) {
+            if (*p++ != *subp++) {
+                bp++;
+                goto next_start;
+            }
+        }
+        return bp - b->data;
+    }
+    return -1;
 }
 
 // We conservatively scan the data pointer.

@@ -1617,7 +1617,8 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             }
 
             ++tstate->pc;
-            n00b_thread_pause_if_stop_requested();
+            // Probably could do this less often.
+            n00b_gts_checkin();
         }
     }
     N00B_EXCEPT

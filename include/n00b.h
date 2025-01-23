@@ -14,6 +14,7 @@
 // prototyping.
 #include "n00b/base.h"
 #include "core/init.h"
+#include "core/exit.h"
 #include "util/macros.h" // Helper macros
 #include "core/kargs.h"  // Keyword arguments.
 #include "util/random.h"
@@ -130,5 +131,6 @@
 
 // Helper functions for object marshal implementations to
 // marshal primitive values.
+#include "util/highlights.h"
 #include "util/hex.h"
 #include "io/debug.h"

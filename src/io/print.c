@@ -68,6 +68,8 @@ _n00b_print(n00b_obj_t first, ...)
         stream = n00b_stdout();
     }
 
+    int twidth = n00b_max(n00b_terminal_width(), N00B_MIN_RENDER_WIDTH);
+
     for (int i = 0; i < numargs; i++) {
         if (!n00b_type_is_string(n00b_get_my_type(cur))) {
             cur = n00b_repr(cur);
@@ -76,7 +78,7 @@ _n00b_print(n00b_obj_t first, ...)
             n00b_putcp(stream, sep);
         }
         if (numargs == 1 && wrap_simple_strings) {
-            n00b_list_t *lines = n00b_str_wrap(cur, n00b_terminal_width(), 0);
+            n00b_list_t *lines = n00b_str_wrap(cur, twidth, 0);
             cur                = n00b_str_join(lines, NULL);
             n00b_write(stream, cur);
             break;
@@ -89,7 +91,7 @@ _n00b_print(n00b_obj_t first, ...)
 
         if (truncate) {
             cur = n00b_to_str(cur, n00b_get_my_type(cur));
-            n00b_ansi_render_to_width(cur, n00b_terminal_width(), 0, stream);
+            n00b_ansi_render_to_width(cur, twidth, 0, stream);
         }
         else {
             n00b_write(stream, cur);
@@ -199,6 +201,7 @@ _n00b_cprintf(char *fmt, int64_t num_params, ...)
 
                 p++;
                 arg_index++;
+
                 break;
             default:
                 p++;
@@ -210,6 +213,10 @@ _n00b_cprintf(char *fmt, int64_t num_params, ...)
         }
     }
 
-    vfprintf(stderr, fmt, copy);
+    int result;
+
+    result = vfprintf(stderr, fmt, copy);
+    // Can happen when stderr has O_NONBLOCK set.
+    assert(result >= 0);
 }
 #endif

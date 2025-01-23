@@ -1,47 +1,31 @@
 #define N00B_USE_INTERNAL_API
-
 #include "n00b.h"
 
-// This file mainly helps ensure that we can assign a single thread
-// the ability to perform tasks without any risk of contention
-// (particularly intended for garbage collection).
-//
-// Threads at NO risk of contention (due to sleep, IO blocking, or
-// whatever) can leave the 'run' state, and then return to it when
-// they're ready.
-//
-//
-// This also helps us do things like run I/O callbacks without
-// worrying about blocking-- basically, we actually allow the block,
-// but update the I/O callback thread.
+// The eopch really is simply to avoid ABA problems here; we don't
+// really care about the ordering (random values would do too), we
+// just care that two threads won't be using the same epoch at the
+// same time.
+static _Atomic uint32_t                    coop_epoch = 0;
+static _Atomic n00b_global_thread_info_t   gti;
+static __thread n00b_global_thread_state_t thread_state = n00b_gts_go;
 
-typedef struct gti_t {
-    uint32_t running; // Includes 'waiting' threads, but not self-blocked.
-    uint32_t waiting; // Waiting for the world to stop and / or resume.
-    uint64_t requestor;
-} gti_t;
+static _Atomic int gti_nesting_level = 0;
 
-static _Atomic gti_t    global_thread_info;
-static n00b_condition_t world_is_stopped;
-static n00b_condition_t world_is_restarting;
-static bool             is_world_stopped = true;
+#define only_if_world_runs()                                                \
+    if (thread_state == n00b_gts_stop || thread_state == n00b_gts_exited) { \
+        return;                                                             \
+    }
 
-// These are designed to minimize contention by only requiring locks
-// when someone is actually trying to stop the world.
-void
-n00b_init_thread_accounting(void)
+n00b_global_thread_state_t
+n00b_get_thread_state(void)
 {
-    n00b_raw_condition_init(&world_is_stopped);
-    n00b_raw_condition_init(&world_is_restarting);
-    gti_t init = {0, 0, 0};
-    atomic_store(&global_thread_info, init);
+    return thread_state;
 }
 
-bool
-n00b_is_world_stopped(void)
-{
-    return is_world_stopped;
-}
+const struct timespec gts_poll_interval = {
+    .tv_sec  = 0,
+    .tv_nsec = N00B_GTS_POLL_DURATION_NS,
+};
 
 static inline void
 capture_stack_bounds(void)
@@ -49,200 +33,214 @@ capture_stack_bounds(void)
     n00b_thread_stack_region(n00b_thread_self());
 }
 
-static inline void
-defer_to_requestor(void)
+void
+n00b_initialize_global_thread_info(void)
 {
-    // Here, we have to acquire the world_is_restarting lock and also
-    // the count_modification lock. If we make the thread count equal
-    // to the wait count, then we signal the requestor before we go to
-    // sleep.
+    const n00b_global_thread_info_t tinit = {
+        .leader  = NULL,
+        .epoch   = 0,
+        .running = 0,
+        .state   = n00b_gts_go,
+    };
+    atomic_store(&gti, tinit);
+    thread_state = n00b_gts_go;
 
-    if (is_world_stopped) {
-        return;
+    // Setup the main thread.
+    n00b_thread_bootstrap_initialization();
+}
+
+static inline n00b_global_thread_info_t
+gts_wait_for_go_state(n00b_global_thread_info_t info)
+{
+    while (info.state != n00b_gts_go) {
+        nanosleep(&gts_poll_interval, NULL);
+        info = atomic_read(&gti);
+    }
+    return info;
+}
+
+static inline n00b_global_thread_info_t
+gts_wait_for_all_stops(n00b_global_thread_info_t info)
+{
+    assert(info.state == n00b_gts_yield);
+
+    while (info.running > 1) {
+        nanosleep(&gts_poll_interval, NULL);
+        info = atomic_read(&gti);
+        assert(info.state == n00b_gts_yield);
     }
 
-    //    printf("dtr...\n");
-    n00b_condition_lock_acquire_raw(&world_is_restarting);
-
-    gti_t expected = atomic_read(&global_thread_info);
-    gti_t tinfo;
-
-    /*    cprintf("defer start: %p: %d vs %d\n",
-                n00b_thread_self(),
-                expected.waiting,
-                expected.running);
-    */
-
-    n00b_condition_lock_acquire_raw(&world_is_stopped);
-
-    do {
-        tinfo = expected;
-        tinfo.waiting++;
-    } while (!CAS(&global_thread_info, &expected, tinfo));
-
-    /*    cprintf("tinfo: %p: %d vs %d\n",
-                n00b_thread_self(),
-                tinfo.waiting,
-                tinfo.running);
-    */
-
-    if (tinfo.waiting == tinfo.running) {
-        //        printf("NOTIFY.\n");
-        n00b_condition_notify_all(&world_is_stopped);
-        //        printf("RELEASE.\n");
-    }
-
-    n00b_condition_lock_release_all(&world_is_stopped);
-    capture_stack_bounds();
-    //    printf("Wait for restart.\n");
-    n00b_condition_wait_raw(&world_is_restarting);
-    n00b_condition_lock_release_all(&world_is_restarting);
-    //    printf("World restarted.");
+    return info;
 }
 
 void
-n00b_thread_enter_run_state(void)
+n00b_gts_resume(void)
 {
-    gti_t tinfo;
-    gti_t expected;
+    only_if_world_runs();
+    assert(thread_state != n00b_gts_go);
 
-    expected = atomic_read(&global_thread_info);
+    n00b_global_thread_info_t expected = atomic_read(&gti);
+    uint32_t                  epoch    = atomic_fetch_add(&coop_epoch, 1);
+    n00b_global_thread_info_t desired;
 
     do {
-        while (expected.requestor) {
-            n00b_condition_lock_acquire_raw(&world_is_restarting);
-            tinfo = atomic_read(&global_thread_info);
-            if (tinfo.requestor == expected.requestor) {
-                capture_stack_bounds();
-                n00b_condition_wait_raw(&world_is_restarting);
-                expected = atomic_read(&global_thread_info);
-            }
-            else {
-                expected = tinfo;
-            }
-            n00b_condition_lock_release_all(&world_is_restarting);
-        }
-        tinfo = expected;
-        tinfo.running += 1;
-    } while (!CAS(&global_thread_info, &expected, tinfo));
+        expected = gts_wait_for_go_state(expected);
+        assert(expected.state == n00b_gts_go);
+        assert(!expected.leader);
+
+        desired.leader  = NULL;
+        desired.epoch   = epoch;
+        desired.running = expected.running + 1;
+        desired.state   = n00b_gts_go;
+    } while (!atomic_compare_exchange_strong(&gti, &expected, desired));
+
+    thread_state = n00b_gts_go;
 }
 
-extern void n00b_thread_unlock_all(void);
-
 void
-n00b_thread_leave_run_state(void)
+n00b_gts_suspend(void)
 {
-    gti_t tinfo;
-    gti_t expected;
-
-    // Just in case something needs to GC scan while we're waiting.
-    if (n00b_thread_self()) {
+    only_if_world_runs();
+    if (thread_state == n00b_gts_go) {
         capture_stack_bounds();
     }
-
-    // We're about to go to sleep; don't block other callbacks from
-    // running if we don't have to.
-    n00b_ioqueue_dont_block_callbacks();
-
-    expected = atomic_read(&global_thread_info);
-
-    do {
-        while (expected.requestor) {
-            defer_to_requestor();
-            expected = atomic_read(&global_thread_info);
-        }
-
-        tinfo = expected;
-        tinfo.running -= 1;
-    } while (!CAS(&global_thread_info, &expected, tinfo));
-    n00b_thread_unlock_all();
-}
-
-void
-n00b_thread_pause_if_stop_requested(void)
-{
-    gti_t expected = atomic_read(&global_thread_info);
-
-    if (expected.requestor
-        && expected.requestor != (uint64_t)n00b_thread_self()) {
-        // Temp pin of the main heap to avoid recursion if a collection
-        // is needed inside.
-
-        N00B_USING_HEAP(n00b_thread_master_heap, defer_to_requestor());
-    }
-}
-
-void
-n00b_stop_the_world(void)
-{
-    gti_t          tinfo;
-    gti_t          expected;
-    n00b_thread_t *self = n00b_thread_self();
-
-    expected = atomic_read(&global_thread_info);
-
-    if (is_world_stopped) {
+    else {
         return;
     }
 
-    //    cprintf("stw: %p: %d\n", n00b_thread_self(), expected.waiting);
-    //    cprintf("time to stw!\n");
-    // We're the only thread that can now acquire this until the
-    // counts match, so grab it before we change the count to
-    // avoid potential deadlock.
-    n00b_condition_lock_acquire_raw(&world_is_stopped);
+    n00b_global_thread_info_t desired;
+    n00b_global_thread_info_t expected = atomic_read(&gti);
+    uint32_t                  epoch    = atomic_fetch_add(&coop_epoch, 1);
 
     do {
-        while (expected.requestor && expected.requestor != (uint64_t)self) {
-            defer_to_requestor();
-            expected = atomic_read(&global_thread_info);
-        }
-        tinfo.requestor = (uint64_t)self;
-        tinfo.waiting   = 1;
-        tinfo.running   = expected.running;
-    } while (!CAS(&global_thread_info, &expected, tinfo));
+        desired         = expected;
+        desired.epoch   = epoch;
+        desired.running = desired.running - 1;
+    } while (!atomic_compare_exchange_strong(&gti, &expected, desired));
 
-    /*
-      cprintf("stw: %p: %d (wait for stop)\n",
-                n00b_thread_self(),
-                tinfo.waiting);
-    */
-    expected = atomic_read(&global_thread_info);
-
-    //    printf("stw: %d vs %d\n", expected.waiting, expected.running);
-    if (expected.waiting != expected.running) {
-        n00b_condition_wait_raw(&world_is_stopped);
-    }
-    //    cprintf("World is my oyster.\n");
-
-    is_world_stopped = true;
-    n00b_condition_lock_release_all(&world_is_stopped);
-
-    tinfo.requestor = 0;
-    atomic_store(&global_thread_info, tinfo);
-
-    expected = atomic_read(&global_thread_info);
-    // cprintf("post stw: %p: %d\n", n00b_thread_self(), tinfo.waiting);
-    // cprintf("post stw: running: %d\n", tinfo.running);
+    thread_state = n00b_gts_yield;
 }
 
 void
-n00b_restart_the_world(void)
+n00b_gts_checkin(void)
 {
-    n00b_condition_lock_acquire_raw(&world_is_restarting);
-    // This is just to block any new starters.
-    gti_t expected = atomic_read(&global_thread_info);
-    gti_t tinfo;
+    only_if_world_runs();
+    assert(thread_state == n00b_gts_go);
 
-    // Waking threads could be trying to update this.
+    n00b_global_thread_info_t expected = atomic_read(&gti);
+
+    if (expected.state != n00b_gts_go) {
+        assert(expected.state == n00b_gts_yield);
+        n00b_gts_suspend();
+        n00b_gts_resume();
+    }
+}
+
+static inline void
+gts_begin_stw(void)
+{
+    n00b_global_thread_info_t desired;
+    n00b_global_thread_info_t expected = atomic_read(&gti);
+    uint32_t                  epoch    = atomic_fetch_add(&coop_epoch, 1);
+    n00b_thread_t            *self     = n00b_thread_self();
+
+    assert(self);
+
+    if (thread_state == n00b_gts_stop) {
+        assert(expected.state == n00b_gts_stop);
+        assert(expected.leader == self);
+        atomic_fetch_add(&gti_nesting_level, 1);
+        return;
+    }
+
+    assert(expected.state != n00b_gts_stop);
+
     do {
-        tinfo.requestor = 0;
-        tinfo.waiting   = 0;
-        tinfo.running   = expected.running;
-    } while (!CAS(&global_thread_info, &expected, tinfo));
+        n00b_gts_checkin();
+        desired.leader  = self;
+        desired.epoch   = epoch;
+        desired.running = expected.running;
+        desired.state   = n00b_gts_yield;
+    } while (!atomic_compare_exchange_strong(&gti, &expected, desired));
 
-    is_world_stopped = false;
-    // cprintf("About to restart w/ %d processes.\n", tinfo.running);
-    n00b_condition_notify_all(&world_is_restarting);
-    n00b_condition_lock_release_all(&world_is_restarting);
+    expected = gts_wait_for_all_stops(desired);
+    epoch    = atomic_fetch_add(&coop_epoch, 1);
+    atomic_store(&gti_nesting_level, 0);
+
+    do {
+        nanosleep(&gts_poll_interval, NULL);
+        desired       = atomic_read(&gti);
+        desired.state = n00b_gts_stop;
+        desired.epoch = epoch;
+    } while (!atomic_compare_exchange_strong(&gti, &expected, desired));
+
+    capture_stack_bounds();
+    atomic_store(&gti_nesting_level, 1);
+    thread_state = n00b_gts_stop;
+}
+
+static inline void
+gts_end_stw(void)
+{
+    n00b_global_thread_info_t desired;
+    n00b_global_thread_info_t expected = atomic_read(&gti);
+    uint32_t                  epoch    = atomic_fetch_add(&coop_epoch, 1);
+
+    // The nesting level returned is the nesting level we're closing
+    // out.  So if it's time to restart, we'll get returned 1, even
+    // though the op will change it to be 0.
+    if (atomic_fetch_add(&gti_nesting_level, -1) > 1) {
+        assert(expected.state == n00b_gts_stop);
+        assert(expected.leader == n00b_thread_self());
+        return;
+    }
+
+    do {
+        assert(expected.state == n00b_gts_stop);
+        assert(expected.leader == n00b_thread_self());
+        assert(atomic_read(&gti_nesting_level) == 0);
+
+        desired.leader  = NULL;
+        desired.epoch   = epoch;
+        desired.running = expected.running;
+        desired.state   = n00b_gts_go;
+    } while (!atomic_compare_exchange_strong(&gti, &expected, desired));
+
+    thread_state = n00b_gts_go;
+}
+
+void
+n00b_gts_start(void)
+{
+    // The initial thread comes pre-started, too bulky to special case it,
+    // but any internal state discrepencies are checked via assert.
+    if (thread_state == n00b_gts_go) {
+        return;
+    }
+    n00b_gts_resume();
+}
+
+void
+n00b_gts_quit(void)
+{
+    thread_state = n00b_gts_exited;
+    n00b_gts_suspend();
+}
+
+void
+n00b_gts_stop_the_world(void)
+{
+    gts_begin_stw();
+}
+
+void
+n00b_gts_restart_the_world(void)
+{
+    gts_end_stw();
+}
+
+bool
+n00b_is_world_stopped(void)
+{
+    return atomic_read(&gti_nesting_level) != 0;
 }

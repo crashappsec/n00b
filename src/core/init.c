@@ -21,7 +21,7 @@ n00b_on_exit(void)
 void
 n00b_add_exit_handler(void (*handler)(void))
 {
-    n00b_push_heap(n00b_thread_master_heap);
+    n00b_push_heap(n00b_internal_heap);
 
     if (!exit_handlers) {
         exit_handlers = n00b_list(n00b_type_ref());
@@ -352,6 +352,12 @@ bool n00b_startup_complete = false;
 __attribute__((constructor)) void
 n00b_init(int argc, char **argv, char **envp)
 {
+    // musl does not pass argv to attribute constructors
+    // https://www.openwall.com/lists/musl/2020/07/15/1
+    if (argv == NULL) {
+        return;
+    }
+
     static int inited = false;
 
     if (!inited) {
@@ -359,7 +365,13 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_stashed_argv = argv;
         n00b_stashed_envp = envp;
 
+        // We need some basic thread data before starting the GC, but
+        // the thread setup for thread initialization that uses the heap
+        // has to come after the GC is initialized. Therefore, sandwich
+        // the GC startup with thread stuff.
+        n00b_initialize_global_thread_info(); // thread_coop.c
         n00b_initialize_gc();
+        n00b_thread_get_gta_slot();
 
         n00b_gc_register_root(&n00b_root, 1);
         n00b_gc_register_root(&n00b_path, 1);
@@ -367,14 +379,17 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_gc_register_root(&cached_environment_vars, 1);
         n00b_gc_register_root(&mmm_free_tids, sizeof(mmm_free_tids) / 8);
         n00b_initialize_global_types();
-        n00b_thread_register();
-        n00b_backtrace_init(argv[0]);
+        n00b_gts_stop_the_world();
+        n00b_backtrace_init(n00b_stashed_argv[0]);
         n00b_gc_set_system_finalizer((void *)n00b_finalize_allocation);
         n00b_crash_init();
+        n00b_internal_io_setup();
         n00b_init_path();
         n00b_initialize_library();
         n00b_register_builtins();
-        n00b_restart_the_world();
+        n00b_gts_restart_the_world();
+        n00b_long_term_pin(n00b_internal_heap);
+
         n00b_startup_complete = true;
 
         n00b_launch_io_loop();

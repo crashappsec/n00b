@@ -633,7 +633,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .mutable   = true,
     },
     [N00B_T_STREAM] = {
-        .name      = "event",
+        .name      = "stream",
         .typeid    = N00B_T_STREAM,
         .alloc_len = sizeof(n00b_stream_t),
         .vtable    = &n00b_stream_vtable,
@@ -685,15 +685,15 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     n00b_heap_t *__n00b_saved_heap           = NULL;
     bool         clear_thread_heap_reference = false;
 
-    //    // Always use the type heap for types.
+    //    // Always use the internal heap for types.
     if (type->typeid == N00B_T_TYPESPEC) {
-        //__n00b_saved_heap           = n00b_type_heap;
+        __n00b_saved_heap           = n00b_internal_heap;
         clear_thread_heap_reference = true;
     }
 
     // Thread heap overrides specified heaps.
     if (heap && !n00b_thread_heap) {
-        // __n00b_saved_heap           = heap;
+        __n00b_saved_heap           = heap;
         clear_thread_heap_reference = true;
     }
 
@@ -711,9 +711,9 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
             n00b_thread_heap = NULL;
         }
 
-        // if (clear_thread_heap_reference) {
-        //  n00b_pop_heap();
-        //        }
+        if (clear_thread_heap_reference) {
+            n00b_pop_heap();
+        }
         return obj;
     }
 
@@ -725,6 +725,11 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     n00b_alloc_hdr *hdr = &((n00b_alloc_hdr *)obj)[-1];
     hdr->n00b_obj       = true;
     hdr->type           = type;
+
+#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
+    hdr->alloc_file = file;
+    hdr->alloc_line = line;
+#endif
 
     if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
         hdr->n00b_finalize = true;
@@ -777,7 +782,9 @@ n00b_repr_explicit(void *item, n00b_type_t *t)
         }
     }
 
-    return (*p)(item);
+    n00b_str_t *result = (*p)(item);
+
+    return n00b_to_utf8(result);
 }
 
 n00b_utf8_t *
@@ -867,7 +874,9 @@ ptr_fmt:
         return n00b_new_utf8(buf);
     }
 
-    return (*p)(item);
+    n00b_str_t *result = (*p)(item);
+
+    return n00b_to_utf8(result);
 }
 
 n00b_str_t *

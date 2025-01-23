@@ -457,9 +457,6 @@ extern n00b_stream_t     *n00b_io_listener(n00b_net_addr_t *,
                                            n00b_accept_cb);
 extern bool               n00b_wait_for_io_shutdown(void);
 extern void               n00b_io_begin_shutdown(void);
-extern void               n00b_exit(int);
-extern void               n00b_thread_exit(void *);
-extern void               n00b_abort(void);
 extern n00b_stream_t     *n00b_connect(n00b_net_addr_t *);
 extern n00b_stream_t     *n00b_get_topic(n00b_utf8_t *, n00b_utf8_t *);
 extern bool               n00b_topic_unsubscribe(n00b_stream_t *,
@@ -469,6 +466,9 @@ extern n00b_stream_t     *n00b_new_subscription_proxy(void);
 extern n00b_utf8_t       *n00b_get_signal_name(int64_t);
 extern n00b_stream_t     *n00b_buffer_stream_open(n00b_buf_t *,
                                                   n00b_io_permission_t);
+extern n00b_stream_t     *n00b_stdin(void);
+extern n00b_stream_t     *n00b_stdout(void);
+extern n00b_stream_t     *n00b_stderr(void);
 
 #define n00b_io_register_signal_handler(x, y, ...) \
     _n00b_io_register_signal_handler((x), (y), __VA_ARGS__ __VA_OPT__(, ) 0)
@@ -551,7 +551,7 @@ n00b_io_add_read_callback(n00b_stream_t      *source,
                           void               *thunk)
 {
     n00b_stream_t *sink = n00b_callback_open(cb, thunk);
-    return n00b_io_subscribe_to_reads(source, sink, thunk);
+    return n00b_io_subscribe_to_reads(source, sink, NULL);
 }
 
 static inline n00b_stream_sub_t *
@@ -560,7 +560,7 @@ n00b_io_set_write_callback(n00b_stream_t      *source,
                            void               *thunk)
 {
     n00b_stream_t *sink = n00b_callback_open(cb, thunk);
-    return n00b_io_subscribe_to_writes(source, sink, thunk);
+    return n00b_io_subscribe_to_writes(source, sink, NULL);
 }
 
 static inline n00b_stream_sub_t *
@@ -569,7 +569,7 @@ n00b_io_set_delivery_callback(n00b_stream_t      *source,
                               void               *thunk)
 {
     n00b_stream_t *sink = n00b_callback_open(cb, thunk);
-    return n00b_io_subscribe_to_delivery(source, sink, thunk);
+    return n00b_io_subscribe_to_delivery(source, sink, NULL);
 }
 
 static inline void
@@ -593,10 +593,6 @@ n00b_topic_subscribe(n00b_stream_t *topic_obj, n00b_stream_t *subscriber)
 
     return n00b_io_subscribe_to_delivery(topic_obj, subscriber, NULL);
 }
-
-#define n00b_stdin()  n00b_fd_open(fileno(stdin))
-#define n00b_stdout() n00b_fd_open(fileno(stdout))
-#define n00b_stderr() n00b_fd_open(fileno(stderr))
 
 static inline void
 n00b_putcp(n00b_stream_t *stream, n00b_codepoint_t cp)
@@ -666,11 +662,18 @@ extern void          *n00b_stream_read_all(n00b_stream_t *);
 extern void           _n00b_print(n00b_obj_t, ...);
 
 #define n00b_print(s, ...) _n00b_print(s, N00B_VA(__VA_ARGS__))
+#define n00b_eprint(...)   _n00b_print(n00b_stderr(), N00B_VA(__VA_ARGS__))
 
 #define n00b_printf(fmt, ...)                                    \
     {                                                            \
         n00b_utf8_t *__str = n00b_cstr_format(fmt, __VA_ARGS__); \
         _n00b_print(__str, NULL);                                \
+    }
+
+#define n00b_eprintf(fmt, ...)                                   \
+    {                                                            \
+        n00b_utf8_t *__str = n00b_cstr_format(fmt, __VA_ARGS__); \
+        _n00b_print(n00b_stderr(), __str, NULL);                 \
     }
 
 #ifdef N00B_DEBUG
@@ -681,12 +684,12 @@ void _n00b_cprintf(char *, int64_t, ...);
 #endif
 
 #ifdef N00B_USE_INTERNAL_API
-#define n00b_stream_add(x, y) \
-    if (x) {                  \
-        event_add(x, y);      \
+#define n00b_event_add(x, y) \
+    if (x) {                 \
+        event_add(x, y);     \
     }
 
-#define n00b_stream_del(x)                                      \
+#define n00b_event_del(x)                                       \
     {                                                           \
         if (event_pending(x,                                    \
                           EV_TIMEOUT                            \
@@ -696,6 +699,7 @@ void _n00b_cprintf(char *, int64_t, ...);
         }                                                       \
     }
 
+extern bool                n00b_io_has_exited;
 extern n00b_stream_base_t *n00b_system_event_base;
 extern n00b_io_impl_info_t n00b_fileio_impl;
 extern n00b_io_impl_info_t n00b_socket_impl;
@@ -748,6 +752,9 @@ extern void                n00b_handle_one_delivery(n00b_stream_t *, void *);
 extern void                n00b_ioqueue_dont_block_callbacks(void);
 extern void                n00b_ioqueue_enqueue_callback(n00b_iocb_info_t *);
 extern void                n00b_ioqueue_dont_block_callbacks(void);
+extern void                n00b_ioqueue_launch_callback_thread(void);
+extern n00b_utf8_t        *n00b_stream_full_repr(n00b_stream_t *);
+extern void                n00b_internal_io_setup(void);
 
 static inline n00b_stream_base_t *
 n00b_get_ev_base(n00b_io_impl_info_t *impl)
@@ -765,10 +772,13 @@ n00b_new_ev2_cookie(void)
 }
 
 static inline void
-n00b_acquire_event_base(n00b_stream_base_t *eb)
+_n00b_acquire_event_base(n00b_stream_base_t *eb, char *f, int l)
 {
-    n00b_lock_acquire(&eb->lock);
+    _n00b_lock_acquire(&eb->lock, f, l);
 }
+
+#define n00b_acquire_event_base(eb) \
+    _n00b_acquire_event_base(eb, __FILE__, __LINE__)
 
 static inline void
 n00b_release_event_base(n00b_stream_base_t *eb)
@@ -800,12 +810,14 @@ _n00b_acquire_party(n00b_stream_t *party, char *file, int line)
 
 #else
 static inline void
-n00b_acquire_party(n00b_stream_t *party)
+_n00b_acquire_party(n00b_stream_t *party, char *file, int line)
 {
     if (party != NULL) {
-        n00b_lock_acquire(&((party)->lock));
+        _n00b_lock_acquire(&((party)->lock), file, line);
     }
 }
+
+#define n00b_acquire_party(p) _n00b_acquire_party(p, __FILE__, __LINE__)
 
 #endif
 
@@ -873,7 +885,7 @@ n00b_ev2_post_read_cleanup(n00b_stream_t *party)
 {
     if (!n00b_stream_has_remaining_subscribers(party, n00b_io_sk_read)) {
         n00b_ev2_cookie_t *cookie = party->cookie;
-        n00b_stream_del(cookie->read_event);
+        n00b_event_del(cookie->read_event);
     }
 }
 

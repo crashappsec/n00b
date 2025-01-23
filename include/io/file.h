@@ -14,13 +14,8 @@ typedef enum {
     n00b_fk_other,
 } n00b_file_kind_t;
 
-extern n00b_buf_t *n00b_read_binary_file(n00b_str_t *, bool);
-
-static inline n00b_utf8_t *
-n00b_read_utf8_file(n00b_str_t *path, bool lock)
-{
-    return n00b_buf_to_utf8_string(n00b_read_binary_file(path, lock));
-}
+extern n00b_buf_t  *n00b_read_binary_file(n00b_str_t *, bool);
+extern n00b_utf8_t *n00b_read_utf8_file(n00b_str_t *, bool);
 
 #define n00b_read_text_file(x, y) n00b_read_utf8_file(x, y)
 

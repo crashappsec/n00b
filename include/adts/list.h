@@ -51,8 +51,14 @@ extern void        *n00b_list_view(n00b_list_t *, uint64_t *);
 extern void         n00b_private_list_reverse(n00b_list_t *);
 extern void         n00b_list_reverse(n00b_list_t *);
 
-#define n00b_lock_list(x)   n00b_rw_lock_acquire_for_write(&x->lock)
-#define n00b_unlock_list(x) n00b_rw_lock_release(&x->lock)
+#define n00b_lock_list(x)                         \
+    if (x) {                                      \
+        n00b_rw_lock_acquire_for_write(&x->lock); \
+    }
+#define n00b_unlock_list(x)             \
+    if (x) {                            \
+        n00b_rw_lock_release(&x->lock); \
+    }
 
 static inline void
 n00b_list_enforce_uniqueness_when_adding(n00b_list_t *l)

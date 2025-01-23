@@ -11,9 +11,9 @@
 #include "n00b.h"
 
 typedef struct {
-    n00b_alloc_hdr   h;
-    n00b_karg_info_t ka;
-    n00b_one_karg_t  args[N00B_MAX_KEYWORD_SIZE];
+    n00b_marshaled_hdr h; // not an n00b_alloc_hdr to avoid warnings.
+    n00b_karg_info_t   ka;
+    n00b_one_karg_t    args[N00B_MAX_KEYWORD_SIZE];
 } static_karg_t;
 
 static thread_local static_karg_t kcache[N00B_MAX_KARGS_NESTING_DEPTH];

@@ -1,14 +1,12 @@
 #define N00B_USE_INTERNAL_API
-
 #include "n00b.h"
 
 static pthread_once_t n00b_gc_init             = PTHREAD_ONCE_INIT;
+static n00b_heap_t   *long_term_pins           = NULL;
 static n00b_heap_t   *to_space                 = NULL;
 static n00b_heap_t   *n00b_scratch_heap        = NULL;
-n00b_heap_t          *n00b_marshal_heap        = NULL;
 n00b_heap_t          *n00b_debug_heap          = NULL;
-n00b_heap_t          *n00b_string_heap         = NULL;
-bool                  __n00b_collector_running = false;
+int                   __n00b_collector_running = 0;
 static n00b_heap_t   *__n00b_current_from_space;
 
 bool
@@ -34,16 +32,15 @@ n00b_addr_in_one_heap(n00b_heap_t *h, void *p)
     return false;
 }
 
-#ifdef N00B_GC_STATS
-static void
-debug_print_heap(n00b_heap_t *p)
+static n00b_utf8_t *
+debug_repr_heap(n00b_heap_t *p)
 {
-    n00b_crit_t crit = atomic_read(&p->ptr);
-    char       *head = (char *)crit.next_alloc;
-    uint64_t    used = 0;
-    uint64_t    free = 0;
-
-    n00b_arena_t *a = p->first_arena;
+    n00b_push_heap(n00b_default_heap);
+    n00b_crit_t   crit = atomic_read(&p->ptr);
+    char         *head = (char *)crit.next_alloc;
+    uint64_t      used = 0;
+    uint64_t      free = 0;
+    n00b_arena_t *a    = p->first_arena;
 
     while (a) {
         if (a->successor) {
@@ -67,44 +64,170 @@ debug_print_heap(n00b_heap_t *p)
         name[0] = 0;
     }
 
-    printf(
-        "Heap ID %lld: %s(%s:%d)%s%s%s%s%s\n"
-        "%lld used, %llu free)\n"
-        "  Allocs: new this heap: %d / inherited: %d / lifetime: %d\n",
-        p->heap_id,
-        name,
-        p->file,
-        p->line,
-        p->pinned ? " (pinned)" : "",
-        p->released ? " (released)" : "",
-        p->no_trace ? " (no-trace)" : "",
-        p->local_collects ? " (local gc)" : "",
-        p->private ? " (private)" : "",
-        used,
-        free,
-        p->alloc_count,
-        p->inherit_count,
-        p->total_alloc_count);
+    n00b_utf8_t *propstr;
+    n00b_utf8_t *r;
 
+    if (p->released) {
+        propstr = n00b_new_utf8(" (released)");
+    }
+    else {
+        if (p->pinned) {
+            propstr = n00b_new_utf8(" (pinned)");
+        }
+        else {
+            propstr = n00b_new_utf8("");
+        }
+        if (p->no_trace) {
+            propstr = n00b_str_concat(propstr, n00b_new_utf8(" (no-trace)"));
+        }
+        if (p->local_collects) {
+            propstr = n00b_str_concat(propstr, n00b_new_utf8(" (local gc)"));
+        }
+        if (p->private) {
+            propstr = n00b_str_concat(propstr, n00b_new_utf8(" (private)"));
+        }
+    }
+
+    r = n00b_cstr_format("Heap {} (#{}; {}:{}){}\n",
+                         n00b_new_utf8(name),
+                         n00b_box_u64((uint64_t)p->heap_id),
+                         n00b_new_utf8(p->file),
+                         n00b_box_u64((uint64_t)p->line),
+                         propstr);
+
+    if (p->released) {
+        n00b_pop_heap();
+        return r;
+    }
+
+    n00b_utf8_t *stats;
+    stats = n00b_cstr_format(
+        "[h4]Collects:[/]{}\n"
+        "[h4]Memory[/] Used: {}b; Free: {}b\n"
+        "[h4]Allocs:[/] Since collect: {}; "
+        "Inherited: {}; Lifetime: {}\n",
+        n00b_box_u64((uint64_t)p->num_collects),
+        n00b_box_u64((uint64_t)used),
+        n00b_box_u64((uint64_t)free),
+        n00b_box_u64((uint64_t)p->alloc_count),
+        n00b_box_u64((uint64_t)p->inherit_count),
+        n00b_box_u64((uint64_t)p->total_alloc_count));
+
+    r = n00b_str_concat(r, stats);
     a = p->first_arena;
+
     if (a) {
-        printf("  Next alloc: %p & arena(s):\n", crit.next_alloc);
+        r = n00b_cstr_format("{}[h5]Next alloc:[/] {:x}\n[h6]Arenas:[/]",
+                             r,
+                             n00b_box_u64((uint64_t)crit.next_alloc));
 
         while (a) {
-            printf("  %p-%p\n", a->addr_start, a->addr_end);
+            r = n00b_cstr_format("{}  {:x}-{:x}\n",
+                                 r,
+                                 n00b_box_u64((uint64_t)a->addr_start),
+                                 n00b_box_u64((uint64_t)a->addr_end));
             a = a->successor;
         }
     }
+
+    n00b_pop_heap();
+    return r;
+}
+
+void
+n00b_debug_print_heap(n00b_heap_t *p)
+{
+    n00b_crit_t   crit = atomic_read(&p->ptr);
+    char         *head = (char *)crit.next_alloc;
+    uint64_t      used = 0;
+    uint64_t      free = 0;
+    n00b_arena_t *a    = p->first_arena;
+
+    while (a) {
+        if (a->successor) {
+            used += ((char *)a->addr_end) - (char *)a->addr_start;
+        }
+        else {
+            used += head - (char *)a->addr_start;
+            if (head < (char *)a->addr_end) {
+                free = ((char *)a->addr_end) - head;
+            }
+        }
+        a = a->successor;
+    }
+
+    fprintf(stderr, "Heap ");
+
+    if (p->name) {
+        fprintf(stderr, "'%s' ", p->name);
+    }
+
+    fprintf(stderr, "(#%lld; %s:%d)", p->heap_id, p->file, p->line);
+
+    if (p->released) {
+        fprintf(stderr, " (released)\n");
+        return;
+    }
+    if (p->pinned) {
+        fprintf(stderr, " (pinned)");
+    }
+    if (p->no_trace) {
+        fprintf(stderr, " (no-trace)");
+    }
+    if (p->local_collects) {
+        fprintf(stderr, " (local gc)");
+    }
+    if (p->private) {
+        fprintf(stderr, " (private)");
+    }
+
+    fprintf(stderr,
+            "Collects: %d\nMemory used: %lld b; Free: %lld b\n",
+            p->num_collects,
+            used,
+            free);
+    fprintf(stderr,
+            "Allocs: Since collect: %d; Inherited: %d; Lifetime: %d\n",
+            p->alloc_count,
+            p->inherit_count,
+            p->total_alloc_count);
+
+    a = p->first_arena;
+
+    if (a) {
+        fprintf(stderr, "Next alloc: %p\nArenas:\n", crit.next_alloc);
+
+        while (a) {
+            fprintf(stderr, "  %p-%p\n", a->addr_start, a->addr_end);
+
+            a = a->successor;
+        }
+    }
+
+    return;
+}
+
+n00b_utf8_t *
+n00b_debug_repr_all_heaps(void)
+{
+    n00b_push_heap(n00b_default_heap);
+    n00b_utf8_t *r = debug_repr_heap(n00b_all_heaps);
+
+    for (unsigned int i = 1; i < n00b_next_heap_index; i++) {
+        r = n00b_str_concat(r, debug_repr_heap(n00b_all_heaps + i));
+    }
+
+    n00b_pop_heap();
+    return r;
 }
 
 void
 n00b_debug_all_heaps(void)
 {
     for (unsigned int i = 0; i < n00b_next_heap_index; i++) {
-        debug_print_heap(n00b_all_heaps + i);
+        n00b_debug_print_heap(n00b_all_heaps + i);
     }
 }
-#endif
 
 static inline void
 n00b_create_alloc_guards(void)
@@ -136,7 +259,7 @@ n00b_create_first_heaps(void)
     n00b_default_heap = n00b_new_heap(N00B_DEFAULT_HEAP_SIZE);
     n00b_heap_set_name(n00b_default_heap, "user");
 
-    n00b_debug_heap = n00b_new_heap(N00B_DEFAULT_HEAP_SIZE);
+    n00b_debug_heap = n00b_new_heap(N00B_DEBUG_HEAP_SIZE);
     n00b_heap_set_name(n00b_debug_heap, "debug");
 
     // Create the main allocation heap and the 'to_space' heap that
@@ -144,40 +267,27 @@ n00b_create_first_heaps(void)
 
     // No arenas get created within this heap at first.
     to_space = n00b_new_heap(0);
-    n00b_heap_set_name(to_space, "gc to-space'");
     n00b_heap_pin(to_space);
-    // n00b_heap_set_no_trace(to_space);
-    n00b_heap_set_private(to_space);
+    n00b_heap_set_no_trace(to_space);
+    //     n00b_heap_set_private(to_space);
+
+    long_term_pins = n00b_new_heap(0);
+    n00b_heap_pin(long_term_pins);
 
     // When we do alloc in that space, it will not trigger collections.
     n00b_scratch_heap = n00b_new_heap(0);
-    n00b_heap_set_name(n00b_scratch_heap, "gc scratch");
     n00b_heap_pin(n00b_scratch_heap);
-    n00b_heap_set_private(n00b_scratch_heap);
-    // n00b_heap_set_no_trace(n00b_scratch_heap);
+    n00b_heap_set_no_trace(n00b_scratch_heap);
+    //    n00b_heap_set_private(n00b_scratch_heap);
 
-    n00b_thread_master_heap = n00b_new_heap(N00B_START_TYPE_HEAP_SIZE);
-    n00b_heap_set_name(n00b_thread_master_heap, "internal");
-    n00b_heap_pin(n00b_thread_master_heap);
-    // n00b_heap_set_local_collects(n00b_thread_master_heap);
+    n00b_internal_heap = n00b_new_heap(N00B_SYSTEM_HEAP_SIZE);
+    n00b_heap_set_name(n00b_internal_heap, "internal");
 
-    n00b_string_heap = n00b_new_heap(N00B_START_TYPE_HEAP_SIZE);
-    n00b_heap_set_name(n00b_string_heap, "strings");
-
-    //    n00b_type_heap = n00b_new_heap(N00B_START_TYPE_HEAP_SIZE);
-    //    n00b_heap_set_no_trace(n00b_type_heap);
-    // n00b_heap_set_local_collects(n00b_type_heap);
-
-    //    n00b_marshal_heap = n00b_new_heap(N00B_START_MARSHAL_HEAP_SIZE);
-    //    n00b_heap_set_no_trace(n00b_marshal_heap);
-    // n00b_heap_set_local_collects(n00b_marshal_heap);
-
-    n00b_default_heap->name       = "user";
-    n00b_thread_master_heap->name = "internal";
-    //    n00b_marshal_heap->name       = "marshal";
-    //    n00b_type_heap->name          = "type";
-    to_space->name                = "gc 'to-space'";
-    n00b_scratch_heap->name       = "gc scratch";
+    n00b_default_heap->name  = "user";
+    n00b_internal_heap->name = "internal";
+    to_space->name           = "gc 'to-space'";
+    n00b_scratch_heap->name  = "gc scratch";
+    long_term_pins->name     = "long-term pins";
 }
 
 static hatrack_mem_manager_t hatrack_manager = {
@@ -328,7 +438,7 @@ setup_collection_ctx(n00b_collection_ctx *ctx, n00b_heap_t *h)
     // heap, the allocations that result from the below will come from it.
     crown_init_size(&ctx->memos, crown_size, NULL);
 
-    n00b_push_heap(n00b_thread_master_heap);
+    n00b_push_heap(n00b_scratch_heap);
     // Now, allocate the maximum number of worklist items in one hunk.
     ctx->worklist = n00b_gc_raw_alloc(sizeof(n00b_collect_wl_item_t) * n,
                                       N00B_GC_SCAN_NONE);
@@ -359,6 +469,7 @@ make_to_space_our_space(n00b_heap_t *h)
 static inline void
 free_excess_pages(n00b_heap_t *h, int64_t start_len)
 {
+    // TODO: Add this code.
 }
 
 static inline n00b_alloc_hdr *
@@ -368,10 +479,9 @@ get_relocation_addr(n00b_collection_ctx *ctx, n00b_alloc_hdr *hdr)
     // don't need to do the typical alloc setup, just reserve an
     // address. The contents, including the header, will be copied out
     // of the old heap at the end.
-    n00b_crit_t     entry     = atomic_read(&to_space->ptr);
-    n00b_alloc_hdr *result    = entry.next_alloc;
-    int             total_len = sizeof(n00b_alloc_hdr) + hdr->alloc_len;
-    char           *end       = ((char *)result) + total_len;
+    n00b_crit_t     entry  = atomic_read(&to_space->ptr);
+    n00b_alloc_hdr *result = entry.next_alloc;
+    char           *end    = ((char *)result) + hdr->alloc_len;
 
     entry.next_alloc = (n00b_alloc_hdr *)end;
     assert(((void *)result) < to_space->first_arena->addr_end);
@@ -420,14 +530,19 @@ add_mem_range(n00b_collection_ctx *ctx,
                                             N00B_GC_SCAN_NONE);
 
     assert(p);
-    assert(!ctx->scan_list || n00b_addr_find_heap(ctx->scan_list) == n00b_addr_find_heap(sr));
+    assert(!ctx->scan_list
+           || n00b_addr_find_heap(ctx->scan_list) == n00b_addr_find_heap(sr));
     sr->next       = ctx->scan_list;
     sr->ptr        = p;
     sr->num_words  = num_words;
     sr->scanned    = scanned;
     ctx->scan_list = sr;
 
-    //    printf("%p: %p / %08d  ; ", sr, p, num_words);
+    while (n00b_addr_find_heap(p) && !n00b_addr_find_heap(p + sr->num_words)) {
+        if (!sr->num_words--) {
+            break;
+        }
+    }
 }
 
 static void
@@ -455,7 +570,8 @@ run_scans(n00b_collection_ctx *ctx)
 
     while (range) {
         assert(!ctx->scan_list
-               || n00b_addr_find_heap(ctx->scan_list) == n00b_addr_find_heap(range));
+               || n00b_addr_find_heap(ctx->scan_list)
+                      == n00b_addr_find_heap(range));
         uint64_t *p         = range->ptr;
         int       num_words = range->num_words;
         ctx->scan_list      = range->next;
@@ -494,9 +610,10 @@ run_scans(n00b_collection_ctx *ctx)
                 assert((dst_record && moving) || !moving);
                 ctx->root_touches++;
                 crown_put(&ctx->memos, hv, dst_record, NULL);
-                if (src_record->scan_fn != N00B_GC_SCAN_NONE) {
-                    int len = sizeof(n00b_alloc_hdr) + src_record->alloc_len;
-                    add_mem_range(ctx, (void *)src_record, len / 8, true);
+                if (src_record->n00b_ptr_scan) {
+                    int len = src_record->alloc_len - sizeof(n00b_alloc_hdr);
+                    add_mem_range(ctx, (void *)&src_record->type, 1, true);
+                    add_mem_range(ctx, (void *)src_record->data, len / 8, true);
                 }
                 if (moving) {
                     *p = calculate_new_address((void *)value,
@@ -526,15 +643,19 @@ trace_key_startup_items(n00b_collection_ctx *ctx)
     //
     // Though soon I expect to have the startup type info in its own
     // pinned heap and this will go away at that point.
+    // printf("trace byte friend.\n");
     add_mem_range(ctx,
                   (uint64_t *)&n00b_bi_types[2],
                   1,
                   false);
+    run_scans(ctx);
+    ctx->root_touches = 0;
     add_mem_range(ctx,
                   (uint64_t *)&n00b_bi_types[0],
                   N00B_NUM_BUILTIN_DTS,
                   false);
     run_scans(ctx);
+    ctx->root_touches = 0;
 }
 
 static inline void
@@ -557,10 +678,27 @@ trace_one_rootset(n00b_collection_ctx *ctx, n00b_heap_t *h)
             continue;
         }
 
-        // printf("trace root from %s:%d: ", ri->file, ri->line);
+#if defined(N00B_SHOW_GC_ROOTS)
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+        fprintf(stderr,
+                "Scanning root %p, added at %s:%d\n",
+                ri->ptr,
+                ri->file,
+                ri->line);
+
+#else
+        fprintf(stderr, "Scanning root %p\n", ri->ptr);
+#endif
+#endif
+
         add_mem_range(ctx, ri->ptr, ri->num_items, false);
         run_scans(ctx);
-        // printf("had %d root touches.\n", ctx->root_touches);
+
+#if defined(N00B_SHOW_GC_ROOTS)
+        fprintf(stderr,
+                "Root touched %d allocations\n",
+                ctx->root_touches);
+#endif
         ctx->root_touches = 0;
     }
 }
@@ -601,9 +739,6 @@ trace_stack(n00b_collection_ctx *ctx)
         if (ti->cur) {
             add_mem_range(ctx, ti->cur, (ti->base - ti->cur) / 8, false);
         }
-        else {
-            assert(ti->pthread_id != pthread_self());
-        }
         run_scans(ctx);
         ctx->root_touches = 0;
     }
@@ -616,34 +751,125 @@ perform_relocations(n00b_collection_ctx *ctx)
     int                     bytelen;
 
     for (int i = 0; i < ctx->ix; i++) {
-        bytelen = sizeof(n00b_alloc_hdr) + item->src->alloc_len;
+        bytelen = item->src->alloc_len;
+
         memcpy(item->dst, item->src, bytelen);
         // We are about to get rid of the next_addr field, but for now,
         // keep it correct.
-        item->dst->next_addr = ((char *)item->dst) + bytelen;
         assert(item->dst->guard == n00b_gc_guard);
+        item->src->n00b_moved = true;
+
         item++;
     }
 }
 
+#ifdef N00B_SHOW_GARBAGE_REPORTS
+typedef struct {
+    char   *file;
+    int64_t line;
+    int64_t bytes;
+    int64_t num_allocs;
+} n00b_garbage_entry_t;
+
+static void
+garbage_report(n00b_heap_t *h)
+{
+    n00b_push_heap(n00b_scratch_heap);
+
+    crown_t       info;
+    n00b_arena_t *a = h->first_arena;
+
+    crown_init_size(&info, 18, NULL);
+
+    while (a) {
+        uint64_t *cur = a->addr_start;
+        uint64_t *end = a->addr_end;
+        a             = a->successor;
+
+        while (cur < end) {
+            if (*cur != n00b_gc_guard) {
+                cur++;
+                continue;
+            }
+            n00b_alloc_hdr *h = (void *)cur;
+
+            if (!h->n00b_moved) {
+                bool                 found     = false;
+                n00b_garbage_entry_t candidate = {
+                    .file       = h->alloc_file,
+                    .line       = h->alloc_line,
+                    .bytes      = 0,
+                    .num_allocs = 0,
+                };
+
+                hash_internal_conversion_t u;
+                u.xhv = XXH3_128bits(&candidate, sizeof(n00b_garbage_entry_t));
+
+                n00b_garbage_entry_t *entry = crown_get(&info, u.lhv, &found);
+
+                if (found) {
+                    entry->bytes += h->alloc_len;
+                    entry->num_allocs++;
+                }
+                else {
+                    entry             = n00b_gc_alloc_mapped(n00b_garbage_entry_t,
+                                                 N00B_GC_SCAN_NONE);
+                    entry->file       = h->alloc_file;
+                    entry->line       = h->alloc_line;
+                    entry->bytes      = h->alloc_len;
+                    entry->num_allocs = 1;
+                    crown_put(&info, u.lhv, entry, NULL);
+                }
+            }
+            int n = h->alloc_len / 8;
+
+            if (!n) {
+                n++;
+            }
+            cur += n;
+        }
+    }
+
+    crown_store_t *store = atomic_read(&info.store_current);
+
+    for (unsigned int i = 0; i <= store->last_slot; i++) {
+        crown_bucket_t       *bucket = &store->buckets[i];
+        crown_record_t        rec    = atomic_read(&bucket->record);
+        n00b_garbage_entry_t *e      = rec.item;
+        if (e) {
+            fprintf(stderr,
+                    "%lld allocs, %lld total bytes from %s:%lld\n",
+                    e->num_allocs,
+                    e->bytes,
+                    e->file,
+                    e->line);
+        }
+    }
+
+    n00b_pop_heap();
+}
+#endif
+
 void
 n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 {
+    n00b_gts_stop_the_world();
+
     // Calling this on a pinned heap un-pins it.  Also note that
     // generally you will want to stop the world for this.
 
     int64_t      starting_arena_len = 0;
-    n00b_heap_t *thread_local_stash = n00b_thread_master_heap;
+    n00b_heap_t *thread_local_stash = n00b_thread_heap;
 
 #ifdef N00B_GC_STATS
-    cprintf("+++Collection beginning:\n");
-    debug_print_heap(h);
+    cprintf("+++Collection beginning.\n");
+    n00b_debug_print_heap(h);
 #ifdef N00B_GC_SHOW_COLLECT_STACK_TRACES
     n00b_static_c_backtrace();
 #endif
 #endif
 
-    __n00b_collector_running  = true;
+    __n00b_collector_running++;
     __n00b_current_from_space = h;
 
     starting_arena_len = get_next_heap_request_len(h, alloc_request);
@@ -666,32 +892,95 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 
     setup_collection_ctx(ctx, h);
     trace_key_startup_items(ctx);
+    /*
     if (h->local_collects) {
         trace_one_rootset(ctx, h);
     }
     else {
-        trace_all_roots(ctx);
-    }
+    */
+    trace_all_roots(ctx);
+    //    }
     trace_stack(ctx);
-
-    printf("Done scanning; about to copy %d allocs.\n",
-           ctx->ix);
 
     perform_relocations(ctx);
 
+#if defined(N00B_GC_STATS)
+    cprintf("---Collection ended.\n");
+    fprintf(stderr,
+            "Preserved %d of %d records (%f%%)\n",
+            ctx->ix,
+            h->alloc_count,
+            (100.0 * ctx->ix) / h->alloc_count);
+
+#endif
+
+#if 0
+    n00b_push_heap(n00b_debug_heap);
+    void *p1 = n00b_box_u64((uint64_t)ctx->ix);
+    void *p2 = n00b_box_u64((uint64_t)h->alloc_count);
+    void *p3 = n00b_box_double(100.0 * (((double)ctx->ix) / (double)h->alloc_count));
+    n00b_pop_heap();
+
+#endif
+
+#ifdef N00B_SHOW_GARBAGE_REPORTS
+    garbage_report(h);
+#endif
+
     make_to_space_our_space(h);
     h->inherit_count = ctx->ix;
+    h->num_collects++;
     free_excess_pages(h, starting_arena_len);
     n00b_heap_clear(n00b_scratch_heap);
 
-#ifdef N00B_GC_STATS
-    cprintf("---Collection finished::\n");
-    debug_print_heap(h);
-#endif
-
     n00b_thread_heap          = thread_local_stash;
     __n00b_current_from_space = NULL;
-    __n00b_collector_running  = false;
+
+// defined(N00B_GC_STATS)
+#if 0
+    {
+        n00b_push_heap(n00b_debug_heap);
+        n00b_debug("gc_collect_summary",
+                   n00b_cstr_format("Preserved {} of {} records ({}%)",
+                                    p1,
+                                    p2,
+                                    p3));
+
+    }
+    n00b_push_heap(n00b_debug_heap);
+    n00b_debug("gc_collect_heap", debug_repr_heap(h));
+    n00b_debug("gc_stack_trace", n00b_get_c_backtrace(1));
+    n00b_pop_heap();
+#endif
+
+    --__n00b_collector_running;
+    n00b_gts_restart_the_world();
+}
+
+void
+n00b_long_term_pin(n00b_heap_t *h)
+{
+    n00b_gts_stop_the_world();
+    n00b_heap_collect(h, 0);
+    if (!long_term_pins->first_arena) {
+        long_term_pins->first_arena       = h->first_arena;
+        long_term_pins->newest_arena      = h->newest_arena;
+        long_term_pins->total_alloc_count = atomic_read(&h->alloc_count);
+    }
+    else {
+        n00b_arena_t *a = long_term_pins->newest_arena;
+        n00b_unlock_arena_header(a);
+        a->successor                 = h->first_arena;
+        long_term_pins->newest_arena = h->newest_arena;
+        long_term_pins->total_alloc_count += atomic_read(&h->alloc_count);
+        n00b_lock_arena_header(a);
+    }
+
+    h->first_arena  = NULL;
+    h->newest_arena = NULL;
+    n00b_add_arena(h, long_term_pins->newest_arena->user_length);
+
+    n00b_gts_restart_the_world();
 }
 
 void

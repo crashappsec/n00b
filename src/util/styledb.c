@@ -429,7 +429,7 @@ init_style_db()
 void
 n00b_set_style(n00b_utf8_t *name, n00b_render_style_t *style)
 {
-    n00b_push_heap(n00b_thread_master_heap);
+    n00b_push_heap(n00b_internal_heap);
     init_style_db();
     hatrack_dict_put(style_dictionary, name, style);
     n00b_pop_heap();
@@ -440,7 +440,7 @@ n00b_set_style(n00b_utf8_t *name, n00b_render_style_t *style)
 n00b_render_style_t *
 n00b_lookup_cell_style(n00b_utf8_t *name)
 {
-    n00b_push_heap(n00b_thread_master_heap);
+    n00b_push_heap(n00b_internal_heap);
     init_style_db();
 
     n00b_render_style_t *entry = hatrack_dict_get(style_dictionary,
@@ -746,7 +746,7 @@ n00b_style_exists(n00b_utf8_t *name)
 static void
 static_style(char *name, n00b_render_style_t *s)
 {
-    n00b_push_heap(n00b_thread_master_heap);
+    n00b_push_heap(n00b_internal_heap);
     n00b_render_style_t *copy = n00b_new(n00b_type_render_style());
     memcpy(copy, s, sizeof(n00b_render_style_t));
     copy->name = n00b_new_utf8(name);

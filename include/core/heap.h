@@ -31,17 +31,19 @@ struct n00b_alloc_hdr {
     // /dev/urandom, to make sure that we do not start adding
     // references  in memory to it.
     uint64_t            guard;
-    // When scanning memory allocations in the object's current arena,
-    // this pointer points to the next allocation spot.
-    // This isn't very necessary and should probably delete it soon;
-    // it's only used to quickly find the alloc end for memcopy,
-    // and we to have the full alloc len stored.
-    char               *next_addr;
+    // This can go down to just a 32-bit int.
     struct n00b_type_t *type;
-    // This can go away really; but there for non-object types.
-    n00b_mem_scan_fn    scan_fn;
-    uint32_t            alloc_len;
-    uint32_t            request_len;
+
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    char *alloc_file;
+#endif
+
+    uint32_t alloc_len;
+    // This is going to move to the VTABLE for objects, and perhaps
+    // non-object types will get a few bits to index into a static
+    // table.
+    //
+    // For now, the can fn it's moving down below into a single bit.
     // The 1st arg to the scan fn is a pointer to a sized
     // bitfield. The first word indicates the number of subsequent
     // words in the bitfield. The bits then represent the words of the
@@ -52,23 +54,38 @@ struct n00b_alloc_hdr {
     // correspond to words with pointers should be set.
     // n00b_mem_scan_fn scan_fn;
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
-    char   *alloc_file;
-    int32_t alloc_line;
+    int16_t alloc_line;
 #endif
     // True if the memory allocation is a direct n00b object, in
     // which case, we expect the type field to be valid.
     //
+    // Used by Marshal to deliniate end-of-record.
+    uint32_t n00b_marshal_end : 1;
+    uint32_t n00b_ptr_scan    : 1;
     // Currently, we aren't using this for anything, because we just
     // rely on the presence of the type field. However, it's no cost
     // to keep it if we want the double checking.
-    unsigned int n00b_obj      : 1;
+    uint32_t n00b_obj         : 1;
     // Uses the finalizer associated w/ the type, so n00b_obj must be true.
-    unsigned int n00b_finalize : 1;
-    __uint128_t  cached_hash;
+    uint32_t n00b_finalize    : 1;
+    // Should always be 0 until the data is no longer live.
+    uint32_t n00b_moved       : 1;
+
+    __uint128_t cached_hash;
 
     // The actual exposed data. This must be 16-byte aligned!
     alignas(N00B_FORCED_ALIGNMENT) uint64_t data[];
 };
+
+#define N00B_HDR_GUARD_OFFSET 0
+#define N00B_HDR_TYPE_OFFSET  offsetof(n00b_alloc_hdr, type)
+#define N00B_HDR_LEN_OFFSET   offsetof(n00b_alloc_hdr, alloc_len)
+#define N00B_HDR_HASH_OFFSET  offsetof(n00b_alloc_hdr, cached_hash)
+
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+#define N00B_HDR_FILE_OFFSET offsetof(n00b_alloc_hdr, alloc_file)
+#define N00B_HDR_LINE_OFFSET offsetof(n00b_alloc_hdr, alloc_line)
+#endif
 
 struct n00b_finalizer_info_t {
     n00b_alloc_hdr        *allocation;
@@ -138,6 +155,7 @@ struct n00b_heap_t {
     char                  *file;
     int                    line;
     uint32_t               total_alloc_count;
+    uint16_t               num_collects;
     // This prevents heaps from being collected at all. memory addreses
     // in pinned heaps cannot be moved.
     unsigned int           pinned         : 1;
@@ -231,8 +249,6 @@ extern uint64_t n00b_end_guard;
 
 // The global heap.
 extern n00b_heap_t *n00b_default_heap;
-// Marshaling stops the world, so we use one heap that's shared.
-extern n00b_heap_t *n00b_marshal_heap;
 
 // The last heap explicitly passed by a thread. IF it is not set
 // (i.e., is NULL) when you call n00b_new(), that will set this when
@@ -274,6 +290,7 @@ extern void            n00b_initialize_gc(void);
 extern void            n00b_gc_set_system_finalizer(n00b_system_finalizer_fn);
 extern void            n00b_heap_collect(n00b_heap_t *, int64_t);
 extern uint64_t        n00b_get_page_size(void);
+extern void            n00b_long_term_pin(n00b_heap_t *);
 
 #define n00b_new_heap(x) _n00b_new_heap(x, __FILE__, __LINE__)
 #define n00b_global_heap_collect() \
@@ -309,6 +326,12 @@ static inline void
 n00b_heap_pin(n00b_heap_t *h)
 {
     h->pinned = true;
+}
+
+static inline void
+n00b_heap_unpin(n00b_heap_t *h)
+{
+    h->pinned = false;
 }
 
 static inline void
@@ -458,7 +481,7 @@ n00b_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
 extern void n00b_add_arena(n00b_heap_t *, uint64_t);
 extern bool n00b_addr_in_one_heap(n00b_heap_t *, void *);
 
-extern bool __n00b_collector_running;
+extern int __n00b_collector_running;
 
 #define N00B_USING_HEAP(heap_name, ...)               \
     {                                                 \
@@ -470,10 +493,8 @@ extern bool __n00b_collector_running;
 
 extern n00b_heap_t *n00b_all_heaps;
 extern n00b_heap_t *n00b_cur_heap_page;
-extern n00b_heap_t *n00b_type_heap;
-extern n00b_heap_t *n00b_thread_master_heap;
+extern n00b_heap_t *n00b_internal_heap;
 extern n00b_heap_t *n00b_debug_heap;
-extern n00b_heap_t *n00b_string_heap;
 extern uint64_t     n00b_next_heap_index;
 extern uint64_t     n00b_page_bytes;
 extern uint64_t     n00b_page_modulus;
@@ -548,28 +569,24 @@ n00b_delete_arena(n00b_arena_t *a)
 }
 
 static inline void
-n00b_heap_clear(n00b_heap_t *h)
+n00b_lock_arena_header(n00b_arena_t *a)
 {
-    // Delete all arenas, but leave the heap intact.
-    n00b_arena_t *a = h->first_arena;
-    n00b_arena_t *next;
-
-    while (a) {
-        next = a->successor;
-        n00b_delete_arena(a);
-        a = next;
-    }
-
-    h->first_arena  = NULL;
-    h->newest_arena = NULL;
-    h->to_finalize  = NULL;
-    h->released     = false;
+    mprotect(a, n00b_page_bytes, PROT_READ);
 }
 
+static inline void
+n00b_unlock_arena_header(n00b_arena_t *a)
+{
+    mprotect(a, n00b_page_bytes, PROT_READ | PROT_WRITE);
+}
+
+extern void n00b_heap_clear(n00b_heap_t *);
+extern void n00b_heap_prune(n00b_heap_t *);
+
+#endif
 #define n00b_push_heap(heap)                           \
     n00b_heap_t *__n00b_saved_heap = n00b_thread_heap; \
     n00b_thread_heap               = heap
 
 #define n00b_pop_heap() \
     n00b_thread_heap = __n00b_saved_heap
-#endif

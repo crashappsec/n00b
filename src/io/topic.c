@@ -25,14 +25,14 @@ n00b_get_topic(n00b_utf8_t *topic, n00b_utf8_t *namespace)
     n00b_stream_t *res = hatrack_dict_get(ns, topic, NULL);
 
     if (!res) {
-        res                    = n00b_alloc_party(&n00b_topic_impl,
-                               topic,
-                               n00b_io_perm_rw,
-                               n00b_io_ev_topic);
         n00b_topic_cookie_t *c = n00b_gc_alloc_mapped(n00b_topic_cookie_t,
                                                       N00B_GC_SCAN_ALL);
 
-        res->cookie            = c;
+        res = n00b_alloc_party(&n00b_topic_impl,
+                               c,
+                               n00b_io_perm_rw,
+                               n00b_io_ev_topic);
+
         c->name                = topic;
         // TODO: fill these in.
         c->socket_write_filter = NULL;

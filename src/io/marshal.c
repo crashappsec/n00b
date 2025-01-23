@@ -153,30 +153,6 @@ check_magic(uint64_t found)
     return found == n00b_get_marshal_magic();
 }
 
-/*
-static void
-new_local_heap(n00b_pickle_ctx *ctx, size_t len)
-{
-    if (!len) {
-        len = N00B_START_MARSHAL_HEAP_SIZE;
-    }
-
-    if (ctx->pickle_heap) {
-        if (!ctx->buffered_heap_info) {
-            ctx->buffered_heap_info = n00b_list(n00b_type_ref());
-        }
-
-        n00b_list_append(ctx->buffered_heap_info, ctx->pickle_heap);
-        n00b_list_append(ctx->buffered_heap_info, (void *)ctx->offset);
-    }
-
-    else {
-        ctx->pickle_heap = n00b_new_heap(len);
-        n00b_heap_pin(ctx->pickle_heap);
-    }
-}
-*/
-
 static void
 new_local_heap(n00b_pickle_ctx *ctx, size_t len)
 {
@@ -202,7 +178,7 @@ new_local_heap(n00b_pickle_ctx *ctx, size_t len)
 static void *
 local_heap_alloc(n00b_pickle_ctx *ctx, size_t len)
 {
-    int         tlen = len + sizeof(n00b_alloc_hdr);
+    int         tlen = len; // + sizeof(n00b_alloc_hdr);
     n00b_buf_t *b    = ctx->current_output_buf;
 
     if (!b || b->byte_len + tlen > b->alloc_len) {
@@ -212,7 +188,7 @@ local_heap_alloc(n00b_pickle_ctx *ctx, size_t len)
     char *p = b->data + b->byte_len;
 
     b->byte_len += tlen;
-    return p + sizeof(n00b_alloc_hdr);
+    return p;
 }
 
 static int64_t translate_pointer(n00b_pickle_ctx *, void *);
@@ -222,7 +198,6 @@ static char *
 copy_alloc_filename(n00b_pickle_ctx *ctx, char *fname)
 {
     return NULL;
-
     n00b_utf8_t *as_n00b = hatrack_dict_get(ctx->file_cache, fname, NULL);
 
     if (!as_n00b) {
@@ -237,42 +212,23 @@ copy_alloc_filename(n00b_pickle_ctx *ctx, char *fname)
 static inline void
 setup_new_header(n00b_pickle_ctx *ctx, n00b_marshaled_hdr *h, n00b_alloc_hdr *s)
 {
-    h->empty_guard = N00B_MARSHAL_RECORD_GUARD;
-    h->next_offset = ctx->offset;
-    h->alloc_len   = s->alloc_len;
-    h->request_len = s->request_len;
-    h->scan_fn_id  = ~0ULL; // TODO map_scan_fn(h->scan_fn);
+    h->empty_guard   = N00B_MARSHAL_RECORD_GUARD;
+    h->alloc_len     = s->alloc_len;
+    h->n00b_ptr_scan = s->n00b_ptr_scan;
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
+    // TODO: Fix these.
     h->alloc_file = copy_alloc_filename(ctx, s->alloc_file);
-    h->alloc_line = s->alloc_line;
+    h->alloc_line = 0xeeee; // s->alloc_line;
 #endif
 
     h->type        = (void *)translate_pointer(ctx, s->type);
     h->n00b_obj    = s->n00b_obj;
     h->cached_hash = s->cached_hash;
 
-    if (h->scan_fn_id == -2) {
-        n00b_utf8_t *s = n00b_cstr_format(
-            "Unknown gc pointer bitmap scanning "
-            "function found in allocation. "
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-            "Allocation location: [em]{}:{}",
-            n00b_new_utf8(h->alloc_file),
-            n00b_box_u64(h->alloc_line));
-#else
-            "Compile with [em]N00B_ADD_ALLOC_LOC_INFO[/] for diagnostics.");
-#endif
-        // add_marshal_error(ctx, s);
-        N00B_RAISE(s);
-    }
-
     // Convert endianness on big endian machines; should not generate
     // any code at all most places.
-    little_64(h->next_offset);
     little_32(h->alloc_len);
-    little_32(h->request_len);
-    little_64(h->scan_fn_id);
 
 #if BYTE_ORDER == BIG_ENDIAN
     uint64_t *p = (uint64_t *)&h->cached_hash;
@@ -299,27 +255,25 @@ get_write_record(n00b_pickle_ctx *ctx, n00b_alloc_hdr *hdr, int64_t *offset_ptr)
 
     *offset_ptr = offset;
 
-    if ((hdr->request_len * 2) >= N00B_MARSHAL_CHUNK_SIZE) {
-        new_local_heap(ctx, hdr->request_len * 4);
+    if ((hdr->alloc_len * 2) >= N00B_MARSHAL_CHUNK_SIZE) {
+        new_local_heap(ctx, hdr->alloc_len * 4);
     }
 
     n00b_alloc_hdr *h = local_heap_alloc(ctx, hdr->alloc_len);
 
     if (!h) {
-        new_local_heap(ctx, hdr->request_len * 4);
+        new_local_heap(ctx, hdr->alloc_len * 4);
         h = local_heap_alloc(ctx, hdr->alloc_len);
-        assert(h);
     }
 
+    ptrdiff_t record_size = hdr->alloc_len;
     hatrack_dict_put(ctx->memos, hdr, (void *)offset);
-    n00b_alloc_hdr *result      = h - 1;
-    ptrdiff_t       record_size = hdr->next_addr - (char *)hdr;
 
     ctx->offset += record_size;
 
-    setup_new_header(ctx, (n00b_marshaled_hdr *)result, hdr);
+    setup_new_header(ctx, (n00b_marshaled_hdr *)h, hdr);
 
-    return result;
+    return h;
 }
 
 static void
@@ -333,7 +287,6 @@ enqueue_write_record(n00b_pickle_ctx *ctx,
     item->src                   = src;
     item->dst                   = dst;
     item->cur_offset            = alloc_offset;
-    item->next_offset           = ctx->offset;
     item->next                  = ctx->wl;
     ctx->wl                     = item;
 }
@@ -393,10 +346,9 @@ process_queue_item(n00b_pickle_ctx *ctx, n00b_pickle_wl_item_t *item)
 {
     uint64_t *sptr      = item->src->data;
     uint64_t *dptr      = item->dst->data;
-    uint64_t  num_words = (item->src->alloc_len) / 8;
+    uint64_t  num_words = (item->src->alloc_len - sizeof(n00b_alloc_hdr)) / 8;
     int64_t   offset    = item->cur_offset + sizeof(n00b_alloc_hdr);
     uint64_t *end       = &((uint64_t *)((unsigned char *)sptr))[num_words];
-
     assert((((char *)sptr) - (char *)item->src) == sizeof(n00b_alloc_hdr));
     assert((((char *)dptr) - (char *)item->dst) == sizeof(n00b_alloc_hdr));
     assert(item->src->guard == n00b_gc_guard);
@@ -468,7 +420,6 @@ create_object_end_record(n00b_pickle_ctx *ctx)
     p_hdr                 = p_hdr - 1;
     n00b_alloc_hdr *rec   = get_write_record(ctx, p_hdr, &ignored_offset);
 
-    rec->next_addr = NULL;
     rec->alloc_len = n * 16; // Byte len of patches.
     ctx->offset    = saved_offset;
 
@@ -476,6 +427,8 @@ create_object_end_record(n00b_pickle_ctx *ctx)
         memcpy(rec->data, patches, n * sizeof(uint64_t));
         ctx->needed_patches = NULL;
     }
+
+    rec->n00b_marshal_end = true;
 
     return rec;
 }
@@ -492,10 +445,9 @@ bundle_result(n00b_pickle_ctx *ctx, n00b_alloc_hdr *end_record)
     // to write the two-word header (a magic value and the random base
     // address).
 
-    int64_t to_alloc
-        = ctx->offset - ctx->last_offset_end;
-    int64_t      start = ctx->last_offset_end;
-    int64_t      end   = ctx->offset;
+    int64_t      to_alloc = ctx->offset - ctx->last_offset_end;
+    int64_t      start    = ctx->last_offset_end;
+    int64_t      end      = ctx->offset;
     int64_t      local_end;
     int64_t      to_copy;
     n00b_heap_t *heap;
@@ -561,6 +513,8 @@ bundle_result(n00b_pickle_ctx *ctx, n00b_alloc_hdr *end_record)
 
     ctx->current_output_buf = NULL;
 
+    assert(b->byte_len == to_alloc);
+    assert(!(b->byte_len % 16));
     return b;
 }
 
@@ -665,11 +619,19 @@ n00b_pickle_xform(n00b_stream_t *e, void *thunk, void *obj)
 
     n00b_list_t *result = n00b_internal_pickle(ctx, obj);
 
-    n00b_lock_release(&ctx->lock);
+    if (result) {
+        for (int i = 0; i < n00b_list_len(result); i++) {
+            n00b_buf_t  *b = n00b_list_get(result, i, NULL);
+            n00b_utf8_t *s = n00b_heap_dump(b->data,
+                                            b->byte_len,
+                                            N00B_MARSHAL_RECORD_GUARD,
+                                            true);
 
-    n00b_buf_t *dbg = n00b_list_get(result, 0, NULL);
-    int         l   = n00b_buffer_len(dbg);
-    dbg             = n00b_slice_get(dbg, 16, l);
+            //   cprintf("\nDebug: %s\n%s\n", obj, n00b_ansify(s, false, 0));
+        }
+    }
+
+    n00b_lock_release(&ctx->lock);
 
     return result;
 }
@@ -717,6 +679,8 @@ n00b_slice_one_pickle(n00b_unpickle_ctx *ctx, char *end)
         result           = n00b_slice_get(ctx->partial, 0, slice_len);
         ctx->partial     = n00b_slice_get(ctx->partial, slice_len, blen);
         ctx->part_cursor = ctx->partial->data;
+
+        assert(ctx->partial->byte_len == blen - slice_len);
     }
 
     return result;
@@ -734,32 +698,30 @@ n00b_check_unpickle_readiness(n00b_unpickle_ctx *ctx)
     n00b_alloc_hdr *h;
 
     while (true) {
-        h = (void *)ctx->part_cursor;
+        h = (n00b_alloc_hdr *)ctx->part_cursor;
 
         // If there's not a new header's worth of data read,
         // we can't be ready to unpickle a segment (we need to get
         // all the way through an end record).
-        if (ctx->part_cursor + sizeof(n00b_alloc_hdr) > buf_end) {
+        if (ctx->part_cursor + sizeof(n00b_alloc_hdr) >= buf_end) {
             return NULL;
         }
 
         // If the 'guard' field does not contain the marshal guard constant,
         // then we know we've got corrupt data.
         if (h->guard != N00B_MARSHAL_RECORD_GUARD) {
-            assert(sizeof(n00b_marshaled_hdr) == sizeof(n00b_alloc_hdr));
-err:
+            abort();
             N00B_CRAISE("Corrupt data stream when unmarshaling.");
         }
 
-        // If there is no next_addr field contents, then it's an end
-        // record.
-        if (!h->alloc_len) {
-            int   needed_bytes = sizeof(n00b_alloc_hdr) + h->alloc_len;
-            char *expected_end = ((char *)h) + needed_bytes;
+        if (h->n00b_marshal_end) {
+            // || h->alloc_len < sizeof(n00b_alloc_hdr)) {
+            int   needed_bytes = h->alloc_len;
+            char *expected_end = ((char *)h->data) + needed_bytes;
 
             if (buf_end >= expected_end) {
                 // This extracts the same.
-
+                printf("SLICE.\n");
                 n00b_buf_t *result = n00b_slice_one_pickle(ctx,
                                                            expected_end);
                 return result;
@@ -769,34 +731,17 @@ err:
             return NULL;
         }
 
-        // The length info for a record has to be sane.
-        if (h->alloc_len && h->alloc_len < h->request_len) {
-            goto err;
-        }
+        if (h->alloc_len < sizeof(n00b_alloc_hdr)) {
+            n00b_utf8_t *s = n00b_heap_dump(ctx->partial->data,
+                                            ctx->partial->byte_len,
+                                            N00B_MARSHAL_RECORD_GUARD,
+                                            true);
 
-        // If N00B_FULL_MEMCHECK is on, we need to make sure the alloc
-        // length is at least 8 bytes past the request length.
-        if (h->request_len + N00B_EXTRA_MEMCHECK_BYTES > h->alloc_len) {
-            goto err;
-        }
+            cprintf("\nBAD APPLE. %s\n", n00b_ansify(s, false, 0));
 
-        // Ensure that the next_addr field points to the vaddr we'd
-        // expect given the alloc length.
-        // First, how many bytes into the current object were we?
-        int64_t ostart_offset = ctx->part_cursor - ctx->partial->data;
-        // What was the current object's virtual address?
-        int64_t vaddr         = ctx->vaddr_start + ctx->cur_record_start_offset;
-        // Add the two to the number of bytes allocated.
-        vaddr += ostart_offset + h->alloc_len;
-        // This should be identical to what we find.
-        if (h->next_addr != (void *)((char *)vaddr + sizeof(n00b_alloc_hdr))) {
-            goto err;
+            assert(h->n00b_marshal_end);
         }
-
-        // Else, we can update ctx->part_cursor. It is entirely
-        // possible that this will point past the end of what we've
-        // buffered; the check at the top of the loop will fail.
-        ctx->part_cursor += h->alloc_len + sizeof(n00b_alloc_hdr);
+        ctx->part_cursor += h->alloc_len;
     }
 }
 
@@ -810,6 +755,7 @@ find_end_record(n00b_buf_t *buf)
         n00b_alloc_hdr *h = (void *)p;
 
         if (h->guard == N00B_MARSHAL_RECORD_GUARD) {
+            assert(h->n00b_marshal_end);
             return h;
         }
         p--;
@@ -863,7 +809,7 @@ static inline void
 n00b_munge_user_data(n00b_unpickle_ctx *ctx, n00b_alloc_hdr *record)
 {
     uint64_t *cur      = record->data;
-    uint64_t  word_len = (record->request_len + 7) / 8;
+    uint64_t  word_len = record->alloc_len / 8;
     uint64_t *end      = cur + word_len;
 
     while (cur != end) {
@@ -884,22 +830,20 @@ n00b_unmarshal_records(n00b_unpickle_ctx *ctx, n00b_alloc_hdr *end_record)
 
     // The format gets checked before calling this, below in
     // n00b_check_unpickle_readiness.
-
     while (hdr->alloc_len && hdr < end_record) {
         assert(hdr->guard == N00B_MARSHAL_RECORD_GUARD);
-        hdr->guard     = n00b_gc_guard;
-        hdr->next_addr = ((char *)hdr->data) + hdr->alloc_len;
-        hdr->type      = n00b_safe_unmunge_pointer(ctx, hdr->type);
+        hdr->guard = n00b_gc_guard;
+        hdr->type  = n00b_safe_unmunge_pointer(ctx, hdr->type);
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
         hdr->alloc_file = n00b_safe_unmunge_pointer(ctx, hdr->alloc_file);
 #endif
         n00b_munge_user_data(ctx, hdr);
 
 #if defined(N00B_FULL_MEMCHECK)
-        uint64_t *loc = ((uint64_t *)hdr->next_addr) - 1;
+        uint64_t *loc = ((uint64_t *)(((char *)hdr) + hdr->alloc_len)) - 1;
         *loc          = n00b_end_guard;
 #endif
-        hdr = (void *)hdr->next_addr;
+        hdr = (void *)(((char *)hdr) + hdr->alloc_len);
     }
 }
 
@@ -948,31 +892,19 @@ n00b_fixup_edge_records(n00b_unpickle_ctx *ctx,
     // Let's start with fixing up the end record, which holds patch info,
     // if anything.
 
-    end_record->guard         = n00b_gc_guard;
-    end_record->next_addr     = buf_record->next_addr;
-    end_record->alloc_len     = calculate_end_alloc_len(buf_record, end_record);
-    end_record->request_len   = 0;
-    end_record->n00b_obj      = false;
-    end_record->n00b_finalize = false;
+    end_record->guard            = n00b_gc_guard;
+    end_record->alloc_len        = calculate_end_alloc_len(buf_record,
+                                                    end_record);
+    end_record->n00b_obj         = false;
+    end_record->n00b_finalize    = false;
+    end_record->n00b_marshal_end = false;
 
-    // Next, let's fix the memory allocation for the buffer's payload.
-    buf_record->next_addr   = (char *)buf_record->data;
-    buf_record->alloc_len   = 0;
-    buf_record->request_len = 0;
-    // If we're using N00B_FULL_MEMCHECK, we are going to overwrite
-    // our cached hash with the end guard.
-#if defined(N00B_FULL_MEMCHECK)
-    uint64_t *loc = ((uint64_t *)end_record->next_addr) - 1;
-    *loc          = n00b_end_guard;
-    loc           = ((uint64_t *)buf_record->data) - 1;
-    *loc          = n00b_end_guard;
-#endif
-
+    buf_record->alloc_len = 0;
     // Finally, let's neuter the actual buffer passed in, partially to
     // avoid unnecessary dangling references.
-    b->alloc_len = 0;
-    b->byte_len  = 0;
-    b->data      = NULL;
+    b->alloc_len          = 0;
+    b->byte_len           = 0;
+    b->data               = NULL;
 }
 
 static inline void
@@ -1067,12 +999,14 @@ n00b_unpickle_xform(n00b_stream_t *e, void *thunk, void *obj)
         uint64_t *p = (uint64_t *)ctx->partial->data;
 
         if (!check_magic(*p)) {
+            abort();
             N00B_CRAISE("Attempt to unmarshal object in the wrong format.");
         }
         p++;
         ctx->vaddr_start = *p;
 
         if (lsb_erase(ctx->vaddr_start) != ctx->vaddr_start) {
+            abort();
             N00B_CRAISE("Bad virtual address space.");
         }
 

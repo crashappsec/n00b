@@ -330,7 +330,7 @@ n00b_gcommand_init(n00b_gopt_cspec *cmd_spec, va_list args)
     n00b_kw_ptr("context", context);
     n00b_kw_ptr("aliases", aliases);
     n00b_kw_ptr("short_doc", short_doc);
-    n00b_kw_ptr("long_doc", short_doc);
+    n00b_kw_ptr("long_doc", long_doc);
     n00b_kw_ptr("parent", parent);
     n00b_kw_bool("bad_opt_passthru", bad_opt_passthru);
 
@@ -389,7 +389,6 @@ dupe_error:
     cmd_spec->bad_opt_passthru = bad_opt_passthru;
     cmd_spec->parent           = parent;
     cmd_spec->owned_opts       = n00b_dict(n00b_type_utf8(), n00b_type_ref());
-    cmd_spec->summary_docs     = n00b_list(n00b_type_utf8());
 
     // Add a non-terminal rule to the grammar for any rules associated
     // with our command, and one for any flags.
@@ -432,7 +431,7 @@ dupe_error:
 
     if (top_level) {
         n00b_list_append(rule, n00b_pitem_from_nt(context->nt_badargs));
-        n00b_ruleset_add_rule(context->grammar, cmd_spec->rule_nt, rule, 0);
+        n00b_ruleset_add_rule(context->grammar, cmd_spec->rule_nt, rule, 10);
         return;
     }
 
@@ -469,7 +468,7 @@ dupe_error:
     n00b_list_append(rule, n00b_pitem_from_nt(cmd_spec->name_nt));
     n00b_list_append(rule, n00b_pitem_from_nt(context->nt_badargs));
 
-    n00b_ruleset_add_rule(context->grammar, cmd_spec->rule_nt, rule, 0);
+    n00b_ruleset_add_rule(context->grammar, cmd_spec->rule_nt, rule, 10);
 }
 
 typedef struct gopt_rgen_ctx {
@@ -631,7 +630,6 @@ _n00b_gopt_rule(int64_t start, ...)
     return result;
 }
 
-#if __FUTURE__
 static inline n00b_utf8_t *
 create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
 {
@@ -739,18 +737,18 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
                     "Token is not a primitive, and is not a "
                     "sub-command name that's been registed for this command.");
             }
-            return n00b_cstr_format("{} [em]{}[/]", sub->name);
+            return n00b_cstr_format("{} [em]{}[/]", sub->name, s);
         }
     }
 
     return s;
 }
-#endif
 
 void
-n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
-                           n00b_gopt_cspec *cmd,
-                           n00b_list_t     *items)
+_n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
+                            n00b_gopt_cspec *cmd,
+                            n00b_list_t     *items,
+                            n00b_utf8_t     *doc)
 {
     // The only items allowed are the values in n00b_gopt_grammar_consts
     // and the specific token id for any command that is actually
@@ -767,7 +765,11 @@ n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
             n00b_list_append(rule, n00b_pitem_from_nt(cmd->context->nt_opts));
         }
 
-        n00b_ruleset_add_rule(cmd->context->grammar, cmd->rule_nt, rule, 0);
+        _n00b_ruleset_add_rule(cmd->context->grammar,
+                               cmd->rule_nt,
+                               rule,
+                               0,
+                               doc);
         return;
     }
 
@@ -794,9 +796,13 @@ n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
     }
 
     translate_gopt_rule(&ctx);
-    rule = n00b_list_plus(rule, ctx.outrule);
-    // n00b_list_append(cmd->summary_docs, create_summary_doc(gctx, cmd, items));
-    n00b_ruleset_add_rule(cmd->context->grammar, cmd->rule_nt, rule, 0);
+    rule                  = n00b_list_plus(rule, ctx.outrule);
+    n00b_parse_rule_t *pr = _n00b_ruleset_add_rule(cmd->context->grammar,
+                                                   cmd->rule_nt,
+                                                   rule,
+                                                   0,
+                                                   doc);
+    pr->short_doc         = create_summary_doc(gctx, cmd, items);
 }
 
 static inline bool
@@ -817,7 +823,6 @@ needs_a_rule(n00b_gopt_cspec *cmd)
     return false;
 }
 
-#ifdef __FUTURE__
 static void
 add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
 {
@@ -863,7 +868,6 @@ add_gopt_auto_help(n00b_gopt_ctx *gctx)
         add_help_commands(gctx, n00b_list_get(subs, i, NULL));
     }
 }
-#endif
 
 void
 n00b_gopt_finalize(n00b_gopt_ctx *gctx)
@@ -1299,13 +1303,15 @@ check_link:
 }
 
 void
-n00b_gopt_add_subcommand(n00b_gopt_ctx   *ctx,
-                         n00b_gopt_cspec *command,
-                         n00b_utf8_t     *s)
+_n00b_gopt_add_subcommand(n00b_gopt_ctx   *ctx,
+                          n00b_gopt_cspec *command,
+                          n00b_utf8_t     *s,
+                          n00b_utf8_t     *doc)
 {
     // Nesting check will get handled the next level down.
     n00b_list_t     *rule  = n00b_list(n00b_type_int());
-    n00b_list_t     *raw   = n00b_str_split(n00b_to_utf8(s), n00b_new_utf8(" "));
+    n00b_list_t     *raw   = n00b_str_split(n00b_to_utf8(s),
+                                      n00b_new_utf8(" "));
     n00b_list_t     *words = n00b_list(n00b_type_utf8());
     int              n     = n00b_list_len(raw);
     n00b_codepoint_t cp;
@@ -1479,7 +1485,7 @@ handle_group_modifier:
     // It's okay for the rule to be empty.
 
 add_it:
-    n00b_gopt_command_add_rule(ctx, command, rule);
+    _n00b_gopt_command_add_rule(ctx, command, rule, doc);
 }
 
 static bool
@@ -1503,7 +1509,7 @@ run_auto_help(n00b_gopt_ctx *gopt, n00b_gopt_result_t *res)
         return false;
     }
 
-    n00b_print(n00b_getopt_default_usage(gopt, res->cmd));
+    n00b_print(n00b_getopt_default_usage(gopt, res->cmd, res));
     n00b_print(n00b_getopt_command_get_long_for_printing(gopt, res->cmd));
     n00b_print(n00b_getopt_option_table(gopt, res->cmd, true, true));
 
@@ -1514,24 +1520,40 @@ run_auto_help(n00b_gopt_ctx *gopt, n00b_gopt_result_t *res)
 n00b_gopt_result_t *
 n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
 {
+    if (!gopt->command_name) {
+        if (cmd && n00b_len(cmd)) {
+            gopt->command_name = cmd;
+        }
+        else {
+            n00b_list_t *parts = n00b_str_split(n00b_app_path(),
+                                                n00b_new_utf8("/"));
+
+            gopt->command_name = n00b_list_pop(parts);
+            if (!gopt->command_name) {
+                gopt->command_name = n00b_get_argv0();
+            }
+        }
+    }
+
     n00b_list_t *parses = n00b_gopt_parse(gopt, cmd, args);
     int          num    = n00b_list_len(parses);
 
     if (num > 1) {
-        n00b_printf("[em]Warning:[/] ambiguous input ({} possible parses).",
-                    num);
+        n00b_eprintf("[em]Warning:[/] ambiguous input ({} possible parses).",
+                     num);
     }
     if (num == 0) {
-        n00b_printf("[em]Error:[/] parsing failed.");
-        // n00b_getopt_show_usage(gopt, n00b_new_utf8(""));
+        n00b_eprintf("[em]Error:[/] parsing failed.");
+        n00b_getopt_show_usage(gopt, n00b_new_utf8(""), NULL);
         return NULL;
     }
 
     n00b_gopt_result_t *res = n00b_list_get(parses, 0, NULL);
     if (n00b_list_len(res->errors)) {
-        n00b_printf("[em]Error when parsing:[/] {}",
-                    n00b_list_get(res->errors, 0, NULL));
-        // n00b_getopt_show_usage(gopt, res->cmd);
+        n00b_utf8_t *err = n00b_rich_lit("[red]error: [/] ");
+        err              = n00b_str_concat(err, n00b_list_get(res->errors, -1, NULL));
+        n00b_eprint(err);
+        n00b_getopt_show_usage(gopt, res->cmd, res);
         return NULL;
     }
 

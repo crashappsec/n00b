@@ -14,11 +14,11 @@ n00b_stream_t *
 n00b_io_timer_open(n00b_duration_t *duration, n00b_io_impl_info_t *impl)
 {
     n00b_stream_base_t *base   = n00b_get_ev_base(impl);
-    n00b_ev2_cookie_t *cookie = n00b_new_ev2_cookie();
+    n00b_ev2_cookie_t  *cookie = n00b_new_ev2_cookie();
     n00b_stream_t *new         = n00b_alloc_party(impl,
-                                         cookie,
-                                         n00b_io_perm_rw,
-                                         n00b_io_ev_timer);
+                                          cookie,
+                                          n00b_io_perm_rw,
+                                          n00b_io_ev_timer);
 
     cookie->read_event = event_new(base->event_ctx,
                                    -1,
@@ -43,7 +43,7 @@ n00b_io_timer_start(n00b_stream_t *timer, void *msg)
         tv = cookie->aux;
     }
 
-    n00b_stream_add(cookie->read_event, tv);
+    n00b_event_add(cookie->read_event, tv);
 
     return NULL;
 }
@@ -58,7 +58,7 @@ n00b_io_timer_subscribe(n00b_stream_sub_t *info, n00b_io_subscription_kind kind)
         d = n00b_duration_to_timeval(src_cookie->aux);
     }
 
-    n00b_stream_add(src_cookie->read_event, d);
+    n00b_event_add(src_cookie->read_event, d);
 
     return true;
 }

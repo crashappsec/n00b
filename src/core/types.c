@@ -455,7 +455,6 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
 
         buf    = n00b_sha_finish(ctx->sha);
         result = ((uint64_t *)buf->data)[0];
-        assert(result);
 
         little_64(result);
 
@@ -470,6 +469,10 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
 
         if (!n00b_universe_add(&n00b_type_universe, node)) {
             n00b_type_t *o = n00b_universe_get(&n00b_type_universe, node->typeid);
+            if (!o) {
+                return result;
+            }
+
             if (o->typeid == 0) {
                 n00b_universe_put(&n00b_type_universe, node);
             }
@@ -512,7 +515,6 @@ n00b_type_init(n00b_type_t *n, va_list args)
     }
 
     if (base_id >= N00B_NUM_BUILTIN_DTS || base_id < N00B_T_ERROR) {
-        abort();
         N00B_CRAISE("Invalid type ID.");
     }
 
@@ -1623,6 +1625,7 @@ setup_primitive_types(void)
                             &n00b_type_universe,
                             sizeof(n00b_type_universe_t));
 
+    n00b_push_heap(n00b_internal_heap);
     n00b_alloc_base_type_object(N00B_T_TYPESPEC);
 
     for (int i = 0; i < N00B_NUM_BUILTIN_DTS; i++) {
@@ -1643,6 +1646,7 @@ setup_primitive_types(void)
             continue;
         }
     }
+    n00b_pop_heap();
 }
 
 static int inited = false;
@@ -1661,7 +1665,10 @@ n00b_initialize_global_types(void)
     n00b_type_t *                                                  \
         _n00b_type_##tname(n00b_type_t *sub, char *file, int line) \
     {                                                              \
-        n00b_type_t *ts     = n00b_type_typespec();                \
+        n00b_push_heap(n00b_internal_heap);                        \
+                                                                   \
+        n00b_type_t *ts                                            \
+            = n00b_type_typespec();                                \
         n00b_type_t *result = _n00b_new(NULL,                      \
                                         file,                      \
                                         line,                      \
@@ -1672,6 +1679,7 @@ n00b_initialize_global_types(void)
         n00b_list_append(items, sub);                              \
                                                                    \
         type_hash_and_dedupe(&result);                             \
+        n00b_pop_heap();                                           \
                                                                    \
         return result;                                             \
     }
@@ -1681,12 +1689,14 @@ n00b_initialize_global_types(void)
     n00b_type_t *                                     \
         n00b_type_##tname(n00b_type_t *sub)           \
     {                                                 \
+        n00b_push_heap(n00b_internal_heap);           \
         n00b_type_t *ts     = n00b_type_typespec();   \
         n00b_type_t *result = n00b_new(ts, idnumber); \
         n00b_list_t *items  = result->items;          \
         n00b_list_append(items, sub);                 \
                                                       \
         type_hash_and_dedupe(&result);                \
+        n00b_pop_heap();                              \
                                                       \
         return result;                                \
     }
@@ -1699,20 +1709,21 @@ extern int TMP_DEBUG;
 n00b_type_t *
 _n00b_type_list(n00b_type_t *sub, char *file, int line)
 {
+    n00b_push_heap(n00b_internal_heap);
     n00b_type_t *result = _n00b_new(NULL,
                                     file,
                                     line,
                                     n00b_type_typespec(),
                                     N00B_T_LIST);
-
+    assert(result->base_index == N00B_T_LIST);
     n00b_private_list_append(result->items, sub);
     type_hash_and_dedupe(&result);
 
+    n00b_pop_heap();
     return result;
 }
 
 DECLARE_ONE_PARAM_FN(flist, N00B_T_FLIST);
-// DECLARE_ONE_PARAM_FN(list, N00B_T_XLIST);
 DECLARE_ONE_PARAM_FN(xlist, N00B_T_XLIST);
 DECLARE_ONE_PARAM_FN(tree, N00B_T_TREE);
 DECLARE_ONE_PARAM_FN(queue, N00B_T_QUEUE);
@@ -1775,6 +1786,8 @@ n00b_type_box(n00b_type_t *sub)
 n00b_type_t *
 n00b_type_dict(n00b_type_t *sub1, n00b_type_t *sub2)
 {
+    n00b_push_heap(n00b_internal_heap);
+
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_DICT);
     n00b_list_t *items  = result->items;
@@ -1784,12 +1797,16 @@ n00b_type_dict(n00b_type_t *sub1, n00b_type_t *sub2)
 
     type_hash_and_dedupe(&result);
 
+    n00b_pop_heap();
+
     return result;
 }
 
 n00b_type_t *
 n00b_type_tuple(int64_t nitems, ...)
 {
+    n00b_push_heap(n00b_internal_heap);
+
     va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(), N00B_T_TUPLE);
     n00b_list_t *items  = result->items;
@@ -1797,6 +1814,7 @@ n00b_type_tuple(int64_t nitems, ...)
     va_start(args, nitems);
 
     if (nitems <= 1) {
+        n00b_pop_heap();
         N00B_CRAISE("Tuples must contain 2 or more items.");
     }
 
@@ -1807,17 +1825,22 @@ n00b_type_tuple(int64_t nitems, ...)
 
     type_hash_and_dedupe(&result);
 
+    n00b_pop_heap();
+
     return result;
 }
 
 n00b_type_t *
 n00b_type_tuple_from_xlist(n00b_list_t *items)
 {
+    n00b_push_heap(n00b_internal_heap);
+
     n00b_type_t *result = n00b_new(n00b_type_typespec(), N00B_T_TUPLE);
 
     result->items = items;
 
     type_hash_and_dedupe(&result);
+    n00b_pop_heap();
 
     return result;
 }
@@ -1825,6 +1848,8 @@ n00b_type_tuple_from_xlist(n00b_list_t *items)
 n00b_type_t *
 n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
 {
+    n00b_push_heap(n00b_internal_heap);
+
     va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_FUNCDEF);
@@ -1839,6 +1864,7 @@ n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
     n00b_list_append(items, return_type);
 
     type_hash_and_dedupe(&result);
+    n00b_pop_heap();
 
     return result;
 }
@@ -1848,6 +1874,8 @@ n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
 n00b_type_t *
 n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
 {
+    n00b_push_heap(n00b_internal_heap);
+
     va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_FUNCDEF);
@@ -1856,6 +1884,7 @@ n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
     va_start(args, nparams);
 
     if (nparams < 1) {
+        n00b_pop_heap();
         N00B_CRAISE("Varargs functions require at least one argument.");
     }
 
@@ -1867,6 +1896,7 @@ n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
     result->flags |= N00B_FN_TY_VARARGS;
 
     type_hash_and_dedupe(&result);
+    n00b_pop_heap();
 
     return result;
 }
@@ -1874,6 +1904,8 @@ n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
 n00b_type_t *
 n00b_type_fn(n00b_type_t *ret, n00b_list_t *params, bool va)
 {
+    n00b_push_heap(n00b_internal_heap);
+
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_FUNCDEF);
     n00b_list_t *items  = result->items;
@@ -1889,6 +1921,8 @@ n00b_type_fn(n00b_type_t *ret, n00b_list_t *params, bool va)
         result->flags |= N00B_FN_TY_VARARGS;
     }
     type_hash_and_dedupe(&result);
+
+    n00b_pop_heap();
 
     return result;
 }
@@ -2006,12 +2040,16 @@ n00b_get_promotion_type(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 n00b_type_t *
 n00b_new_typevar()
 {
+    n00b_push_heap(n00b_internal_heap);
+
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_GENERIC);
 
     result->options.container_options = n00b_get_all_containers_bitfield();
     result->items                     = n00b_list(n00b_type_typespec());
     result->flags                     = N00B_FN_UNKNOWN_TV_LEN;
+
+    n00b_pop_heap();
 
     return result;
 }

@@ -108,6 +108,7 @@ n00b_default_uncaught_handler(n00b_exception_t *exception)
         fprintf(stderr, "%s\n", n00b_repr(exception->c_trace)->data);
     }
 #endif
+    n00b_thread_exit(0);
 }
 
 void

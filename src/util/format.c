@@ -1,6 +1,9 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+__thread n00b_heap_t *n00b_string_heap = NULL;
+__thread n00b_heap_t *__n00b_saved_heap;
+
 // This function is a little overly defensive on bounds, since the caller
 // does validate the presence of { and }.
 static void
@@ -456,11 +459,28 @@ style_adjustment(n00b_utf32_t *s, int64_t start, int64_t offset)
     }
 }
 
+static inline void
+ensure_string_heap(void)
+{
+    __n00b_saved_heap = n00b_thread_heap;
+
+    if (!n00b_string_heap) {
+        n00b_string_heap = n00b_new_heap(N00B_START_TYPE_HEAP_SIZE);
+        n00b_heap_set_name(n00b_string_heap, "strings");
+        n00b_heap_pin(n00b_string_heap);
+    }
+    else {
+        n00b_heap_prune(n00b_string_heap);
+        n00b_add_arena(n00b_string_heap, N00B_START_TYPE_HEAP_SIZE);
+    }
+}
+
 static inline n00b_utf8_t *
 assemble_formatted_result(const n00b_str_t *fmt, n00b_list_t *arg_strings)
 {
     // We need to re-parse the {}'s, and also copy stuff (including
     // style info) into the final string.
+    ensure_string_heap();
 
     fmt = n00b_to_utf32(fmt);
 
@@ -552,6 +572,7 @@ assemble_formatted_result(const n00b_str_t *fmt, n00b_list_t *arg_strings)
     }
 
     result->codepoints = out_ix;
+    n00b_pop_heap();
 
     return n00b_to_utf8(result);
 }
@@ -560,7 +581,7 @@ n00b_utf8_t *
 n00b_str_vformat(const n00b_str_t *fmt, n00b_dict_t *args)
 {
     n00b_utf8_t *result;
-    n00b_push_heap(n00b_string_heap);
+    ensure_string_heap();
 
     // Positional items are looked up via their ASCII string.
     // Keys are expected to be utf8.
@@ -609,14 +630,15 @@ n00b_str_vformat(const n00b_str_t *fmt, n00b_dict_t *args)
     fmt                      = n00b_rich_lit(n00b_to_utf8(fmt)->data);
     n00b_list_t *arg_strings = lookup_arg_strings(info, args);
 
-    result = assemble_formatted_result(fmt, arg_strings);
     n00b_pop_heap();
+    result = assemble_formatted_result(fmt, arg_strings);
     return result;
 }
 
 n00b_utf8_t *
 n00b_base_format(const n00b_str_t *fmt, int nargs, va_list args)
 {
+    ensure_string_heap();
     n00b_push_heap(n00b_string_heap);
     n00b_obj_t   one;
     n00b_dict_t *dict = n00b_dict(n00b_type_utf8(), n00b_type_ref());
@@ -637,31 +659,32 @@ n00b_base_format(const n00b_str_t *fmt, int nargs, va_list args)
 n00b_utf8_t *
 _n00b_str_format(const n00b_str_t *fmt, int nargs, ...)
 {
+    n00b_push_heap(n00b_string_heap);
     va_list      args;
     n00b_utf8_t *result;
 
     va_start(args, nargs);
-    n00b_push_heap(n00b_string_heap);
     result = n00b_base_format(fmt, nargs, args);
-    n00b_pop_heap();
     va_end(args);
 
+    n00b_pop_heap();
     return result;
 }
 
 n00b_utf8_t *
 _n00b_cstr_format(char *fmt, int nargs, ...)
 {
+    n00b_push_heap(n00b_string_heap);
     va_list      args;
     n00b_utf8_t *utf8fmt;
     n00b_utf8_t *result;
 
     va_start(args, nargs);
-    n00b_push_heap(n00b_string_heap);
     utf8fmt = n00b_new_utf8(fmt);
     result  = n00b_base_format((const n00b_str_t *)utf8fmt, nargs, args);
-    n00b_pop_heap();
     va_end(args);
+
+    n00b_pop_heap();
 
     return result;
 }
@@ -669,6 +692,8 @@ _n00b_cstr_format(char *fmt, int nargs, ...)
 n00b_utf8_t *
 n00b_cstr_array_format(char *fmt, int num_args, n00b_utf8_t **params)
 {
+    n00b_push_heap(n00b_string_heap);
+
     n00b_utf8_t *one;
     n00b_dict_t *dict = n00b_dict(n00b_type_utf8(), n00b_type_ref());
 
@@ -677,6 +702,8 @@ n00b_cstr_array_format(char *fmt, int num_args, n00b_utf8_t **params)
         n00b_utf8_t *key = n00b_str_from_int(i);
         hatrack_dict_add(dict, key, one);
     }
+
+    n00b_pop_heap();
 
     return n00b_str_vformat((const n00b_str_t *)n00b_new_utf8(fmt), dict);
 }

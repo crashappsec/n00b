@@ -32,7 +32,6 @@ n00b_universe_get(n00b_type_universe_t *u, n00b_type_hash_t typeid)
     hatrack_hash_t hv;
 
     init_hv(&hv, typeid);
-    assert(typeid);
 
     return crown_get_mmm(&u->dict->crown_instance,
                          mmm_thread_acquire(),
@@ -46,15 +45,14 @@ n00b_universe_add(n00b_type_universe_t *u, n00b_type_t *t)
     hatrack_hash_t hv;
 
     init_hv(&hv, t->typeid);
-    assert(t->typeid);
-
-    if (!n00b_mmm_thread_ref) {
-        n00b_gc_register_root(&n00b_mmm_thread_ref, 1);
-        n00b_mmm_thread_ref = mmm_thread_acquire();
+    if (!t->typeid) {
+        return false;
     }
 
+    assert(n00b_thread_self());
+
     return crown_add_mmm(&u->dict->crown_instance,
-                         n00b_mmm_thread_ref,
+                         &n00b_thread_self()->mmm_info,
                          hv,
                          t);
 }
@@ -71,7 +69,7 @@ n00b_universe_put(n00b_type_universe_t *u, n00b_type_t *t)
     }
 
     crown_put_mmm(&u->dict->crown_instance,
-                  n00b_mmm_thread_ref,
+                  &n00b_thread_self()->mmm_info,
                   hv,
                   t,
                   NULL);
@@ -102,11 +100,10 @@ n00b_universe_forward(n00b_type_universe_t *u, n00b_type_t *t1, n00b_type_t *t2)
 
     t1->fw = t2->typeid;
     init_hv(&hv, t1->typeid);
-    if (!n00b_mmm_thread_ref) {
-        n00b_mmm_thread_ref = mmm_thread_acquire();
-    }
+    assert(n00b_thread_self());
+
     crown_put_mmm(&u->dict->crown_instance,
-                  n00b_mmm_thread_ref,
+                  &n00b_thread_self()->mmm_info,
                   hv,
                   t2,
                   NULL);

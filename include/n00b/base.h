@@ -78,8 +78,8 @@ typedef struct hatrack_set_st n00b_set_t;
 // While the hatrack data structures are done in a way that's
 // independent of n00b, the memory management is core to everything
 // EXCEPT for the locking code, which memory management does use.
-#include "core/locks.h"
 #include "core/heap.h"
+#include "core/locks.h"
 
 #include "n00b/datatypes.h"
 

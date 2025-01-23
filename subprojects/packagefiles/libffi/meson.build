@@ -9,11 +9,20 @@ project(
   meson_version : '>=1.5.0',
 )
 
+if (host_machine.system() == 'darwin')
+  linuxheaders_dep = declare_dependency()
+else
+  linuxheaders_dep = dependency('linuxheaders')
+endif
+
 i = run_command(
   'sh',
   '-exc',
   '''
 [ -n "$(find -name libffi.a)" ] && exit 0
+if [ "$(uname)" != "Darwin" ] ; then
+export CPPFLAGS="-I$(realpath ../kernel-headers-*)/include $CPPFLAGS"
+fi
 ./configure \
   --disable-docs
 make
@@ -38,6 +47,9 @@ dirname $(find $PWD -name libffi.a)
 message(libs)
 
 libffi_dep = declare_dependency(
+  dependencies : [
+    linuxheaders_dep,
+  ],
   include_directories : [
     include_directories('.'),
   ],

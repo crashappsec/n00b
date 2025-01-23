@@ -67,34 +67,40 @@ add_offset(char   **optr,
         *outptr++ = *lineptr++;            \
     }
 
-char *
-n00b_hexl(void    *ptr,
-          int32_t  len,
-          uint64_t start_offset,
-          int32_t  width,
-          char    *prefix)
+typedef struct {
+    int32_t cpl;
+    int32_t cols;
+    int32_t width;
+    int32_t left_margin;
+    int32_t ascii_start;
+} n00b_hex_fmt_info_t;
+
+static char *
+n00b_hexl(void                *ptr,
+          int32_t              len,
+          uint64_t             start_offset,
+          int32_t              width,
+          char                *prefix,
+          n00b_hex_fmt_info_t *info)
 {
-    struct winsize ws;
-    uint64_t       offset_len = calculate_size_prefix(len, start_offset);
-    uint64_t       chars_per_line;
-    uint64_t       num_lines;
-    uint64_t       alloc_len;
-    uint64_t       remainder;
-    char          *inptr   = (char *)ptr;
-    char          *lineptr = inptr;
-    char          *outptr;
-    char          *ret;
-    uint8_t        c;
-    size_t         prefix_len = strlen(prefix);
+    uint64_t offset_len = calculate_size_prefix(len, start_offset);
+    uint64_t chars_per_line;
+    uint64_t used_width;
+    uint64_t num_lines;
+    uint64_t alloc_len;
+    uint64_t remainder;
+    char    *inptr   = (char *)ptr;
+    char    *lineptr = inptr;
+    char    *outptr;
+    char    *ret;
+    uint8_t  c;
+    size_t   prefix_len = strlen(prefix);
 
     if (width <= 0) {
-        ioctl(0, TIOCGWINSZ, &ws);
-        if (ws.ws_col > MIN_DUMP_WIDTH) {
-            width = ws.ws_col;
-        }
-        else {
-            width = MIN_DUMP_WIDTH;
-        }
+        // Right now, the render width is wider and both are static. But
+        // the render width might move to runtime.
+        width = n00b_max(n00b_max(n00b_terminal_width(), MIN_DUMP_WIDTH),
+                         N00B_MIN_RENDER_WIDTH);
     }
     else {
         if (width < MIN_DUMP_WIDTH) {
@@ -125,6 +131,15 @@ n00b_hexl(void    *ptr,
     */
 
     chars_per_line = ((width - offset_len - 3) / 17) * 4;
+    used_width     = (chars_per_line / 4) * 17 + offset_len + 2;
+
+    if (info) {
+        info->cpl         = chars_per_line;
+        info->cols        = chars_per_line / 4;
+        info->width       = width + 1; // +1 for the newline.
+        info->left_margin = offset_len;
+        info->ascii_start = info->cols * 13 + info->left_margin;
+    }
 
     /*
     ** To figure out how many lines we need, we add chars_per_line - 1
@@ -198,6 +213,10 @@ n00b_hexl(void    *ptr,
             ASCIICHAR();
         }
 
+        for (int64_t j = used_width; j < width; j++) {
+            *outptr++ = ' ';
+        }
+
         *outptr++ = '\n';
     }
 
@@ -247,9 +266,10 @@ n00b_hexl(void    *ptr,
             ASCIICHAR();
         }
         // Now, pad the rest of the line w/ spaces;
-        for (uint64_t i = remainder; i < chars_per_line; i++) {
+        for (int64_t i = remainder; i < width; i++) {
             *outptr++ = ' ';
         }
+
         *outptr++ = '\n';
     }
 
@@ -257,21 +277,227 @@ n00b_hexl(void    *ptr,
     return ret;
 }
 
+// Line and column when we wrap the original buffer by the number of
+// chars per line. Does not directly translate to the new position.
+static inline void
+line_and_index(int orig_pos, n00b_hex_fmt_info_t *info, int *lptr, int *iptr)
+{
+    *lptr = orig_pos / info->cpl;
+    *iptr = orig_pos % info->cpl;
+}
+
+static inline int
+new_cstart(int orig_pos, n00b_hex_fmt_info_t *info)
+{
+    int line;
+    int index;
+    int col;
+    int colpos;
+
+    line_and_index(orig_pos, info, &line, &index);
+
+    col    = index / 4;
+    colpos = index % 4;
+
+    int res = line * info->width;
+
+    res += info->left_margin + 2;
+    res += col * 13;
+    res += colpos * 3;
+
+    return res;
+}
+
+static inline int
+new_cend(int orig_pos, n00b_hex_fmt_info_t *info)
+{
+    return new_cstart(orig_pos - 1, info) + 2;
+}
+
+static inline void
+apply_highlights(n00b_utf8_t         *s,
+                 n00b_list_t         *inarr,
+                 n00b_hex_fmt_info_t *info)
+{
+    int          n = n00b_list_len(inarr);
+    n00b_list_t *l = n00b_list(n00b_type_ref());
+
+    for (int i = 0; i < n; i++) {
+        n00b_style_entry_t *src_style = n00b_list_get(inarr, i, NULL);
+        n00b_style_entry_t *hex_style;
+        // n00b_style_entry_t *asc_style;
+
+        int sline;
+        int sindex;
+        int eline;
+        int eindex;
+
+        line_and_index(src_style->start,
+                       info,
+                       &sline,
+                       &sindex);
+        line_and_index(src_style->end,
+                       info,
+                       &eline,
+                       &eindex);
+
+        int new_start_pos = new_cstart(src_style->start, info);
+        int new_end_pos   = new_cend(src_style->end, info);
+        // int ascii_start   = sline * info->width + info->ascii_start + 2;
+
+        if (sline == eline) {
+            hex_style        = n00b_gc_alloc_mapped(n00b_style_entry_t,
+                                             N00B_GC_SCAN_NONE);
+            hex_style->start = new_start_pos;
+            hex_style->end   = new_end_pos;
+            hex_style->info  = src_style->info;
+            n00b_list_append(l, hex_style);
+            continue;
+        }
+
+        // Highlight the rest of first line.
+        hex_style        = n00b_gc_alloc_mapped(n00b_style_entry_t,
+                                         N00B_GC_SCAN_NONE);
+        hex_style->start = new_start_pos;
+        hex_style->end   = sline * info->width + info->ascii_start;
+        hex_style->info  = src_style->info;
+        n00b_list_append(l, hex_style);
+
+        // Highlight entire lines.
+        while (++sline < eline) {
+            hex_style        = n00b_gc_alloc_mapped(n00b_style_entry_t,
+                                             N00B_GC_SCAN_NONE);
+            hex_style->start = sline * info->width + info->left_margin + 2;
+            hex_style->end   = sline * info->width + info->ascii_start;
+            hex_style->info  = src_style->info;
+            n00b_list_append(l, hex_style);
+        }
+
+        if (!eindex) {
+            continue;
+        }
+        hex_style        = n00b_gc_alloc_mapped(n00b_style_entry_t,
+                                         N00B_GC_SCAN_NONE);
+        hex_style->start = eline * info->width + info->left_margin + 2;
+        hex_style->end   = new_end_pos;
+        hex_style->info  = src_style->info;
+        n00b_list_append(l, hex_style);
+    }
+
+    n = n00b_list_len(l);
+    n00b_alloc_styles(s, n);
+    s->styling->num_entries = n;
+
+    for (int i = 0; i < n; i++) {
+        n00b_style_entry_t *e = n00b_list_get(l, i, NULL);
+        s->styling->styles[i] = *e;
+    }
+}
+
 n00b_utf8_t *
 _n00b_hex_dump(void *ptr, uint32_t len, ...)
 {
     int64_t      start_offset = 0;
-    int32_t      width        = -1;
     char        *prefix       = "";
+    n00b_list_t *highlights   = NULL;
+    int32_t      width        = -1;
     n00b_utf8_t *res;
+    char        *dump;
+    // int32_t   addr_width;
+    // int32_t   bpl;
 
     n00b_karg_only_init(len);
     n00b_kw_int64("start_offset", start_offset);
     n00b_kw_int32("width", width);
     n00b_kw_ptr("prefix", prefix);
+    n00b_kw_ptr("highlights", highlights);
 
-    char *dump = n00b_hexl(ptr, len, start_offset, width, prefix);
-    res        = n00b_new(n00b_type_utf8(),
-                   n00b_kw("cstring", n00b_ka(dump)));
+    if (highlights) {
+        n00b_buf_t         *b         = n00b_new(n00b_type_buffer(),
+                                 n00b_kw("ptr", ptr, "length", n00b_ka(len)));
+        n00b_list_t        *hl_styles = n00b_apply_highlights(b, highlights);
+        n00b_hex_fmt_info_t info;
+
+        dump = n00b_hexl(ptr, len, start_offset, width, prefix, &info);
+
+        res = n00b_new_utf8(dump);
+        apply_highlights(res, hl_styles, &info);
+    }
+    else {
+        dump = n00b_hexl(ptr, len, start_offset, width, prefix, NULL);
+        res  = n00b_new_utf8(dump);
+    }
+
     return res;
+}
+
+static inline n00b_list_t *
+n00b_alloc_hdr_fields(uint64_t guard)
+{
+    n00b_list_t *result = n00b_list(n00b_type_ref());
+    n00b_buf_t  *b      = n00b_new(n00b_type_buffer(),
+                             n00b_kw("length", 8ULL, "raw", &guard));
+    n00b_style_t s1     = n00b_apply_bg_color(n00b_new_style(),
+                                          n00b_new_utf8("atomic lime"));
+    n00b_style_t s2     = n00b_apply_bg_color(n00b_new_style(),
+                                          n00b_new_utf8("jazzberry"));
+    n00b_style_t s3     = n00b_apply_bg_color(n00b_new_style(),
+                                          n00b_new_utf8("fandango"));
+    n00b_style_t s4     = n00b_apply_bg_color(n00b_new_style(),
+                                          n00b_new_utf8("new york pink"));
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    n00b_style_t sfile = n00b_apply_bg_color(n00b_new_style(),
+                                             n00b_new_utf8("blue bell"));
+    n00b_style_t sline = n00b_apply_bg_color(n00b_new_style(),
+                                             n00b_new_utf8("usaf blue"));
+#endif
+    // ro == relative offset from end of prev field.
+    int ro_type = N00B_HDR_TYPE_OFFSET - (0 + sizeof(uint64_t));
+    int ro_len;
+    int ro_cache;
+
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    int ro_file = N00B_HDR_FILE_OFFSET - (N00B_HDR_TYPE_OFFSET + sizeof(char *));
+    ro_len      = N00B_HDR_LEN_OFFSET - (N00B_HDR_FILE_OFFSET + sizeof(char *));
+    int ro_line = N00B_HDR_LINE_OFFSET - (N00B_HDR_LEN_OFFSET + sizeof(int32_t));
+    ro_cache    = N00B_HDR_HASH_OFFSET
+             - (N00B_HDR_LINE_OFFSET + sizeof(int16_t));
+#else
+    ro_len   = N00B_HDR_LEN_OFFSET - (N00B_HDR_TYPE_OFFSET + sizeof(char *));
+    ro_cache = N00B_HDR_HASH_OFFSET - (N00B_HDR_LEN_OFFSET + sizeof(int32_t));
+#endif
+
+    //  Guard.
+    n00b_list_append(result, n00b_new_highlight(b, 0, 0, s1));
+    // type.
+    n00b_list_append(result, n00b_new_highlight(0, ro_type, 8, s2));
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    n00b_list_append(result, n00b_new_highlight(0, ro_file, 8, sfile));
+#endif
+    // Len.
+    n00b_list_append(result, n00b_new_highlight(0, ro_len, 4, s3));
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    n00b_list_append(result, n00b_new_highlight(0, ro_line, 2, sline));
+#endif
+    n00b_list_append(result, n00b_new_highlight(0, ro_cache, 16, s4));
+
+    return result;
+}
+
+n00b_list_t *
+n00b_alloc_hdr_highlights(uint64_t guard, bool fields)
+{
+    if (fields) {
+        return n00b_alloc_hdr_fields(guard);
+    }
+
+    n00b_list_t *result = n00b_list(n00b_type_ref());
+    n00b_buf_t  *b      = n00b_new(n00b_type_buffer(),
+                             n00b_kw("length", 8ULL, "raw", &guard));
+    n00b_style_t style  = n00b_apply_bg_color(n00b_new_style(),
+                                             n00b_new_utf8("atomic lime"));
+    n00b_list_append(result,
+                     n00b_new_highlight(b, 0, sizeof(n00b_alloc_hdr), style));
+
+    return result;
 }

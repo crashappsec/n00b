@@ -1001,8 +1001,35 @@ render_to_cache(n00b_grid_t       *grid,
                                                       n00b_ka(height)));
         return n00b_list_len(cell->render_cache);
 
+    case N00B_T_RENDERABLE: {
+        n00b_renderable_t *subcell = cell->raw_item;
+        int                res     = render_to_cache(grid, subcell, width, height);
+        cell->render_cache         = subcell->render_cache;
+        return res;
+    }
+
     default:
+        /* Something is corrupting incredibly occasionally, and when
+         *	   it does, is prone to crashing here.
+         *
+         * Whatever the problem, it seems to have survived total GC
+         * rewrites and a careful look for any possible root that
+         * might be getting lost.
+         *
+         * But I think it does have to do w/ the GC somehow.
+         *
+         * It seems like the error could be in either the grid code or
+         * the UTF32 code (the other place it crashes). Both are long
+         * overdue for a rewrite.
+         *
+         * Short version: FIXME soon.
+
         N00B_CRAISE("Type is not grid-renderable.");
+        */
+
+        n00b_nanosleep(2, 0);
+
+        return 0;
     }
 
     return 0;
@@ -1677,14 +1704,8 @@ _n00b_grid_render(n00b_grid_t *grid, ...)
     n00b_kw_int64("width", width);
     n00b_kw_int64("height", height);
 
-    if (width == -1) {
-        width = n00b_terminal_width();
-        width = n00b_max(width, 20);
-    }
-
-    if (width == 0) {
-        return n00b_new(n00b_type_list(n00b_type_utf32()),
-                        n00b_kw("length", n00b_ka(0)));
+    if (width <= 0) {
+        width = n00b_max(n00b_terminal_width(), N00B_MIN_RENDER_WIDTH);
     }
 
     int16_t *col_widths  = n00b_calculate_col_widths(grid, width, &grid->width);
@@ -2551,6 +2572,7 @@ n00b_set_column_style(n00b_grid_t *grid, int col, n00b_utf8_t *tag)
     n00b_render_style_t *style = n00b_lookup_cell_style(tag);
 
     if (!style) {
+        abort();
         N00B_CRAISE("Style not found.");
     }
 
@@ -2563,6 +2585,7 @@ n00b_set_row_style(n00b_grid_t *grid, int row, n00b_utf8_t *tag)
     n00b_render_style_t *style = n00b_lookup_cell_style(tag);
 
     if (!style) {
+        abort();
         N00B_CRAISE("Style not found.");
     }
 
@@ -2812,6 +2835,7 @@ const n00b_vtable_t n00b_grid_vtable = {
     .num_entries = N00B_BI_NUM_FUNCS,
     .methods     = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)grid_init,
+        [N00B_BI_REPR]          = (n00b_vtable_entry)n00b_grid_to_str,
         [N00B_BI_TO_STR]        = (n00b_vtable_entry)n00b_grid_to_str,
         [N00B_BI_GC_MAP]        = (n00b_vtable_entry)n00b_grid_set_gc_bits,
         [N00B_BI_CONTAINER_LIT] = (n00b_vtable_entry)n00b_to_grid_lit,

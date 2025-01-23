@@ -9,10 +9,6 @@ group_format_via_nt(n00b_grammar_t *grammar, n00b_rule_group_t *ginfo);
 n00b_utf8_t *
 n00b_repr_parse_node(n00b_parse_node_t *n)
 {
-    if (!n00b_in_heap(n)) {
-        return n00b_new_utf8("??");
-    }
-
     if (n->token) {
         if (n->id == N00B_EMPTY_STRING) {
             return n00b_cstr_format("ε ({})", n->start);
@@ -233,7 +229,6 @@ n00b_parse_repr_item(n00b_grammar_t *g, n00b_pitem_t *item)
             return n00b_new_utf8("«?»");
         }
     case N00B_P_SET:;
-        printf("add in repr: %p\n", item);
         n00b_list_t *l = n00b_list(n00b_type_utf8());
         int          n = n00b_list_len(item->contents.items);
 

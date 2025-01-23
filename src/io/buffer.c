@@ -50,7 +50,6 @@ n00b_buf_read_fn(n00b_stream_t *e, uint64_t nbytes)
                                            cookie->read_position,
                                            l);
         cookie->read_position = l;
-
         internal_read_buf(e, slice);
     }
 
@@ -93,11 +92,25 @@ n00b_buf_subscribe(n00b_stream_sub_t *sub, n00b_io_subscription_kind perms)
     if (perms != n00b_io_perm_r && n00b_len(stream->read_subs) == 1) {
         n00b_bio_cookie_t *cookie = stream->cookie;
         if (!cookie->read_position) {
-            n00b_read(stream, 0, NULL);
+            n00b_buf_read_fn(stream, n00b_buffer_len(cookie->b));
         }
     }
 
     return true;
+}
+
+static bool
+n00b_buf_at_eof(n00b_stream_t *e)
+{
+    bool result;
+
+    n00b_bio_cookie_t *cookie = e->cookie;
+    n00b_buffer_acquire_r(cookie->b);
+
+    result = cookie->read_position >= n00b_len(cookie->b);
+
+    n00b_buffer_release(cookie->b);
+    return result;
 }
 
 static n00b_utf8_t *
@@ -112,5 +125,6 @@ n00b_io_impl_info_t n00b_bufferio_impl = {
     .subscribe_impl = n00b_buf_subscribe,
     .write_impl     = (void *)n00b_buf_write_fn,
     .repr_impl      = n00b_io_buf_repr,
+    .eof_impl       = n00b_buf_at_eof,
     .byte_oriented  = true,
 };

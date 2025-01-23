@@ -115,7 +115,12 @@ n00b_ensure_type(n00b_type_t *t)
     if (!t) {
         return false;
     }
-    assert(t->base_index > 0 && t->base_index < N00B_NUM_BUILTIN_DTS);
+    if (((int64_t)t->base_index) < 0) {
+        return false;
+    }
+    if (t->base_index >= N00B_NUM_BUILTIN_DTS) {
+        return false;
+    }
     n00b_type_t *r = n00b_type_resolve(t);
 
     if (r == t) {

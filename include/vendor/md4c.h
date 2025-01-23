@@ -10757,28 +10757,8 @@ entity_lookup(const char *name, size_t name_size)
                    entity_cmp);
 }
 
-// John's stuff.
-
-#ifdef LECACY_NIM
-typedef void (*CB_TYPE)(const char *, unsigned int, void *);
-N_LIB_PRIVATE N_CDECL(void, nimu_process_markdown)(NU8 *s_p0, unsigned int n_p1, void *p_p2);
-
-MD_HTML_CALLBACKS x = {
-    .process_output   = nimu_process_markdown,
-    .render_self_link = NULL,
-    .record_self_link = NULL,
-    .render_code_link = NULL};
-
-int
-c_markdown_to_html(char *mdoc, size_t len, void *outobj, size_t flags)
-{
-    return md_html(mdoc, len, x, outobj, flags & 0x1ffff, flags >> 28);
-}
-
 #ifdef __cplusplus
 } /* extern "C" { */
-#endif
-
 #endif
 
 #endif

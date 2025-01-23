@@ -302,13 +302,37 @@ _n00b_str_strip(const n00b_str_t *s, ...)
 n00b_utf32_t *
 n00b_str_concat(const n00b_str_t *p1, const n00b_str_t *p2)
 {
+    if (!p1) {
+        return n00b_to_utf32(p2);
+    }
+    if (!p2) {
+        return n00b_to_utf32(p1);
+    }
+
     n00b_utf32_t *s1     = n00b_to_utf32(p1);
     n00b_utf32_t *s2     = n00b_to_utf32(p2);
     int64_t       s1_len = n00b_str_codepoint_len(s1);
     int64_t       s2_len = n00b_str_codepoint_len(s2);
 
+    n00b_codepoint_t *p = (void *)s1->data;
+
+    while (s1_len) {
+        if (p[s1_len - 1] != 0) {
+            break;
+        }
+        s1_len--;
+    }
+
     if (!s1_len) {
         return s2;
+    }
+
+    p = (void *)s2->data;
+    while (s2_len) {
+        if (p[s2_len - 1] != 0) {
+            break;
+        }
+        s2_len--;
     }
 
     if (!s2_len) {
@@ -566,6 +590,8 @@ n00b_to_utf8(const n00b_utf32_t *inp)
 
     for (int i = 0; i < res->codepoints; i++) {
         l = utf8proc_encode_char(p[i], outloc);
+        assert(*outloc);
+        assert(l > 0);
         outloc += l;
     }
 
@@ -595,16 +621,21 @@ n00b_to_utf32(const n00b_utf8_t *instr)
         return (n00b_utf32_t *)instr;
     }
 
-    n00b_utf32_t     *outstr = n00b_new(n00b_type_utf32(),
+    n00b_utf32_t    *outstr = n00b_new(n00b_type_utf32(),
                                     n00b_kw("length", n00b_ka(len)));
-    uint8_t          *inp    = (uint8_t *)(instr->data);
-    n00b_codepoint_t *outp   = (n00b_codepoint_t *)(outstr->data);
+    uint8_t         *inp    = (uint8_t *)(instr->data);
+    n00b_codepoint_t cp;
+
+    n00b_codepoint_t *outp = (n00b_codepoint_t *)(outstr->data);
 
     for (int i = 0; i < len; i++) {
-        int val = utf8proc_iterate(inp, 4, outp + i);
+        int val = utf8proc_iterate(inp, 4, &cp);
+
         if (val < 0) {
             N00B_CRAISE("Invalid utf8 in string when convering to utf32.");
         }
+
+        outp[i] = cp;
         inp += val;
     }
 
@@ -1463,7 +1494,7 @@ n00b_str_wrap(const n00b_str_t *s, int64_t width, int64_t hang)
 
     if (width <= 0) {
         width = n00b_terminal_width();
-        if (!width) {
+        if (width <= 0) {
             width = N00B_MIN_RENDER_WIDTH;
         }
     }

@@ -40,11 +40,11 @@ launch_wait4(void *arg)
         return NULL;
     }
 
-    n00b_thread_leave_run_state();
+    n00b_gts_suspend();
 
     int r = wait4(cookie->pid, &cookie->stats, 0, &cookie->rusage);
 
-    n00b_thread_enter_run_state();
+    n00b_gts_resume();
 
     if (r == -1) {
         n00b_post_errno(party);
