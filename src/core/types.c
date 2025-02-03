@@ -409,7 +409,7 @@ internal_type_hash(n00b_type_t *node, type_hash_ctx *ctx)
     for (size_t i = 0; i < n; i++) {
         // This list shouldn't change.
         n00b_type_t *t = n00b_private_list_get(node->items, i, NULL);
-        assert(t != node);
+        n00b_assert(t != node);
         internal_type_hash(t, ctx);
     }
 }
@@ -655,7 +655,7 @@ n00b_type_is_concrete(n00b_type_t *node)
         }
         return true;
     default:
-        assert(false);
+        n00b_assert(false);
     }
 }
 
@@ -1588,7 +1588,7 @@ n00b_internal_type_repr(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
                                                         memos,
                                                         nexttv));
     default:
-        assert(false);
+        n00b_assert(false);
     }
 
     return NULL;
@@ -1715,7 +1715,7 @@ _n00b_type_list(n00b_type_t *sub, char *file, int line)
                                     line,
                                     n00b_type_typespec(),
                                     N00B_T_LIST);
-    assert(result->base_index == N00B_T_LIST);
+    n00b_assert(result->base_index == N00B_T_LIST);
     n00b_private_list_append(result->items, sub);
     type_hash_and_dedupe(&result);
 

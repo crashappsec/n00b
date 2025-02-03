@@ -27,7 +27,7 @@ n00b_rc_alloc(size_t len)
 
     len += sizeof(refcount_alloc_t);
 
-    assert(!posix_memalign((void **)&raw, N00B_FORCED_ALIGNMENT, len));
+    n00b_assert(!posix_memalign((void **)&raw, N00B_FORCED_ALIGNMENT, len));
     bzero(raw, len);
     atomic_store(&(raw->refcount), 1);
 

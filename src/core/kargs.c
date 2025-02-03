@@ -66,8 +66,8 @@ n00b_pass_kargs(int nargs, ...)
 
     kargs->num_provided = nargs;
 
-    assert(nargs < N00B_MAX_KEYWORD_SIZE);
-    assert(kargs->num_provided == nargs);
+    n00b_assert(nargs < N00B_MAX_KEYWORD_SIZE);
+    n00b_assert(kargs->num_provided == nargs);
 
     for (int i = 0; i < nargs; i++) {
         kargs->args[i].kw    = va_arg(args, char *);

@@ -6,9 +6,9 @@ static void
 n00b_set_init(n00b_set_t *set, va_list args)
 {
     size_t              hash_fn;
-    n00b_type_t         *stype       = n00b_get_my_type(set);
+    n00b_type_t        *stype       = n00b_get_my_type(set);
     hatrack_hash_func_t custom_hash = NULL;
-    n00b_dt_info_t      *info;
+    n00b_dt_info_t     *info;
 
     stype = n00b_list_get(n00b_type_get_params(stype), 0, NULL);
     info  = n00b_type_get_data_type_info(stype);
@@ -49,11 +49,11 @@ n00b_set_shallow_copy(n00b_set_t *s)
     }
 
     n00b_set_t *result = n00b_new(n00b_get_my_type(s));
-    uint64_t   count  = 0;
-    void     **items  = (void **)hatrack_set_items_sort(s, &count);
+    uint64_t    count  = 0;
+    void      **items  = (void **)hatrack_set_items_sort(s, &count);
 
     for (uint64_t i = 0; i < count; i++) {
-        assert(items[i] != NULL);
+        n00b_assert(items[i] != NULL);
         hatrack_set_add(result, items[i]);
     }
 
@@ -69,8 +69,8 @@ n00b_set_to_xlist(n00b_set_t *s)
 
     n00b_type_t *item_type = n00b_type_get_param(n00b_get_my_type(s), 0);
     n00b_list_t *result    = n00b_new(n00b_type_list(item_type));
-    uint64_t    count     = 0;
-    void      **items     = (void **)hatrack_set_items_sort(s, &count);
+    uint64_t     count     = 0;
+    void       **items     = (void **)hatrack_set_items_sort(s, &count);
 
     for (uint64_t i = 0; i < count; i++) {
         n00b_list_append(result, items[i]);
@@ -83,12 +83,12 @@ static n00b_set_t *
 to_set_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
 {
     n00b_set_t *result = n00b_new(objtype);
-    int        n      = n00b_list_len(items);
+    int         n      = n00b_list_len(items);
 
     for (int i = 0; i < n; i++) {
         void *item = n00b_list_get(items, i, NULL);
 
-        assert(item != NULL);
+        n00b_assert(item != NULL);
         hatrack_set_add(result, item);
     }
 

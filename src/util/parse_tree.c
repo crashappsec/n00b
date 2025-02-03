@@ -38,7 +38,7 @@ ptree(void *v, char *txt)
 static inline n00b_utf8_t *
 dei_base(n00b_parser_t *p, n00b_earley_item_t *ei)
 {
-    assert(ei);
+    n00b_assert(ei);
     n00b_list_t *repr = n00b_repr_earley_item(p, ei, 0);
 
     return n00b_cstr_format(" [em]{}:{}[/] {} ({})  [reverse]{}[/]",
@@ -456,7 +456,7 @@ parse_node_zipper(n00b_list_t *kid_sets, n00b_list_t *options)
             }
 
             n00b_list_t *new_set = n00b_shallow(s1);
-            assert(option_t);
+            n00b_assert(option_t);
             n00b_list_append(new_set, option_t);
             n00b_list_append(results, new_set);
         }
@@ -727,7 +727,7 @@ scan_rule_items(n00b_parser_t *p, nb_info_t *parent_ni, n00b_earley_item_t *end)
         cur        = cur->previous_scan;
         int cursor = cur->cursor;
 
-        assert(prev->cursor == cur->cursor + 1);
+        n00b_assert(prev->cursor == cur->cursor + 1);
 
         n00b_pitem_t        *pi = n00b_list_get(start->rule->contents,
                                          cur->cursor,

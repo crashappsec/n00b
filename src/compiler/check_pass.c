@@ -25,10 +25,10 @@ typedef struct {
     n00b_list_t      *loop_stack;
     n00b_list_t      *deferred_calls;
     n00b_list_t      *index_rechecks;
-    __uint128_t      du_stack;
-    int              du_stack_ix;
+    __uint128_t       du_stack;
+    int               du_stack_ix;
     n00b_list_t      *simple_lits_wo_mod;
-    bool             augmented_assignment;
+    bool              augmented_assignment;
 } pass2_ctx;
 
 static void base_check_pass_dispatch(pass2_ctx *);
@@ -44,7 +44,7 @@ static n00b_call_resolution_info_t *
 n00b_new_call_resolution()
 {
     return n00b_gc_alloc_mapped(n00b_call_resolution_info_t,
-                               n00b_call_resolution_gc_bits);
+                                n00b_call_resolution_gc_bits);
 }
 
 static inline n00b_control_info_t *
@@ -89,10 +89,10 @@ merge_or_err(pass2_ctx *ctx, n00b_type_t *new_t, n00b_type_t *old_t)
     if (n00b_type_is_error(result)) {
         if (!n00b_type_is_error(new_t) && !n00b_type_is_error(old_t)) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_inconsistent_infer_type,
-                          ctx->node,
-                          new_t,
-                          old_t);
+                           n00b_err_inconsistent_infer_type,
+                           ctx->node,
+                           new_t,
+                           old_t);
         }
     }
     return result;
@@ -113,7 +113,7 @@ merge_or_ret_ignore_err(n00b_type_t *new_t, n00b_type_t *old_t)
 static inline bool
 base_node_tcheck(pass2_ctx *ctx, n00b_pnode_t *pnode, n00b_type_t *type)
 {
-    int         warn;
+    int          warn;
     n00b_type_t *merged;
 
     merged = n00b_merge_types(pnode->type, type, &warn);
@@ -136,7 +136,7 @@ set_node_type(pass2_ctx *ctx, n00b_tree_node_t *node, n00b_type_t *type)
 static void
 add_def(pass2_ctx *ctx, n00b_symbol_t *sym, bool finish_flow)
 {
-    assert(sym != NULL);
+    n00b_assert(sym != NULL);
     ctx->cfg = n00b_cfg_add_def(ctx->cfg, ctx->node, sym, ctx->current_rhs_uses);
 
     if (finish_flow) {
@@ -153,7 +153,7 @@ add_def(pass2_ctx *ctx, n00b_symbol_t *sym, bool finish_flow)
 static void
 add_use(pass2_ctx *ctx, n00b_symbol_t *sym)
 {
-    assert(sym != NULL);
+    n00b_assert(sym != NULL);
     ctx->cfg = n00b_cfg_add_use(ctx->cfg, ctx->node, sym);
     if (ctx->current_rhs_uses) {
         n00b_list_append(ctx->current_rhs_uses, sym);
@@ -179,7 +179,7 @@ use_pattern(pass2_ctx *ctx, n00b_tpat_node_t *pat)
 }
 
 static inline void
-type_check_node_against_sym(pass2_ctx    *ctx,
+type_check_node_against_sym(pass2_ctx     *ctx,
                             n00b_pnode_t  *pnode,
                             n00b_symbol_t *sym)
 {
@@ -198,11 +198,11 @@ type_check_node_against_sym(pass2_ctx    *ctx,
             return;
         }
         n00b_add_error(ctx->module_ctx,
-                      n00b_err_decl_mismatch,
-                      ctx->node,
-                      pnode->type,
-                      sym->type,
-                      n00b_node_get_loc_str(sym->ct->declaration_node));
+                       n00b_err_decl_mismatch,
+                       ctx->node,
+                       pnode->type,
+                       sym->type,
+                       n00b_node_get_loc_str(sym->ct->declaration_node));
     }
     else {
         if (base_node_tcheck(ctx, pnode, sym->type)) {
@@ -210,11 +210,11 @@ type_check_node_against_sym(pass2_ctx    *ctx,
         }
 
         n00b_add_error(ctx->module_ctx,
-                      n00b_err_inconsistent_type,
-                      ctx->node,
-                      pnode->type,
-                      sym->name,
-                      sym->type);
+                       n00b_err_inconsistent_type,
+                       ctx->node,
+                       pnode->type,
+                       sym->name,
+                       sym->type);
         // Maybe make this an option; supress further type errors for
         // this symbol.
         sym->type = n00b_type_error();
@@ -240,8 +240,8 @@ type_check_node_vs_type_no_err(n00b_tree_node_t *n, n00b_type_t *t)
 
 void
 n00b_fold_container(n00b_tree_node_t *n,
-                   n00b_lit_info_t  *li,
-                   n00b_list_t      *item_types)
+                    n00b_lit_info_t  *li,
+                    n00b_list_t      *item_types)
 {
     n00b_pnode_t *pn = n00b_get_pnode(n);
 
@@ -261,7 +261,7 @@ n00b_fold_container(n00b_tree_node_t *n,
 
         for (int i = 0; i < n->num_kids; i++) {
             n00b_pnode_t *kid_pnode = n00b_get_pnode(n->children[i]);
-            obj                    = kid_pnode->value;
+            obj                     = kid_pnode->value;
 
             if (val_type) {
                 obj = n00b_unbox_obj(obj).v;
@@ -273,8 +273,8 @@ n00b_fold_container(n00b_tree_node_t *n,
         n00b_tuple_t *t = n00b_new(n00b_type_tuple_from_xlist(item_types));
         for (int i = 0; i < n->num_kids; i++) {
             n00b_pnode_t *kid_pnode = n00b_get_pnode(n->children[i]);
-            int          ix        = i % li->num_items;
-            obj                    = kid_pnode->value;
+            int           ix        = i % li->num_items;
+            obj                     = kid_pnode->value;
 
             if (n00b_type_is_value_type(n00b_list_get(tlist, ix, NULL))) {
                 obj = n00b_unbox_obj(obj).v;
@@ -297,7 +297,7 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
 {
     n00b_pnode_t    *pn       = n00b_get_pnode(n);
     n00b_lit_info_t *li       = (n00b_lit_info_t *)pn->extra_info;
-    bool            concrete = false;
+    bool             concrete = false;
 
     li->base_type = n00b_base_type_from_litmod(li->st, li->litmod);
 
@@ -318,10 +318,10 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
         }
 
         n00b_add_error(ctx->module_ctx,
-                      n00b_err_parse_no_lit_mod_match,
-                      n,
-                      li->litmod,
-                      s);
+                       n00b_err_parse_no_lit_mod_match,
+                       n,
+                       li->litmod,
+                       s);
         return;
     }
 
@@ -331,7 +331,7 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
     }
     else {
         li->type = n00b_new(n00b_type_typespec(),
-                           li->base_type);
+                            li->base_type);
     }
     pn->type = li->type;
 
@@ -388,11 +388,11 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
             if (merge_or_ret_ignore_err(t, kid_pnode->type)) {
                 if (n00b_can_coerce(kid_pnode->type, t)) {
                     n00b_lit_info_t *li = kid_pnode->extra_info;
-                    li->cast_to        = t;
+                    li->cast_to         = t;
                     if (kid_pnode->value != NULL) {
                         kid_pnode->value = n00b_coerce(kid_pnode->value,
-                                                      kid_pnode->type,
-                                                      t);
+                                                       kid_pnode->type,
+                                                       t);
                     }
                 }
                 else {
@@ -401,11 +401,11 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
                     n00b_utf8_t *s = n00b_new_utf8(p);
 
                     n00b_add_error(ctx->module_ctx,
-                                  n00b_err_inconsistent_item_type,
-                                  n->children[i],
-                                  s,
-                                  t,
-                                  kid_pnode->type);
+                                   n00b_err_inconsistent_item_type,
+                                   n->children[i],
+                                   s,
+                                   t,
+                                   kid_pnode->type);
                     n00b_calculate_type_hash(li->type);
                     return;
                 }
@@ -432,7 +432,7 @@ static void
 setup_polymorphic_fns()
 {
     polymorphic_fns = n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                            n00b_type_ref()));
+                                              n00b_type_ref()));
 
     hatrack_dict_put(polymorphic_fns, n00b_new_utf8(N00B_SLICE_FN), (void *)~3);
     hatrack_dict_put(polymorphic_fns, n00b_new_utf8(N00B_INDEX_FN), (void *)~2);
@@ -462,7 +462,7 @@ add_callback_params(n00b_type_t *callback, n00b_type_t *func_type)
 {
     n00b_list_t *fnlist = func_type->items;
     n00b_list_t *cblist = n00b_list(n00b_type_typespec());
-    int         n      = n00b_list_len(fnlist) - 1;
+    int          n      = n00b_list_len(fnlist) - 1;
 
     for (int i = 0; i < n; i++) {
         n00b_type_t *param = n00b_type_copy(n00b_list_get(fnlist, i, NULL));
@@ -482,7 +482,7 @@ add_callback_params(n00b_type_t *callback, n00b_type_t *func_type)
 }
 
 static n00b_call_resolution_info_t *
-initial_function_resolution(pass2_ctx       *ctx,
+initial_function_resolution(pass2_ctx        *ctx,
                             n00b_utf8_t      *call_name,
                             n00b_tree_node_t *sym_node,
                             n00b_type_t      *called_type,
@@ -539,21 +539,21 @@ initial_function_resolution(pass2_ctx       *ctx,
     // from our static scope, and currently the function can only live
     // in the module or global scope.
     n00b_symbol_t *sym = n00b_symbol_lookup(NULL,
-                                          ctx->module_ctx->module_scope,
-                                          ctx->global_scope,
-                                          NULL,
-                                          call_name);
+                                            ctx->module_ctx->module_scope,
+                                            ctx->global_scope,
+                                            NULL,
+                                            call_name);
 
     if (sym == NULL) {
         n00b_add_error(ctx->module_ctx,
-                      n00b_err_fn_not_found,
-                      call_loc,
-                      call_name);
+                       n00b_err_fn_not_found,
+                       call_loc,
+                       call_name);
         return NULL;
     }
 
     n00b_pnode_t *pnode = n00b_get_pnode(call_loc->children[0]);
-    pnode->extra_info  = sym;
+    pnode->extra_info   = sym;
 
     switch (sym->kind) {
     case N00B_SK_FUNC:
@@ -562,20 +562,20 @@ initial_function_resolution(pass2_ctx       *ctx,
         info->resolution = sym;
 
         ctx->cfg = n00b_cfg_add_call(ctx->cfg,
-                                    call_loc,
-                                    sym,
-                                    ctx->current_rhs_uses);
+                                     call_loc,
+                                     sym,
+                                     ctx->current_rhs_uses);
 
         int sig_params = n00b_type_get_num_params(info->sig);
         int sym_params = n00b_type_get_num_params(sym->type);
 
         if (sig_params != sym_params) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_num_params,
-                          call_loc,
-                          call_name,
-                          n00b_box_u64(sig_params - 1),
-                          n00b_box_u64(sym_params - 1));
+                           n00b_err_num_params,
+                           call_loc,
+                           call_name,
+                           n00b_box_u64(sig_params - 1),
+                           n00b_box_u64(sym_params - 1));
             return NULL;
         }
 
@@ -595,10 +595,10 @@ initial_function_resolution(pass2_ctx       *ctx,
     default:
         if (!sym_node) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_calling_non_fn,
-                          call_loc,
-                          call_name,
-                          n00b_sym_kind_name(sym));
+                           n00b_err_calling_non_fn,
+                           call_loc,
+                           call_name,
+                           n00b_sym_kind_name(sym));
         }
 
         // At this point, it must be a callback, or else it's an
@@ -610,10 +610,10 @@ initial_function_resolution(pass2_ctx       *ctx,
 
         if (t->base_index != N00B_T_FUNCDEF) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_calling_non_fn,
-                          call_loc,
-                          call_name,
-                          n00b_sym_kind_name(sym));
+                           n00b_err_calling_non_fn,
+                           call_loc,
+                           call_name,
+                           n00b_sym_kind_name(sym));
 
             return NULL;
         }
@@ -663,7 +663,7 @@ static void
 process_children(pass2_ctx *ctx)
 {
     n00b_tree_node_t *saved = ctx->node;
-    int              n     = saved->num_kids;
+    int               n     = saved->num_kids;
 
     for (int i = 0; i < n; i++) {
         ctx->node = saved->children[i];
@@ -688,7 +688,7 @@ static inline void
 process_child(pass2_ctx *ctx, int i)
 {
     n00b_tree_node_t *saved = ctx->node;
-    ctx->node              = saved->children[i];
+    ctx->node               = saved->children[i];
     base_check_pass_dispatch(ctx);
     ctx->node = saved;
 }
@@ -723,9 +723,9 @@ sym_lookup(pass2_ctx *ctx, n00b_utf8_t *name, n00b_tree_node_t *node)
             result = hatrack_dict_get(ctx->attr_scope->symbols, name, NULL);
             if (result == NULL) {
                 result = n00b_add_inferred_symbol(ctx->module_ctx,
-                                                 ctx->attr_scope,
-                                                 name,
-                                                 node);
+                                                  ctx->attr_scope,
+                                                  name,
+                                                  node);
                 if (attr_info->kind == n00b_attr_user_def_field) {
                     return result;
                 }
@@ -746,25 +746,25 @@ sym_lookup(pass2_ctx *ctx, n00b_utf8_t *name, n00b_tree_node_t *node)
 
         case n00b_attr_object_type:
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_spec_needs_field,
-                          ctx->node,
-                          name,
-                          n00b_new_utf8("named section"));
+                           n00b_err_spec_needs_field,
+                           ctx->node,
+                           name,
+                           n00b_new_utf8("named section"));
             return NULL;
         case n00b_attr_singleton:
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_spec_needs_field,
-                          ctx->node,
-                          name,
-                          n00b_new_utf8("singleton (unnamed) section"));
+                           n00b_err_spec_needs_field,
+                           ctx->node,
+                           name,
+                           n00b_new_utf8("singleton (unnamed) section"));
             return NULL;
 
         case n00b_attr_instance:
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_spec_needs_field,
-                          ctx->node,
-                          name,
-                          n00b_new_utf8("section instance"));
+                           n00b_err_spec_needs_field,
+                           ctx->node,
+                           name,
+                           n00b_new_utf8("section instance"));
             return NULL;
 
         case n00b_attr_invalid:
@@ -776,29 +776,29 @@ sym_lookup(pass2_ctx *ctx, n00b_utf8_t *name, n00b_tree_node_t *node)
             switch (attr_info->err) {
             case n00b_attr_err_sec_under_field:
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_field_not_spec,
-                              ctx->node,
-                              name,
-                              attr_info->err_arg);
+                               n00b_err_field_not_spec,
+                               ctx->node,
+                               name,
+                               attr_info->err_arg);
                 break;
             case n00b_attr_err_field_not_allowed:
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_field_not_spec,
-                              ctx->node,
-                              name,
-                              attr_info->err_arg);
+                               n00b_err_field_not_spec,
+                               ctx->node,
+                               name,
+                               attr_info->err_arg);
                 break;
             case n00b_attr_err_no_such_sec:
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_undefined_section,
-                              ctx->node,
-                              attr_info->err_arg);
+                               n00b_err_undefined_section,
+                               ctx->node,
+                               attr_info->err_arg);
                 break;
             case n00b_attr_err_sec_not_allowed:
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_section_not_allowed,
-                              ctx->node,
-                              attr_info->err_arg);
+                               n00b_err_section_not_allowed,
+                               ctx->node,
+                               attr_info->err_arg);
                 break;
             default:
                 n00b_unreachable();
@@ -814,9 +814,9 @@ sym_lookup(pass2_ctx *ctx, n00b_utf8_t *name, n00b_tree_node_t *node)
 
             if (!result) {
                 result = n00b_add_inferred_symbol(ctx->module_ctx,
-                                                 ctx->attr_scope,
-                                                 name,
-                                                 node);
+                                                  ctx->attr_scope,
+                                                  name,
+                                                  node);
             }
 
             return result;
@@ -824,10 +824,10 @@ sym_lookup(pass2_ctx *ctx, n00b_utf8_t *name, n00b_tree_node_t *node)
     }
 
     result = n00b_symbol_lookup(ctx->local_scope,
-                               ctx->module_ctx->module_scope,
-                               ctx->global_scope,
-                               ctx->attr_scope,
-                               name);
+                                ctx->module_ctx->module_scope,
+                                ctx->global_scope,
+                                ctx->attr_scope,
+                                name);
 
     return result;
 }
@@ -839,9 +839,9 @@ lookup_or_add(pass2_ctx *ctx, n00b_utf8_t *name)
 
     if (!result) {
         result = n00b_add_inferred_symbol(ctx->module_ctx,
-                                         ctx->local_scope,
-                                         name,
-                                         ctx->node);
+                                          ctx->local_scope,
+                                          name,
+                                          ctx->node);
     }
 
     if (is_def_context(ctx)) {
@@ -875,7 +875,7 @@ handle_index(pass2_ctx *ctx)
     n00b_pnode_t *pnode     = n00b_get_pnode(ctx->node);
     n00b_pnode_t *kid_pnode = n00b_get_pnode(ctx->node->children[1]);
     n00b_type_t  *node_type = n00b_new_typevar();
-    bool         is_slice  = kid_pnode->kind == n00b_nt_range;
+    bool          is_slice  = kid_pnode->kind == n00b_nt_range;
     n00b_type_t  *container_type;
     n00b_type_t  *ix1_type;
 
@@ -896,13 +896,13 @@ handle_index(pass2_ctx *ctx)
         if (!n00b_type_is_int_type(ix1_type)) {
             if (is_slice) {
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_slice_on_dict,
-                              ctx->node);
+                               n00b_err_slice_on_dict,
+                               ctx->node);
                 return;
             }
 
             n00b_type_t *tmp = n00b_type_any_dict(ix1_type, NULL);
-            container_type  = merge_or_err(ctx, container_type, tmp);
+            container_type   = merge_or_err(ctx, container_type, tmp);
         }
     }
     else {
@@ -916,8 +916,8 @@ handle_index(pass2_ctx *ctx)
 
         if (is_def_context(ctx) && ctx->augmented_assignment) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_augmented_assign_to_slice,
-                          ctx->node);
+                           n00b_err_augmented_assign_to_slice,
+                           ctx->node);
             return;
         }
 
@@ -926,10 +926,10 @@ handle_index(pass2_ctx *ctx)
             n00b_new_utf8(N00B_SLICE_FN),
             NULL,
             n00b_type_varargs_fn(node_type,
-                                3,
-                                container_type,
-                                n00b_type_int(),
-                                n00b_type_int()),
+                                 3,
+                                 container_type,
+                                 n00b_type_int(),
+                                 n00b_type_int()),
             ctx->node);
 
         pnode->type = container_type;
@@ -940,9 +940,9 @@ handle_index(pass2_ctx *ctx)
             n00b_new_utf8(N00B_INDEX_FN),
             NULL,
             n00b_type_varargs_fn(node_type,
-                                2,
-                                container_type,
-                                ix1_type),
+                                 2,
+                                 container_type,
+                                 ix1_type),
             ctx->node);
     }
 
@@ -959,7 +959,7 @@ handle_index(pass2_ctx *ctx)
     }
 
     else {
-        int         nparams = n00b_type_get_num_params(container_type);
+        int          nparams = n00b_type_get_num_params(container_type);
         n00b_type_t *tmp;
 
         if (!is_slice) {
@@ -974,9 +974,9 @@ handle_index(pass2_ctx *ctx)
 
                 if (v >= n00b_type_get_num_params(container_type)) {
                     n00b_add_error(ctx->module_ctx,
-                                  n00b_err_tup_ix_bounds,
-                                  ctx->node,
-                                  container_type);
+                                   n00b_err_tup_ix_bounds,
+                                   ctx->node,
+                                   container_type);
                     return;
                 }
 
@@ -1004,7 +1004,7 @@ handle_call(pass2_ctx *ctx)
     start_data_flow(ctx);
 
     n00b_tree_node_t *saved    = ctx->node;
-    int              n        = saved->num_kids;
+    int               n        = saved->num_kids;
     n00b_list_t      *argtypes = n00b_new(n00b_type_list(n00b_type_typespec()));
     n00b_tree_node_t *id       = saved->children[0];
     n00b_pnode_t     *pnode;
@@ -1051,17 +1051,17 @@ handle_break(pass2_ctx *ctx)
         if (!label || (bi->label && !strcmp(label->data, bi->label->data))) {
             n00b_pnode_t     *npnode = n00b_get_pnode(n);
             n00b_jump_info_t *ji     = npnode->extra_info;
-            assert(bi);
+            n00b_assert(bi);
             ji->linked_control_structure = bi;
             return;
         }
     }
 
     n00b_add_error(ctx->module_ctx,
-                  n00b_err_label_target,
-                  n,
-                  label,
-                  n00b_new_utf8("break"));
+                   n00b_err_label_target,
+                   n,
+                   label,
+                   n00b_new_utf8("break"));
 }
 
 static void
@@ -1073,17 +1073,17 @@ handle_return(pass2_ctx *ctx)
 
     if (n00b_tree_get_number_children(n) != 0) {
         n00b_symbol_t *sym = n00b_symbol_lookup(NULL,
-                                              ctx->local_scope,
-                                              NULL,
-                                              NULL,
-                                              n00b_new_utf8("$result"));
+                                                ctx->local_scope,
+                                                NULL,
+                                                NULL,
+                                                n00b_new_utf8("$result"));
         type_check_node_against_sym(ctx,
                                     n00b_get_pnode(n->children[0]),
                                     sym);
         add_def(ctx, sym, true);
 
         n00b_pnode_t *pn = n00b_get_pnode(n);
-        pn->extra_info  = sym;
+        pn->extra_info   = sym;
     }
 
     ctx->cfg = n00b_cfg_add_return(ctx->cfg, n, ctx->fn_exit_node);
@@ -1112,8 +1112,8 @@ handle_continue(pass2_ctx *ctx)
             continue;
         }
         if (!label || (bi->label && !strcmp(label->data, bi->label->data))) {
-            n00b_pnode_t     *npnode      = n00b_get_pnode(n);
-            n00b_jump_info_t *ji          = npnode->extra_info;
+            n00b_pnode_t     *npnode     = n00b_get_pnode(n);
+            n00b_jump_info_t *ji         = npnode->extra_info;
             ji->linked_control_structure = bi;
             ji->top                      = true;
             return;
@@ -1121,10 +1121,10 @@ handle_continue(pass2_ctx *ctx)
     }
 
     n00b_add_error(ctx->module_ctx,
-                  n00b_err_label_target,
-                  n,
-                  label,
-                  n00b_new_utf8("continue"));
+                   n00b_err_label_target,
+                   n,
+                   label,
+                   n00b_new_utf8("continue"));
 }
 
 static n00b_utf8_t *ix_var_name   = NULL;
@@ -1141,14 +1141,14 @@ loop_push_ix_var(pass2_ctx *ctx, n00b_loop_info_t *li)
     }
 
     li->shadowed_ix = n00b_symbol_lookup(ctx->local_scope,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        ix_var_name);
+                                         NULL,
+                                         NULL,
+                                         NULL,
+                                         ix_var_name);
     li->loop_ix     = n00b_add_or_replace_symbol(ctx->module_ctx,
-                                            ctx->local_scope,
-                                            ix_var_name,
-                                            ctx->node);
+                                             ctx->local_scope,
+                                             ix_var_name,
+                                             ctx->node);
 
     li->loop_ix->type = n00b_type_i64();
     li->loop_ix->flags |= N00B_F_USER_IMMUTIBLE | N00B_F_DECLARED_CONST;
@@ -1159,21 +1159,21 @@ loop_push_ix_var(pass2_ctx *ctx, n00b_loop_info_t *li)
         li->label_ix = n00b_str_concat(li->branch_info.label, ix_var_name);
 
         if (n00b_symbol_lookup(ctx->local_scope,
-                              NULL,
-                              NULL,
-                              NULL,
-                              li->label_ix)) {
+                               NULL,
+                               NULL,
+                               NULL,
+                               li->label_ix)) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_dupe_label,
-                          ctx->node,
-                          li->branch_info.label);
+                           n00b_err_dupe_label,
+                           ctx->node,
+                           li->branch_info.label);
             return;
         }
 
         li->named_loop_ix       = n00b_add_inferred_symbol(ctx->module_ctx,
-                                                    ctx->local_scope,
-                                                    li->label_ix,
-                                                    ctx->node);
+                                                     ctx->local_scope,
+                                                     li->label_ix,
+                                                     ctx->node);
         li->named_loop_ix->type = n00b_type_i64();
         li->named_loop_ix->flags |= N00B_F_USER_IMMUTIBLE | N00B_F_DECLARED_CONST;
 
@@ -1228,7 +1228,7 @@ static void
 handle_else(pass2_ctx *ctx, n00b_tree_node_t *end)
 {
     n00b_cfg_node_t *enter = n00b_cfg_enter_block(ctx->cfg, end);
-    ctx->cfg              = enter;
+    ctx->cfg               = enter;
 
     if (end != NULL) {
         ctx->node = end;
@@ -1245,13 +1245,13 @@ handle_elifs(pass2_ctx *ctx, n00b_list_t *elifs, int ix, n00b_tree_node_t *end)
     n00b_tree_node_t *saved = ctx->node;
     n00b_cfg_node_t  *enter = n00b_cfg_enter_block(ctx->cfg, saved);
     n00b_tree_node_t *elif  = n00b_list_get(elifs, ix, NULL);
-    ctx->cfg               = enter;
-    ctx->node              = elif->children[0];
+    ctx->cfg                = enter;
+    ctx->node               = elif->children[0];
     base_check_pass_dispatch(ctx);
     branch = n00b_cfg_block_new_branch_node(ctx->cfg,
-                                           2,
-                                           NULL,
-                                           elif);
+                                            2,
+                                            NULL,
+                                            elif);
     next_branch(ctx, branch);
     branch_enter = n00b_cfg_enter_block(ctx->cfg, elif->children[1]);
     ctx->cfg     = branch_enter;
@@ -1278,15 +1278,15 @@ handle_if(pass2_ctx *ctx)
     n00b_cfg_node_t  *enter      = n00b_cfg_enter_block(ctx->cfg, saved);
     n00b_list_t      *elses      = get_elifs(saved);
     n00b_tree_node_t *else_match = n00b_get_match_on_node(ctx->node,
-                                                        n00b_else_condition);
+                                                          n00b_else_condition);
 
     ctx->cfg  = enter;
     ctx->node = saved->children[0];
     base_check_pass_dispatch(ctx);
     branch = n00b_cfg_block_new_branch_node(ctx->cfg,
-                                           2,
-                                           NULL,
-                                           saved->children[0]);
+                                            2,
+                                            NULL,
+                                            saved->children[0]);
     next_branch(ctx, branch);
     branch_enter = n00b_cfg_enter_block(ctx->cfg, saved);
     ctx->cfg     = branch_enter;
@@ -1342,7 +1342,7 @@ handle_for(pass2_ctx *ctx)
     n00b_cfg_node_t  *entrance;
     n00b_cfg_node_t  *exit;
     n00b_cfg_node_t  *branch;
-    int              expr_ix = 0;
+    int               expr_ix = 0;
 
     start_data_flow(ctx);
 
@@ -1358,7 +1358,7 @@ handle_for(pass2_ctx *ctx)
     // this isn't already a literal, we only want to do it once before
     // we loop.
 
-    ctx->node                        = n->children[expr_ix + 1];
+    ctx->node                         = n->children[expr_ix + 1];
     n00b_tree_node_t *container_node  = ctx->node;
     n00b_pnode_t     *container_pnode = n00b_get_pnode(ctx->node);
     base_check_pass_dispatch(ctx);
@@ -1415,15 +1415,15 @@ handle_for(pass2_ctx *ctx)
     loop_push_ix_var(ctx, li);
 
     li->shadowed_last = n00b_symbol_lookup(ctx->local_scope,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          last_var_name);
+                                           NULL,
+                                           NULL,
+                                           NULL,
+                                           last_var_name);
 
     li->loop_last = n00b_add_or_replace_symbol(ctx->module_ctx,
-                                              ctx->local_scope,
-                                              last_var_name,
-                                              ctx->node);
+                                               ctx->local_scope,
+                                               last_var_name,
+                                               ctx->node);
     li->loop_last->flags |= N00B_F_USER_IMMUTIBLE | N00B_F_DECLARED_CONST;
     li->loop_last->type              = n00b_type_i64();
     li->loop_last->ct->cfg_kill_node = exit;
@@ -1431,13 +1431,13 @@ handle_for(pass2_ctx *ctx)
     add_def(ctx, li->loop_last, true);
 
     if (li->branch_info.label != NULL) {
-        n00b_utf8_t *new_name      = n00b_str_concat(li->branch_info.label,
-                                              last_var_name);
+        n00b_utf8_t *new_name     = n00b_str_concat(li->branch_info.label,
+                                                last_var_name);
         li->label_last            = n00b_to_utf8(new_name);
         li->named_loop_last       = n00b_add_inferred_symbol(ctx->module_ctx,
-                                                      ctx->local_scope,
-                                                      li->label_last,
-                                                      ctx->node);
+                                                       ctx->local_scope,
+                                                       li->label_last,
+                                                       ctx->node);
         li->named_loop_last->type = n00b_type_i64();
         li->named_loop_last->flags |= N00B_F_USER_IMMUTIBLE;
         li->named_loop_last->ct->cfg_kill_node = exit;
@@ -1462,61 +1462,61 @@ handle_for(pass2_ctx *ctx)
 
         if (!strcmp(var1_name->data, var2_name->data)) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_iter_name_conflict,
-                          var_node2);
+                           n00b_err_iter_name_conflict,
+                           var_node2);
             return;
         }
     }
 
     li->shadowed_lvar_1 = n00b_symbol_lookup(ctx->local_scope,
-                                            NULL,
-                                            NULL,
-                                            NULL,
-                                            var1_name);
+                                             NULL,
+                                             NULL,
+                                             NULL,
+                                             var1_name);
     li->lvar_1          = n00b_add_or_replace_symbol(ctx->module_ctx,
-                                           ctx->local_scope,
-                                           var1_name,
-                                           ctx->node);
+                                            ctx->local_scope,
+                                            var1_name,
+                                            ctx->node);
 
     li->lvar_1->ct->cfg_kill_node    = exit;
     li->lvar_1->ct->declaration_node = var_node1;
-    n00b_pnode_t *v1pn                = n00b_get_pnode(var_node1);
+    n00b_pnode_t *v1pn               = n00b_get_pnode(var_node1);
     v1pn->type                       = li->lvar_1->type;
     li->lvar_1->flags |= N00B_F_USER_IMMUTIBLE;
 
     if (li->shadowed_lvar_1 != NULL) {
         n00b_add_warning(ctx->module_ctx,
-                        n00b_warn_shadowed_var,
-                        ctx->node,
-                        var1_name,
-                        n00b_sym_kind_name(li->shadowed_lvar_1),
-                        n00b_sym_get_best_ref_loc(li->lvar_1));
+                         n00b_warn_shadowed_var,
+                         ctx->node,
+                         var1_name,
+                         n00b_sym_kind_name(li->shadowed_lvar_1),
+                         n00b_sym_get_best_ref_loc(li->lvar_1));
     }
 
     if (var2_name) {
         li->shadowed_lvar_2              = n00b_symbol_lookup(ctx->local_scope,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                var2_name);
+                                                 NULL,
+                                                 NULL,
+                                                 NULL,
+                                                 var2_name);
         li->lvar_2                       = n00b_add_or_replace_symbol(ctx->module_ctx,
-                                               ctx->local_scope,
-                                               var2_name,
-                                               ctx->node);
+                                                ctx->local_scope,
+                                                var2_name,
+                                                ctx->node);
         li->lvar_2->ct->declaration_node = var_node2;
         li->lvar_2->ct->cfg_kill_node    = exit;
-        n00b_pnode_t *v2pn                = n00b_get_pnode(var_node2);
+        n00b_pnode_t *v2pn               = n00b_get_pnode(var_node2);
         v2pn->type                       = li->lvar_2->type;
 
         li->lvar_2->flags |= N00B_F_USER_IMMUTIBLE;
 
         if (li->shadowed_lvar_2 != NULL) {
             n00b_add_warning(ctx->module_ctx,
-                            n00b_warn_shadowed_var,
-                            ctx->node,
-                            var2_name,
-                            n00b_sym_kind_name(li->shadowed_lvar_2),
-                            n00b_sym_get_best_ref_loc(li->lvar_2));
+                             n00b_warn_shadowed_var,
+                             ctx->node,
+                             var2_name,
+                             n00b_sym_kind_name(li->shadowed_lvar_2),
+                             n00b_sym_get_best_ref_loc(li->lvar_2));
         }
     }
 
@@ -1528,9 +1528,9 @@ handle_for(pass2_ctx *ctx)
     // Okay, now we need to add the branch node to the CFG.
 
     branch   = n00b_cfg_block_new_branch_node(ctx->cfg,
-                                           2,
-                                           li->branch_info.label,
-                                           ctx->node);
+                                            2,
+                                            li->branch_info.label,
+                                            ctx->node);
     bstart   = n00b_cfg_enter_block(branch, n->children[expr_ix]);
     ctx->cfg = bstart;
 
@@ -1641,7 +1641,7 @@ handle_for(pass2_ctx *ctx)
 static void
 handle_while(pass2_ctx *ctx)
 {
-    int              expr_ix = 0;
+    int               expr_ix = 0;
     n00b_tree_node_t *n       = ctx->node;
     n00b_pnode_t     *p       = n00b_get_pnode(n);
     n00b_loop_info_t *li      = loop_init(p->extra_info);
@@ -1666,9 +1666,9 @@ handle_while(pass2_ctx *ctx)
     ctx->node = n->children[expr_ix++];
     base_check_pass_dispatch(ctx);
     branch    = n00b_cfg_block_new_branch_node(ctx->cfg,
-                                           2,
-                                           li->branch_info.label,
-                                           ctx->node);
+                                            2,
+                                            li->branch_info.label,
+                                            ctx->node);
     bstart    = n00b_cfg_enter_block(branch, n->children[expr_ix]);
     ctx->cfg  = bstart;
     ctx->node = n->children[expr_ix];
@@ -1700,8 +1700,8 @@ handle_range(pass2_ctx *ctx)
     if (n00b_type_is_error(
             merge_ignore_err(get_pnode_type(ctx->node), n00b_type_i64()))) {
         n00b_add_error(ctx->module_ctx,
-                      n00b_err_range_type,
-                      ctx->node);
+                       n00b_err_range_type,
+                       ctx->node);
     }
 }
 
@@ -1728,11 +1728,11 @@ handle_typeof_statement(pass2_ctx *ctx)
     n00b_control_info_t *ci       = control_init(pnode->extra_info);
     n00b_list_t         *branches = n00b_get_case_branches(saved);
     n00b_tree_node_t    *elsenode = n00b_get_match_on_node(saved,
-                                                      n00b_else_condition);
+                                                        n00b_else_condition);
     n00b_tree_node_t    *variant  = n00b_get_match_on_node(saved,
-                                                     n00b_case_cond_typeof);
+                                                       n00b_case_cond_typeof);
     n00b_tree_node_t    *label    = n00b_get_match_on_node(saved, n00b_opt_label);
-    int                 ncases   = n00b_list_len(branches);
+    int                  ncases   = n00b_list_len(branches);
     n00b_list_t         *prev_types;
 
     if (label != NULL) {
@@ -1762,49 +1762,49 @@ handle_typeof_statement(pass2_ctx *ctx)
 
     if (n00b_type_is_concrete(type_to_test)) {
         n00b_add_error(ctx->module_ctx,
-                      n00b_err_concrete_typeof,
-                      variant,
-                      type_to_test);
+                       n00b_err_concrete_typeof,
+                       variant,
+                       type_to_test);
         return;
     }
 
     add_use(ctx, sym);
 
     cfgbranch = n00b_cfg_block_new_branch_node(ctx->cfg,
-                                              ncases + 1,
-                                              NULL,
-                                              ctx->node);
+                                               ncases + 1,
+                                               NULL,
+                                               ctx->node);
 
     for (int i = 0; i < ncases; i++) {
         n00b_tree_node_t *branch   = n00b_list_get(branches, i, NULL);
         n00b_dict_t      *type_ctx = n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                                     n00b_type_ref()));
+                                                        n00b_type_ref()));
 
         for (int j = 0; j < branch->num_kids - 1; j++) {
             n00b_type_t *casetype = n00b_node_to_type(ctx->module_ctx,
-                                                    branch->children[j],
-                                                    type_ctx);
+                                                      branch->children[j],
+                                                      type_ctx);
 
             n00b_pnode_t *branch_pnode = n00b_get_pnode(branch->children[j]);
-            branch_pnode->value       = (n00b_obj_t)casetype;
-            branch_pnode->type        = casetype;
+            branch_pnode->value        = (n00b_obj_t)casetype;
+            branch_pnode->type         = casetype;
 
             for (int k = 0; k < n00b_list_len(prev_types); k++) {
                 n00b_type_t *oldcase = n00b_list_get(prev_types, k, NULL);
 
                 if (n00b_types_are_compat(oldcase, casetype, NULL)) {
                     n00b_add_warning(ctx->module_ctx,
-                                    n00b_warn_type_overlap,
-                                    branch->children[j],
-                                    casetype,
-                                    oldcase);
+                                     n00b_warn_type_overlap,
+                                     branch->children[j],
+                                     casetype,
+                                     oldcase);
                     break;
                 }
                 if (!n00b_types_are_compat(casetype, type_to_test, NULL)) {
                     n00b_add_error(ctx->module_ctx,
-                                  n00b_err_dead_branch,
-                                  branch->children[j],
-                                  casetype);
+                                   n00b_err_dead_branch,
+                                   branch->children[j],
+                                   casetype);
                     break;
                 }
             }
@@ -1814,9 +1814,9 @@ handle_typeof_statement(pass2_ctx *ctx)
             // Alias absolutely everything except the
             // type. It's the only thing that should change.
             tmp                       = n00b_add_or_replace_symbol(ctx->module_ctx,
-                                            ctx->local_scope,
-                                            sym->name,
-                                            ctx->node);
+                                             ctx->local_scope,
+                                             sym->name,
+                                             ctx->node);
             tmp->flags                = sym->flags;
             tmp->kind                 = sym->kind;
             tmp->ct->declaration_node = sym->ct->declaration_node;
@@ -1835,8 +1835,8 @@ handle_typeof_statement(pass2_ctx *ctx)
 
         if (ctx->node->num_kids == 0) {
             n00b_add_warning(ctx->module_ctx,
-                            n00b_warn_empty_case,
-                            ctx->node);
+                             n00b_warn_empty_case,
+                             ctx->node);
         }
 
         ctx->cfg = n00b_cfg_exit_block(ctx->cfg, bstart, ctx->node);
@@ -1846,7 +1846,7 @@ handle_typeof_statement(pass2_ctx *ctx)
                  k < n00b_list_len(tmp->ct->sym_defs);
                  k++) {
                 n00b_list_append(sym->ct->sym_defs,
-                                n00b_list_get(tmp->ct->sym_defs, k, NULL));
+                                 n00b_list_get(tmp->ct->sym_defs, k, NULL));
             }
         }
 
@@ -1855,7 +1855,7 @@ handle_typeof_statement(pass2_ctx *ctx)
                  k < n00b_list_len(tmp->ct->sym_uses);
                  k++) {
                 n00b_list_append(sym->ct->sym_uses,
-                                n00b_list_get(tmp->ct->sym_uses, k, NULL));
+                                 n00b_list_get(tmp->ct->sym_uses, k, NULL));
             }
         }
         tmp->linked_symbol = sym;
@@ -1895,12 +1895,12 @@ handle_switch_statement(pass2_ctx *ctx)
     n00b_control_info_t *bi           = control_init(pnode->extra_info);
     n00b_list_t         *branches     = n00b_get_case_branches(saved);
     n00b_tree_node_t    *elsenode     = n00b_get_match_on_node(saved,
-                                                      n00b_else_condition);
+                                                        n00b_else_condition);
     n00b_tree_node_t    *variant_node = n00b_get_match_on_node(saved,
-                                                          n00b_case_cond);
+                                                            n00b_case_cond);
     n00b_tree_node_t    *label        = n00b_get_match_on_node(saved,
-                                                   n00b_opt_label);
-    int                 ncases       = n00b_list_len(branches);
+                                                     n00b_opt_label);
+    int                  ncases       = n00b_list_len(branches);
     n00b_cfg_node_t     *entrance;
     n00b_cfg_node_t     *cfgbranch;
     n00b_cfg_node_t     *bstart;
@@ -1937,7 +1937,7 @@ handle_switch_statement(pass2_ctx *ctx)
         // But you can do:
         // `case 1, 2, 3:`
         // in which case, n_cases will be 3.
-        int              sub_cases = branch->num_kids - 1;
+        int               sub_cases = branch->num_kids - 1;
 
         for (int j = 0; j < sub_cases; j++) {
             ctx->node = branch->children[j];
@@ -1948,19 +1948,19 @@ handle_switch_statement(pass2_ctx *ctx)
 
             if (n00b_type_is_error(pcond->type)) {
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_switch_case_type,
-                              ctx->node,
-                              get_pnode_type(ctx->node),
-                              get_pnode_type(variant_node));
+                               n00b_err_switch_case_type,
+                               ctx->node,
+                               get_pnode_type(ctx->node),
+                               get_pnode_type(variant_node));
                 return;
             }
         }
     }
 
     cfgbranch = n00b_cfg_block_new_branch_node(ctx->cfg,
-                                              ncases + 1,
-                                              NULL,
-                                              ctx->node);
+                                               ncases + 1,
+                                               NULL,
+                                               ctx->node);
 
     for (int i = 0; i < ncases; i++) {
         next_branch(ctx, cfgbranch);
@@ -1972,8 +1972,8 @@ handle_switch_statement(pass2_ctx *ctx)
 
         if (ctx->node->num_kids == 0) {
             n00b_add_warning(ctx->module_ctx,
-                            n00b_warn_empty_case,
-                            ctx->node);
+                             n00b_warn_empty_case,
+                             ctx->node);
         }
 
         base_check_pass_dispatch(ctx);
@@ -2126,7 +2126,7 @@ static void
 handle_section_decl(pass2_ctx *ctx)
 {
     n00b_tree_node_t *saved      = ctx->node;
-    int              n          = saved->num_kids - 1;
+    int               n          = saved->num_kids - 1;
     n00b_utf8_t      *saved_path = ctx->current_section_prefix;
 
     if (saved_path == NULL) {
@@ -2163,7 +2163,7 @@ handle_identifier(pass2_ctx *ctx)
     }
 
     n00b_symbol_t *sym = (void *)lookup_or_add(ctx, id);
-    pnode->extra_info = (void *)sym;
+    pnode->extra_info  = (void *)sym;
     set_node_type(ctx, ctx->node, sym->type);
 }
 
@@ -2232,8 +2232,8 @@ check_literal(pass2_ctx *ctx)
         // If the user supplied a signature we can look up the type.
         if (!cb->target_type) {
             cb->target_type = n00b_type_fn(n00b_new_typevar(),
-                                          n00b_list(n00b_type_typespec()),
-                                          false);
+                                           n00b_list(n00b_type_typespec()),
+                                           false);
             cb->target_type->flags |= N00B_FN_MISSING_PARAMS;
         }
         n00b_list_append(ctx->module_ctx->ct->callback_lits, pnode->value);
@@ -2245,9 +2245,9 @@ check_literal(pass2_ctx *ctx)
             n00b_type_t *t;
 
             t = n00b_node_to_type(ctx->module_ctx,
-                                 ctx->node,
-                                 n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                                       n00b_type_ref())));
+                                  ctx->node,
+                                  n00b_new(n00b_type_dict(n00b_type_utf8(),
+                                                          n00b_type_ref())));
 
             pnode->value = (n00b_obj_t *)t;
         } while (0);
@@ -2269,7 +2269,7 @@ handle_member(pass2_ctx *ctx)
     for (int i = 1; i < ctx->node->num_kids; i++) {
         sym_name = n00b_to_utf8(n00b_str_concat(sym_name, dot));
         sym_name = n00b_to_utf8(n00b_str_concat(sym_name,
-                                              n00b_node_text(kids[i])));
+                                                n00b_node_text(kids[i])));
     }
 
     if (ctx->current_section_prefix != NULL) {
@@ -2277,7 +2277,7 @@ handle_member(pass2_ctx *ctx)
     }
 
     n00b_symbol_t *sym = (void *)lookup_or_add(ctx, sym_name);
-    pnode->extra_info = (void *)sym;
+    pnode->extra_info  = (void *)sym;
     set_node_type(ctx, ctx->node, sym->type);
 }
 
@@ -2314,10 +2314,10 @@ handle_cmp(pass2_ctx *ctx)
             type_check_nodes_no_err(tn->children[0], tn->children[1]))) {
         pn->type = n00b_type_error();
         n00b_add_error(ctx->module_ctx,
-                      n00b_err_cannot_cmp,
-                      tn,
-                      get_pnode_type(tn->children[0]),
-                      get_pnode_type(tn->children[1]));
+                       n00b_err_cannot_cmp,
+                       tn,
+                       get_pnode_type(tn->children[0]),
+                       get_pnode_type(tn->children[1]));
     }
     else {
         pn->type = n00b_type_bool();
@@ -2338,8 +2338,8 @@ handle_unary_op(pass2_ctx *ctx)
         if (n00b_type_is_error(
                 type_check_node_vs_type_no_err(ctx->node, n00b_type_i64()))) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_unary_minus_type,
-                          ctx->node);
+                           n00b_err_unary_minus_type,
+                           ctx->node);
         }
     }
     else { // NOT operator.
@@ -2355,7 +2355,7 @@ handle_var_decl(pass2_ctx *ctx)
     for (int i = 0; i < n00b_list_len(syms); i++) {
         n00b_tree_node_t *one_set   = n00b_list_get(syms, i, NULL);
         n00b_list_t      *var_names = n00b_apply_pattern_on_node(one_set,
-                                                          n00b_sym_names);
+                                                            n00b_sym_names);
         n00b_tree_node_t *init      = n00b_get_match_on_node(one_set, n00b_sym_init);
 
         if (init == NULL) {
@@ -2363,8 +2363,8 @@ handle_var_decl(pass2_ctx *ctx)
         }
 
         n00b_tree_node_t *one_name = n00b_list_get(var_names,
-                                                 n00b_list_len(var_names) - 1,
-                                                 NULL);
+                                                   n00b_list_len(var_names) - 1,
+                                                   NULL);
         n00b_pnode_t     *pn       = n00b_get_pnode(one_name);
         n00b_symbol_t    *sym      = (n00b_symbol_t *)pn->value;
 
@@ -2378,7 +2378,7 @@ handle_var_decl(pass2_ctx *ctx)
             ctx->node = one_name;
             add_def(ctx, sym, true);
             n00b_pnode_t *pn = n00b_get_pnode(sym->ct->value_node);
-            sym->value      = pn->value;
+            sym->value       = pn->value;
             type_check_node_against_sym(ctx, pn, sym);
         }
     }
@@ -2388,19 +2388,19 @@ static void
 process_field(pass2_ctx *ctx, n00b_spec_field_t *field)
 {
     n00b_tree_node_t *default_node = field->default_value;
-    int              warn;
+    int               warn;
 
     if (default_node != NULL) {
         n00b_pnode_t *default_payload = n00b_get_pnode(default_node);
-        field->default_value         = default_payload->value;
+        field->default_value          = default_payload->value;
 
         if (merge_or_ret_ignore_err(n00b_get_my_type(field->default_value),
                                     field->tinfo.type)) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_default_inconsistent_field,
-                          ctx->node,
-                          n00b_get_my_type(field->default_value),
-                          field->tinfo.type);
+                           n00b_err_default_inconsistent_field,
+                           ctx->node,
+                           n00b_get_my_type(field->default_value),
+                           field->tinfo.type);
         }
     }
 
@@ -2410,26 +2410,26 @@ process_field(pass2_ctx *ctx, n00b_spec_field_t *field)
         n00b_type_t      *merge;
 
         merge = n00b_merge_types(n00b_type_list(field->tinfo.type),
-                                type,
-                                &warn);
+                                 type,
+                                 &warn);
 
         if (n00b_type_is_error(merge)) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_choice_inconsistent_field,
-                          node);
+                           n00b_err_choice_inconsistent_field,
+                           node);
         }
     }
 
     if (field->validate_range) {
         n00b_type_t *merge = n00b_merge_types(n00b_type_int(),
-                                            field->tinfo.type,
-                                            &warn);
+                                              field->tinfo.type,
+                                              &warn);
 
         if (n00b_type_is_error(merge)) {
             n00b_add_error(ctx->module_ctx,
-                          n00b_err_range_inconsistent_field,
-                          field->stashed_options,
-                          field->tinfo.type);
+                           n00b_err_range_inconsistent_field,
+                           field->stashed_options,
+                           field->tinfo.type);
         }
     }
 
@@ -2450,10 +2450,10 @@ process_field(pass2_ctx *ctx, n00b_spec_field_t *field)
             if (!(cbtype->flags & N00B_FN_MISSING_PARAMS)) {
                 if (n00b_type_is_error(n00b_merge_types(target, cbtype, &warn))) {
                     n00b_add_error(ctx->module_ctx,
-                                  n00b_err_validator_inconsistent_field,
-                                  cb->decl_loc,
-                                  cbtype,
-                                  field->tinfo.type);
+                                   n00b_err_validator_inconsistent_field,
+                                   cb->decl_loc,
+                                   cbtype,
+                                   field->tinfo.type);
                 }
             }
         }
@@ -2506,7 +2506,7 @@ check_module_parameter(pass2_ctx *ctx)
 
     add_def(ctx, sym, true);
     if (param->default_value != NULL) {
-        ctx->node              = param->default_value;
+        ctx->node               = param->default_value;
         n00b_pnode_t *val_pnode = n00b_get_pnode(ctx->node);
         check_literal(ctx);
         void *val = val_pnode->value;
@@ -2657,7 +2657,7 @@ static inline void
 process_toplevel_children(pass2_ctx *ctx)
 {
     n00b_tree_node_t *saved = ctx->node;
-    int              n     = saved->num_kids;
+    int               n     = saved->num_kids;
 
     for (int i = 0; i < n; i++) {
         ctx->node = saved->children[i];
@@ -2698,15 +2698,15 @@ check_pass_toplevel_dispatch(pass2_ctx *ctx)
 }
 
 typedef struct {
-    int              num_defs;
-    int              num_uses;
+    int               num_defs;
+    int               num_uses;
     n00b_fn_decl_t   *decl;
     n00b_sig_info_t  *si;
     n00b_tree_node_t *node;
-    pass2_ctx       *pass_ctx;
+    pass2_ctx        *pass_ctx;
     n00b_symbol_t    *sym;
     n00b_symbol_t    *formal;
-    bool             delete_result_var;
+    bool              delete_result_var;
 } fn_check_ctx;
 
 static void
@@ -2722,9 +2722,9 @@ check_return_type(fn_check_ctx *ctx)
 
             if (ctx->si->return_info.type != NULL) {
                 n00b_add_error(ctx->pass_ctx->module_ctx,
-                              n00b_err_no_ret,
-                              ctx->node,
-                              ctx->si->return_info.type);
+                               n00b_err_no_ret,
+                               ctx->node,
+                               ctx->si->return_info.type);
                 return;
             }
             else {
@@ -2734,11 +2734,11 @@ check_return_type(fn_check_ctx *ctx)
         }
         else {
             n00b_tree_node_t *first_use = n00b_list_get(ctx->sym->ct->sym_uses,
-                                                      0,
-                                                      NULL);
+                                                        0,
+                                                        NULL);
             n00b_add_error(ctx->pass_ctx->module_ctx,
-                          n00b_err_use_no_def,
-                          first_use);
+                           n00b_err_use_no_def,
+                           first_use);
             return;
         }
     }
@@ -2749,18 +2749,18 @@ check_return_type(fn_check_ctx *ctx)
 
         if (n00b_type_is_error(cmp_type)) {
             n00b_add_error(ctx->pass_ctx->module_ctx,
-                          n00b_err_declared_incompat,
-                          ctx->sym->ct->declaration_node->children[2],
-                          decl_type,
-                          ctx->sym->type);
+                           n00b_err_declared_incompat,
+                           ctx->sym->ct->declaration_node->children[2],
+                           decl_type,
+                           ctx->sym->type);
             return;
         }
         if (n00b_type_cmp_exact(decl_type, cmp_type) != n00b_type_match_exact) {
             n00b_add_error(ctx->pass_ctx->module_ctx,
-                          n00b_err_too_general,
-                          ctx->sym->ct->declaration_node->children[2],
-                          decl_type,
-                          ctx->sym->type);
+                           n00b_err_too_general,
+                           ctx->sym->ct->declaration_node->children[2],
+                           decl_type,
+                           ctx->sym->type);
             return;
         }
 
@@ -2771,7 +2771,7 @@ check_return_type(fn_check_ctx *ctx)
         cmp_type = merge_ignore_err(ctx->sym->type, ctx->formal->type);
 
         ctx->si->return_info.type = cmp_type;
-        assert(!n00b_type_is_error(cmp_type));
+        n00b_assert(!n00b_type_is_error(cmp_type));
     }
 }
 
@@ -2785,9 +2785,9 @@ check_formal_param(fn_check_ctx *ctx)
 
     if (ctx->num_uses == 0) {
         n00b_add_warning(ctx->pass_ctx->module_ctx,
-                        n00b_warn_unused_param,
-                        ctx->sym->ct->declaration_node,
-                        ctx->sym->name);
+                         n00b_warn_unused_param,
+                         ctx->sym->ct->declaration_node,
+                         ctx->sym->name);
     }
 
     for (int i = 0; i < ctx->si->num_params; i++) {
@@ -2802,18 +2802,18 @@ check_formal_param(fn_check_ctx *ctx)
         cmp_type  = merge_ignore_err(decl_type, ctx->sym->type);
         if (n00b_type_is_error(cmp_type)) {
             n00b_add_error(ctx->pass_ctx->module_ctx,
-                          n00b_err_declared_incompat,
-                          ctx->sym->ct->declaration_node,
-                          decl_type,
-                          ctx->sym->type);
+                           n00b_err_declared_incompat,
+                           ctx->sym->ct->declaration_node,
+                           decl_type,
+                           ctx->sym->type);
             return;
         }
         if (n00b_type_cmp_exact(decl_type, cmp_type) != n00b_type_match_exact) {
             n00b_add_error(ctx->pass_ctx->module_ctx,
-                          n00b_err_too_general,
-                          ctx->sym->ct->declaration_node,
-                          decl_type,
-                          ctx->sym->type);
+                           n00b_err_too_general,
+                           ctx->sym->ct->declaration_node,
+                           decl_type,
+                           ctx->sym->type);
             return;
         }
 
@@ -2821,7 +2821,7 @@ check_formal_param(fn_check_ctx *ctx)
     }
     else {
         cmp_type = merge_ignore_err(ctx->sym->type, ctx->formal->type);
-        assert(!n00b_type_is_error(cmp_type));
+        n00b_assert(!n00b_type_is_error(cmp_type));
     }
 }
 
@@ -2842,9 +2842,9 @@ check_user_decl(fn_check_ctx *ctx)
 {
     if (!ctx->num_defs && !ctx->num_uses && warn_on_unused(ctx->sym)) {
         n00b_add_warning(ctx->pass_ctx->module_ctx,
-                        n00b_warn_unused_decl,
-                        ctx->sym->ct->declaration_node,
-                        ctx->sym->name);
+                         n00b_warn_unused_decl,
+                         ctx->sym->ct->declaration_node,
+                         ctx->sym->name);
         return;
     }
 
@@ -2855,9 +2855,9 @@ check_user_decl(fn_check_ctx *ctx)
         }
 
         n00b_add_error(ctx->pass_ctx->module_ctx,
-                      n00b_err_use_no_def,
-                      loc,
-                      ctx->sym->name);
+                       n00b_err_use_no_def,
+                       loc,
+                       ctx->sym->name);
         return;
     }
 
@@ -2868,9 +2868,9 @@ check_user_decl(fn_check_ctx *ctx)
         }
 
         n00b_add_warning(ctx->pass_ctx->module_ctx,
-                        n00b_warn_def_without_use,
-                        loc,
-                        ctx->sym->name);
+                         n00b_warn_def_without_use,
+                         loc,
+                         ctx->sym->name);
     }
 
     uint64_t mask  = N00B_F_DECLARED_LET | N00B_F_DECLARED_CONST;
@@ -2887,19 +2887,19 @@ check_user_decl(fn_check_ctx *ctx)
         }
 
         n00b_tree_node_t *first_def = n00b_list_get(ctx->sym->ct->sym_defs,
-                                                  0,
-                                                  NULL);
+                                                    0,
+                                                    NULL);
 
         for (int i = 1; i < ctx->num_defs; i++) {
             n00b_tree_node_t *bad_def = n00b_list_get(ctx->sym->ct->sym_defs,
-                                                    1,
-                                                    NULL);
+                                                      1,
+                                                      NULL);
 
             n00b_add_error(ctx->pass_ctx->module_ctx,
-                          n00b_err_single_def,
-                          bad_def,
-                          var_kind,
-                          n00b_node_get_loc_str(first_def));
+                           n00b_err_single_def,
+                           bad_def,
+                           var_kind,
+                           n00b_node_get_loc_str(first_def));
         }
     }
 }
@@ -2967,7 +2967,7 @@ check_function(pass2_ctx *ctx, n00b_symbol_t *fn_sym)
     // check_formal_param bit. Right now this won't work.
 
     for (int i = 0; i < check_ctx.si->num_params; i++) {
-        assert(check_ctx.si->param_info[i].type);
+        n00b_assert(check_ctx.si->param_info[i].type);
         n00b_list_append(param_types, check_ctx.si->param_info[i].type);
     }
 
@@ -2992,8 +2992,8 @@ check_module_toplevel(pass2_ctx *ctx)
     def_use_context_exit(ctx);
 
     ctx->cfg = n00b_cfg_exit_block(ctx->cfg,
-                                  ctx->module_ctx->ct->cfg,
-                                  ctx->node);
+                                   ctx->module_ctx->ct->cfg,
+                                   ctx->node);
 }
 
 static void
@@ -3004,8 +3004,8 @@ process_function_definitions(pass2_ctx *ctx)
         n00b_pnode_t     *pnode   = n00b_tree_get_contents(fn_root);
         n00b_symbol_t    *sym     = (n00b_symbol_t *)pnode->value;
         n00b_scope_t     *formals;
-        void           **view;
-        uint64_t         num_items;
+        void            **view;
+        uint64_t          num_items;
 
         ctx->fn_decl      = sym->value;
         ctx->local_scope  = ctx->fn_decl->signature_info->fn_scope;
@@ -3035,8 +3035,8 @@ process_function_definitions(pass2_ctx *ctx)
         def_use_context_exit(ctx);
 
         ctx->cfg = n00b_cfg_exit_block(ctx->cfg,
-                                      ctx->fn_decl->cfg,
-                                      ctx->node);
+                                       ctx->fn_decl->cfg,
+                                       ctx->node);
         check_function(ctx, sym);
 
         sym->flags = sym->flags | N00B_F_FN_PASS_DONE;
@@ -3051,9 +3051,9 @@ check_module_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
 
     if (!num_defs && !num_uses && warn_on_unused(sym)) {
         n00b_add_warning(ctx,
-                        n00b_warn_unused_decl,
-                        sym->ct->declaration_node,
-                        sym->name);
+                         n00b_warn_unused_decl,
+                         sym->ct->declaration_node,
+                         sym->name);
         return;
     }
 
@@ -3064,9 +3064,9 @@ check_module_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
             loc = n00b_list_get(sym->ct->sym_uses, 0, NULL);
         }
         n00b_add_error(ctx,
-                      n00b_err_use_no_def,
-                      loc,
-                      sym->name);
+                       n00b_err_use_no_def,
+                       loc,
+                       sym->name);
         return;
     }
 
@@ -3077,9 +3077,9 @@ check_module_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
             loc = n00b_list_get(sym->ct->sym_defs, 0, NULL);
         }
         n00b_add_warning(ctx,
-                        n00b_warn_def_without_use,
-                        loc,
-                        sym->name);
+                         n00b_warn_def_without_use,
+                         loc,
+                         sym->name);
     }
 
     uint64_t mask  = N00B_F_DECLARED_LET | N00B_F_DECLARED_CONST;
@@ -3101,10 +3101,10 @@ check_module_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
             n00b_tree_node_t *bad_def = n00b_list_get(sym->ct->sym_defs, 1, NULL);
 
             n00b_add_error(ctx,
-                          n00b_err_single_def,
-                          bad_def,
-                          var_kind,
-                          n00b_node_get_loc_str(first_def));
+                           n00b_err_single_def,
+                           bad_def,
+                           var_kind,
+                           n00b_node_get_loc_str(first_def));
         }
     }
 }
@@ -3122,9 +3122,9 @@ check_my_global_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
             loc = n00b_list_get(sym->ct->sym_uses, 0, NULL);
         }
         n00b_add_error(ctx,
-                      n00b_err_use_no_def,
-                      loc,
-                      sym->name);
+                       n00b_err_use_no_def,
+                       loc,
+                       sym->name);
         return;
     }
 
@@ -3135,9 +3135,9 @@ check_my_global_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
             loc = n00b_list_get(sym->ct->sym_defs, 0, NULL);
         }
         n00b_add_info(ctx,
-                     n00b_global_def_without_use,
-                     loc,
-                     sym->name);
+                      n00b_global_def_without_use,
+                      loc,
+                      sym->name);
     }
 
     uint64_t mask  = N00B_F_DECLARED_LET | N00B_F_DECLARED_CONST;
@@ -3159,10 +3159,10 @@ check_my_global_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
             n00b_tree_node_t *bad_def = n00b_list_get(sym->ct->sym_defs, 1, NULL);
 
             n00b_add_error(ctx,
-                          n00b_err_single_def,
-                          bad_def,
-                          var_kind,
-                          n00b_node_get_loc_str(first_def));
+                           n00b_err_single_def,
+                           bad_def,
+                           var_kind,
+                           n00b_node_get_loc_str(first_def));
         }
     }
 }
@@ -3175,9 +3175,9 @@ check_used_global_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
 
     if (!num_uses && warn_on_unused(sym)) {
         n00b_add_warning(ctx,
-                        n00b_warn_unused_decl,
-                        sym->ct->declaration_node,
-                        sym->name);
+                         n00b_warn_unused_decl,
+                         sym->ct->declaration_node,
+                         sym->name);
         return;
     }
 
@@ -3186,10 +3186,10 @@ check_used_global_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
             n00b_tree_node_t *first_node = sym->linked_symbol->ct->declaration_node;
 
             n00b_add_error(ctx,
-                          n00b_err_global_remote_def,
-                          sym->ct->declaration_node,
-                          sym->name,
-                          n00b_node_get_loc_str(first_node));
+                           n00b_err_global_remote_def,
+                           sym->ct->declaration_node,
+                           sym->name,
+                           n00b_node_get_loc_str(first_node));
         }
         return;
     }
@@ -3198,9 +3198,9 @@ check_used_global_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
 static void
 validate_module_variables(n00b_module_t *ctx)
 {
-    uint64_t      n;
+    uint64_t       n;
     n00b_symbol_t *entry;
-    void        **view;
+    void         **view;
 
     view = hatrack_dict_values_sort(ctx->module_scope->symbols, &n);
 
@@ -3240,12 +3240,12 @@ perform_index_rechecks(pass2_ctx *ctx)
 
         if (!n00b_type_is_concrete(t)) {
             if (n00b_types_are_compat(ctype,
-                                     n00b_type_dict(n00b_new_typevar(),
-                                                   n00b_new_typevar()),
-                                     NULL)) {
+                                      n00b_type_dict(n00b_new_typevar(),
+                                                     n00b_new_typevar()),
+                                      NULL)) {
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_concrete_index,
-                              node);
+                               n00b_err_concrete_index,
+                               node);
             }
             else {
                 // If it's not a dict, the index must be an int.
@@ -3256,12 +3256,12 @@ perform_index_rechecks(pass2_ctx *ctx)
 
         if (!n00b_type_is_int_type(t)) {
             if (n00b_types_are_compat(ctype,
-                                     n00b_type_dict(n00b_new_typevar(),
-                                                   n00b_new_typevar()),
-                                     NULL)) {
+                                      n00b_type_dict(n00b_new_typevar(),
+                                                     n00b_new_typevar()),
+                                      NULL)) {
                 n00b_add_error(ctx->module_ctx,
-                              n00b_err_non_dict_index_type,
-                              node);
+                               n00b_err_non_dict_index_type,
+                               node);
             }
         }
     }
@@ -3278,7 +3278,7 @@ process_deferred_lits(pass2_ctx *ctx)
         n00b_obj_t        lit  = p->value;
         n00b_token_t     *tok  = p->token;
         n00b_type_t      *type = merge_ignore_err(p->type,
-                                            n00b_get_my_type(lit));
+                                             n00b_get_my_type(lit));
 
         if (!n00b_type_is_error(type)) {
             continue;
@@ -3352,13 +3352,13 @@ scan_for_void_symbols(n00b_module_t *f, n00b_scope_t *scope)
 
 static void
 process_deferred_calls(n00b_compile_ctx *cctx,
-                       defer_info_t    *info,
-                       int              num_deferrals)
+                       defer_info_t     *info,
+                       int               num_deferrals)
 {
     for (int j = 0; j < num_deferrals; j++) {
         n00b_module_t *f       = info->mod;
         n00b_list_t   *one_set = info->deferrals;
-        int           n       = n00b_list_len(one_set);
+        int            n       = n00b_list_len(one_set);
 
         for (int i = 0; i < n; i++) {
             n00b_call_resolution_info_t *info = n00b_list_get(one_set, i, NULL);
@@ -3371,12 +3371,12 @@ process_deferred_calls(n00b_compile_ctx *cctx,
             n00b_pnode_t *pnode      = n00b_get_pnode(info->loc);
             n00b_type_t  *node_type  = pnode->type;
             n00b_type_t  *call_type  = info->sig;
-            int          np         = n00b_type_get_num_params(call_type);
+            int           np         = n00b_type_get_num_params(call_type);
             n00b_type_t  *param_type = n00b_type_get_param(call_type, np - 1);
 
             n00b_type_t *merged = merge_ignore_err(node_type,
-                                                  param_type);
-            bool        err    = n00b_type_is_error(merged);
+                                                   param_type);
+            bool         err    = n00b_type_is_error(merged);
 
             if (!err) {
                 merged = merge_ignore_err(sym_type, call_type);
@@ -3389,10 +3389,10 @@ process_deferred_calls(n00b_compile_ctx *cctx,
 
             if (err) {
                 n00b_add_error(f,
-                              n00b_err_call_type_err,
-                              info->loc,
-                              call_type,
-                              sym_type);
+                               n00b_err_call_type_err,
+                               info->loc,
+                               call_type,
+                               sym_type);
             }
         }
 
@@ -3447,26 +3447,26 @@ process_deferred_callbacks(n00b_compile_ctx *cctx)
     // an extern declaration that matches the callback, as viewed from
     // the module in which the symbol was declared.
 
-    int         n = n00b_list_len(cctx->module_ordering);
+    int          n = n00b_list_len(cctx->module_ordering);
     n00b_utf8_t *s;
 
     for (int i = 0; i < n; i++) {
         n00b_module_t *f = n00b_list_get(cctx->module_ordering,
-                                       i,
-                                       NULL);
+                                         i,
+                                         NULL);
         if (f->ct == NULL) {
             continue;
         }
         int m = n00b_list_len(f->ct->callback_lits);
         for (int j = 0; j < m; j++) {
             n00b_callback_info_t *cb  = n00b_list_get(f->ct->callback_lits,
-                                                   j,
-                                                   NULL);
+                                                     j,
+                                                     NULL);
             n00b_symbol_t        *sym = n00b_symbol_lookup(NULL,
-                                                  f->module_scope,
-                                                  cctx->final_globals,
-                                                  NULL,
-                                                  cb->target_symbol_name);
+                                                    f->module_scope,
+                                                    cctx->final_globals,
+                                                    NULL,
+                                                    cb->target_symbol_name);
 
             if (!sym) {
                 n00b_add_error(f, n00b_err_callback_no_match, cb->decl_loc);
@@ -3509,11 +3509,11 @@ process_deferred_callbacks(n00b_compile_ctx *cctx)
             if (n00b_type_is_error(merged)) {
                 s = n00b_node_get_loc_str(sym->ct->declaration_node);
                 n00b_add_error(f,
-                              n00b_err_callback_type_mismatch,
-                              cb->decl_loc,
-                              lit_type,
-                              sym_type,
-                              s);
+                               n00b_err_callback_type_mismatch,
+                               cb->decl_loc,
+                               lit_type,
+                               sym_type,
+                               s);
             }
         }
     }
@@ -3529,7 +3529,7 @@ order_ffi_decls(n00b_compile_ctx *cctx)
 
     for (int i = 0; i < n; i++) {
         n00b_module_t *f = n00b_list_get(cctx->module_ordering, i, NULL);
-        int           m = n00b_list_len(f->extern_decls);
+        int            m = n00b_list_len(f->extern_decls);
 
         for (int j = 0; j < m; j++) {
             n00b_symbol_t   *sym  = n00b_list_get(f->extern_decls, j, NULL);
@@ -3546,7 +3546,7 @@ n00b_check_pass(n00b_compile_ctx *cctx)
     int           n            = n00b_list_len(cctx->module_ordering);
     int           num_deferred = 0;
     defer_info_t *all_deferred = n00b_gc_array_alloc(defer_info_t, n);
-    n00b_list_t   *one_deferred;
+    n00b_list_t  *one_deferred;
 
     for (int i = 0; i < n; i++) {
         n00b_module_t *f = n00b_list_get(cctx->module_ordering, i, NULL);
@@ -3588,8 +3588,8 @@ n00b_check_pass(n00b_compile_ctx *cctx)
 
     for (int i = 0; i < n; i++) {
         n00b_module_t *f = n00b_list_get(cctx->module_ordering,
-                                       i,
-                                       NULL);
+                                         i,
+                                         NULL);
         if (!f->ct) {
             continue;
         }

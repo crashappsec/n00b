@@ -2,10 +2,10 @@
 
 #include "n00b.h"
 
-extern void                n00b_set_style(n00b_utf8_t *,
-                                         n00b_render_style_t *);
+extern void                 n00b_set_style(n00b_utf8_t *,
+                                           n00b_render_style_t *);
 extern n00b_render_style_t *n00b_lookup_cell_style(n00b_utf8_t *);
-extern void                n00b_install_default_styles();
+extern void                 n00b_install_default_styles();
 
 static inline n00b_render_style_t *
 n00b_copy_render_style(const n00b_render_style_t *style)
@@ -226,7 +226,7 @@ n00b_style_set_border_theme(n00b_render_style_t *style, char *name)
 static inline void
 n00b_style_set_flex_size(n00b_render_style_t *style, int64_t size)
 {
-    assert(size >= 0);
+    n00b_assert(size >= 0);
     style->dim_kind   = N00B_DIM_FLEX_UNITS;
     style->dims.units = (uint64_t)size;
 }
@@ -234,7 +234,7 @@ n00b_style_set_flex_size(n00b_render_style_t *style, int64_t size)
 static inline void
 n00b_style_set_absolute_size(n00b_render_style_t *style, int64_t size)
 {
-    assert(size >= 0);
+    n00b_assert(size >= 0);
     style->dim_kind   = N00B_DIM_ABSOLUTE;
     style->dims.units = (uint64_t)size;
 }
@@ -242,7 +242,7 @@ n00b_style_set_absolute_size(n00b_render_style_t *style, int64_t size)
 static inline void
 n00b_style_set_size_range(n00b_render_style_t *style, int32_t min, int32_t max)
 {
-    assert(min >= 0 && max >= min);
+    n00b_assert(min >= 0 && max >= min);
     style->dim_kind      = N00B_DIM_ABSOLUTE_RANGE;
     style->dims.range[0] = min;
     style->dims.range[1] = max;
@@ -263,7 +263,7 @@ n00b_style_set_auto_size(n00b_render_style_t *style)
 static inline void
 n00b_style_set_size_as_percent(n00b_render_style_t *style, double pct, bool round)
 {
-    assert(pct >= 0);
+    n00b_assert(pct >= 0);
     if (round) {
         style->dim_kind = N00B_DIM_PERCENT_ROUND;
     }
@@ -276,7 +276,7 @@ n00b_style_set_size_as_percent(n00b_render_style_t *style, double pct, bool roun
 static inline void
 n00b_style_set_top_pad(n00b_render_style_t *style, int8_t pad)
 {
-    assert(pad >= 0);
+    n00b_assert(pad >= 0);
     style->top_pad  = pad;
     style->tpad_set = 1;
 }
@@ -284,7 +284,7 @@ n00b_style_set_top_pad(n00b_render_style_t *style, int8_t pad)
 static inline void
 n00b_style_set_bottom_pad(n00b_render_style_t *style, int8_t pad)
 {
-    assert(pad >= 0);
+    n00b_assert(pad >= 0);
     style->bottom_pad = pad;
     style->bpad_set   = 1;
 }
@@ -292,7 +292,7 @@ n00b_style_set_bottom_pad(n00b_render_style_t *style, int8_t pad)
 static inline void
 n00b_style_set_left_pad(n00b_render_style_t *style, int8_t pad)
 {
-    assert(pad >= 0);
+    n00b_assert(pad >= 0);
     style->left_pad = pad;
     style->lpad_set = 1;
 }
@@ -300,7 +300,7 @@ n00b_style_set_left_pad(n00b_render_style_t *style, int8_t pad)
 static inline void
 n00b_style_set_right_pad(n00b_render_style_t *style, int8_t pad)
 {
-    assert(pad >= 0);
+    n00b_assert(pad >= 0);
     style->right_pad = pad;
     style->rpad_set  = 1;
 }
@@ -308,7 +308,7 @@ n00b_style_set_right_pad(n00b_render_style_t *style, int8_t pad)
 static inline void
 n00b_style_set_wrap_hang(n00b_render_style_t *style, int8_t hang)
 {
-    assert(hang >= 0);
+    n00b_assert(hang >= 0);
     style->wrap         = hang;
     style->disable_wrap = 0;
     style->hang_set     = 1;
@@ -479,11 +479,11 @@ n00b_new_render_style()
     return n00b_new(n00b_type_render_style());
 }
 
-extern bool                n00b_style_exists(n00b_utf8_t *name);
+extern bool                 n00b_style_exists(n00b_utf8_t *name);
 extern n00b_render_style_t *n00b_layer_styles(n00b_render_style_t *,
-                                            n00b_render_style_t *);
+                                              n00b_render_style_t *);
 extern void
 n00b_override_style(n00b_render_style_t *,
-                   n00b_render_style_t *);
+                    n00b_render_style_t *);
 
 extern n00b_grid_t *n00b_style_details(n00b_render_style_t *);

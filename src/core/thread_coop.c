@@ -62,12 +62,12 @@ gts_wait_for_go_state(n00b_global_thread_info_t info)
 static inline n00b_global_thread_info_t
 gts_wait_for_all_stops(n00b_global_thread_info_t info)
 {
-    assert(info.state == n00b_gts_yield);
+    n00b_assert(info.state == n00b_gts_yield);
 
     while (info.running > 1) {
         nanosleep(&gts_poll_interval, NULL);
         info = atomic_read(&gti);
-        assert(info.state == n00b_gts_yield);
+        n00b_assert(info.state == n00b_gts_yield);
     }
 
     return info;
@@ -77,7 +77,7 @@ void
 n00b_gts_resume(void)
 {
     only_if_world_runs();
-    assert(thread_state != n00b_gts_go);
+    n00b_assert(thread_state != n00b_gts_go);
 
     n00b_global_thread_info_t expected = atomic_read(&gti);
     uint32_t                  epoch    = atomic_fetch_add(&coop_epoch, 1);
@@ -85,8 +85,8 @@ n00b_gts_resume(void)
 
     do {
         expected = gts_wait_for_go_state(expected);
-        assert(expected.state == n00b_gts_go);
-        assert(!expected.leader);
+        n00b_assert(expected.state == n00b_gts_go);
+        n00b_assert(!expected.leader);
 
         desired.leader  = NULL;
         desired.epoch   = epoch;
@@ -125,12 +125,12 @@ void
 n00b_gts_checkin(void)
 {
     only_if_world_runs();
-    assert(thread_state == n00b_gts_go);
+    n00b_assert(thread_state == n00b_gts_go);
 
     n00b_global_thread_info_t expected = atomic_read(&gti);
 
     if (expected.state != n00b_gts_go) {
-        assert(expected.state == n00b_gts_yield);
+        n00b_assert(expected.state == n00b_gts_yield);
         n00b_gts_suspend();
         n00b_gts_resume();
     }
@@ -144,16 +144,16 @@ gts_begin_stw(void)
     uint32_t                  epoch    = atomic_fetch_add(&coop_epoch, 1);
     n00b_thread_t            *self     = n00b_thread_self();
 
-    assert(self);
+    n00b_assert(self);
 
     if (thread_state == n00b_gts_stop) {
-        assert(expected.state == n00b_gts_stop);
-        assert(expected.leader == self);
+        n00b_assert(expected.state == n00b_gts_stop);
+        n00b_assert(expected.leader == self);
         atomic_fetch_add(&gti_nesting_level, 1);
         return;
     }
 
-    assert(expected.state != n00b_gts_stop);
+    n00b_assert(expected.state != n00b_gts_stop);
 
     do {
         n00b_gts_checkin();
@@ -190,15 +190,15 @@ gts_end_stw(void)
     // out.  So if it's time to restart, we'll get returned 1, even
     // though the op will change it to be 0.
     if (atomic_fetch_add(&gti_nesting_level, -1) > 1) {
-        assert(expected.state == n00b_gts_stop);
-        assert(expected.leader == n00b_thread_self());
+        n00b_assert(expected.state == n00b_gts_stop);
+        n00b_assert(expected.leader == n00b_thread_self());
         return;
     }
 
     do {
-        assert(expected.state == n00b_gts_stop);
-        assert(expected.leader == n00b_thread_self());
-        assert(atomic_read(&gti_nesting_level) == 0);
+        n00b_assert(expected.state == n00b_gts_stop);
+        n00b_assert(expected.leader == n00b_thread_self());
+        n00b_assert(atomic_read(&gti_nesting_level) == 0);
 
         desired.leader  = NULL;
         desired.epoch   = epoch;

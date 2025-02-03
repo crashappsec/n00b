@@ -217,6 +217,6 @@ _n00b_cprintf(char *fmt, int64_t num_params, ...)
 
     result = vfprintf(stderr, fmt, copy);
     // Can happen when stderr has O_NONBLOCK set.
-    assert(result >= 0);
+    n00b_assert(result >= 0);
 }
 #endif

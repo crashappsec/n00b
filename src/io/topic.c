@@ -132,7 +132,7 @@ n00b_io_topic_repr(n00b_stream_t *e)
 {
     n00b_topic_cookie_t *cookie = e->cookie;
 
-    assert(cookie->name);
+    n00b_assert(cookie->name);
     return n00b_cstr_format("{}topic [em]{}{}",
                             n00b_new_utf8("["),
                             cookie->name,
@@ -177,7 +177,7 @@ n00b_topic_post(void *topic, void *msg)
         topic = n00b_get_topic(topic, NULL);
     }
     else {
-        assert(n00b_type_is_stream(t));
+        n00b_assert(n00b_type_is_stream(t));
     }
 
     n00b_list_t *filtered = n00b_handle_read_operation(topic, msg);

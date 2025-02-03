@@ -590,8 +590,8 @@ n00b_to_utf8(const n00b_utf32_t *inp)
 
     for (int i = 0; i < res->codepoints; i++) {
         l = utf8proc_encode_char(p[i], outloc);
-        assert(*outloc);
-        assert(l > 0);
+        n00b_assert(*outloc);
+        n00b_assert(l > 0);
         outloc += l;
     }
 
@@ -733,7 +733,7 @@ utf32_init(n00b_utf32_t *s, va_list args)
 
     s->utf32 = 1;
 
-    assert(length >= 0);
+    n00b_assert(length >= 0);
 
     if (length == 0 && cstring == NULL) {
         return;
@@ -1750,7 +1750,7 @@ n00b_make_cstr_array(n00b_list_t *l, int *lenp)
         *lenp = len;
     }
 
-    assert(n00b_in_heap(result));
+    n00b_assert(n00b_in_heap(result));
     return result;
 }
 

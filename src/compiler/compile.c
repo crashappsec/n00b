@@ -67,12 +67,12 @@ n00b_str_to_type(n00b_utf8_t *str)
         n00b_gc_register_root(&str_to_type_tmp_path, 1);
     }
 
-    n00b_type_t  *result = NULL;
+    n00b_type_t   *result = NULL;
     n00b_stream_t *stream = n00b_stream_string(str);
-    n00b_module_t ctx    = {
-           .modref = 0xffffffff,
-           .path   = str_to_type_tmp_path,
-           .name   = str_to_type_tmp_path,
+    n00b_module_t  ctx    = {
+            .modref = 0xffffffff,
+            .path   = str_to_type_tmp_path,
+            .name   = str_to_type_tmp_path,
     };
 
     if (n00b_lex(&ctx, stream) != false) {
@@ -392,7 +392,8 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
                                  n00b_warn_dupe_allow,
                                  root_adds->declaration_node);
             }
-            assert(n00b_set_contains(true_root->allowed_sections, allows[i]));
+            n00b_assert(n00b_set_contains(true_root->allowed_sections,
+                                          allows[i]));
         }
     }
 

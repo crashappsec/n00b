@@ -480,7 +480,7 @@ static void
 tok_raw_advance_once(parse_ctx *ctx)
 {
     if (ctx->cached_token == NULL) {
-        assert(ctx->token_ix == 0);
+        n00b_assert(ctx->token_ix == 0);
         tok_cur(ctx);
         return;
     }

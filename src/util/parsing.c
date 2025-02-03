@@ -407,7 +407,7 @@ add_item(n00b_parser_t       *p,
         return;
     }
 
-    assert(new->rule);
+    n00b_assert(new->rule);
     // The state we use for duping could also be hashed to avoid the
     // state scan if that ever were an issue.
     n00b_earley_state_t *state   = next_state ? p->next_state : p->current_state;
@@ -533,7 +533,7 @@ add_one_group_prediction(n00b_parser_t *p, n00b_earley_item_t *predictor)
     gei->ruleset_id          = g->gid;
     gei->rule                = n00b_list_get(g->contents->rules, 0, NULL);
 
-    assert(gei->rule);
+    n00b_assert(gei->rule);
 
     gei->predictor_ruleset_id = ps->ruleset_id;
     gei->predictor_rule_index = ps->rule_index;
@@ -562,7 +562,7 @@ add_first_group_item(n00b_parser_t *p, n00b_earley_item_t *gei)
     ei->group_top          = gei;
     ei->double_dot         = false;
 
-    assert(gei);
+    n00b_assert(gei);
 
     ei->predictor_ruleset_id = ei->group_top->ruleset_id;
     ei->predictor_rule_index = ei->group_top->rule_index;
@@ -617,7 +617,7 @@ add_next_group_item(n00b_parser_t      *p,
 
     int max_items = ei->group_top->group->max;
 
-    assert(ei->group_top);
+    n00b_assert(ei->group_top);
 
     ei->predictor_ruleset_id = ei->group_top->ruleset_id;
     ei->predictor_rule_index = ei->group_top->rule_index;
@@ -708,7 +708,7 @@ add_group_completion(n00b_parser_t      *p,
     n00b_earley_item_t *istart = cur->start_item;
     n00b_earley_item_t *gstart = istart->group_top;
 
-    assert(gstart);
+    n00b_assert(gstart);
 
     ei->start_item    = gstart;
     ei->rule          = gstart->rule;
@@ -735,7 +735,7 @@ predict_nt(n00b_parser_t *p, n00b_nonterm_t *nt, n00b_earley_item_t *ei)
 {
     int n = n00b_list_len(nt->rules);
 
-    assert(n00b_list_len(nt->rules));
+    n00b_assert(n00b_list_len(nt->rules));
 
     for (int64_t i = 0; i < n; i++) {
         add_one_nt_prediction(p, ei, nt, i);
@@ -1021,7 +1021,7 @@ enter_next_state(n00b_parser_t *parser)
         predict_nt(parser, start, NULL);
     }
 
-    assert(parser->position == n00b_list_len(parser->states) - 1);
+    n00b_assert(parser->position == n00b_list_len(parser->states) - 1);
     parser->next_state = n00b_new_earley_state(n00b_list_len(parser->states));
     n00b_list_append(parser->states, parser->next_state);
 

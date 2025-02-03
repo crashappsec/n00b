@@ -49,7 +49,7 @@ n00b_universe_add(n00b_type_universe_t *u, n00b_type_t *t)
         return false;
     }
 
-    assert(n00b_thread_self());
+    n00b_assert(n00b_thread_self());
 
     return crown_add_mmm(&u->dict->crown_instance,
                          &n00b_thread_self()->mmm_info,
@@ -80,7 +80,7 @@ n00b_universe_put(n00b_type_universe_t *u, n00b_type_t *t)
 n00b_type_t *
 n00b_universe_attempt_to_add(n00b_type_universe_t *u, n00b_type_t *t)
 {
-    assert(t->typeid);
+    n00b_assert(t->typeid);
 
     if (n00b_universe_add(u, t)) {
         return t;
@@ -94,13 +94,13 @@ n00b_universe_forward(n00b_type_universe_t *u, n00b_type_t *t1, n00b_type_t *t2)
 {
     hatrack_hash_t hv;
 
-    assert(t1->typeid);
-    assert(t2->typeid);
-    assert(!t2->fw);
+    n00b_assert(t1->typeid);
+    n00b_assert(t2->typeid);
+    n00b_assert(!t2->fw);
 
     t1->fw = t2->typeid;
     init_hv(&hv, t1->typeid);
-    assert(n00b_thread_self());
+    n00b_assert(n00b_thread_self());
 
     crown_put_mmm(&u->dict->crown_instance,
                   &n00b_thread_self()->mmm_info,

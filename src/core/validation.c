@@ -18,8 +18,8 @@ typedef struct {
     n00b_dict_t         *contained_sections;
     n00b_dict_t         *contained_fields;
     n00b_spec_section_t *section_spec;
-    section_kind        kind;
-    bool                instantiation;
+    section_kind         kind;
+    bool                 instantiation;
 } section_vinfo;
 
 typedef struct {
@@ -33,17 +33,17 @@ typedef struct {
         field_vinfo   field;
     } info;
     n00b_utf8_t *path;
-    bool        field;
-    bool        checked;
+    bool         field;
+    bool         checked;
 } spec_node_t;
 
 typedef struct {
-    n00b_dict_t  *attrs;
-    n00b_dict_t  *section_cache;
-    n00b_spec_t  *spec;
-    n00b_list_t  *errors;
+    n00b_dict_t *attrs;
+    n00b_dict_t *section_cache;
+    n00b_spec_t *spec;
+    n00b_list_t *errors;
     spec_node_t *section_tree;
-    n00b_vm_t    *vm;
+    n00b_vm_t   *vm;
     void        *cur;
     bool         at_object_name;
 } validation_ctx;
@@ -78,7 +78,7 @@ loc_from_attr(validation_ctx *ctx, n00b_attr_contents_t *attr)
     n00b_module_t       *mi;
 
     if (!ins) {
-        assert(attr->is_set);
+        n00b_assert(attr->is_set);
         return n00b_new_utf8("Pre-execution");
     }
 
@@ -86,14 +86,14 @@ loc_from_attr(validation_ctx *ctx, n00b_attr_contents_t *attr)
 
     if (mi->full_uri) {
         return n00b_cstr_format("[b]{}:{:n}:[/]",
-                               mi->full_uri,
-                               n00b_box_i64(ins->line_no));
+                                mi->full_uri,
+                                n00b_box_i64(ins->line_no));
     }
 
     return n00b_cstr_format("[b]{}.{}:{:n}:[/]",
-                           mi->package,
-                           mi->name,
-                           n00b_box_i64(ins->line_no));
+                            mi->package,
+                            mi->name,
+                            n00b_box_i64(ins->line_no));
 }
 
 static n00b_utf8_t *
@@ -110,27 +110,27 @@ spec_info_if_used(validation_ctx *ctx, spec_node_t *n)
 {
     if (n->info.field.record->is_set) {
         return n00b_cstr_format("(field {} defined at: {})",
-                               n->info.field.field_spec->name,
-                               loc_from_decl(n));
+                                n->info.field.field_spec->name,
+                                loc_from_decl(n));
     }
 
     return n00b_new_utf8("");
 }
 
 static void
-_n00b_validation_error(validation_ctx     *ctx,
-                      n00b_compile_error_t code,
-                      n00b_utf8_t         *loc,
-                      ...)
+_n00b_validation_error(validation_ctx      *ctx,
+                       n00b_compile_error_t code,
+                       n00b_utf8_t         *loc,
+                       ...)
 {
     va_list args;
 
     va_start(args, loc);
 
     n00b_base_runtime_error(ctx->errors,
-                           code,
-                           loc,
-                           args);
+                            code,
+                            loc,
+                            args);
 
     va_end(args);
 }
@@ -155,15 +155,15 @@ spec_node_alloc(validation_ctx *ctx, n00b_utf8_t *path)
 
 static spec_node_t *
 init_section_node(validation_ctx *ctx,
-                  n00b_utf8_t     *path,
-                  n00b_utf8_t     *section,
-                  n00b_list_t     *subitems)
+                  n00b_utf8_t    *path,
+                  n00b_utf8_t    *section,
+                  n00b_list_t    *subitems)
 {
     // This sets up data structures from the section cache, but does not
     // populate any field information whatsoever.
 
     spec_node_t *sec_info;
-    n00b_utf8_t  *full_path;
+    n00b_utf8_t *full_path;
     bool         alloced = false;
 
     if (path == NULL) {
@@ -198,7 +198,7 @@ init_section_node(validation_ctx *ctx,
         return alloced ? sec_info : NULL;
     }
 
-    int         n            = n00b_list_len(subitems);
+    int          n            = n00b_list_len(subitems);
     n00b_utf8_t *next_section = n00b_list_get(subitems, 0, NULL);
     n00b_list_t *next_items   = NULL;
 
@@ -277,7 +277,7 @@ spec_init_validation(validation_ctx *ctx, n00b_vm_t *runtime)
 
     init_one_section(ctx, NULL);
 
-    uint64_t     n;
+    uint64_t      n;
     n00b_utf8_t **sections = hatrack_set_items_sort(runtime->all_sections, &n);
 
     for (unsigned int i = 0; i < n; i++) {
@@ -304,19 +304,19 @@ mark_required_field(n00b_flags_t *flags, n00b_list_t *req, n00b_utf8_t *name)
 }
 
 static inline void
-validate_field_contents(validation_ctx     *ctx,
-                        spec_node_t        *node,
+validate_field_contents(validation_ctx      *ctx,
+                        spec_node_t         *node,
                         n00b_spec_section_t *secspec)
 {
     uint64_t             num_fields;
     uint64_t             num_specs;
     uint64_t             num_req;
-    n00b_dict_t          *fdict    = node->info.section.contained_fields;
+    n00b_dict_t         *fdict    = node->info.section.contained_fields;
     hatrack_dict_item_t *fields   = hatrack_dict_items(fdict, &num_fields);
-    n00b_spec_field_t   **fspecs   = (void *)hatrack_dict_values(secspec->fields,
-                                                            &num_specs);
-    n00b_flags_t         *reqflags = NULL;
-    n00b_list_t          *required = n00b_list(n00b_type_ref());
+    n00b_spec_field_t  **fspecs   = (void *)hatrack_dict_values(secspec->fields,
+                                                             &num_specs);
+    n00b_flags_t        *reqflags = NULL;
+    n00b_list_t         *required = n00b_list(n00b_type_ref());
 
     // Scan the field specs to see how many are required.
     for (unsigned int i = 0; i < num_specs; i++) {
@@ -333,7 +333,7 @@ validate_field_contents(validation_ctx     *ctx,
 
     for (unsigned int i = 0; i < num_fields; i++) {
         n00b_utf8_t          *name   = fields[i].key;
-        spec_node_t         *fnode  = fields[i].value;
+        spec_node_t          *fnode  = fields[i].value;
         n00b_spec_field_t    *fspec  = fnode->info.field.field_spec;
         n00b_attr_contents_t *record = fnode->info.field.record;
         n00b_type_t          *t;
@@ -347,10 +347,10 @@ validate_field_contents(validation_ctx     *ctx,
                 continue;
             }
             n00b_validation_error(ctx,
-                                 n00b_spec_disallowed_field,
-                                 loc_from_attr(ctx, record),
-                                 current_path(ctx),
-                                 name);
+                                  n00b_spec_disallowed_field,
+                                  loc_from_attr(ctx, record),
+                                  current_path(ctx),
+                                  name);
             continue;
         }
 
@@ -362,25 +362,25 @@ validate_field_contents(validation_ctx     *ctx,
             continue;
         }
 
-        uint64_t     num_ex;
+        uint64_t      num_ex;
         n00b_utf8_t **exclusions = hatrack_set_items(fspec->exclusions, &num_ex);
 
         for (unsigned int i = 0; i < num_ex; i++) {
             spec_node_t *n = hatrack_dict_get(fdict, exclusions[i], NULL);
             if (n != NULL) {
                 n00b_validation_error(ctx,
-                                     n00b_spec_mutex_field,
-                                     loc_from_attr(ctx, n->info.field.record),
-                                     current_path(ctx),
-                                     exclusions[i],
-                                     node->info.field.field_spec->name,
-                                     loc_from_attr(ctx,
-                                                   node->info.field.record));
+                                      n00b_spec_mutex_field,
+                                      loc_from_attr(ctx, n->info.field.record),
+                                      current_path(ctx),
+                                      exclusions[i],
+                                      node->info.field.field_spec->name,
+                                      loc_from_attr(ctx,
+                                                    node->info.field.record));
             }
 
             n00b_spec_field_t *x = hatrack_dict_get(secspec->fields,
-                                                   exclusions[i],
-                                                   NULL);
+                                                    exclusions[i],
+                                                    NULL);
             if (x && x->required) {
                 mark_required_field(reqflags, required, x->name);
             }
@@ -392,12 +392,12 @@ validate_field_contents(validation_ctx     *ctx,
                                                 NULL);
             if (!bud || !bud->info.field.record->is_set) {
                 n00b_validation_error(ctx,
-                                     n00b_spec_missing_ptr,
-                                     best_field_loc(ctx, node),
-                                     current_path(ctx),
-                                     node->info.field.field_spec->name,
-                                     fspec->deferred_type_field,
-                                     spec_info_if_used(ctx, node));
+                                      n00b_spec_missing_ptr,
+                                      best_field_loc(ctx, node),
+                                      current_path(ctx),
+                                      node->info.field.field_spec->name,
+                                      fspec->deferred_type_field,
+                                      spec_info_if_used(ctx, node));
             }
             else {
                 n00b_attr_contents_t *bud_rec = bud->info.field.record;
@@ -405,44 +405,44 @@ validate_field_contents(validation_ctx     *ctx,
                 t = n00b_merge_types(bud_rec->type, n00b_type_typespec(), NULL);
                 if (n00b_type_is_error(t)) {
                     n00b_validation_error(ctx,
-                                         n00b_spec_invalid_type_ptr,
-                                         best_field_loc(ctx, node),
-                                         current_path(ctx),
-                                         node->info.field.field_spec->name,
-                                         fspec->deferred_type_field,
-                                         bud_rec->type,
-                                         loc_from_attr(ctx, bud_rec));
+                                          n00b_spec_invalid_type_ptr,
+                                          best_field_loc(ctx, node),
+                                          current_path(ctx),
+                                          node->info.field.field_spec->name,
+                                          fspec->deferred_type_field,
+                                          bud_rec->type,
+                                          loc_from_attr(ctx, bud_rec));
                 }
                 else {
                     t = n00b_type_copy((n00b_type_t *)bud_rec->contents);
                     t = n00b_merge_types(t, record->type, NULL);
                     if (n00b_type_is_error(t)) {
                         n00b_validation_error(ctx,
-                                             n00b_spec_ptr_typecheck,
-                                             best_field_loc(ctx, node),
-                                             current_path(ctx),
-                                             node->info.field.field_spec->name,
-                                             fspec->deferred_type_field,
-                                             record->type,
-                                             bud_rec->contents,
-                                             loc_from_attr(ctx, bud_rec));
+                                              n00b_spec_ptr_typecheck,
+                                              best_field_loc(ctx, node),
+                                              current_path(ctx),
+                                              node->info.field.field_spec->name,
+                                              fspec->deferred_type_field,
+                                              record->type,
+                                              bud_rec->contents,
+                                              loc_from_attr(ctx, bud_rec));
                     }
                 }
             }
         }
         else {
             t = n00b_merge_types(n00b_type_copy(fspec->tinfo.type),
-                                record->type,
-                                NULL);
+                                 record->type,
+                                 NULL);
             if (n00b_type_is_error(t)) {
                 n00b_validation_error(ctx,
-                                     n00b_spec_field_typecheck,
-                                     best_field_loc(ctx, node),
-                                     current_path(ctx),
-                                     node->info.field.field_spec->name,
-                                     fspec->tinfo.type,
-                                     record->type,
-                                     spec_info_if_used(ctx, node));
+                                      n00b_spec_field_typecheck,
+                                      best_field_loc(ctx, node),
+                                      current_path(ctx),
+                                      node->info.field.field_spec->name,
+                                      fspec->tinfo.type,
+                                      record->type,
+                                      spec_info_if_used(ctx, node));
             }
         }
 
@@ -474,10 +474,10 @@ validate_field_contents(validation_ctx     *ctx,
             n00b_spec_field_t *missing = n00b_list_get(required, i, NULL);
 
             n00b_validation_error(ctx,
-                                 n00b_spec_missing_field,
-                                 loc_from_decl(ctx->cur),
-                                 current_path(ctx),
-                                 missing->name);
+                                  n00b_spec_missing_field,
+                                  loc_from_decl(ctx->cur),
+                                  current_path(ctx),
+                                  missing->name);
         }
     }
 }
@@ -491,12 +491,12 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     // It only gets called on instances and singletons.
 
     uint64_t             num_subs;
-    n00b_dict_t          *secdict  = node->info.section.contained_sections;
+    n00b_dict_t         *secdict  = node->info.section.contained_sections;
     hatrack_dict_item_t *subsecs  = hatrack_dict_items(secdict, &num_subs);
-    n00b_spec_section_t  *secspec  = node->info.section.section_spec;
-    n00b_flags_t         *reqflags = NULL;
+    n00b_spec_section_t *secspec  = node->info.section.section_spec;
+    n00b_flags_t        *reqflags = NULL;
     uint64_t             num_req;
-    n00b_utf8_t         **reqnames;
+    n00b_utf8_t        **reqnames;
 
     reqnames = hatrack_set_items(secspec->required_sections, &num_req);
 
@@ -508,7 +508,7 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     // 'required' list or the 'allow' list.
 
     for (unsigned int i = 0; i < num_subs; i++) {
-        n00b_utf8_t  *name = subsecs[i].key;
+        n00b_utf8_t *name = subsecs[i].key;
         spec_node_t *sub  = subsecs[i].value;
         bool         ok   = false;
 
@@ -530,17 +530,17 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
 
             if (hatrack_dict_get(ctx->spec->section_specs, name, NULL)) {
                 n00b_validation_error(ctx,
-                                     n00b_spec_disallowed_section,
-                                     loc_from_decl(ctx->cur),
-                                     current_path(ctx),
-                                     name);
+                                      n00b_spec_disallowed_section,
+                                      loc_from_decl(ctx->cur),
+                                      current_path(ctx),
+                                      name);
             }
             else {
                 n00b_validation_error(ctx,
-                                     n00b_spec_unknown_section,
-                                     loc_from_decl(ctx->cur),
-                                     current_path(ctx),
-                                     name);
+                                      n00b_spec_unknown_section,
+                                      loc_from_decl(ctx->cur),
+                                      current_path(ctx),
+                                      name);
             }
         }
 
@@ -551,9 +551,9 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     for (unsigned int i = 0; i < num_req; i++) {
         if (!n00b_flags_index(reqflags, i)) {
             n00b_validation_error(ctx,
-                                 n00b_spec_missing_require,
-                                 loc_from_decl(ctx->cur),
-                                 reqnames[i]);
+                                  n00b_spec_missing_require,
+                                  loc_from_decl(ctx->cur),
+                                  reqnames[i]);
         }
     }
 
@@ -582,18 +582,18 @@ spec_validate_section(validation_ctx *ctx)
 
     if (info->kind == sk_blueprint) {
         uint64_t             num_fields;
-        n00b_dict_t          *fdict  = info->contained_fields;
+        n00b_dict_t         *fdict  = info->contained_fields;
         hatrack_dict_item_t *fields = hatrack_dict_items(fdict, &num_fields);
 
         if (num_fields) {
             spec_node_t *fnode = fields[0].value;
 
             n00b_validation_error(ctx,
-                                 n00b_spec_blueprint_fields,
-                                 node->path,
-                                 info->section_spec->name,
-                                 fields[0].key,
-                                 loc_from_attr(ctx, fnode->info.field.record));
+                                  n00b_spec_blueprint_fields,
+                                  node->path,
+                                  info->section_spec->name,
+                                  fields[0].key,
+                                  loc_from_attr(ctx, fnode->info.field.record));
         }
     }
     else {

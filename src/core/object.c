@@ -1330,7 +1330,7 @@ n00b_finalize_allocation(n00b_obj_t object)
     fn = (void *)n00b_vtable(object)->methods[N00B_BI_FINALIZER];
     if (fn == NULL) {
     }
-    assert(fn != NULL);
+    n00b_assert(fn != NULL);
     (*fn)(object);
 }
 

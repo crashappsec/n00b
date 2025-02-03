@@ -297,7 +297,7 @@ n00b_extract_format_specifiers(const n00b_str_t *fmt)
                 N00B_CRAISE("Missing } to end format specifier.");
             }
             cur = n00b_gc_alloc_mapped(n00b_fmt_info_t, n00b_fmt_gc_bits);
-            assert(cur);
+            n00b_assert(cur);
             cur->start = i + 1;
             cur->end   = n;
             if (last != NULL) {

@@ -113,7 +113,7 @@ n00b_initialize_event(n00b_stream_t       *event,
                                       n00b_type_ref());
     }
 
-    assert(event->perms & (n00b_io_perm_r | n00b_io_perm_w));
+    n00b_assert(event->perms & (n00b_io_perm_r | n00b_io_perm_w));
 
     n00b_static_lock_init(event->lock);
 }
@@ -836,7 +836,7 @@ n00b_io_register_subscription(n00b_stream_sub_t        *sub,
 
     n00b_dict_t *subs = n00b_stream_get_subscriptions(src, kind);
 
-    assert(sub);
+    n00b_assert(sub);
     hatrack_dict_put(subs, sink, sub);
     return;
 }
@@ -1072,7 +1072,7 @@ one_write_filter_level(n00b_stream_filter_t *filter_info,
         one_set   = (*fn)(party, filter_info->state, msg);
 
         if (one_set) {
-            assert(n00b_type_is_list(n00b_get_my_type(one_set)));
+            n00b_assert(n00b_type_is_list(n00b_get_my_type(one_set)));
             result = n00b_list_plus(result, one_set);
         }
     }
@@ -1127,7 +1127,7 @@ n00b_handle_read_operation(n00b_stream_t *party, void *buf)
 
                 res = (*fn)(party, filter->state, item);
                 if (res) {
-                    assert(n00b_type_is_list(n00b_get_my_type(res)));
+                    n00b_assert(n00b_type_is_list(n00b_get_my_type(res)));
                 }
                 if (!next) {
                     next = res;
@@ -1246,7 +1246,7 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
     n00b_list_append(msgs, msg);
 
     for (int i = 0; i < n; i++) {
-        assert(n == n00b_list_len(filters));
+        n00b_assert(n == n00b_list_len(filters));
         filter = n00b_list_get(filters, i, NULL);
         msgs   = one_write_filter_level(filter, party, msgs);
 
@@ -1683,7 +1683,7 @@ n00b_wait_for_io_shutdown(void)
     // This should really only be used by threads that have
     // asked for the program to exit.
 
-    assert(exit_notifier);
+    n00b_assert(exit_notifier);
     n00b_wait(exit_notifier, -1);
 
     return true;

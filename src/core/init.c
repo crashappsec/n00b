@@ -105,7 +105,7 @@ load_env(n00b_dict_t *environment_vars)
         n00b_utf8_t *value = n00b_new_utf8(val);
 
         hatrack_dict_put(environment_vars, key, value);
-        assert(hatrack_dict_get(environment_vars, key, NULL) == value);
+        n00b_assert(hatrack_dict_get(environment_vars, key, NULL) == value);
     }
     n00b_gc_register_root(&cached_environment_vars, 1);
 }
@@ -388,8 +388,9 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_initialize_library();
         n00b_register_builtins();
         n00b_gts_restart_the_world();
+        n00b_install_default_styles();
+        n00b_assertion_init();
         n00b_long_term_pin(n00b_internal_heap);
-
         n00b_startup_complete = true;
 
         n00b_launch_io_loop();

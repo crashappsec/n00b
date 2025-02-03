@@ -243,7 +243,7 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
     result->addr_start  = n00b_arena_user_data_start(result);
     result->addr_end    = n00b_arena_rear_guard_start(result);
 
-    assert(result->addr_start < result->addr_end);
+    n00b_assert(result->addr_start < result->addr_end);
 
     if (h->newest_arena) {
         n00b_unlock_arena_header(h->newest_arena);
@@ -391,10 +391,10 @@ n00b_realloc_wrap(void  *p,
         return n00b_malloc_wrap(len, NULL N00B_ALLOC_XPARAM);
     }
 
-    assert(n00b_in_heap(p));
+    n00b_assert(n00b_in_heap(p));
 
     n00b_alloc_hdr *hdr = n00b_object_header(p);
-    assert(hdr->guard == n00b_gc_guard);
+    n00b_assert(hdr->guard == n00b_gc_guard);
 
     if (len + N00B_EXTRA_MEMCHECK_BYTES <= hdr->alloc_len) {
         return p;

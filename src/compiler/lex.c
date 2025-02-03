@@ -1107,7 +1107,7 @@ line_comment:
 bool
 n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
 {
-    assert(ctx->name);
+    n00b_assert(ctx->name);
 
     if (ctx->ct->status >= n00b_compile_status_tokenized) {
         return ctx->ct->fatal_errors;

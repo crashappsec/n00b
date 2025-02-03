@@ -604,7 +604,7 @@ n00b_format_nt_productions(n00b_grammar_t *g, n00b_nonterm_t *nt)
 
     for (int i = 0; i < n; i++) {
         n00b_parse_rule_t *pr = n00b_list_get(nt->rules, i, NULL);
-        assert(pr->nt == nt);
+        n00b_assert(pr->nt == nt);
         n00b_list_t *one = n00b_format_one_production(g, pr);
         if (one != NULL) {
             n00b_list_append(result, one);

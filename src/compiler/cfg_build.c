@@ -491,7 +491,7 @@ n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
                                              n00b_kw("contents", n00b_ka(label)));
             n00b_cfg_node_t  *kid   = node->contents.branches.branch_targets[i];
 
-            assert(kid != NULL);
+            n00b_assert(kid != NULL);
 
             n00b_tree_adopt_node(result, sub);
             n00b_cfg_repr_internal(kid, sub, node, NULL);

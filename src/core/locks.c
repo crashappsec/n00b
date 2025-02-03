@@ -21,7 +21,7 @@ n00b_raw_condition_init(n00b_condition_t *c)
 bool
 _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
 {
-    assert(n00b_thread_self());
+    n00b_assert(n00b_thread_self());
 
     switch (pthread_mutex_trylock(&l->lock)) {
     case EBUSY:
@@ -43,7 +43,7 @@ _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
     case 0:
         l->thread = n00b_thread_self();
         add_lock_record(l, file, line);
-        assert(!l->level);
+        n00b_assert(!l->level);
 
         n00b_lock_register(l);
 #ifdef N00B_DEBUG_LOCKS
@@ -83,7 +83,7 @@ _n00b_lock_acquire_raw(n00b_lock_t *l, char *file, int line)
         pthread_mutex_lock(&l->lock);
         n00b_lock_register(l);
         add_lock_record(l, file, line);
-        assert(!l->level);
+        n00b_assert(!l->level);
 #ifdef N00B_DEBUG_LOCKS
         if (__n00b_lock_debug) {
             printf("lock %p: %p unblocked (acquiring.) (thread %p) @%s:%d\n",
@@ -119,7 +119,7 @@ _n00b_lock_acquire(n00b_lock_t *l, char *file, int line)
 
         n00b_lock_register(l);
         add_lock_record(l, file, line);
-        assert(!l->level);
+        n00b_assert(!l->level);
 #ifdef N00B_DEBUG_LOCKS
         if (__n00b_lock_debug) {
             printf("lock %p: %p unblocked @%s:%d\n",
@@ -169,7 +169,7 @@ n00b_lock_release_all(n00b_lock_t *l)
     l->level  = 0;
     l->thread = NULL;
     clear_lock_records(l);
-    assert(!l->locks);
+    n00b_assert(!l->locks);
     n00b_lock_unregister(l);
     pthread_mutex_unlock(&l->lock);
 }

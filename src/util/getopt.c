@@ -901,7 +901,7 @@ n00b_gopt_finalize(n00b_gopt_ctx *gctx)
 
     while (n00b_len(stack) != 0) {
         n00b_gopt_cspec *one = n00b_list_pop(stack);
-        assert(one->context == gctx);
+        n00b_assert(one->context == gctx);
 
         if (needs_a_rule(one)) {
             n00b_gopt_command_add_rule(gctx, one, NULL);

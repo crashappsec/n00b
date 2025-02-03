@@ -286,7 +286,7 @@ n00b_buffer_join(n00b_list_t *list, n00b_buf_t *joiner)
 
     n00b_buffer_release(joiner);
 
-    assert(p - result->data == new_len);
+    n00b_assert(p - result->data == new_len);
 
     return result;
 }

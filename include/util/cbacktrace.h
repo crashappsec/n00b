@@ -1,5 +1,4 @@
 #pragma once
-#include "n00b.h"
 
 #ifdef N00B_BACKTRACE_SUPPORTED
 extern void n00b_backtrace_init(char *);

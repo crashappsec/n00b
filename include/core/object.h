@@ -16,7 +16,7 @@ extern n00b_type_t *n00b_get_my_type(n00b_obj_t);
 static inline void
 n00b_basic_memory_info(void *addr, bool *is_obj, bool *interior)
 {
-    assert(n00b_in_heap(addr));
+    n00b_assert(n00b_in_heap(addr));
 
     n00b_alloc_hdr *h = n00b_find_allocation_record(addr);
 
@@ -43,14 +43,14 @@ n00b_is_object_reference(void *addr)
 #ifdef N00B_DEBUG
 
 // Macro to preserve __FILE__ and __LINE__ for assert.
-#define n00b_object_sanity_check(addr)                   \
-    {                                                    \
-        assert(n00b_is_object_reference(addr));          \
-        n00b_type_t *t = n00b_get_my_type(addr);         \
-                                                         \
-        assert(t);                                       \
-        assert(t->base_index > N00B_T_ERROR              \
-               && t->base_index < N00B_NUM_BUILTIN_DTS); \
+#define n00b_object_sanity_check(addr)                        \
+    {                                                         \
+        n00b_assert(n00b_is_object_reference(addr));          \
+        n00b_type_t *t = n00b_get_my_type(addr);              \
+                                                              \
+        n00b_assert(t);                                       \
+        n00b_assert(t->base_index > N00B_T_ERROR              \
+                    && t->base_index < N00B_NUM_BUILTIN_DTS); \
     }
 
 #else

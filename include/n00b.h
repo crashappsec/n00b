@@ -12,6 +12,7 @@
 // Everything includes this; the ordering here is somewhat important
 // due to interdependencies, though they can always be solved via
 // prototyping.
+#include "util/assert.h"
 #include "n00b/base.h"
 #include "core/init.h"
 #include "core/exit.h"

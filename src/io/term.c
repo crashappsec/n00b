@@ -79,7 +79,6 @@ n00b_terminal_app_setup(void)
     n00b_unbuffer_stdout();
 
     pthread_once(&termcap_save, stash_termcap);
-    n00b_install_default_styles();
 
     n00b_termcap_get(&tc);
     n00b_termcap_apply_app_defaults(&tc);

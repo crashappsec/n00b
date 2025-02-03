@@ -5,7 +5,6 @@ static pthread_once_t n00b_gc_init             = PTHREAD_ONCE_INIT;
 static n00b_heap_t   *long_term_pins           = NULL;
 static n00b_heap_t   *to_space                 = NULL;
 static n00b_heap_t   *n00b_scratch_heap        = NULL;
-n00b_heap_t          *n00b_debug_heap          = NULL;
 int                   __n00b_collector_running = 0;
 static n00b_heap_t   *__n00b_current_from_space;
 
@@ -259,9 +258,6 @@ n00b_create_first_heaps(void)
     n00b_default_heap = n00b_new_heap(N00B_DEFAULT_HEAP_SIZE);
     n00b_heap_set_name(n00b_default_heap, "user");
 
-    n00b_debug_heap = n00b_new_heap(N00B_DEBUG_HEAP_SIZE);
-    n00b_heap_set_name(n00b_debug_heap, "debug");
-
     // Create the main allocation heap and the 'to_space' heap that
     // marshalling uses.
 
@@ -484,7 +480,7 @@ get_relocation_addr(n00b_collection_ctx *ctx, n00b_alloc_hdr *hdr)
     char           *end    = ((char *)result) + hdr->alloc_len;
 
     entry.next_alloc = (n00b_alloc_hdr *)end;
-    assert(((void *)result) < to_space->first_arena->addr_end);
+    n00b_assert(((void *)result) < to_space->first_arena->addr_end);
 
     atomic_store(&to_space->ptr, entry);
 
@@ -529,9 +525,9 @@ add_mem_range(n00b_collection_ctx *ctx,
                                             sizeof(n00b_scan_range_t),
                                             N00B_GC_SCAN_NONE);
 
-    assert(p);
-    assert(!ctx->scan_list
-           || n00b_addr_find_heap(ctx->scan_list) == n00b_addr_find_heap(sr));
+    n00b_assert(p);
+    n00b_assert(!ctx->scan_list
+                || n00b_addr_find_heap(ctx->scan_list) == n00b_addr_find_heap(sr));
     sr->next       = ctx->scan_list;
     sr->ptr        = p;
     sr->num_words  = num_words;
@@ -569,14 +565,14 @@ run_scans(n00b_collection_ctx *ctx)
     n00b_scan_range_t *range = ctx->scan_list;
 
     while (range) {
-        assert(!ctx->scan_list
-               || n00b_addr_find_heap(ctx->scan_list)
-                      == n00b_addr_find_heap(range));
+        n00b_assert(!ctx->scan_list
+                    || n00b_addr_find_heap(ctx->scan_list)
+                           == n00b_addr_find_heap(range));
         uint64_t *p         = range->ptr;
         int       num_words = range->num_words;
         ctx->scan_list      = range->next;
-        assert(num_words >= 0);
-        assert(p);
+        n00b_assert(num_words >= 0);
+        n00b_assert(p);
 
         for (int i = 0; i < num_words; i++) {
             bool                    found;
@@ -607,7 +603,7 @@ run_scans(n00b_collection_ctx *ctx)
                 else {
                     dst_record = NULL;
                 }
-                assert((dst_record && moving) || !moving);
+                n00b_assert((dst_record && moving) || !moving);
                 ctx->root_touches++;
                 crown_put(&ctx->memos, hv, dst_record, NULL);
                 if (src_record->n00b_ptr_scan) {
@@ -756,7 +752,7 @@ perform_relocations(n00b_collection_ctx *ctx)
         memcpy(item->dst, item->src, bytelen);
         // We are about to get rid of the next_addr field, but for now,
         // keep it correct.
-        assert(item->dst->guard == n00b_gc_guard);
+        n00b_assert(item->dst->guard == n00b_gc_guard);
         item->src->n00b_moved = true;
 
         item++;
@@ -914,15 +910,6 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 
 #endif
 
-#if 0
-    n00b_push_heap(n00b_debug_heap);
-    void *p1 = n00b_box_u64((uint64_t)ctx->ix);
-    void *p2 = n00b_box_u64((uint64_t)h->alloc_count);
-    void *p3 = n00b_box_double(100.0 * (((double)ctx->ix) / (double)h->alloc_count));
-    n00b_pop_heap();
-
-#endif
-
 #ifdef N00B_SHOW_GARBAGE_REPORTS
     garbage_report(h);
 #endif
@@ -935,23 +922,6 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 
     n00b_thread_heap          = thread_local_stash;
     __n00b_current_from_space = NULL;
-
-// defined(N00B_GC_STATS)
-#if 0
-    {
-        n00b_push_heap(n00b_debug_heap);
-        n00b_debug("gc_collect_summary",
-                   n00b_cstr_format("Preserved {} of {} records ({}%)",
-                                    p1,
-                                    p2,
-                                    p3));
-
-    }
-    n00b_push_heap(n00b_debug_heap);
-    n00b_debug("gc_collect_heap", debug_repr_heap(h));
-    n00b_debug("gc_stack_trace", n00b_get_c_backtrace(1));
-    n00b_pop_heap();
-#endif
 
     --__n00b_collector_running;
     n00b_gts_restart_the_world();

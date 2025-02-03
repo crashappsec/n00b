@@ -46,7 +46,7 @@ n00b_node_down(n00b_pass1_ctx *ctx, int i)
     if (n->children[i]->parent != n) {
         n00b_print_parse_node(n->children[i]);
     }
-    assert(n->children[i]->parent == n);
+    n00b_assert(n->children[i]->parent == n);
     n00b_set_current_node(ctx, n->children[i]);
 
     return true;

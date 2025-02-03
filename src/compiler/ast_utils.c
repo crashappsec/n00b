@@ -460,7 +460,7 @@ n00b_apply_pattern_on_node(n00b_tree_node_t *node, n00b_tpat_node_t *pattern)
     }
 
     for (int i = 0; i < n00b_list_len(cap); i++) {
-        assert(n00b_list_get(cap, i, NULL) != NULL);
+        n00b_assert(n00b_list_get(cap, i, NULL) != NULL);
     }
     return cap;
 }

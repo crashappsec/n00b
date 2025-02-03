@@ -14,7 +14,7 @@
 // This is used in nested if/else only.
 typedef struct {
     n00b_jump_info_t *targets;
-    int              next;
+    int               next;
 } target_info_t;
 
 typedef enum {
@@ -33,15 +33,15 @@ typedef struct {
     n00b_pnode_t     *cur_pnode;
     n00b_module_t    *cur_module;
     n00b_list_t      *call_backpatches;
-    target_info_t   *target_info;
+    target_info_t    *target_info;
     n00b_symbol_t    *retsym;
-    int              instruction_counter;
-    int              current_stack_offset;
-    int              max_stack_size;
-    int              module_patch_loc;
-    bool             lvalue;
-    assign_type_t    assign_method;
-    bool             attr_lock;
+    int               instruction_counter;
+    int               current_stack_offset;
+    int               max_stack_size;
+    int               module_patch_loc;
+    bool              lvalue;
+    assign_type_t     assign_method;
+    bool              attr_lock;
 } gen_ctx;
 
 static void gen_one_node(gen_ctx *);
@@ -103,9 +103,9 @@ _emit(gen_ctx *ctx, int32_t op32, ...)
     n00b_type_t          *type      = NULL;
     n00b_zinstruction_t **instrptr  = NULL;
     n00b_zop_t            op        = (n00b_zop_t)(op32);
-    int64_t              arg       = 0;
-    int64_t              immediate = 0;
-    int64_t              module_id = ctx->fctx->module_id;
+    int64_t               arg       = 0;
+    int64_t               immediate = 0;
+    int64_t               module_id = ctx->fctx->module_id;
 
     n00b_kw_int64("immediate", immediate);
     n00b_kw_int64("arg", arg);
@@ -114,12 +114,12 @@ _emit(gen_ctx *ctx, int32_t op32, ...)
     n00b_kw_ptr("instrptr", instrptr);
 
     n00b_zinstruction_t *instr = n00b_new_instruction();
-    instr->op                 = op;
-    instr->module_id          = (int16_t)module_id;
-    instr->line_no            = n00b_node_get_line_number(ctx->cur_node);
-    instr->arg                = (int64_t)arg;
-    instr->immediate          = immediate;
-    instr->type_info          = type ? n00b_type_resolve(type) : NULL;
+    instr->op                  = op;
+    instr->module_id           = (int16_t)module_id;
+    instr->line_no             = n00b_node_get_line_number(ctx->cur_node);
+    instr->arg                 = (int64_t)arg;
+    instr->immediate           = immediate;
+    instr->type_info           = type ? n00b_type_resolve(type) : NULL;
 
     if (instrptr != NULL) {
         *instrptr = instr;
@@ -135,10 +135,10 @@ _emit(gen_ctx *ctx, int32_t op32, ...)
 // Returns true if the jump is fully emitted, false if a patch is required,
 // in which case the caller is responsible for tracking the patch.
 static inline bool
-gen_jump_raw(gen_ctx         *ctx,
+gen_jump_raw(gen_ctx          *ctx,
              n00b_jump_info_t *jmp_info,
              n00b_zop_t        opcode,
-             bool             pop)
+             bool              pop)
 {
     bool    result = true;
     int32_t arg    = 0;
@@ -169,7 +169,7 @@ gen_jump_raw(gen_ctx         *ctx,
     emit(ctx, opcode, n00b_kw("arg", n00b_ka(arg), "instrptr", n00b_ka(&instr)));
 
     if (result) {
-        jmp_info->to_patch     = instr;
+        jmp_info->to_patch      = instr;
         n00b_control_info_t *ci = jmp_info->linked_control_structure;
 
         if (ci != NULL) {
@@ -201,7 +201,7 @@ gen_j(gen_ctx *ctx, n00b_jump_info_t *jmp_info)
 static inline void
 gen_finish_jump(gen_ctx *ctx, n00b_jump_info_t *jmp_info)
 {
-    int32_t             arg   = ctx->instruction_counter;
+    int32_t              arg   = ctx->instruction_counter;
     n00b_zinstruction_t *instr = jmp_info->to_patch;
 
     if (instr) {
@@ -217,7 +217,7 @@ gen_apply_waiting_patches(gen_ctx *ctx, n00b_control_info_t *ci)
 
     for (int i = 0; i < n; i++) {
         n00b_jump_info_t *one = n00b_list_get(ci->awaiting_patches, i, NULL);
-        assert(one->to_patch);
+        n00b_assert(one->to_patch);
         one->to_patch->arg = ci->exit_ip;
     }
 }
@@ -251,14 +251,14 @@ gen_equality_test(gen_ctx *ctx, n00b_type_t *operand_type)
 }
 
 // Helpers for the common case where we have one exit only.
-#define JMP_TEMPLATE(g, user_code, ...)                                 \
-    do {                                                                \
-        n00b_jump_info_t *ji    = n00b_new_jump_info();                   \
-        bool             patch = g(ctx, ji __VA_OPT__(, ) __VA_ARGS__); \
-        user_code;                                                      \
-        if (patch) {                                                    \
-            gen_finish_jump(ctx, ji);                                   \
-        }                                                               \
+#define JMP_TEMPLATE(g, user_code, ...)                                  \
+    do {                                                                 \
+        n00b_jump_info_t *ji    = n00b_new_jump_info();                  \
+        bool              patch = g(ctx, ji __VA_OPT__(, ) __VA_ARGS__); \
+        user_code;                                                       \
+        if (patch) {                                                     \
+            gen_finish_jump(ctx, ji);                                    \
+        }                                                                \
     } while (0)
 
 #define GEN_J(user_code)         JMP_TEMPLATE(gen_j, user_code)
@@ -391,17 +391,17 @@ gen_sym_load_static(gen_ctx *ctx, n00b_symbol_t *sym, bool addressof)
         emit(ctx,
              N00B_ZPushStaticRef,
              n00b_kw("arg",
-                    n00b_ka(sym->static_offset),
-                    "module_id",
-                    n00b_ka(sym->local_module_id)));
+                     n00b_ka(sym->static_offset),
+                     "module_id",
+                     n00b_ka(sym->local_module_id)));
     }
     else {
         emit(ctx,
              N00B_ZPushStaticObj,
              n00b_kw("arg",
-                    n00b_ka(sym->static_offset),
-                    "module_id",
-                    n00b_ka(sym->local_module_id)));
+                     n00b_ka(sym->static_offset),
+                     "module_id",
+                     n00b_ka(sym->local_module_id)));
     }
 }
 
@@ -436,7 +436,7 @@ gen_sym_load(gen_ctx *ctx, n00b_symbol_t *sym, bool addressof)
             return;
 
         case N00B_F_REGISTER_STORAGE:
-            assert(!addressof);
+            n00b_assert(!addressof);
             emit(ctx, N00B_ZPushFromR0);
             return;
 
@@ -541,7 +541,7 @@ gen_one_kid(gen_ctx *ctx, int n)
 {
     n00b_tree_node_t *saved = ctx->cur_node;
 
-    assert(saved);
+    n00b_assert(saved);
 
     // TODO: Remove this when codegen is done.
     if (saved->num_kids <= n) {
@@ -565,7 +565,7 @@ possible_restore_from_r3(gen_ctx *ctx, bool restore)
 
 // Helpers above, implementations below.
 static inline void
-gen_test_param_flag(gen_ctx                 *ctx,
+gen_test_param_flag(gen_ctx                  *ctx,
                     n00b_module_param_info_t *param,
                     n00b_symbol_t            *sym)
 {
@@ -578,7 +578,7 @@ gen_test_param_flag(gen_ctx                 *ctx,
 }
 
 static inline void
-gen_param_via_default_value_type(gen_ctx                 *ctx,
+gen_param_via_default_value_type(gen_ctx                  *ctx,
                                  n00b_module_param_info_t *param,
                                  n00b_symbol_t            *sym)
 {
@@ -587,11 +587,11 @@ gen_param_via_default_value_type(gen_ctx                 *ctx,
 }
 
 static inline void
-gen_param_via_default_ref_type(gen_ctx                 *ctx,
+gen_param_via_default_ref_type(gen_ctx                  *ctx,
                                n00b_module_param_info_t *param,
                                n00b_symbol_t            *sym)
 {
-    uint32_t    offset = n00b_layout_const_obj(ctx->cctx, param->default_value);
+    uint32_t     offset = n00b_layout_const_obj(ctx->cctx, param->default_value);
     n00b_type_t *t      = n00b_get_my_type(param->default_value);
 
     GEN_JNZ(gen_load_const_by_offset(ctx, offset, t);
@@ -603,13 +603,13 @@ static inline void
 gen_run_internal_callback(gen_ctx *ctx, n00b_callback_info_t *cb)
 {
     // This might go away soon.
-    uint32_t    offset   = n00b_layout_const_obj(ctx->cctx, cb);
+    uint32_t     offset   = n00b_layout_const_obj(ctx->cctx, cb);
     n00b_type_t *t        = cb->target_type;
-    int         nargs    = n00b_type_get_num_params(t) - 1;
+    int          nargs    = n00b_type_get_num_params(t) - 1;
     n00b_type_t *ret_type = n00b_type_get_param(t, nargs);
-    bool        useret   = !(n00b_types_are_compat(ret_type,
-                                         n00b_type_void(),
-                                         NULL));
+    bool         useret   = !(n00b_types_are_compat(ret_type,
+                                          n00b_type_void(),
+                                          NULL));
 
     gen_load_const_by_offset(ctx, offset, n00b_get_my_type(cb));
     emit(ctx,
@@ -626,10 +626,10 @@ gen_run_internal_callback(gen_ctx *ctx, n00b_callback_info_t *cb)
 }
 
 static inline void
-gen_box_if_needed(gen_ctx         *ctx,
+gen_box_if_needed(gen_ctx          *ctx,
                   n00b_tree_node_t *n,
                   n00b_symbol_t    *sym,
-                  int              ix)
+                  int               ix)
 {
     n00b_pnode_t *pn          = n00b_get_pnode(n);
     n00b_type_t  *actual_type = n00b_type_resolve(pn->type);
@@ -651,13 +651,13 @@ gen_box_if_needed(gen_ctx         *ctx,
     }
 }
 static inline void
-gen_unbox_if_needed(gen_ctx         *ctx,
+gen_unbox_if_needed(gen_ctx          *ctx,
                     n00b_tree_node_t *n,
                     n00b_symbol_t    *sym)
 {
     n00b_pnode_t *pn          = n00b_get_pnode(n);
     n00b_type_t  *actual_type = n00b_type_resolve(pn->type);
-    int          ix          = n00b_type_get_num_params(sym->type) - 1;
+    int           ix          = n00b_type_get_num_params(sym->type) - 1;
     n00b_type_t  *param_type  = n00b_type_get_param(sym->type, ix);
 
     if (n00b_type_is_box(actual_type)) {
@@ -689,10 +689,10 @@ gen_native_call(gen_ctx *ctx, n00b_symbol_t *fsym)
     // Needed to calculate the loc of module variables.
     // Currently that's done at runtime, tho could be done in
     // a proper link pass in the future.
-    int            target_module;
+    int             target_module;
     // Index into the object file's cache.
-    int            target_fn_id;
-    int            loc  = ctx->instruction_counter;
+    int             target_fn_id;
+    int             loc  = ctx->instruction_counter;
     // When the call is generated, we might not have generated the
     // function we're calling. In that case, we will just generate
     // a stub and add the actual call instruction to a backpatch
@@ -702,8 +702,8 @@ gen_native_call(gen_ctx *ctx, n00b_symbol_t *fsym)
     // the function info object, as a function never starts at
     // offset 0.
     n00b_fn_decl_t *decl = fsym->value;
-    target_module       = decl->module_id;
-    target_fn_id        = decl->local_id;
+    target_module        = decl->module_id;
+    target_fn_id         = decl->local_id;
 
     emit(ctx,
          N00B_Z0Call,
@@ -735,7 +735,7 @@ static void
 gen_extern_call(gen_ctx *ctx, n00b_symbol_t *fsym)
 {
     n00b_ffi_decl_t *decl = (n00b_ffi_decl_t *)fsym->value;
-    int             n    = ctx->cur_node->num_kids;
+    int              n    = ctx->cur_node->num_kids;
 
     for (int i = 1; i < n; i++) {
         gen_one_kid(ctx, i);
@@ -775,10 +775,10 @@ gen_run_callback(gen_ctx *ctx, n00b_call_resolution_info_t *info)
     n00b_tree_node_t *call_node = ctx->cur_node;
     n00b_pnode_t     *pnode     = n00b_get_pnode(call_node);
     n00b_type_t      *rettype   = pnode->type;
-    int              n         = call_node->num_kids;
-    bool             use_ret   = (!n00b_types_are_compat(rettype,
-                                          n00b_type_void(),
-                                          NULL));
+    int               n         = call_node->num_kids;
+    bool              use_ret   = (!n00b_types_are_compat(rettype,
+                                           n00b_type_void(),
+                                           NULL));
     n00b_list_t      *params    = n00b_list(n00b_type_typespec());
 
     for (int i = 1; i < n; i++) {
@@ -793,11 +793,11 @@ gen_run_callback(gen_ctx *ctx, n00b_call_resolution_info_t *info)
     emit(ctx,
          N00B_ZRunCallback,
          n00b_kw("arg",
-                n00b_ka(n - 1),
-                "immediate",
-                n00b_ka(use_ret),
-                "type",
-                n00b_ka(sig)));
+                 n00b_ka(n - 1),
+                 "immediate",
+                 n00b_ka(use_ret),
+                 "type",
+                 n00b_ka(sig)));
 
     if (n > 1) {
         emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(-1 * (n - 1))));
@@ -849,7 +849,7 @@ gen_ret(gen_ctx *ctx)
 }
 
 static inline void
-gen_param_via_callback(gen_ctx                 *ctx,
+gen_param_via_callback(gen_ctx                  *ctx,
                        n00b_module_param_info_t *param,
                        n00b_symbol_t            *sym)
 {
@@ -973,9 +973,9 @@ gen_if(gen_ctx *ctx)
 static inline void
 gen_one_tcase(gen_ctx *ctx, n00b_control_info_t *switch_exit)
 {
-    int              num_conditions = ctx->cur_node->num_kids - 1;
+    int               num_conditions = ctx->cur_node->num_kids - 1;
     n00b_jump_info_t *local_jumps    = n00b_gc_array_alloc(n00b_jump_info_t,
-                                                      num_conditions);
+                                                        num_conditions);
     n00b_jump_info_t *exit_jump      = n00b_new_jump_info();
     n00b_jump_info_t *case_end       = n00b_new_jump_info();
 
@@ -1011,7 +1011,7 @@ gen_typeof(gen_ctx *ctx)
     n00b_tree_node_t    *n           = ctx->cur_node;
     n00b_pnode_t        *pnode       = n00b_get_pnode(n);
     n00b_loop_info_t    *ci          = pnode->extra_info;
-    int                 expr_ix     = 0;
+    int                  expr_ix     = 0;
     n00b_control_info_t *switch_exit = &ci->branch_info;
 
     if (gen_label(ctx, ci->branch_info.label)) {
@@ -1032,7 +1032,7 @@ gen_typeof(gen_ctx *ctx)
     // now, let's keep it simple.
     for (int i = expr_ix + 1; i < n->num_kids; i++) {
         n00b_tree_node_t *kid = n->children[i];
-        pnode                = n00b_get_pnode(kid);
+        pnode                 = n00b_get_pnode(kid);
 
         ctx->cur_node = kid;
         if (i + 1 != n->num_kids || pnode->kind != n00b_nt_else) {
@@ -1075,9 +1075,9 @@ static inline void
 gen_one_case(gen_ctx *ctx, n00b_control_info_t *switch_exit, n00b_type_t *type)
 {
     n00b_tree_node_t *n              = ctx->cur_node;
-    int              num_conditions = n->num_kids - 1;
+    int               num_conditions = n->num_kids - 1;
     n00b_jump_info_t *local_jumps    = n00b_gc_array_alloc(n00b_jump_info_t,
-                                                      num_conditions);
+                                                        num_conditions);
     n00b_jump_info_t *case_end       = n00b_new_jump_info();
     n00b_jump_info_t *exit_jump      = n00b_new_jump_info();
 
@@ -1118,7 +1118,7 @@ gen_one_case(gen_ctx *ctx, n00b_control_info_t *switch_exit, n00b_type_t *type)
 static inline void
 gen_switch(gen_ctx *ctx)
 {
-    int                 expr_ix     = 0;
+    int                  expr_ix     = 0;
     n00b_tree_node_t    *n           = ctx->cur_node;
     n00b_pnode_t        *pnode       = n00b_get_pnode(n);
     n00b_loop_info_t    *ci          = pnode->extra_info;
@@ -1134,10 +1134,10 @@ gen_switch(gen_ctx *ctx)
     pnode     = n00b_get_pnode(n->children[expr_ix]);
     expr_type = pnode->type;
 
-    int              n_cases       = n->num_kids - expr_ix;
+    int               n_cases       = n->num_kids - expr_ix;
     n00b_tree_node_t *possible_else = n->children[n->num_kids - 1];
     n00b_pnode_t     *kidpn         = n00b_get_pnode(possible_else);
-    bool             have_else     = kidpn->kind == n00b_nt_else;
+    bool              have_else     = kidpn->kind == n00b_nt_else;
 
     if (have_else) {
         n_cases -= 1;
@@ -1182,7 +1182,7 @@ gen_index_var_init(gen_ctx *ctx, n00b_loop_info_t *li)
     }
 
     if (li->gen_ix && li->gen_named_ix) {
-        assert(li->loop_ix == li->named_loop_ix);
+        n00b_assert(li->loop_ix == li->named_loop_ix);
     }
 
     gen_load_immediate(ctx, 0);
@@ -1201,7 +1201,7 @@ gen_len_var_init(gen_ctx *ctx, n00b_loop_info_t *li)
     }
     if (li->named_loop_last && n00b_list_len(li->named_loop_last->ct->sym_uses) > 0) {
         if (sym != NULL) {
-            assert(sym == li->named_loop_last);
+            n00b_assert(sym == li->named_loop_last);
         }
         else {
             sym = li->named_loop_last;
@@ -1259,9 +1259,9 @@ store_view_item(gen_ctx *ctx, n00b_loop_info_t *li)
 }
 
 static inline void
-deal_with_iteration_count(gen_ctx         *ctx,
+deal_with_iteration_count(gen_ctx          *ctx,
                           n00b_loop_info_t *li,
-                          bool             have_index_var)
+                          bool              have_index_var)
 {
     if (have_index_var) {
         gen_index_var_increment(ctx, li);
@@ -1483,9 +1483,9 @@ gen_container_for(gen_ctx *ctx, n00b_loop_info_t *li)
 static inline void
 gen_for(gen_ctx *ctx)
 {
-    int              expr_ix     = 0;
+    int               expr_ix     = 0;
     n00b_loop_info_t *li          = ctx->cur_pnode->extra_info;
-    int              saved_stack = ctx->current_stack_offset;
+    int               saved_stack = ctx->current_stack_offset;
 
     if (gen_label(ctx, li->branch_info.label)) {
         expr_ix++;
@@ -1511,8 +1511,8 @@ gen_for(gen_ctx *ctx)
 static inline void
 gen_while(gen_ctx *ctx)
 {
-    int              saved_stack = ctx->current_stack_offset;
-    int              expr_ix     = 0;
+    int               saved_stack = ctx->current_stack_offset;
+    int               expr_ix     = 0;
     n00b_tree_node_t *n           = ctx->cur_node;
     n00b_pnode_t     *pnode       = n00b_get_pnode(n);
     n00b_loop_info_t *li          = pnode->extra_info;
@@ -1816,11 +1816,11 @@ gen_callback_literal(gen_ctx *ctx)
         emit(ctx,
              N00B_ZPushFfiPtr,
              n00b_kw("arg",
-                    n00b_ka(f->global_ffi_call_ix),
-                    "type",
-                    n00b_ka(scb->target_type),
-                    "immediate",
-                    n00b_ka(f->skip_boxes)));
+                     n00b_ka(f->global_ffi_call_ix),
+                     "type",
+                     n00b_ka(scb->target_type),
+                     "immediate",
+                     n00b_ka(f->skip_boxes)));
     }
     else {
         n00b_fn_decl_t *f = scb->binding.implementation.local_interface;
@@ -1828,11 +1828,11 @@ gen_callback_literal(gen_ctx *ctx)
         emit(ctx,
              N00B_ZPushVmPtr,
              n00b_kw("arg",
-                    n00b_ka(f->local_id),
-                    "module_id",
-                    n00b_ka(f->module_id),
-                    "type",
-                    n00b_ka(scb->target_type)));
+                     n00b_ka(f->local_id),
+                     "module_id",
+                     n00b_ka(f->module_id),
+                     "type",
+                     n00b_ka(scb->target_type)));
     }
 }
 
@@ -1908,9 +1908,9 @@ static inline void
 gen_assign(gen_ctx *ctx)
 {
     n00b_type_t *t        = n00b_type_resolve(ctx->cur_pnode->type);
-    bool        lhs_attr = false;
-    ctx->assign_method   = assign_to_mem_slot;
-    ctx->lvalue          = true;
+    bool         lhs_attr = false;
+    ctx->assign_method    = assign_to_mem_slot;
+    ctx->lvalue           = true;
 
     gen_one_kid(ctx, 0);
     if (ctx->assign_method == assign_to_attribute) {
@@ -1973,25 +1973,25 @@ handle_attribute:
     }
 }
 
-#define BINOP_ASSIGN_GEN(ctx, op, t)                           \
-    if (n00b_type_get_kind(t) == N00B_DT_KIND_primitive) {       \
+#define BINOP_ASSIGN_GEN(ctx, op, t)                            \
+    if (n00b_type_get_kind(t) == N00B_DT_KIND_primitive) {      \
         if (n00b_type_is_int_type(t)) {                         \
             gen_int_binary_op(ctx, op, n00b_type_is_signed(t)); \
-        }                                                      \
-                                                               \
-        else {                                                 \
+        }                                                       \
+                                                                \
+        else {                                                  \
             if (n00b_type_is_bool(t)) {                         \
-                gen_int_binary_op(ctx, op, false);             \
-            }                                                  \
-            else {                                             \
+                gen_int_binary_op(ctx, op, false);              \
+            }                                                   \
+            else {                                              \
                 if (t->typeid == N00B_T_F64) {                  \
-                    gen_float_binary_op(ctx, op);              \
-                }                                              \
-                else {                                         \
-                    gen_polymorphic_binary_op(ctx, op, t);     \
-                }                                              \
-            }                                                  \
-        }                                                      \
+                    gen_float_binary_op(ctx, op);               \
+                }                                               \
+                else {                                          \
+                    gen_polymorphic_binary_op(ctx, op, t);      \
+                }                                               \
+            }                                                   \
+        }                                                       \
     }
 
 static inline void
@@ -2045,9 +2045,9 @@ gen_index_or_slice(gen_ctx *ctx)
     // We turn of LHS tracking internally, because we don't poke
     // directly into the object's memory and don't want to generate a
     // settable ref.
-    bool         lvalue = ctx->lvalue;
+    bool          lvalue = ctx->lvalue;
     n00b_pnode_t *pnode  = n00b_get_pnode(ctx->cur_node->children[1]);
-    bool         slice  = pnode->kind == n00b_nt_range;
+    bool          slice  = pnode->kind == n00b_nt_range;
 
     ctx->lvalue = false;
 
@@ -2105,13 +2105,13 @@ gen_elision(gen_ctx *ctx)
     // Otherwise, we cheat a little bit here, and signal to
     // gen_index_or_slice through the range pnode.
     n00b_pnode_t *range_pnode = n00b_get_pnode(ctx->cur_node->parent);
-    range_pnode->extra_info  = (void *)1;
+    range_pnode->extra_info   = (void *)1;
 }
 
 static inline void
 gen_sym_decl(gen_ctx *ctx)
 {
-    int              last = ctx->cur_node->num_kids - 1;
+    int               last = ctx->cur_node->num_kids - 1;
     n00b_pnode_t     *kid  = n00b_get_pnode(ctx->cur_node->children[last]);
     n00b_pnode_t     *psym;
     n00b_tree_node_t *cur = ctx->cur_node;
@@ -2391,14 +2391,14 @@ gen_return_once_memo(gen_ctx *ctx, n00b_fn_decl_t *decl)
 }
 
 static void
-gen_function(gen_ctx      *ctx,
+gen_function(gen_ctx       *ctx,
              n00b_symbol_t *sym,
              n00b_module_t *module,
              n00b_vm_t     *vm)
 {
     n00b_fn_decl_t *decl = sym->value;
-    int            n    = sym->ct->declaration_node->num_kids;
-    ctx->cur_node       = sym->ct->declaration_node->children[n - 1];
+    int             n    = sym->ct->declaration_node->num_kids;
+    ctx->cur_node        = sym->ct->declaration_node->children[n - 1];
 
     n00b_zfn_info_t *fn_info_for_obj = n00b_new_zfn();
 
@@ -2439,7 +2439,7 @@ gen_function(gen_ctx      *ctx,
         GEN_JZ(emit(ctx,
                     N00B_ZUnlockMutex,
                     n00b_kw("arg",
-                           n00b_ka(decl->sc_lock_offset)));
+                            n00b_ka(decl->sc_lock_offset)));
                emit(ctx,
                     N00B_ZPushStaticObj,
                     n00b_kw("arg", n00b_ka(decl->sc_memo_offset)));
@@ -2481,8 +2481,8 @@ gen_function(gen_ctx      *ctx,
 
     // The actual backpatching of the needed frame size.
     n00b_zinstruction_t *ins = n00b_list_get(module->instructions, sp_loc, NULL);
-    ins->arg                = ctx->current_stack_offset;
-    fn_info_for_obj->size   = ctx->current_stack_offset;
+    ins->arg                 = ctx->current_stack_offset;
+    fn_info_for_obj->size    = ctx->current_stack_offset;
 
     n00b_list_append(vm->obj->func_info, fn_info_for_obj);
 
@@ -2498,7 +2498,7 @@ gen_function(gen_ctx      *ctx,
 static void
 gen_module_code(gen_ctx *ctx, n00b_vm_t *vm)
 {
-    n00b_module_t *module      = ctx->fctx;
+    n00b_module_t *module     = ctx->fctx;
     ctx->cur_node             = module->ct->parse_tree;
     ctx->instructions         = n00b_list(n00b_type_ref());
     ctx->cur_pnode            = n00b_get_pnode(ctx->cur_node);
@@ -2522,14 +2522,14 @@ gen_module_code(gen_ctx *ctx, n00b_vm_t *vm)
     gen_one_node(ctx);
 
     n00b_zinstruction_t *sp_move = n00b_list_get(module->instructions,
-                                               ctx->module_patch_loc,
-                                               NULL);
-    sp_move->arg                = ctx->max_stack_size;
+                                                 ctx->module_patch_loc,
+                                                 NULL);
+    sp_move->arg                 = ctx->max_stack_size;
 
     emit(ctx, N00B_ZModuleRet);
 
     n00b_list_t *symlist = ctx->fctx->fn_def_syms;
-    int         n       = n00b_list_len(symlist);
+    int          n       = n00b_list_len(symlist);
 
     if (n) {
         gen_label(ctx, n00b_new_utf8("Functions: "));
@@ -2544,8 +2544,8 @@ gen_module_code(gen_ctx *ctx, n00b_vm_t *vm)
     if (l != 0) {
         for (int j = 0; j < l; j++) {
             n00b_symbol_t   *d    = n00b_list_get(ctx->fctx->extern_decls,
-                                           j,
-                                           NULL);
+                                             j,
+                                             NULL);
             n00b_ffi_decl_t *decl = d->value;
 
             n00b_list_append(vm->obj->ffi_info, decl);
@@ -2556,14 +2556,14 @@ gen_module_code(gen_ctx *ctx, n00b_vm_t *vm)
 static inline void
 backpatch_calls(gen_ctx *ctx)
 {
-    int                        n = n00b_list_len(ctx->call_backpatches);
+    int                         n = n00b_list_len(ctx->call_backpatches);
     n00b_call_backpatch_info_t *info;
 
     for (int i = 0; i < n; i++) {
         info               = n00b_list_get(ctx->call_backpatches, i, NULL);
         info->i->arg       = info->decl->local_id;
         info->i->module_id = info->decl->module_id;
-        assert(info->i->arg != 0);
+        n00b_assert(info->i->arg != 0);
     }
 }
 

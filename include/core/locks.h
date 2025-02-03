@@ -138,7 +138,7 @@ _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
         return false;
     case 0:
         l->thread = pthread_self();
-        assert(!l->level);
+        n00b_assert(!l->level);
         add_lock_record(l, f, ln);
         return true;
     default:
@@ -163,7 +163,7 @@ _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
             add_lock_record(l, f, ln);
         }
         l->thread = pthread_self();
-        assert(!l->level);
+        n00b_assert(!l->level);
         add_lock_record(l, f, ln);
     }
 }
@@ -203,11 +203,11 @@ n00b_rw_lock_release(n00b_rw_lock_t *l)
     __VA_ARGS__;                        \
     pthread_cond_wait(&((c)->cv), (&(c)->lock.lock));
 
-#define n00b_condition_wait(c, ...)                                     \
-    n00b_lock_acquire(&(c)->lock);                                      \
-    __VA_ARGS__;                                                        \
-    n00b_gts_suspend();                                                 \
-    assert(pthread_cond_wait(&((c)->cv), (&(c)->lock.lock)) != EINVAL); \
+#define n00b_condition_wait(c, ...)                                          \
+    n00b_lock_acquire(&(c)->lock);                                           \
+    __VA_ARGS__;                                                             \
+    n00b_gts_suspend();                                                      \
+    n00b_assert(pthread_cond_wait(&((c)->cv), (&(c)->lock.lock)) != EINVAL); \
     n00b_gts_resume()
 
 #define n00b_condition_wait_then_unlock(c, ...)          \

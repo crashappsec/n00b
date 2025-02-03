@@ -319,7 +319,7 @@ translate_pointer(n00b_pickle_ctx *ctx, void *p)
     n00b_alloc_hdr *dst_hdr = get_write_record(ctx, src_hdr, &offset);
 
     if (dst_hdr) {
-        assert(dst_hdr->guard == N00B_MARSHAL_RECORD_GUARD);
+        n00b_assert(dst_hdr->guard == N00B_MARSHAL_RECORD_GUARD);
         enqueue_write_record(ctx, src_hdr, dst_hdr, offset);
     }
 
@@ -349,10 +349,10 @@ process_queue_item(n00b_pickle_ctx *ctx, n00b_pickle_wl_item_t *item)
     uint64_t  num_words = (item->src->alloc_len - sizeof(n00b_alloc_hdr)) / 8;
     int64_t   offset    = item->cur_offset + sizeof(n00b_alloc_hdr);
     uint64_t *end       = &((uint64_t *)((unsigned char *)sptr))[num_words];
-    assert((((char *)sptr) - (char *)item->src) == sizeof(n00b_alloc_hdr));
-    assert((((char *)dptr) - (char *)item->dst) == sizeof(n00b_alloc_hdr));
-    assert(item->src->guard == n00b_gc_guard);
-    assert(item->dst->guard == N00B_MARSHAL_RECORD_GUARD);
+    n00b_assert((((char *)sptr) - (char *)item->src) == sizeof(n00b_alloc_hdr));
+    n00b_assert((((char *)dptr) - (char *)item->dst) == sizeof(n00b_alloc_hdr));
+    n00b_assert(item->src->guard == n00b_gc_guard);
+    n00b_assert(item->dst->guard == N00B_MARSHAL_RECORD_GUARD);
 
     while (sptr < end) {
         *dptr = process_one_word(ctx, sptr, offset);
@@ -513,8 +513,8 @@ bundle_result(n00b_pickle_ctx *ctx, n00b_alloc_hdr *end_record)
 
     ctx->current_output_buf = NULL;
 
-    assert(b->byte_len == to_alloc);
-    assert(!(b->byte_len % 16));
+    n00b_assert(b->byte_len == to_alloc);
+    n00b_assert(!(b->byte_len % 16));
     return b;
 }
 
@@ -530,7 +530,7 @@ n00b_internal_pickle(n00b_pickle_ctx *ctx, void *addr)
         return NULL;
     }
 
-    assert(dst->guard == N00B_MARSHAL_RECORD_GUARD);
+    n00b_assert(dst->guard == N00B_MARSHAL_RECORD_GUARD);
     enqueue_write_record(ctx, src, dst, offset);
     process_queue(ctx);
 
@@ -654,7 +654,7 @@ n00b_receive_unpickle_info(n00b_unpickle_ctx *ctx, n00b_buf_t *inbuf)
         ctx->partial     = n00b_buffer_add(ctx->partial, inbuf);
         ctx->part_cursor = ctx->partial->data + offset;
 
-        assert(dbg_old + dbg_new == n00b_buffer_len(ctx->partial));
+        n00b_assert(dbg_old + dbg_new == n00b_buffer_len(ctx->partial));
     }
 
     return;
@@ -680,7 +680,7 @@ n00b_slice_one_pickle(n00b_unpickle_ctx *ctx, char *end)
         ctx->partial     = n00b_slice_get(ctx->partial, slice_len, blen);
         ctx->part_cursor = ctx->partial->data;
 
-        assert(ctx->partial->byte_len == blen - slice_len);
+        n00b_assert(ctx->partial->byte_len == blen - slice_len);
     }
 
     return result;
@@ -739,7 +739,7 @@ n00b_check_unpickle_readiness(n00b_unpickle_ctx *ctx)
 
             cprintf("\nBAD APPLE. %s\n", n00b_ansify(s, false, 0));
 
-            assert(h->n00b_marshal_end);
+            n00b_assert(h->n00b_marshal_end);
         }
         ctx->part_cursor += h->alloc_len;
     }
@@ -755,7 +755,7 @@ find_end_record(n00b_buf_t *buf)
         n00b_alloc_hdr *h = (void *)p;
 
         if (h->guard == N00B_MARSHAL_RECORD_GUARD) {
-            assert(h->n00b_marshal_end);
+            n00b_assert(h->n00b_marshal_end);
             return h;
         }
         p--;
@@ -831,7 +831,7 @@ n00b_unmarshal_records(n00b_unpickle_ctx *ctx, n00b_alloc_hdr *end_record)
     // The format gets checked before calling this, below in
     // n00b_check_unpickle_readiness.
     while (hdr->alloc_len && hdr < end_record) {
-        assert(hdr->guard == N00B_MARSHAL_RECORD_GUARD);
+        n00b_assert(hdr->guard == N00B_MARSHAL_RECORD_GUARD);
         hdr->guard = n00b_gc_guard;
         hdr->type  = n00b_safe_unmunge_pointer(ctx, hdr->type);
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
@@ -1099,7 +1099,7 @@ n00b_automarshal(void *obj)
     n00b_write(cb, obj);
     n00b_wait(n, 0);
 
-    assert(n00b_len(results) == 1);
+    n00b_assert(n00b_len(results) == 1);
     return n00b_list_get(results, 0, NULL);
 }
 

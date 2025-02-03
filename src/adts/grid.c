@@ -23,7 +23,7 @@ grid_style(n00b_grid_t *grid)
             n00b_new_utf8("table"));
     }
 
-    assert(n00b_in_heap(grid->self->current_style));
+    n00b_assert(n00b_in_heap(grid->self->current_style));
     return grid->self->current_style;
 }
 
@@ -637,12 +637,12 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
 
             switch (props->dim_kind) {
             case N00B_DIM_ABSOLUTE:
-                assert(i < grid->num_cols);
+                n00b_assert(i < grid->num_cols);
                 result[i] = (uint16_t)props->dims.units;
                 sum += result[i];
                 break;
             case N00B_DIM_ABSOLUTE_RANGE:
-                assert(i < grid->num_cols);
+                n00b_assert(i < grid->num_cols);
                 result[i] = (uint16_t)props->dims.range[1];
                 sum += result[i];
                 break;
@@ -683,7 +683,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
         switch (props->dim_kind) {
         case N00B_DIM_ABSOLUTE:
             cur = (uint16_t)props->dims.units;
-            assert(i < grid->num_cols);
+            n00b_assert(i < grid->num_cols);
             result[i] = cur;
             sum += cur;
             remaining -= cur;
@@ -691,7 +691,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
         case N00B_DIM_ABSOLUTE_RANGE:
             has_range = true;
             cur       = (uint16_t)props->dims.range[0];
-            assert(i < grid->num_cols);
+            n00b_assert(i < grid->num_cols);
             result[i] = cur;
             sum += cur;
             remaining -= cur;
@@ -699,7 +699,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
         case N00B_DIM_PERCENT_TRUNCATE:
             pct = (props->dims.percent / 100);
             cur = (uint16_t)(pct * width);
-            assert(i < grid->num_cols);
+            n00b_assert(i < grid->num_cols);
             result[i] = cur;
             sum += cur;
             remaining -= cur;
@@ -707,7 +707,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
         case N00B_DIM_PERCENT_ROUND:
             pct = (props->dims.percent + 0.5) / 100;
             cur = (uint16_t)(pct * width);
-            assert(i < grid->num_cols);
+            n00b_assert(i < grid->num_cols);
             result[i] = cur;
             sum += cur;
             remaining -= cur;
@@ -716,7 +716,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
             cur = column_text_width(grid, i);
             // Assume minimal padding needed.
             cur += 2;
-            assert(i < grid->num_cols);
+            n00b_assert(i < grid->num_cols);
             result[i] = cur;
             sum += cur;
             remaining -= cur;
@@ -760,7 +760,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
             cur = n00b_min((uint16_t)desired, (uint16_t)remaining);
             sum += cur;
             remaining -= cur;
-            assert(i < grid->num_cols);
+            n00b_assert(i < grid->num_cols);
             result[i] += cur;
             if (remaining == 0) {
                 *render_width = sum;
@@ -795,7 +795,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
         case N00B_DIM_UNSET:
         case N00B_DIM_AUTO:
             if (--num_flex == 0) {
-                assert(i < grid->num_cols);
+                n00b_assert(i < grid->num_cols);
                 result[i] += remaining;
                 sum += remaining;
 
@@ -803,7 +803,7 @@ n00b_calculate_col_widths(n00b_grid_t *grid, int16_t width, int16_t *render_widt
                 return result;
             }
             cur = (uint16_t)(units * flex_width);
-            assert(i < grid->num_cols);
+            n00b_assert(i < grid->num_cols);
             result[i] = cur;
             sum += cur;
             remaining -= cur;
@@ -2527,7 +2527,7 @@ build_tree_output(n00b_tree_node_t *node, tree_fmt_t *info, bool last)
     int64_t num_kids = n00b_tree_get_number_children(node);
 
     if (last) {
-        assert(info->padstr[last_len] == info->lchar);
+        n00b_assert(info->padstr[last_len] == info->lchar);
         info->padstr[last_len] = 'x';
     }
 

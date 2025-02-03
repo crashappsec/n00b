@@ -522,7 +522,7 @@ gopt_extract_top_spec(n00b_gopt_extraction_ctx *ctx)
 
     hatrack_dict_put(ctx->args, ctx->path, args);
 
-    assert(ctx->cur_cmd);
+    n00b_assert(ctx->cur_cmd);
 
     for (int i = 0; i < len; i++) {
         ctx->intree = n->children[i];
@@ -603,9 +603,9 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
     if (pn->bad_prefix) {
         n00b_tree_node_t *n = cur->children[0];
 
-        assert(!n->num_kids);
+        n00b_assert(!n->num_kids);
         n = cur->children[1];
-        // assert(!n->num_kids);
+        // n00b_assert(!n->num_kids);
 
         n00b_parse_node_t *bad_kid = n00b_tree_get_contents(cur->children[0]);
 

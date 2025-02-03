@@ -27,7 +27,7 @@ n00b_new_cfg_status()
 static n00b_symbol_t *
 follow_sym_links(n00b_symbol_t *sym)
 {
-    assert(sym != NULL);
+    n00b_assert(sym != NULL);
     while (sym->linked_symbol != NULL) {
         sym = sym->linked_symbol;
     }
@@ -42,7 +42,7 @@ sym_cmp(n00b_symbol_t *sym1, n00b_symbol_t *sym2)
 }
 
 static bool
-cfg_propogate_def(cfg_ctx        *ctx,
+cfg_propogate_def(cfg_ctx         *ctx,
                   n00b_symbol_t   *sym,
                   n00b_cfg_node_t *n,
                   n00b_list_t     *deps)
@@ -75,7 +75,7 @@ cfg_propogate_def(cfg_ctx        *ctx,
 }
 
 static bool
-cfg_propogate_use(cfg_ctx        *ctx,
+cfg_propogate_use(cfg_ctx         *ctx,
                   n00b_symbol_t   *sym,
                   n00b_cfg_node_t *n)
 {
@@ -120,17 +120,17 @@ cfg_propogate_use(cfg_ctx        *ctx,
 }
 
 static void
-cfg_copy_du_info(cfg_ctx        *ctx,
+cfg_copy_du_info(cfg_ctx         *ctx,
                  n00b_cfg_node_t *node,
                  n00b_dict_t    **new_dict,
                  n00b_list_t    **new_sometimes)
 {
     n00b_dict_t *copy = n00b_dict(n00b_type_ref(), n00b_type_ref());
-    uint64_t    n;
+    uint64_t     n;
 
     hatrack_dict_item_t *view = hatrack_dict_items_sort(node->liveness_info,
                                                         &n);
-    n00b_dict_t          *d    = n00b_dict(n00b_type_utf8(), n00b_type_int());
+    n00b_dict_t         *d    = n00b_dict(n00b_type_utf8(), n00b_type_int());
 
     for (uint64_t i = 0; i < n; i++) {
         n00b_symbol_t *sym = view[i].key;
@@ -153,8 +153,8 @@ cfg_copy_du_info(cfg_ctx        *ctx,
         int l          = n00b_list_len(old);
         for (int i = 0; i < l; i++) {
             n00b_list_add_if_unique(*new_sometimes,
-                                   n00b_list_get(old, i, NULL),
-                                   (bool (*)(void *, void *))sym_cmp);
+                                    n00b_list_get(old, i, NULL),
+                                    (bool (*)(void *, void *))sym_cmp);
         }
     }
 }
@@ -175,15 +175,15 @@ check_for_fn_exit_errors(n00b_module_t *file, n00b_fn_decl_t *fn_decl)
 
     n00b_scope_t      *fn_scope  = fn_decl->signature_info->fn_scope;
     n00b_symbol_t     *ressym    = n00b_symbol_lookup(fn_scope,
-                                             NULL,
-                                             NULL,
-                                             NULL,
-                                             result_text);
+                                               NULL,
+                                               NULL,
+                                               NULL,
+                                               result_text);
     n00b_cfg_node_t   *node      = fn_decl->cfg;
     n00b_cfg_node_t   *exit_node = node->contents.block_entrance.exit_node;
     n00b_cfg_status_t *status    = hatrack_dict_get(exit_node->liveness_info,
-                                                ressym,
-                                                NULL);
+                                                 ressym,
+                                                 NULL);
 
     // the result symbol is in the ending live set, so we're done.
 
@@ -250,7 +250,7 @@ check_block_for_errors(cfg_ctx *ctx, n00b_cfg_node_t *node)
 
         if (node->use_without_def) {
             n00b_symbol_t       *sym;
-            bool                sometimes = false;
+            bool                 sometimes = false;
             n00b_symbol_t       *check;
             n00b_compile_error_t err;
 
@@ -273,9 +273,9 @@ check_block_for_errors(cfg_ctx *ctx, n00b_cfg_node_t *node)
                     err = n00b_cfg_use_no_def;
                 }
                 n00b_add_error(ctx->module_ctx,
-                              err,
-                              node->reference_location,
-                              sym->name);
+                               err,
+                               node->reference_location,
+                               sym->name);
             }
         }
 
@@ -343,7 +343,7 @@ cfg_merge_aux_entries_to_top(cfg_ctx *ctx, n00b_cfg_node_t *node)
     }
 
     for (int i = 0; i < num_inbounds; i++) {
-        uint64_t        nitems;
+        uint64_t         nitems;
         n00b_cfg_node_t *one = n00b_list_get(inbounds, i, NULL);
 
         if (one->liveness_info == NULL) {
@@ -387,8 +387,8 @@ cfg_merge_aux_entries_to_top(cfg_ctx *ctx, n00b_cfg_node_t *node)
     for (int i = 0; i < n00b_list_len(not_unique); i++) {
         void *item = n00b_list_get(not_unique, i, NULL);
         n00b_list_add_if_unique(exit->sometimes_live,
-                               item,
-                               (bool (*)(void *, void *))sym_cmp);
+                                item,
+                                (bool (*)(void *, void *))sym_cmp);
     }
 }
 
@@ -397,18 +397,18 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
 {
     // Merge and push forward info on partial crapola.
     n00b_dict_t            *counters  = n00b_new(n00b_type_dict(n00b_type_ref(),
-                                                 n00b_type_ref()));
+                                                    n00b_type_ref()));
     n00b_set_t             *sometimes = n00b_new(n00b_type_set(n00b_type_ref()));
     n00b_cfg_branch_info_t *bi        = &node->contents.branches;
     n00b_dict_t            *merged    = n00b_new(n00b_type_dict(n00b_type_ref(),
-                                               n00b_type_ref()));
+                                                  n00b_type_ref()));
     n00b_cfg_node_t        *exit_node;
     n00b_symbol_t          *sym;
-    hatrack_dict_item_t   *view;
+    hatrack_dict_item_t    *view;
     n00b_cfg_status_t      *status;
     n00b_cfg_status_t      *old_status;
-    cfg_merge_ct_t         count_info;
-    uint64_t               len;
+    cfg_merge_ct_t          count_info;
+    uint64_t                len;
 
     for (int i = 0; i < bi->num_branches; i++) {
         exit_node = bi->branch_targets[i]->contents.block_entrance.exit_node;
@@ -501,8 +501,8 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
     for (int i = 0; i < n00b_list_len(not_unique); i++) {
         void *item = n00b_list_get(not_unique, i, NULL);
         n00b_list_add_if_unique(node->sometimes_live,
-                               item,
-                               (bool (*)(void *, void *))sym_cmp);
+                                item,
+                                (bool (*)(void *, void *))sym_cmp);
     }
 }
 
@@ -577,8 +577,8 @@ cfg_process_node(cfg_ctx *ctx, n00b_cfg_node_t *node, n00b_cfg_node_t *parent)
         // we can give the right error message.
 
         n00b_cfg_node_t *ret = cfg_process_node(ctx,
-                                               enter_info->next_node,
-                                               node);
+                                                enter_info->next_node,
+                                                node);
 
         if (ret) {
             cfg_copy_du_info(ctx,
@@ -666,8 +666,8 @@ cfg_process_node(cfg_ctx *ctx, n00b_cfg_node_t *node, n00b_cfg_node_t *parent)
 
         for (int i = 0; i < n00b_list_len(node->contents.flow.deps); i++) {
             n00b_symbol_t *sym = n00b_list_get(node->contents.flow.deps,
-                                             i,
-                                             NULL);
+                                               i,
+                                               NULL);
             cfg_propogate_use(ctx, sym, node);
         }
         cfg_process_node(ctx, node->contents.flow.next_node, node);
@@ -678,9 +678,9 @@ cfg_process_node(cfg_ctx *ctx, n00b_cfg_node_t *node, n00b_cfg_node_t *parent)
                          &node->liveness_info,
                          &node->sometimes_live);
 
-        uint64_t        n;
+        uint64_t         n;
         n00b_cfg_node_t *ta = node->contents.jump.target;
-        void          **v  = hatrack_dict_keys_sort(node->liveness_info,
+        void           **v  = hatrack_dict_keys_sort(node->liveness_info,
                                           &n);
 
         if (!ta) {
@@ -692,15 +692,15 @@ cfg_process_node(cfg_ctx *ctx, n00b_cfg_node_t *node, n00b_cfg_node_t *parent)
 
         for (uint64_t i = 0; i < n; i++) {
             n00b_list_add_if_unique(ta->sometimes_live,
-                                   v[i],
-                                   (bool (*)(void *, void *))sym_cmp);
+                                    v[i],
+                                    (bool (*)(void *, void *))sym_cmp);
         }
 
         n00b_list_t *old = node->sometimes_live;
         for (int64_t i = 0; i < n00b_list_len(old); i++) {
             n00b_list_add_if_unique(ta->sometimes_live,
-                                   n00b_list_get(old, i, NULL),
-                                   (bool (*)(void *, void *))sym_cmp);
+                                    n00b_list_get(old, i, NULL),
+                                    (bool (*)(void *, void *))sym_cmp);
         }
 
         return NULL;
@@ -755,11 +755,11 @@ n00b_cfg_analyze(n00b_module_t *module_ctx, n00b_dict_t *du_info)
     n00b_list_t     *stdefs  = modexit->sometimes_live;
 
     for (int i = 0; i < n; i++) {
-        ctx.du_info         = moddefs;
-        ctx.sometimes_info  = stdefs;
+        ctx.du_info          = moddefs;
+        ctx.sometimes_info   = stdefs;
         n00b_symbol_t  *sym  = n00b_list_get(module_ctx->fn_def_syms,
-                                         i,
-                                         NULL);
+                                           i,
+                                           NULL);
         n00b_fn_decl_t *decl = sym->value;
 
         cfg_process_node(&ctx, decl->cfg, NULL);
@@ -771,8 +771,8 @@ n00b_cfg_analyze(n00b_module_t *module_ctx, n00b_dict_t *du_info)
         for (int i = 0; i < n00b_list_len(stdefs); i++) {
             void *item = n00b_list_get(stdefs, i, NULL);
             n00b_list_add_if_unique(cleanup,
-                                   item,
-                                   (bool (*)(void *, void *))sym_cmp);
+                                    item,
+                                    (bool (*)(void *, void *))sym_cmp);
         }
         modexit->sometimes_live = stdefs;
     }

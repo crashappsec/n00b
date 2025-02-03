@@ -346,7 +346,7 @@ n00b_utf8_ansi_render(const n00b_utf8_t *s, n00b_stream_t *outstream)
         }
 
         int tmp = utf8proc_iterate(p, 4, &codepoint);
-        assert(tmp > 0);
+        n00b_assert(tmp > 0);
         p += tmp;
         cp_ix += 1;
 

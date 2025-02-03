@@ -1652,7 +1652,7 @@ n00b_thread_runtime_acquire()
 int
 n00b_vmthread_run(n00b_vmthread_t *tstate)
 {
-    assert(!tstate->running);
+    n00b_assert(!tstate->running);
     tstate->running = true;
 
     thread_runtime = tstate;

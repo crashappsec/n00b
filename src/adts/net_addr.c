@@ -141,8 +141,8 @@ ipaddr_init(n00b_net_addr_t *obj, va_list args)
             set_v4(obj, address, (uint16_t)port);
         }
     }
-    assert(obj->family != 0);
-    assert(obj->addr.v4.sin_family != 0);
+    n00b_assert(obj->family != 0);
+    n00b_assert(obj->addr.v4.sin_family != 0);
 
     if (resolve) {
         perform_inline_resolve(obj);

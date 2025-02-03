@@ -288,6 +288,7 @@ n00b_util = [
     'src/util/markdown.c',
     'src/util/json.c',
     'src/util/highlights.c',
+    'src/util/assert.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']

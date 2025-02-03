@@ -169,7 +169,7 @@ json_walk_array(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
 void *
 json_walk_element(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
 {
-    assert(n00b_list_len(l) == 3);
+    n00b_assert(n00b_list_len(l) == 3);
     return n00b_list_get(l, 1, NULL);
 }
 
