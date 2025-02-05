@@ -92,20 +92,21 @@ typedef enum {
 
 typedef struct {
     struct n00b_module_t *module;
-    n00b_codepoint_t             *start_ptr;
-    n00b_codepoint_t             *end_ptr;
-    n00b_utf8_t                  *literal_modifier;
-    void                        *literal_value; // Once parsed.
-    n00b_utf8_t                  *text;
-    n00b_lit_syntax_t             syntax;
-    n00b_token_kind_t             kind;
-    int                          token_id;
-    int                          line_no;
-    int                          line_offset;
+    n00b_codepoint_t     *start_ptr;
+    n00b_codepoint_t     *end_ptr;
+    n00b_string_t          *literal_modifier;
+    void                 *literal_value; // Once parsed.
+    n00b_string_t          *text;
+    uint64_t              noscan;
+    n00b_lit_syntax_t     syntax;
+    n00b_token_kind_t     kind;
+    int                   token_id;
+    int                   line_no;
+    int                   line_offset;
     // Original index relative to all added tokens under a parse node.
     // We do this because we don't keep the comments in the main tree,
     // we stash them with the node payload.
-    uint32_t                     child_ix;
-    uint8_t                      adjustment; // For keeping track of quoting.
+    uint32_t              child_ix;
+    uint8_t               adjustment; // For keeping track of quoting.
 
 } n00b_token_t;

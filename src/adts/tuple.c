@@ -41,21 +41,21 @@ n00b_tuple_len(n00b_tuple_t *tup)
     return tup->num_items;
 }
 
-static n00b_str_t *
+static n00b_string_t *
 tuple_repr(n00b_tuple_t *tup)
 {
     int          len   = tup->num_items;
-    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_utf32()));
+    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_string()));
 
     for (int i = 0; i < len; i++) {
         n00b_list_append(items, n00b_repr(tup->items[i]));
     }
 
-    n00b_str_t *sep    = n00b_get_comma_const();
-    n00b_str_t *result = n00b_str_join(items, sep);
+    n00b_string_t *sep    = n00b_cached_comma();
+    n00b_string_t *result = n00b_string_join(items, sep);
 
-    result = n00b_str_concat(n00b_get_lparen_const(),
-                             n00b_str_concat(result, n00b_get_rparen_const()));
+    result = n00b_string_concat(n00b_cached_lparen(),
+                                n00b_string_concat(result, n00b_cached_rparen()));
 
     return result;
 }
@@ -91,7 +91,7 @@ tuple_copy(n00b_tuple_t *tup)
 }
 
 static n00b_obj_t
-tuple_from_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
+tuple_from_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *litmod)
 {
     int l = n00b_list_len(items);
 
@@ -175,13 +175,12 @@ n00b_clean_internal_list(n00b_list_t *l)
         return items;
     }
 
-    return n00b_new(n00b_type_tuple_from_xlist(tup_types),
+    return n00b_new(n00b_type_tuple_from_list(tup_types),
                     n00b_kw("contents", n00b_ka(items)));
 }
 
 const n00b_vtable_t n00b_tuple_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)tuple_init,
         [N00B_BI_TO_STR]        = (n00b_vtable_entry)tuple_repr,
         [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)tuple_can_coerce,

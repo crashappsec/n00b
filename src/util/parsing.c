@@ -450,7 +450,10 @@ add_item(n00b_parser_t       *p,
 static inline n00b_earley_item_t *
 new_earley_item(void)
 {
-    return n00b_gc_alloc_mapped(n00b_earley_item_t, N00B_GC_SCAN_ALL);
+    n00b_earley_item_t *result = n00b_gc_alloc_mapped(n00b_earley_item_t,
+                                                      N00B_GC_SCAN_ALL);
+    result->noscan             = N00B_NOSCAN;
+    return result;
 }
 
 static void
@@ -804,7 +807,7 @@ char_in_class(n00b_codepoint_t cp, n00b_bi_class_t class)
     case N00B_P_BIC_SPACE:
         return n00b_codepoint_is_space(cp);
         break;
-    case N00B_P_BIC_JSON_STR_CONTENTS:
+    case N00B_P_BIC_JSON_string_CONTENTS:
         return n00b_codepoint_is_valid_json_string_char(cp);
     case N00B_P_BIC_HEX_DIGIT:
         return n00b_codepoint_is_hex_digit(cp);
@@ -1085,10 +1088,12 @@ n00b_parse_token_list(n00b_parser_t  *parser,
 }
 
 void
-n00b_parse_string(n00b_parser_t *parser, n00b_str_t *s, n00b_nonterm_t *start)
+n00b_parse_string(n00b_parser_t  *parser,
+                  n00b_string_t  *s,
+                  n00b_nonterm_t *start)
 {
     n00b_parser_reset(parser);
-    parser->user_context = n00b_to_utf32(s);
+    parser->user_context = s;
     parser->tokenizer    = n00b_token_stream_codepoints;
     internal_parse(parser, start);
 }

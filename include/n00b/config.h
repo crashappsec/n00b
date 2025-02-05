@@ -1,5 +1,18 @@
-#pragma once
+#ifdef some_stuff_i_may_enable
+
+#define N00B_SHOW_GARBAGE_REPORTS
+#define N00B_USE_LOCK_DEBUGGING
+#define N00B_ENABLE_ALLOC_DEBUG_OPT_IN
+#define N00B_GC_SHOW_COLLECT_STACK_TRACES
+#define N00B_DEBUG_GC_ROOTS
+#define N00B_GC_ALLOW_DEBUG_BIT
+#define N00B_MPROTECT_WRAPPED_ALLOCS
 #undef N00B_FULL_MEMCHECK
+#else
+#define N00B_FLOG_DEBUG
+#endif
+
+#pragma once
 // Home of anything remotely configurable. Don't change this file;
 // update the meson config.
 //
@@ -55,9 +68,6 @@
 #endif
 #ifdef N00B_VM_DEBUG
 #error "N00B_VM_DEBUG requires N00B_DEV"
-#endif
-#ifdef N00B_VM_WARN_ON_ZERO_ALLOCS
-#error "N00B_VM_WARN_ON_ZERO_ALLOCS requires N00B_DEV"
 #endif
 
 #endif
@@ -115,23 +125,11 @@
 #endif
 
 // More accurately, max # of supported keywords.
+// We use a lot internally, and there's a max based on some macros in
+// an include file, so probably best not to mess w/ this one.
 #ifndef N00B_MAX_KEYWORD_SIZE
-#define N00B_MAX_KEYWORD_SIZE 32
+#define N00B_MAX_KEYWORD_SIZE 50
 #endif
-
-#if defined(N00B_FULL_MEMCHECK)
-// #define N00B_SHOW_NEXT_ALLOCS 1000
-#ifndef N00B_MEMCHECK_RING_SZ
-// Must be a power of 2.
-#define N00B_MEMCHECK_RING_SZ 128
-#endif // RING_SZ
-
-#if N00B_MEMCHECK_RING_SZ != 0
-#define N00B_USE_RING
-#else
-#undef N00B_USE_RING
-#endif // N00B_MEMCHECK_RING_SZ
-#endif // N00B_FULL_MEMCHECK
 
 #ifndef N00B_EMPTY_BUFFER_ALLOC
 #define N00B_EMPTY_BUFFER_ALLOC 128
@@ -139,29 +137,20 @@
 
 #ifndef N00B_DEFAULT_HEAP_SIZE
 // This is the size any test case that prints a thing grows to awfully fast.
-#define N00B_DEFAULT_HEAP_SIZE (1 << 24) // normally 24
+#define N00B_DEFAULT_HEAP_SIZE (1 << 26) // 30 == 1 g
 #endif
 
 #ifndef N00B_SYSTEM_HEAP_SIZE
 // Can't be any smaller than this for startup.
-#define N00B_SYSTEM_HEAP_SIZE (1 << 20)
+#define N00B_SYSTEM_HEAP_SIZE (1 << 24)
 #endif
 
-#ifndef N00B_DEBUG_HEAP_SIZE
-#define N00B_DEBUG_HEAP_SIZE (1 << 22)
+#ifndef N00B_START_STRING_HEAP_SIZE
+#define N00B_START_STRING_HEAP_SIZE (1 << 24)
 #endif
 
 #ifndef N00B_START_SCRATCH_HEAP_SIZE
 #define N00B_START_SCRATCH_HEAP_SIZE (1 << 18)
-#endif
-
-// Needs to be enough to store initial type universe.
-#ifndef N00B_START_TYPE_HEAP_SIZE
-#define N00B_START_TYPE_HEAP_SIZE (1 << 14)
-#endif
-
-#ifndef N00B_START_THREAD_HEAP_SIZE
-#define N00B_START_THREAD_HEAP_SIZE (1 << 15)
 #endif
 
 #ifndef N00B_MARSHAL_CHUNK_SIZE
@@ -282,7 +271,7 @@
  *
  */
 #ifndef N00B_IO_SHUTDOWN_NSEC
-#define N00B_IO_SHUTDOWN_NSEC 200000000ULL
+#define N00B_IO_SHUTDOWN_NSEC 400000000ULL
 #endif
 
 #ifndef N00B_ASYNC_IO_CALLBACKS
@@ -294,7 +283,17 @@
 // is captured, etc.
 #ifndef N00B_STACK_SLOP
 // -32
-#define N00B_STACK_SLOP -32
+#define N00B_STACK_SLOP -64
+#endif
+
+// GC stops scanning a memory record for pointers when it sees this.
+#define N00B_NOSCAN      0xefefefeffefefefeULL
+// GC, when scanning backward to find an alloc header, jumps back a
+// page and a word when it sees this (to avoid an mprotect region)
+#define N00B_GC_PAGEJUMP 0xdfdfdfdffdfdfdfdULL
+
+#if defined(N00B_USE_LOCK_DEBUGGING)
+#define N00B_DEBUG_LOCKS
 #endif
 
 // Current N00b version info.
@@ -302,3 +301,26 @@
 #define N00B_VERS_MINOR   0x02
 #define N00B_VERS_PATCH   0x08
 #define N00B_VERS_PREVIEW 0x00
+
+#undef N00B_MPROTECT_GUARD_ALLOCS
+#if !defined(N00B_NO_ALLOC_GUARDS)
+#define N00B_MPROTECT_GUARD_ALLOCS
+#endif
+
+#undef N00B_ENABLE_ALLOC_DEBUG
+#if defined(N00B_ALLOC_LOC_INFO) && defined(N00B_ENABLE_ALLOC_DEBUG_OPT_IN)
+#define N00B_ENABLE_ALLOC_DEBUG
+#endif
+
+#undef N00B_SHOW_GC_ROOTS
+#ifdef N00B_DEBUG_GC_ROOTS
+#if !defined(N00B_ADD_ALLOC_LOC_INFO)
+#define N00B_ADD_ALLOC_LOC_INFO
+#endif
+#define N00B_SHOW_GC_ROOTS
+#endif
+
+#undef N00B_GC_ALLOW_DEBUG_BIT
+#if defined(N00B_DEBUG) && defined(N00B_USE_GC_DEBUG_BIT)
+#define N00B_GC_ALLOW_DEBUG_BIT
+#endif

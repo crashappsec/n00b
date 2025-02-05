@@ -21,6 +21,10 @@ n00b_raw_condition_init(n00b_condition_t *c)
 bool
 _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
 {
+    if (!n00b_startup_complete) {
+        return true;
+    }
+
     n00b_assert(n00b_thread_self());
 
     switch (pthread_mutex_trylock(&l->lock)) {
@@ -43,7 +47,7 @@ _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
     case 0:
         l->thread = n00b_thread_self();
         add_lock_record(l, file, line);
-        n00b_assert(!l->level);
+        l->level = 0;
 
         n00b_lock_register(l);
 #ifdef N00B_DEBUG_LOCKS
@@ -136,6 +140,10 @@ _n00b_lock_acquire(n00b_lock_t *l, char *file, int line)
 void
 n00b_lock_release(n00b_lock_t *l)
 {
+    if (!n00b_startup_complete) {
+        return;
+    }
+
     if (l->level) {
         l->level--;
         return;
@@ -158,6 +166,10 @@ n00b_lock_release(n00b_lock_t *l)
 void
 n00b_lock_release_all(n00b_lock_t *l)
 {
+    if (!n00b_startup_complete) {
+        return;
+    }
+
 #ifdef N00B_DEBUG_LOCKS
     if (__n00b_lock_debug) {
         printf("%p: released by l->thread: %p.\n",
@@ -190,6 +202,10 @@ n00b_condition_constructor(n00b_condition_t *c, va_list args)
 bool
 n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *l, bool wait)
 {
+    if (!n00b_startup_complete) {
+        return true;
+    }
+
     if (!wait) {
         int res;
 
@@ -234,16 +250,14 @@ n00b_new_notifier(void)
 }
 
 const n00b_vtable_t n00b_lock_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_lock_constructor,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_NONE,
     },
 };
 
 const n00b_vtable_t n00b_condition_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_condition_constructor,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_NONE,
     },

@@ -26,7 +26,7 @@ extern n00b_copy(ptr) -> ptr {
 }
 
 extern n00b_get_c_backtrace() -> ptr {
-  local: c_backtrace() -> grid
+  local: c_backtrace() -> Tree
 }
 
 # These should eventually move to a styling specific module

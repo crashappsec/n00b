@@ -68,8 +68,8 @@ typedef union {
     MD_SPAN_IMG_DETAIL      img;
     MD_SPAN_WIKILINK_DETAIL wiki;
 #endif
-    void       *v;
-    n00b_utf8_t *text;
+    void        *v;
+    n00b_string_t *text;
 } n00b_md_detail_t;
 
 typedef struct {
@@ -81,6 +81,6 @@ typedef struct {
     n00b_tree_node_t *cur;
 } n00b_md_build_ctx;
 
-extern n00b_tree_node_t *n00b_parse_markdown(n00b_str_t *);
-extern n00b_grid_t      *n00b_repr_md_parse(n00b_tree_node_t *);
-extern n00b_grid_t      *n00b_markdown_to_grid(n00b_str_t *, bool);
+extern n00b_tree_node_t *n00b_parse_markdown(n00b_string_t *);
+extern n00b_table_t     *n00b_repr_md_parse(n00b_tree_node_t *);
+extern n00b_table_t     *n00b_markdown_to_table(n00b_string_t *, bool);

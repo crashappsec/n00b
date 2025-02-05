@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 inline int
@@ -17,7 +18,7 @@ clz_u128(__uint128_t u)
     return 128;
 }
 
-static n00b_str_t *
+static n00b_string_t *
 signed_repr(int64_t item)
 {
     // TODO, add hex as an option in how.
@@ -32,7 +33,7 @@ signed_repr(int64_t item)
     }
 
     if (item == 0) {
-        return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka("0")));
+        n00b_cstring("0");
     }
 
     int i = 20;
@@ -46,10 +47,10 @@ signed_repr(int64_t item)
         buf[--i] = '-';
     }
 
-    return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(&buf[i])));
+    return n00b_cstring(&buf[i]);
 }
 
-static n00b_str_t *
+static n00b_string_t *
 unsigned_repr(int64_t item)
 {
     // TODO, add hex as an option in how.
@@ -58,7 +59,7 @@ unsigned_repr(int64_t item)
     };
 
     if (item == 0) {
-        return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka("0")));
+        n00b_cstring("0");
     }
 
     int i = 20;
@@ -68,17 +69,16 @@ unsigned_repr(int64_t item)
         item /= 10;
     }
 
-    return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(&buf[i])));
+    return n00b_cstring(&buf[i]);
 }
 
 __uint128_t
-n00b_raw_int_parse(n00b_str_t *instr, n00b_compile_error_t *err, bool *neg)
+n00b_raw_int_parse(n00b_string_t *u8, n00b_compile_error_t *err, bool *neg)
 {
-    n00b_utf8_t *u8   = n00b_to_utf8(instr);
-    __uint128_t  cur  = 0;
-    __uint128_t  last = 0;
-    char        *s    = u8->data;
-    char        *p    = s;
+    __uint128_t cur  = 0;
+    __uint128_t last = 0;
+    char       *s    = u8->data;
+    char       *p    = s;
 
     if (*p == '-') {
         *neg = true;
@@ -114,7 +114,7 @@ n00b_raw_int_parse(n00b_str_t *instr, n00b_compile_error_t *err, bool *neg)
 }
 
 __uint128_t
-raw_hex_parse(n00b_utf8_t *u8, n00b_compile_error_t *err)
+raw_hex_parse(n00b_string_t *u8, n00b_compile_error_t *err)
 {
     // Here we expect *s to point to the first
     // character after any leading '0x'.
@@ -226,52 +226,52 @@ raw_hex_parse(n00b_utf8_t *u8, n00b_compile_error_t *err)
     return n00b_box_##magic_type(val)
 
 static n00b_obj_t
-i8_parse(n00b_utf8_t          *s,
+i8_parse(n00b_string_t        *s,
          n00b_lit_syntax_t     st,
-         n00b_utf8_t          *litmod,
+         n00b_string_t        *litmod,
          n00b_compile_error_t *code)
 {
     SIGNED_PARSE(0x80, 0x7f, i8);
 }
 
 static n00b_obj_t
-u8_parse(n00b_utf8_t          *s,
+u8_parse(n00b_string_t        *s,
          n00b_lit_syntax_t     st,
-         n00b_utf8_t          *litmod,
+         n00b_string_t        *litmod,
          n00b_compile_error_t *code)
 {
     UNSIGNED_PARSE(0xff, u8);
 }
 
 static n00b_obj_t
-i32_parse(n00b_utf8_t          *s,
+i32_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
-          n00b_utf8_t          *litmod,
+          n00b_string_t        *litmod,
           n00b_compile_error_t *code)
 {
     SIGNED_PARSE(0x80000000, 0x7fffffff, i32);
 }
 
 static n00b_obj_t
-u32_parse(n00b_utf8_t          *s,
+u32_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
-          n00b_utf8_t          *litmod,
+          n00b_string_t        *litmod,
           n00b_compile_error_t *code)
 {
     UNSIGNED_PARSE(0xffffffff, u32);
 }
 
 static n00b_obj_t
-i64_parse(n00b_utf8_t          *s,
+i64_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
-          n00b_utf8_t          *litmod,
+          n00b_string_t        *litmod,
           n00b_compile_error_t *code)
 {
     SIGNED_PARSE(0x8000000000000000, 0x7fffffffffffffff, i64);
 }
 
 bool
-n00b_parse_int64(n00b_utf8_t *s, int64_t *out)
+n00b_parse_int64(n00b_string_t *s, int64_t *out)
 {
     n00b_compile_error_t err = n00b_err_no_error;
 
@@ -286,9 +286,9 @@ n00b_parse_int64(n00b_utf8_t *s, int64_t *out)
 }
 
 static n00b_obj_t
-u64_parse(n00b_utf8_t          *s,
+u64_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
-          n00b_utf8_t          *litmod,
+          n00b_string_t        *litmod,
           n00b_compile_error_t *code)
 {
     UNSIGNED_PARSE(0xffffffffffffffff, u64);
@@ -298,9 +298,9 @@ static n00b_obj_t false_lit = NULL;
 static n00b_obj_t true_lit  = NULL;
 
 static n00b_obj_t
-bool_parse(n00b_utf8_t          *u8,
+bool_parse(n00b_string_t        *u8,
            n00b_lit_syntax_t     st,
-           n00b_utf8_t          *litmod,
+           n00b_string_t        *litmod,
            n00b_compile_error_t *code)
 {
     char *s = u8->data;
@@ -337,13 +337,11 @@ bool_parse(n00b_utf8_t          *u8,
 }
 
 n00b_obj_t
-f64_parse(n00b_utf8_t          *s,
+f64_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
-          n00b_utf8_t          *litmod,
+          n00b_string_t        *litmod,
           n00b_compile_error_t *code)
 {
-    s = n00b_to_utf8(s);
-
     *code = n00b_err_no_error;
     char  *end;
     double d = strtod(s->data, &end);
@@ -365,7 +363,7 @@ f64_parse(n00b_utf8_t          *s,
 }
 
 bool
-n00b_parse_double(n00b_utf8_t *s, double *out)
+n00b_parse_double(n00b_string_t *s, double *out)
 {
     n00b_compile_error_t err;
 
@@ -378,23 +376,21 @@ n00b_parse_double(n00b_utf8_t *s, double *out)
     return true;
 }
 
-static n00b_str_t *true_repr  = NULL;
-static n00b_str_t *false_repr = NULL;
+static n00b_string_t *true_repr  = NULL;
+static n00b_string_t *false_repr = NULL;
 
-static n00b_str_t *
+static n00b_string_t *
 bool_repr(bool b)
 {
     if (b == false) {
         if (false_repr == NULL) {
-            false_repr = n00b_new(n00b_type_utf8(),
-                                  n00b_kw("cstring", n00b_ka("false")));
+            false_repr = n00b_cstring("false");
             n00b_gc_register_root(&false_repr, 1);
         }
         return false_repr;
     }
     if (true_repr == NULL) {
-        true_repr = n00b_new(n00b_type_utf8(),
-                             n00b_kw("cstring", n00b_ka("true")));
+        true_repr = n00b_cstring("true");
         n00b_gc_register_root(&true_repr, 1);
     }
 
@@ -491,7 +487,7 @@ bool_coerce_to(const int64_t data, n00b_type_t *target_type)
     }
 }
 
-static n00b_str_t *
+static n00b_string_t *
 float_repr(void *d)
 {
     char buf[20] = {
@@ -500,7 +496,7 @@ float_repr(void *d)
 
     // snprintf includes null terminator in its count.
     snprintf(buf, 20, "%g", ((n00b_box_t)d).dbl);
-    return n00b_new_utf8(buf);
+    return n00b_cstring(buf);
 }
 
 static void *
@@ -528,408 +524,94 @@ float_coerce_to(const double d, n00b_type_t *target_type)
     }
 }
 
-static char lowercase_map[] = "0123456789abcdef";
-static char uppercase_map[] = "0123456789ABCDEF";
-
-#define MAX_INT_LEN (100)
-static n00b_str_t *
-base_int_fmt(__int128_t v, n00b_fmt_spec_t *spec, n00b_codepoint_t default_type)
+static n00b_string_t *
+u8_fmt(uint8_t *repr, n00b_string_t *spec)
 {
-    int processed_digits = 0;
-    int prefix_option    = 0; // 1 will be 0x, 2 will be U+
+    bool commas = spec && spec->codepoints && spec->data[0] == ',';
+    return n00b_fmt_uint((uint64_t)*repr, commas);
+}
 
-    char repr[MAX_INT_LEN] = {
-        0,
-    };
+static n00b_string_t *
+i8_fmt(int8_t *repr, n00b_string_t *spec)
+{
+    bool commas = spec && spec->codepoints && spec->data[0] == ',';
+    return n00b_fmt_int((__int128_t)*repr, commas);
+}
 
-    int      n = MAX_INT_LEN - 1;
-    uint64_t val;
+static n00b_string_t *
+u32_fmt(uint32_t *repr, n00b_string_t *spec)
+{
+    bool commas = spec && spec->codepoints && spec->data[0] == ',';
+    return n00b_fmt_uint((uint64_t)*repr, commas);
+}
 
-    if (v < 0) {
-        val = (uint64_t)(v * -1);
-    }
-    else {
-        val = (uint64_t)v;
-    }
+static n00b_string_t *
+i32_fmt(int32_t *repr, n00b_string_t *spec)
+{
+    bool commas = spec && spec->codepoints && spec->data[0] == ',';
+    return n00b_fmt_int((__int128_t)*repr, commas);
+}
 
-    n00b_codepoint_t t = spec->type;
+static n00b_string_t *
+u64_fmt(uint64_t *repr, n00b_string_t *spec)
+{
+    bool commas = spec && spec->codepoints && spec->data[0] == ',';
+    return n00b_fmt_uint(*repr, commas);
+}
 
-    if (t == 0) {
-        t = default_type;
-    }
+static n00b_string_t *
+i64_fmt(int64_t *repr, n00b_string_t *spec)
+{
+    bool commas = spec && spec->codepoints && spec->data[0] == ',';
+    return n00b_fmt_int((__int128_t)*repr, commas);
+}
 
-    switch (t) {
-    // Print as a unicode codepoint. Zero-filling is never performed.
-    case 'c':
-        if (val > 0x10ffff || v < 0) {
-            return n00b_utf8_repeat(0xfffd, 1); // Replacement character.
-        }
-        return n00b_utf8_repeat((int32_t)val, 1);
-    case 'u': // Print as unicode CP with U+ at the beginning.
-        if (val > 0x10ffff || v < 0) {
-            val = 0xfffd;
-            v   = 0;
-        }
-        prefix_option++; // fallthrough.
-    case 'x':            // Print as hex with "0x" at the beginning.
-        prefix_option++; // fallthrough.
-    case 'h':            // Print as hex with no prefix.
-        if (val == 0) {
-            repr[--n] = '0';
-        }
-        else {
-            while (val != 0) {
-                repr[--n] = lowercase_map[val & 0xf];
-                val >>= 4;
-            }
-        }
-        break;
-    case 'U':
-        if (val > 0x10ffff || v < 0) {
-            val = 0xfffd;
-            v   = 0;
-        }
-        prefix_option++; // fallthrough.
-    case 'X':
-        prefix_option++; // fallthrough.
-    case 'H':            // Print as hex with no prefix, using capital letters.
-        if (n == 0) {
-            repr[--n] = '0';
-        }
-        else {
-            while (val != 0) {
-                repr[--n] = uppercase_map[val & 0xf];
-                val >>= 4;
-            }
-        }
-        break;
-    case 'n':
-    case 'i':
-    case 'd': // Normal ordinal.
-        if (v == 0) {
-            repr[--n] = '0';
-        }
-        else {
-            while (val != 0) {
-                if (processed_digits && processed_digits % 3 == 0) {
-                    switch (spec->sep) {
-                    case N00B_FMT_SEP_COMMA:
-                        repr[--n] = ',';
-                        break;
-                    case N00B_FMT_SEP_USCORE:
-                        repr[--n] = '_';
-                        break;
-                    default:
-                        break;
-                    }
-                }
+n00b_string_t *
+n00b_int_to_hex(int64_t n)
+{
+    return n00b_fmt_hex((uint64_t)n, false);
+}
 
-                repr[--n] = (val % 10) + '0';
-                val /= 10;
-                processed_digits++;
-            }
-        }
-        break;
-    default:
-        N00B_CRAISE("Invalid specifier for integer.");
+static n00b_string_t *
+bool_fmt(bool *repr, n00b_string_t *spec)
+{
+    if (!spec || !spec->codepoints) {
+        return n00b_fmt_bool(*repr, false, true, false);
     }
 
-    n00b_utf8_t *s = n00b_new(n00b_type_utf8(),
-                              n00b_kw("cstring", n00b_ka(repr + n)));
-
-    // Figure out if we're going to use the sign before doing any padding.
-
-    if (spec->width != 0) {
-        bool use_sign = true;
-
-        if (v < 0 && spec->sign == N00B_FMT_SIGN_DEFAULT) {
-            use_sign = false;
-        }
-
-        // Now, zero-pad if requested.
-        int l = MAX_INT_LEN - n - 1;
-
-        if (use_sign) {
-            l -= 1;
-        }
-
-        if (prefix_option) {
-            l -= 2;
-        }
-
-        if (l < spec->width) {
-            if (!spec->fill || spec->fill == '0') {
-                s = n00b_str_concat(s, n00b_utf8_repeat('0', spec->width - l));
-            }
-        }
-    }
-
-    int l = spec->width - n00b_str_codepoint_len(s);
-
-    if (prefix_option) {
-        l -= 2;
-    }
-    // clang-format off
-    if (v < 0 || spec->sign == N00B_FMT_SIGN_ALWAYS ||
-	spec->sign == N00B_FMT_SIGN_POS_SPACE) {
-	l -= 1;
-    }
-    // clang-format on
-
-    if (l > 0) {
-        n00b_codepoint_t pchar = spec->fill;
-
-        if (!pchar) {
-            pchar = '0';
-        }
-
-        s = n00b_str_concat(n00b_utf32_repeat(pchar, l), s);
-    }
-
-    switch (prefix_option) {
-    case 1:
-        s = n00b_str_concat(
-            n00b_new(n00b_type_utf8(),
-                     n00b_kw("cstring", n00b_ka("0x"))),
-            s);
-        break;
-    case 2:
-        s = n00b_str_concat(
-            n00b_new(n00b_type_utf8(),
-                     n00b_kw("cstring", n00b_ka("U+"))),
-            s);
-        break;
-    default:
-        break;
-    }
-
-    // Finally, add the sign if appropriate.
-    if (v < 0) {
-        s = n00b_str_concat(n00b_utf8_repeat('-', 1), s);
-    }
-    else {
-        switch (spec->sign) {
-        case N00B_FMT_SIGN_ALWAYS:
-            s = n00b_str_concat(n00b_utf8_repeat('+', 1), s);
-            break;
-        case N00B_FMT_SIGN_POS_SPACE:
-            s = n00b_str_concat(n00b_utf8_repeat(' ', 1), s);
-            break;
+    if (spec->codepoints == 1) {
+        switch (spec->data[0]) {
+        case 'b': // Boolean
+            return n00b_fmt_bool(*repr, false, true, false);
+        case 'B':
+            return n00b_fmt_bool(*repr, true, true, false);
+        case 't':
+            return n00b_fmt_bool(*repr, false, false, false);
+        case 'T':
+            return n00b_fmt_bool(*repr, true, false, false);
+        case 'y':
+            return n00b_fmt_bool(*repr, false, false, true);
+        case 'Y':
+            return n00b_fmt_bool(*repr, true, false, true);
+        case 'q': // Question
+            return n00b_fmt_bool(*repr, false, true, true);
+        case 'Q':
+            return n00b_fmt_bool(*repr, true, true, true);
         default:
             break;
         }
     }
-
-    return s;
+    N00B_CRAISE("Invalid boolean output type specifier");
 }
 
-static n00b_str_t *
-u8_fmt(uint8_t *repr, n00b_fmt_spec_t *spec)
+static n00b_string_t *
+float_fmt(double *repr, n00b_string_t *f)
 {
-    uint8_t n = *repr;
-
-    return base_int_fmt((__int128_t)n, spec, 'c');
-}
-
-static n00b_str_t *
-i8_fmt(int8_t *repr, n00b_fmt_spec_t *spec)
-{
-    int8_t n = *repr;
-
-    return base_int_fmt((__int128_t)n, spec, 'n');
-}
-
-static n00b_str_t *
-u32_fmt(uint32_t *repr, n00b_fmt_spec_t *spec)
-{
-    uint32_t n = *repr;
-
-    return base_int_fmt((__int128_t)n, spec, 'c');
-}
-
-static n00b_str_t *
-i32_fmt(int32_t *repr, n00b_fmt_spec_t *spec)
-{
-    int32_t n = *repr;
-
-    return base_int_fmt((__int128_t)n, spec, 'n');
-}
-
-static n00b_str_t *
-u64_fmt(uint64_t *repr, n00b_fmt_spec_t *spec)
-{
-    uint64_t n = *repr;
-
-    return base_int_fmt((__int128_t)n, spec, 'n');
-}
-
-static n00b_str_t *
-i64_fmt(int64_t *repr, n00b_fmt_spec_t *spec)
-{
-    int64_t n = *repr;
-
-    return base_int_fmt((__int128_t)n, spec, 'n');
-}
-
-static n00b_str_t *
-bool_fmt(bool *repr, n00b_fmt_spec_t *spec)
-{
-    switch (spec->type) {
-    case 0:
-        if (*repr) {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("True")));
-        }
-        else {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("False")));
-        }
-    case 'b': // Boolean
-        if (*repr) {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("true")));
-        }
-        else {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("false")));
-        }
-    case 'B':
-        if (*repr) {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("TRUE")));
-        }
-        else {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("FALSE")));
-        }
-    case 't':
-        if (*repr) {
-            return n00b_utf8_repeat('t', 1);
-        }
-        else {
-            return n00b_utf8_repeat('f', 1);
-        }
-    case 'T':
-        if (*repr) {
-            return n00b_utf8_repeat('T', 1);
-        }
-        else {
-            return n00b_utf8_repeat('F', 1);
-        }
-    case 'Q': // Question
-        if (*repr) {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("YES")));
-        }
-        else {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("NO")));
-        }
-    case 'q':
-        if (*repr) {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("yes")));
-        }
-        else {
-            return n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka("no")));
-        }
-    case 'Y':
-        if (*repr) {
-            return n00b_utf8_repeat('Y', 1);
-        }
-        else {
-            return n00b_utf8_repeat('N', 1);
-        }
-    case 'y':
-        if (*repr) {
-            return n00b_utf8_repeat('y', 1);
-        }
-        else {
-            return n00b_utf8_repeat('n', 1);
-        }
-    default:
-        N00B_CRAISE("Invalid boolean output type specifier");
-    }
-}
-
-#define FP_TO_STR_BUFSZ    (24)
-#define FP_MAX_INTERNAL_SZ (100)
-#define FP_OFFSET          (FP_MAX_INTERNAL_SZ - FP_TO_STR_BUFSZ)
-
-static n00b_str_t *
-float_fmt(double *repr, n00b_fmt_spec_t *spec)
-{
-    switch (spec->type) {
-    case 0:
-    case 'f':
-    case 'g':
-    case 'd':
-        break;
-    default:
-        N00B_CRAISE("Invalid specifier for floating point format string.");
-    }
-
-    // Currently not using the precision field at all.
-    char fprepr[FP_MAX_INTERNAL_SZ] = {
-        0,
-    };
-
-    double value      = *repr;
-    int    strlen     = n00b_internal_fptostr(value, fprepr + FP_OFFSET);
-    int    n          = FP_OFFSET;
-    bool   using_sign = true;
-
-    if (value > 0) {
-        switch (spec->sign) {
-        case N00B_FMT_SIGN_ALWAYS:
-            fprepr[--n] = '+';
-            strlen++;
-            using_sign = true;
-            break;
-        case N00B_FMT_SIGN_POS_SPACE:
-            fprepr[--n] = ' ';
-            strlen++;
-            using_sign = true;
-            break;
-        default:
-            using_sign = false;
-        }
-    }
-
-    if (spec->width != 0 && strlen < spec->width) {
-        int tofill = spec->width - strlen;
-
-        if (spec->fill == 0 || spec->fill == '0') {
-            // Zero-pad.
-            n00b_utf8_t *pad = n00b_utf8_repeat('0', tofill);
-            n00b_utf8_t *rest;
-            n00b_utf8_t *sign;
-
-            if (using_sign) {
-                sign = n00b_utf8_repeat(fprepr[n++], 1);
-            }
-
-            rest = n00b_new(n00b_type_utf8(),
-                            n00b_kw("cstring", n00b_ka(fprepr + n)));
-
-            if (using_sign) {
-                pad = n00b_str_concat(sign, pad);
-            }
-
-            // Zero this out to indicate we already padded it.
-            spec->width = 0;
-
-            return n00b_str_concat(pad, rest);
-        }
-    }
-
-    return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(fprepr + n)));
+    return n00b_fmt_float(*repr, 0, false);
 }
 
 const n00b_vtable_t n00b_u8_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)unsigned_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)u8_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
@@ -942,8 +624,7 @@ const n00b_vtable_t n00b_u8_type = {
 };
 
 const n00b_vtable_t n00b_i8_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)signed_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)i8_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
@@ -956,8 +637,7 @@ const n00b_vtable_t n00b_i8_type = {
 };
 
 const n00b_vtable_t n00b_u32_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)unsigned_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)u32_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
@@ -970,8 +650,7 @@ const n00b_vtable_t n00b_u32_type = {
 };
 
 const n00b_vtable_t n00b_i32_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)signed_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)i32_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
@@ -984,8 +663,7 @@ const n00b_vtable_t n00b_i32_type = {
 };
 
 const n00b_vtable_t n00b_u64_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)unsigned_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)u64_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
@@ -998,8 +676,7 @@ const n00b_vtable_t n00b_u64_type = {
 };
 
 const n00b_vtable_t n00b_i64_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)signed_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)i64_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
@@ -1012,8 +689,7 @@ const n00b_vtable_t n00b_i64_type = {
 };
 
 const n00b_vtable_t n00b_bool_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)bool_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)bool_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
@@ -1026,8 +702,7 @@ const n00b_vtable_t n00b_bool_type = {
 };
 
 const n00b_vtable_t n00b_float_type = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR]         = (n00b_vtable_entry)float_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)float_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,

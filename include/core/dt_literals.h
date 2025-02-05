@@ -15,10 +15,10 @@ typedef enum {
 } n00b_lit_syntax_t;
 
 typedef struct {
-    struct n00b_str_t  *litmod;
-    struct n00b_type_t *cast_to;
-    struct n00b_type_t *type;
-    n00b_builtin_t      base_type; // only set for containers from here down.
-    n00b_lit_syntax_t   st;
-    int                num_items;
+    struct n00b_string_t *litmod;
+    struct n00b_type_t   *cast_to;
+    struct n00b_type_t   *type;
+    n00b_builtin_t        base_type; // only set for containers from here down.
+    n00b_lit_syntax_t     st;
+    int                   num_items;
 } n00b_lit_info_t;

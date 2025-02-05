@@ -3,10 +3,10 @@
 
 // Subscription proxies. Used in the topic system.
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_subscription_proxy_repr(n00b_stream_t *e)
 {
-    return n00b_new_utf8("subscription proxy");
+    return n00b_cstring("subscription proxy");
 }
 
 n00b_stream_t *

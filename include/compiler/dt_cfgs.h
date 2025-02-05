@@ -35,7 +35,7 @@ typedef struct {
 typedef struct {
     n00b_cfg_node_t  *exit_node;
     n00b_cfg_node_t **branch_targets;
-    n00b_utf8_t      *label; // For loops
+    n00b_string_t      *label; // For loops
     int64_t          num_branches;
     int64_t          next_to_process;
 } n00b_cfg_branch_info_t;

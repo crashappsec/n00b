@@ -209,7 +209,7 @@ mixed_as_word(n00b_mixed_t *m)
     }
 }
 
-static n00b_str_t *
+static n00b_string_t *
 mixed_repr(n00b_mixed_t *mixed)
 {
     // For the value types, we need to convert them to a 64-bit equiv
@@ -238,8 +238,7 @@ mixed_copy(n00b_mixed_t *m)
 }
 
 const n00b_vtable_t n00b_mixed_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)mixed_init,
         [N00B_BI_REPR]        = (n00b_vtable_entry)mixed_repr,
         [N00B_BI_COPY]        = (n00b_vtable_entry)mixed_copy,

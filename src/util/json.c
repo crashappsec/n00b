@@ -13,7 +13,7 @@
 n00b_grammar_t       *n00b_json_grammar = NULL;
 static pthread_once_t json_inited       = PTHREAD_ONCE_INIT;
 
-#define ntpi(s)           n00b_pitem_nonterm_raw(n00b_json_grammar, n00b_new_utf8(s))
+#define ntpi(s)           n00b_pitem_nonterm_raw(n00b_json_grammar, n00b_cstring(s))
 #define ntobj(s)          n00b_pitem_get_ruleset(n00b_json_grammar, s)
 #define add_jrule(x, ...) _add_jrule(x, __VA_ARGS__ __VA_OPT__(, ) 0)
 #define cp(x)             n00b_pitem_terminal_cp(x)
@@ -88,7 +88,7 @@ json_walk_object(n00b_parse_node_t *node, n00b_list_t *l, void *ignore)
 
     if (!pairs) {
 empty_object:
-        return n00b_dict(n00b_type_utf8(), n00b_type_ref());
+        return n00b_dict(n00b_type_string(), n00b_type_ref());
     }
 
     n = n00b_list_len(pairs);
@@ -107,11 +107,11 @@ empty_object:
         value = n00b_list_get(pair, 1, NULL);
 
         if (!n00b_types_are_compat(t, n00b_get_my_type(value), NULL)) {
-            result = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+            result = n00b_dict(n00b_type_string(), n00b_type_ref());
             goto fill_dict;
         }
     }
-    result = n00b_dict(n00b_type_utf8(), t);
+    result = n00b_dict(n00b_type_string(), t);
 
 fill_dict:
     // We populate these lists backwards due to the grammar.
@@ -183,10 +183,10 @@ void *
 json_walk_characters(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
 {
     if (n00b_list_len(l) == 1) {
-        return n00b_new_utf8("");
+        return n00b_cached_empty_string();
     }
-    return n00b_str_concat(n00b_list_get(l, 0, NULL),
-                           n00b_list_get(l, 1, NULL));
+    return n00b_string_concat(n00b_list_get(l, 0, NULL),
+                              n00b_list_get(l, 1, NULL));
 }
 
 void *
@@ -213,7 +213,7 @@ json_walk_escape(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
         cp |= ((*fourbits) << 4);
         fourbits = n00b_list_get(l, 4, NULL);
         cp |= *fourbits;
-        return n00b_utf8_repeat((n00b_codepoint_t)cp, 1);
+        return n00b_string_from_codepoint((n00b_codepoint_t)cp);
     }
 
     return n00b_list_get(l, 0, NULL);
@@ -223,7 +223,7 @@ void *
 json_walk_hex(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
 {
     n00b_token_info_t *ti = n00b_list_get(l, 0, NULL);
-    n00b_utf8_t       *v  = ti->value;
+    n00b_string_t     *v  = ti->value;
     char               ch = v->data[0];
     int64_t            intval;
 
@@ -243,13 +243,13 @@ json_walk_hex(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
 }
 
 int64_t *
-json_parse_int(n00b_utf8_t *n, n00b_list_t *errs)
+json_parse_int(n00b_string_t *n, n00b_list_t *errs)
 {
     int64_t parsed;
 
     if (!n00b_parse_int64(n, &parsed)) {
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Number [em]{}[/] is too large to fit in a 64-bit integer.",
+        n00b_string_t *err = n00b_cformat(
+            "Number «em»«#»«/» is too large to fit in a 64-bit integer.",
             n);
         n00b_list_append(errs, err);
         parsed = 0;
@@ -261,28 +261,28 @@ json_parse_int(n00b_utf8_t *n, n00b_list_t *errs)
 void *
 json_walk_number(n00b_parse_node_t *n, n00b_list_t *l, void *errs)
 {
-    n00b_utf8_t *nval     = n00b_list_get(l, 0, NULL);
-    n00b_utf8_t *frac     = n00b_list_get(l, 1, NULL);
-    n00b_utf8_t *expo     = n00b_list_get(l, 2, NULL);
-    bool         got_frac = frac != NULL;
-    bool         got_exp  = expo != NULL;
-    double       dbl;
+    n00b_string_t *nval     = n00b_list_get(l, 0, NULL);
+    n00b_string_t *frac     = n00b_list_get(l, 1, NULL);
+    n00b_string_t *expo     = n00b_list_get(l, 2, NULL);
+    bool           got_frac = frac != NULL;
+    bool           got_exp  = expo != NULL;
+    double         dbl;
 
     if (!(got_frac || got_exp)) {
         return json_parse_int(nval, errs);
     }
 
     if (frac) {
-        nval = n00b_str_concat(nval, frac);
+        nval = n00b_string_concat(nval, frac);
     }
 
     if (expo) {
-        nval = n00b_str_concat(nval, expo);
+        nval = n00b_string_concat(nval, expo);
     }
 
     if (!n00b_parse_double(nval, &dbl)) {
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Number [em]{}[/] is out of bounds for a 64-bit double.",
+        n00b_string_t *err = n00b_cformat(
+            "Number «em»«#»«/» is out of bounds for a 64-bit double.",
             nval);
         n00b_list_append(errs, err);
         dbl = 0;
@@ -299,13 +299,13 @@ json_walk_integer(n00b_parse_node_t *node, n00b_list_t *l, void *ignore)
     switch (node->rule_index) {
     case 1:
         ti = n00b_list_get(l, 0, NULL);
-        return n00b_str_concat(ti->value, n00b_list_get(l, 1, NULL));
+        return n00b_string_concat(ti->value, n00b_list_get(l, 1, NULL));
     case 2:
         ti = n00b_list_get(l, 1, NULL);
-        return n00b_cstr_format("-{}", ti->value);
+        return n00b_cformat("-«#»", ti->value);
     case 3:
         ti = n00b_list_get(l, 1, NULL);
-        return n00b_cstr_format("-{}{}", ti->value, n00b_list_get(l, 2, NULL));
+        return n00b_cformat("-«#»«#»", ti->value, n00b_list_get(l, 2, NULL));
     default:
         ti = n00b_list_get(l, 0, NULL);
         return ti->value;
@@ -318,7 +318,7 @@ json_walk_digits(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
     n00b_token_info_t *ti = n00b_list_get(l, 0, NULL);
 
     if (n00b_list_len(l) == 2) {
-        return n00b_str_concat(ti->value, n00b_list_get(l, 1, NULL));
+        return n00b_string_concat(ti->value, n00b_list_get(l, 1, NULL));
     }
     else {
         return ti->value;
@@ -332,7 +332,7 @@ json_walk_fraction(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
         return NULL;
     }
 
-    return n00b_cstr_format(".{}", n00b_list_get(l, 1, NULL));
+    return n00b_cformat(".«#»", n00b_list_get(l, 1, NULL));
 }
 
 void *
@@ -342,11 +342,11 @@ json_walk_exponent(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
         return NULL;
     }
 
-    int64_t      sign   = (int64_t)n00b_list_get(l, 1, NULL);
-    n00b_utf8_t *digits = n00b_list_get(l, 2, NULL);
+    int64_t        sign   = (int64_t)n00b_list_get(l, 1, NULL);
+    n00b_string_t *digits = n00b_list_get(l, 2, NULL);
 
     if (sign) {
-        return n00b_cstr_format("-{}", digits);
+        return n00b_cformat("-«#»", digits);
     }
 
     return digits;
@@ -437,7 +437,7 @@ json_init_once(void)
     add_jrule(characters, empty());
     add_jrule(characters, character, characters);
 
-    add_jrule(character, cclass(N00B_P_BIC_JSON_STR_CONTENTS));
+    add_jrule(character, cclass(N00B_P_BIC_JSON_string_CONTENTS));
     add_jrule(character, cp('\\'), escape);
 
     add_jrule(escape, esc_chars);
@@ -497,16 +497,15 @@ n00b_json_init(void)
 }
 
 void *
-n00b_json_parse(n00b_str_t *s, n00b_list_t **err_out)
+n00b_json_parse(n00b_string_t *s, n00b_list_t **err_out)
 {
     n00b_json_init();
 
     // This is showing off some bugs in repr :/
     // n00b_print(n00b_grammar_format(n00b_json_grammar));
 
-    s                     = n00b_to_utf8(s);
     n00b_parser_t *parser = n00b_new(n00b_type_parser(), n00b_json_grammar);
-    n00b_list_t   *errs   = n00b_list(n00b_type_utf8());
+    n00b_list_t   *errs   = n00b_list(n00b_type_string());
 
     n00b_parse_string(parser, s, NULL);
 
@@ -515,7 +514,7 @@ n00b_json_parse(n00b_str_t *s, n00b_list_t **err_out)
 
     if (!l) {
         if (err_out) {
-            n00b_list_append(errs, n00b_new_utf8("Invalid JSON."));
+            n00b_list_append(errs, n00b_cstring("Invalid JSON."));
             *err_out = errs;
         }
         return NULL;
@@ -615,12 +614,12 @@ validate_types_for_json(n00b_obj_t obj)
     return true;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_to_json(n00b_obj_t obj)
 {
     if (!validate_types_for_json(obj)) {
         return NULL;
     }
 
-    return n00b_cstr_format("{}", obj);
+    return n00b_cformat("«#»", obj);
 }

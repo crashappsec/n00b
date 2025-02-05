@@ -1,15 +1,14 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static n00b_utf8_t *
+static n00b_string_t *
 nil_repr(void *ignored)
 {
-    return n00b_new_utf8("0");
+    return n00b_cstring("0");
 }
 
 static const n00b_vtable_t n00b_type_nil_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_REPR] = (n00b_vtable_entry)nil_repr,
     },
 
@@ -144,13 +143,14 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_REAL,
         .by_value  = true,
     },
-    [N00B_T_UTF8] = {
+    [N00B_T_STRING] = {
         .name      = "string",
-        .typeid    = N00B_T_UTF8,
-        .alloc_len = sizeof(n00b_str_t),
-        .vtable    = &n00b_u8str_vtable,
+        .typeid    = N00B_T_STRING,
+        .alloc_len = sizeof(n00b_string_t),
+        .vtable    = &n00b_string_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
+        .mutable   = false,
     },
     [N00B_T_BUFFER] = {
         .name      = "buffer",
@@ -161,26 +161,9 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
         .mutable   = true,
     },
-    [N00B_T_UTF32] = {
-        .name      = "utf32",
-        .typeid    = N00B_T_UTF32,
-        .alloc_len = sizeof(n00b_str_t),
-        .vtable    = &n00b_u32str_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
-    },
-    [N00B_T_GRID] = {
-        .name      = "grid",
-        .typeid    = N00B_T_GRID,
-        .alloc_len = sizeof(n00b_grid_t),
-        .vtable    = &n00b_grid_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
     [N00B_T_LIST] = {
         .name      = "list",
-        .typeid    = N00B_T_XLIST,
+        .typeid    = N00B_T_LIST,
         .alloc_len = sizeof(n00b_list_t),
         .vtable    = &n00b_list_vtable,
         .dt_kind   = N00B_DT_KIND_list,
@@ -321,15 +304,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
-    [N00B_T_RENDERABLE] = {
-        .name      = "Renderable",
-        .typeid    = N00B_T_RENDERABLE,
-        .alloc_len = sizeof(n00b_renderable_t),
-        .vtable    = &n00b_renderable_vtable,
-        .dt_kind   = N00B_DT_KIND_internal,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
     [N00B_T_FLIST] = {
         .name      = "Rlist",
         .typeid    = N00B_T_FLIST,
@@ -337,15 +311,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = &n00b_flexarray_vtable,
         .dt_kind   = N00B_DT_KIND_list,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-    },
-    [N00B_T_RENDER_STYLE] = {
-        .name      = "Render_style",
-        .typeid    = N00B_T_RENDER_STYLE,
-        .alloc_len = sizeof(n00b_render_style_t),
-        .vtable    = &n00b_render_style_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
     },
     [N00B_T_SHA] = {
         .name      = "Hash",
@@ -668,11 +633,44 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
-};
+    [N00B_T_TEXT_ELEMENT] = {
+        .name      = "Text_element",
+        .typeid    = N00B_T_TEXT_ELEMENT,
+        .alloc_len = sizeof(n00b_text_element_t),
+        .vtable    = &n00b_text_element_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_BOX_PROPS] = {
+        .name      = "Box_props",
+        .typeid    = N00B_T_BOX_PROPS,
+        .alloc_len = sizeof(n00b_box_props_t),
+        .vtable    = &n00b_box_props_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_THEME] = {
+        .name      = "theme",
+        .typeid    = N00B_T_THEME,
+        .alloc_len = sizeof(n00b_theme_t),
+        .vtable    = &n00b_theme_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_TABLE] = {
+        .name      = "table",
+        .typeid    = N00B_T_TABLE,
+        .alloc_len = sizeof(n00b_table_t),
+        .vtable    = &n00b_table_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
 
-extern int TMP_DEBUG;
-extern int n00b_current_test_case;
-extern int n00b_watch_case;
+    },
+};
 
 #if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
 n00b_obj_t
@@ -692,7 +690,7 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     }
 
     // Thread heap overrides specified heaps.
-    if (heap && !n00b_thread_heap) {
+    if (heap && !n00b_thread_heap()) {
         __n00b_saved_heap           = heap;
         clear_thread_heap_reference = true;
     }
@@ -708,10 +706,6 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
         obj = n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL);
 
         if (clear_thread_heap_reference) {
-            n00b_thread_heap = NULL;
-        }
-
-        if (clear_thread_heap_reference) {
             n00b_pop_heap();
         }
         return obj;
@@ -720,16 +714,35 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     n00b_vtable_entry init_fn = tinfo->vtable->methods[N00B_BI_CONSTRUCTOR];
     n00b_vtable_entry scan_fn = tinfo->vtable->methods[N00B_BI_GC_MAP];
 
-    obj = n00b_halloc(heap, alloc_len, (n00b_mem_scan_fn)scan_fn);
+#if defined(N00B_MPROTECT_GUARD_ALLOCS)
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+
+    if (tsi->add_guard) {
+        tsi->add_guard = false;
+        obj            = _n00b_heap_alloc(n00b_current_heap(heap),
+                               alloc_len,
+                               true,
+                               (n00b_mem_scan_fn)scan_fn
+                                   N00B_ALLOC_XPARAM);
+    }
+    else {
+        obj = _n00b_heap_alloc(heap,
+                               alloc_len,
+                               false,
+                               (n00b_mem_scan_fn)scan_fn
+                                   N00B_ALLOC_XPARAM);
+    }
+#else
+    obj = _n00b_heap_alloc(n00b_current_heap(heap),
+                           alloc_len,
+                           false,
+                           (n00b_mem_scan_fn)scan_fn,
+                           N00B_ALLOC_XPARAM);
+#endif
 
     n00b_alloc_hdr *hdr = &((n00b_alloc_hdr *)obj)[-1];
     hdr->n00b_obj       = true;
     hdr->type           = type;
-
-#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
-    hdr->alloc_file = file;
-    hdr->alloc_line = line;
-#endif
 
     if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
         hdr->n00b_finalize = true;
@@ -751,7 +764,7 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
         break;
     default:
         if (clear_thread_heap_reference) {
-            n00b_thread_heap = NULL;
+            n00b_pop_heap();
         }
 
         N00B_CRAISE(
@@ -765,7 +778,8 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 
     return obj;
 }
-n00b_str_t *
+
+n00b_string_t *
 n00b_repr_explicit(void *item, n00b_type_t *t)
 {
     uint64_t     x = n00b_type_resolve(t)->base_index;
@@ -776,18 +790,16 @@ n00b_repr_explicit(void *item, n00b_type_t *t)
     if (!p) {
         p = (n00b_repr_fn)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_STR];
         if (!p) {
-            return n00b_cstr_format("{}@{:x}",
-                                    n00b_new_utf8(n00b_base_type_info[x].name),
-                                    n00b_box_u64((uint64_t)item));
+            return n00b_cformat("«#»@«#:x»",
+                                n00b_cstring(n00b_base_type_info[x].name),
+                                (uint64_t)item);
         }
     }
 
-    n00b_str_t *result = (*p)(item);
-
-    return n00b_to_utf8(result);
+    return (*p)(item);
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_object_repr_opt(void *item)
 {
     if (!n00b_in_heap(item)) {
@@ -812,7 +824,7 @@ n00b_object_repr_opt(void *item)
     return (*p)(item);
 }
 
-n00b_str_t *
+n00b_string_t *
 n00b_value_obj_repr(n00b_obj_t obj)
 {
     n00b_type_t *t = n00b_type_resolve(n00b_get_my_type(obj));
@@ -824,11 +836,11 @@ n00b_value_obj_repr(n00b_obj_t obj)
     return n00b_repr_explicit(obj, t);
 }
 
-n00b_str_t *
+n00b_string_t *
 n00b_repr(void *item)
 {
     if (!n00b_in_heap(item)) {
-        return n00b_str_from_int((int64_t)item);
+        return n00b_string_from_int((int64_t)item);
     }
 
     bool is_obj;
@@ -871,15 +883,13 @@ ptr_fmt:
 
         sprintf(buf, "@%p", item);
 
-        return n00b_new_utf8(buf);
+        return n00b_cstring(buf);
     }
 
-    n00b_str_t *result = (*p)(item);
-
-    return n00b_to_utf8(result);
+    return (*p)(item);
 }
 
-n00b_str_t *
+n00b_string_t *
 n00b_value_obj_to_str(n00b_obj_t obj)
 {
     n00b_type_t *t = n00b_get_my_type(obj);
@@ -887,7 +897,7 @@ n00b_value_obj_to_str(n00b_obj_t obj)
     return n00b_to_str(obj, t);
 }
 
-n00b_str_t *
+n00b_string_t *
 n00b_to_str(void *item, n00b_type_t *t)
 {
     n00b_dt_info_t *dt = n00b_type_get_data_type_info(t);
@@ -896,9 +906,9 @@ n00b_to_str(void *item, n00b_type_t *t)
 
     switch (x) {
     case 0:
-        return n00b_new_utf8("error");
+        return n00b_cstring("error");
     case 1:
-        return n00b_new_utf8("void");
+        return n00b_cstring("void");
     default:
         break;
     }
@@ -909,9 +919,9 @@ n00b_to_str(void *item, n00b_type_t *t)
         p = (n00b_repr_fn)n00b_base_type_info[x].vtable->methods[N00B_BI_REPR];
 
         if (!p) {
-            return n00b_cstr_format("{}@{:x}",
-                                    n00b_new_utf8(n00b_base_type_info[x].name),
-                                    n00b_box_u64((uint64_t)item));
+            return n00b_cformat("«#»@«#:x»",
+                                n00b_cstring(n00b_base_type_info[x].name),
+                                (uint64_t)item);
         }
     }
 
@@ -1246,8 +1256,8 @@ n00b_get_item_type(n00b_obj_t obj)
             return n00b_type_get_param(t, 0);
         }
 
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Type {} is not an indexible container type.",
+        n00b_string_t *err = n00b_cformat(
+            "Type «#» is not an indexible container type.",
             t);
         N00B_RAISE(err);
     }
@@ -1291,7 +1301,7 @@ n00b_get_view(n00b_obj_t obj, int64_t *n_items)
 }
 
 n00b_obj_t
-n00b_container_literal(n00b_type_t *t, n00b_list_t *items, n00b_utf8_t *mod)
+n00b_container_literal(n00b_type_t *t, n00b_list_t *items, n00b_string_t *mod)
 {
     n00b_dt_info_t       *info = n00b_type_get_data_type_info(t);
     n00b_vtable_t        *vtbl = (n00b_vtable_t *)info->vtable;
@@ -1300,20 +1310,20 @@ n00b_container_literal(n00b_type_t *t, n00b_list_t *items, n00b_utf8_t *mod)
     ptr = (n00b_container_lit_fn)vtbl->methods[N00B_BI_CONTAINER_LIT];
 
     if (ptr == NULL) {
-        n00b_utf8_t *err = n00b_cstr_format(
+        n00b_string_t *err = n00b_cformat(
             "Improper implementation; no literal fn "
-            "defined for type '{}'.",
-            n00b_new_utf8(info->name));
+            "defined for type '«#»'.",
+            n00b_cstring(info->name));
         N00B_RAISE(err);
     }
 
     n00b_obj_t result = (*ptr)(t, items, mod);
 
     if (result == NULL) {
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Improper implementation; type '{}' did not instantiate "
-            "a literal for the literal modifier '{}'",
-            n00b_new_utf8(info->name),
+        n00b_string_t *err = n00b_cformat(
+            "Improper implementation; type '«#»' did not instantiate "
+            "a literal for the literal modifier '«#»'",
+            n00b_cstring(info->name),
             mod);
         N00B_RAISE(err);
     }
@@ -1383,4 +1393,17 @@ n00b_get_my_type(n00b_obj_t user_object)
         return n00b_type_nil();
     }
     return n00b_type_i64();
+}
+
+n00b_list_t *
+n00b_render(n00b_obj_t object, int64_t width, int64_t height)
+{
+    if (!n00b_is_renderable(object)) {
+        N00B_CRAISE("Object cannot be rendered directly.");
+    }
+
+    n00b_vtable_t *vt = n00b_vtable(object);
+    n00b_render_fn fn = (void *)vt->methods[N00B_BI_RENDER];
+
+    return (*fn)(object, width, height);
 }

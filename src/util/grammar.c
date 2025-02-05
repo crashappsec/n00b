@@ -60,8 +60,10 @@ n00b_grammar_init(n00b_grammar_t *grammar, va_list args)
     grammar->named_terms           = n00b_list(n00b_type_terminal());
     grammar->rules                 = n00b_list(n00b_type_ref());
     grammar->nt_list               = n00b_list(n00b_type_ruleset());
-    grammar->nt_map                = n00b_dict(n00b_type_utf8(), n00b_type_u64());
-    grammar->terminal_map          = n00b_dict(n00b_type_utf8(), n00b_type_u64());
+    grammar->nt_map                = n00b_dict(n00b_type_string(),
+                                n00b_type_u64());
+    grammar->terminal_map          = n00b_dict(n00b_type_string(),
+                                      n00b_type_u64());
     grammar->error_rules           = detect_errors;
     grammar->max_penalty           = max_penalty;
     grammar->hide_penalty_rewrites = hide_error_rewrites;
@@ -74,11 +76,11 @@ n00b_terminal_init(n00b_terminal_t *terminal, va_list args)
     bool found;
 
     n00b_grammar_t *grammar = va_arg(args, n00b_grammar_t *);
-    terminal->value         = va_arg(args, n00b_utf8_t *);
+    terminal->value         = va_arg(args, n00b_string_t *);
 
     // Special-case single character terminals to their codepoint.
-    if (n00b_str_codepoint_len(terminal->value) == 1) {
-        terminal->id = (int64_t)n00b_index(terminal->value, 0);
+    if (n00b_string_codepoint_len(terminal->value) == 1) {
+        terminal->id = (int64_t)n00b_string_index(terminal->value, 0);
         return;
     }
 
@@ -97,7 +99,7 @@ n00b_terminal_init(n00b_terminal_t *terminal, va_list args)
         while (true) {
             n00b_terminal_t *t = n00b_list_get(grammar->named_terms, n, NULL);
 
-            if (t == terminal || n00b_str_eq(t->value, terminal->value)) {
+            if (t == terminal || n00b_string_eq(t->value, terminal->value)) {
                 n += N00B_START_TOK_ID;
                 terminal->id = n;
                 hatrack_dict_add(grammar->terminal_map,
@@ -124,10 +126,10 @@ n00b_nonterm_init(n00b_nonterm_t *nonterm, va_list args)
     // used for groups.
 
     bool            found;
-    n00b_utf8_t    *err;
+    n00b_string_t  *err;
     int64_t         n;
     n00b_grammar_t *grammar = va_arg(args, n00b_grammar_t *);
-    nonterm->name           = va_arg(args, n00b_utf8_t *);
+    nonterm->name           = va_arg(args, n00b_string_t *);
     nonterm->rules          = n00b_list(n00b_type_ref());
 
     if (nonterm->name == NULL) {
@@ -151,8 +153,8 @@ n00b_nonterm_init(n00b_nonterm_t *nonterm, va_list args)
 
     if (found) {
 bail:
-        err = n00b_cstr_format("Duplicate ruleset name: [em]{}[/]",
-                               nonterm->name);
+        err = n00b_cformat("Duplicate ruleset name: [|em|][|#|][/]",
+                           nonterm->name);
         N00B_RAISE(err);
     }
 
@@ -175,7 +177,7 @@ bail:
 
             return;
         }
-        if (nt->name && n00b_str_eq(nt->name, nonterm->name)) {
+        if (nt->name && n00b_string_eq(nt->name, nonterm->name)) {
             goto bail;
         }
     }
@@ -357,7 +359,7 @@ n00b_group_items(n00b_grammar_t *g, n00b_list_t *pitems, int min, int max)
                                                     N00B_GC_SCAN_ALL);
 
     group->gid                = n00b_rand16();
-    n00b_utf8_t    *tmp_name  = n00b_cstr_format("$$group_nt_{}", group->gid);
+    n00b_string_t  *tmp_name  = n00b_cformat("$$group_nt_[|#|]", group->gid);
     n00b_pitem_t   *tmp_nt_pi = n00b_pitem_nonterm_raw(g, tmp_name);
     n00b_nonterm_t *nt        = n00b_pitem_get_ruleset(g, tmp_nt_pi);
 
@@ -453,7 +455,7 @@ ruleset_add_rule_internal(n00b_grammar_t     *g,
                           int                 cost,
                           n00b_parse_rule_t  *penalty,
                           n00b_parse_rule_t **old,
-                          n00b_utf8_t        *doc)
+                          n00b_string_t      *doc)
 {
     if (g->finalized) {
         N00B_CRAISE("Cannot modify grammar after first parse w/o a reset.");
@@ -487,7 +489,7 @@ _n00b_ruleset_add_rule(n00b_grammar_t *g,
                        n00b_nonterm_t *nt,
                        n00b_list_t    *items,
                        int             cost,
-                       n00b_utf8_t    *doc)
+                       n00b_string_t  *doc)
 {
     n00b_parse_rule_t *new;
     n00b_parse_rule_t *old = NULL;
@@ -529,10 +531,10 @@ create_one_error_rule_set(n00b_grammar_t *g, int rule_ix)
         }
         tok_ct++;
 
-        n00b_utf8_t    *name   = n00b_cstr_format("$term-{}-{}-{}",
-                                             cur->nt->name,
-                                             rule_ix,
-                                             tok_ct);
+        n00b_string_t  *name   = n00b_cformat("$term-[|#0|]-[|#1|]-[|#2|]",
+                                           cur->nt->name,
+                                           rule_ix,
+                                           tok_ct);
         n00b_pitem_t   *pi_err = n00b_pitem_nonterm_raw(g, name);
         n00b_nonterm_t *nt_err = n00b_pitem_get_ruleset(g, pi_err);
         n00b_list_t    *r      = n00b_list(n00b_type_ref());
@@ -645,7 +647,7 @@ n00b_prep_first_parse(n00b_grammar_t *g)
 int64_t
 n00b_token_stream_codepoints(n00b_parser_t *parser, void **token_info)
 {
-    n00b_utf32_t     *str = (n00b_utf32_t *)parser->user_context;
+    n00b_string_t    *str = (n00b_string_t *)parser->user_context;
     n00b_codepoint_t *p   = (n00b_codepoint_t *)str->data;
 
     if (parser->position >= str->codepoints) {
@@ -662,8 +664,8 @@ n00b_token_stream_codepoints(n00b_parser_t *parser, void **token_info)
 int64_t
 n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
 {
-    n00b_list_t *list  = (n00b_list_t *)parser->user_context;
-    n00b_str_t  *value = n00b_list_get(list, parser->position, NULL);
+    n00b_list_t   *list  = (n00b_list_t *)parser->user_context;
+    n00b_string_t *value = n00b_list_get(list, parser->position, NULL);
 
     if (!value) {
         return N00B_TOK_EOF;
@@ -672,9 +674,7 @@ n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
     // If it's a one-character string, the token ID is the codepoint.
     // doesn't matter if we registered it or not.
     if (value->codepoints == 1) {
-        value = n00b_to_utf32(value);
-
-        return ((n00b_codepoint_t *)value->data)[0];
+        return n00b_string_index(value, 0);
     }
 
     // Next, check to see if we registered the token, meaning it is an
@@ -682,12 +682,11 @@ n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
     //
     // Since any registered tokens are non-zero, we can test for that to
     // determine if it's registered, instead of passing a bool.
-    n00b_utf8_t *u8 = n00b_to_utf8(value);
-    int64_t      n  = (int64_t)hatrack_dict_get(parser->grammar->terminal_map,
-                                          u8,
+    int64_t n = (int64_t)hatrack_dict_get(parser->grammar->terminal_map,
+                                          value,
                                           NULL);
 
-    parser->token_cache = u8;
+    parser->token_cache = value;
 
     if (n) {
         return (int64_t)n;
@@ -697,10 +696,10 @@ n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
 }
 
 static inline int
-count_newlines(n00b_parser_t *parser, n00b_str_t *tok_value, int *last_index)
+count_newlines(n00b_parser_t *parser, n00b_string_t *v, int *last_index)
 {
-    n00b_utf32_t     *v      = n00b_to_utf32(tok_value);
-    n00b_codepoint_t *p      = (n00b_codepoint_t *)v->data;
+    n00b_string_require_u32(v);
+    n00b_codepoint_t *p      = v->u32_data;
     int               result = 0;
 
     for (int i = 0; i < v->codepoints; i++) {
@@ -804,7 +803,7 @@ n00b_parser_load_token(n00b_parser_t *parser)
     }
     else {
         if (tok->tid < N00B_START_TOK_ID) {
-            tok->value = n00b_utf8_repeat(tok->tid, 1);
+            tok->value = n00b_string_from_codepoint(tok->tid);
         }
         else {
             n00b_terminal_t *ti = n00b_list_get(parser->grammar->named_terms,
@@ -832,7 +831,7 @@ n00b_parser_load_token(n00b_parser_t *parser)
     // base the column count on whatever was after the last newline.
 
     int last_nl_ix;
-    int len      = n00b_str_codepoint_len(tok->value);
+    int len      = n00b_string_codepoint_len(tok->value);
     int nl_count = count_newlines(parser, tok->value, &last_nl_ix);
 
     if (nl_count) {
@@ -845,31 +844,27 @@ n00b_parser_load_token(n00b_parser_t *parser)
 }
 
 const n00b_vtable_t n00b_parser_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_parser_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },
 };
 const n00b_vtable_t n00b_grammar_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_grammar_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },
 };
 
 const n00b_vtable_t n00b_terminal_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_terminal_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },
 };
 
 const n00b_vtable_t n00b_nonterm_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_nonterm_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },

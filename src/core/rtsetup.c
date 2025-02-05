@@ -192,8 +192,8 @@ n00b_vm_new(n00b_compile_ctx *cctx)
         vm->obj->attr_spec = cctx->final_spec;
     }
 
-    vm->attrs         = n00b_dict(n00b_type_utf8(), n00b_type_ref());
-    vm->all_sections  = n00b_new(n00b_type_set(n00b_type_utf8()));
+    vm->attrs         = n00b_dict(n00b_type_string(), n00b_type_ref());
+    vm->all_sections  = n00b_new(n00b_type_set(n00b_type_string()));
     vm->creation_time = *n00b_now();
 
     return vm;
@@ -314,8 +314,7 @@ n00b_vm_remove_compile_time_data(n00b_vm_t *vm)
 }
 
 const n00b_vtable_t n00b_vm_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_GC_MAP] = (n00b_vtable_entry)n00b_vm_gc_bits,
     },
 };

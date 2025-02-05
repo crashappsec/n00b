@@ -17,6 +17,12 @@
 
 #include "n00b.h"
 
+typedef struct {
+    n00b_alloc_record_t h; // not an n00b_alloc_hdr to avoid warnings.
+    n00b_karg_info_t    ka;
+    n00b_one_karg_t     args[N00B_MAX_KEYWORD_SIZE];
+} n00b_static_karg_t;
+
 n00b_karg_info_t *n00b_get_kargs(va_list);
 n00b_karg_info_t *n00b_pass_kargs(int, ...);
 n00b_karg_info_t *n00b_get_kargs_and_count(va_list, int *);
@@ -155,19 +161,19 @@ _n00b_kw_float(n00b_karg_info_t *provided, char *name, double *ptr)
     return false;
 }
 
-#define n00b_kw_int64(a, b)     _n00b_kw_int64(_n00b_karg, a, &b)
+#define n00b_kw_int64(a, b)     _n00b_kw_int64(_n00b_karg, a, (int64_t *)&b)
 #define n00b_kw_uint64(a, b)    _n00b_kw_int64(_n00b_karg, a, (int64_t *)&b)
-#define n00b_kw_ptr(a, b)       _n00b_kw_ptr(_n00b_karg, a, &b)
-#define n00b_kw_int32(a, b)     _n00b_kw_int32(_n00b_karg, a, &b)
+#define n00b_kw_ptr(a, b)       _n00b_kw_ptr(_n00b_karg, a, (void *)&b)
+#define n00b_kw_int32(a, b)     _n00b_kw_int32(_n00b_karg, a, (int32_t *)&b)
 #define n00b_kw_uint32(a, b)    _n00b_kw_int32(_n00b_karg, a, (int32_t *)&b)
 #define n00b_kw_codepoint(a, b) _n00b_kw_int32(_n00b_karg, a, &b)
 #define n00b_kw_int16(a, b)     _n00b_kw_int16(_n00b_karg, a, &b)
 #define n00b_kw_uint16(a, b)    _n00b_kw_int16(_n00b_karg, a, (int16_t *)&b)
-#define n00b_kw_char(a, b)      _n00b_kw_int8(_n00b_karg, a, &b)
-#define n00b_kw_int8(a, b)      _n00b_kw_int8(_n00b_karg, a, &b)
+#define n00b_kw_char(a, b)      _n00b_kw_int8(_n00b_karg, a, (char *)&b)
+#define n00b_kw_int8(a, b)      _n00b_kw_int8(_n00b_karg, a, (int8_t *)&b)
 #define n00b_kw_unt8(a, b)      _n00b_kw_int8(_n00b_karg, a, (int8_t *)&b)
-#define n00b_kw_bool(a, b)      _n00b_kw_bool(_n00b_karg, a, &b)
-#define n00b_kw_float(a, b)     _n00b_kw_float(_n00b_karg, a, &b)
+#define n00b_kw_bool(a, b)      _n00b_kw_bool(_n00b_karg, a, (bool *)&b)
+#define n00b_kw_float(a, b)     _n00b_kw_float(_n00b_karg, a, (double_t *)&b)
 
 // print(foo, bar, boz, kw("file", stdin, "sep", ' ', "end", '\n',
 //                         "flush", false ));

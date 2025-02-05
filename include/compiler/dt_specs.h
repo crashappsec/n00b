@@ -4,7 +4,7 @@
 typedef struct n00b_spec_field_t {
     union {
         n00b_type_t *type;
-        n00b_utf8_t *type_pointer; // Isn't this redundant now?
+        n00b_string_t *type_pointer; // Isn't this redundant now?
     } tinfo;
 
     // The 'stashed options' field is for holding data specific to the
@@ -18,12 +18,12 @@ typedef struct n00b_spec_field_t {
     // even includes loading exported symbols from dependent modules.
 
     n00b_tree_node_t *declaration_node;
-    n00b_utf8_t      *location_string;
+    n00b_string_t      *location_string;
     void            *stashed_options;
-    n00b_utf8_t      *name;
-    n00b_utf8_t      *short_doc;
-    n00b_utf8_t      *long_doc;
-    n00b_utf8_t      *deferred_type_field; // The field that contains our type.
+    n00b_string_t      *name;
+    n00b_string_t      *short_doc;
+    n00b_string_t      *long_doc;
+    n00b_string_t      *deferred_type_field; // The field that contains our type.
     void            *default_value;
     void            *validator;
     n00b_set_t       *exclusions;
@@ -39,10 +39,10 @@ typedef struct n00b_spec_field_t {
 
 typedef struct {
     n00b_tree_node_t *declaration_node;
-    n00b_utf8_t      *location_string;
-    n00b_utf8_t      *name;
-    n00b_utf8_t      *short_doc;
-    n00b_utf8_t      *long_doc;
+    n00b_string_t      *location_string;
+    n00b_string_t      *name;
+    n00b_string_t      *short_doc;
+    n00b_string_t      *long_doc;
     n00b_dict_t      *fields;
     n00b_set_t       *allowed_sections;
     n00b_set_t       *required_sections;
@@ -55,8 +55,8 @@ typedef struct {
 
 typedef struct n00b_spec_t {
     n00b_tree_node_t    *declaration_node;
-    n00b_utf8_t         *short_doc;
-    n00b_utf8_t         *long_doc;
+    n00b_string_t         *short_doc;
+    n00b_string_t         *long_doc;
     n00b_spec_section_t *root_section;
     n00b_dict_t         *section_specs;
     unsigned int        locked : 1;
@@ -81,7 +81,7 @@ typedef enum {
 } n00b_attr_error_t;
 
 typedef struct {
-    n00b_utf8_t *err_arg;
+    n00b_string_t *err_arg;
     union {
         n00b_spec_section_t *sec_info;
         n00b_spec_field_t   *field_info;

@@ -1,7 +1,7 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-// n00b_debug("wait4", n00b_new_utf8("Capture RUSAGE."));
+// n00b_debug("wait4", n00b_cstring("Capture RUSAGE."));
 
 //    if (wait4((pid_t)pid, &cookie->stats, WNOHANG, &cookie->rusage) == -1) {
 //        N00B_CRAISE("Provided pid is not a valid subprocess of this process.");
@@ -13,15 +13,15 @@ n00b_io_exitinfo_report(n00b_stream_t *party, uint64_t ignore_always_1)
     return true;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_exitinfo_repr(n00b_stream_t *e)
 {
     n00b_exitinfo_t *psi = e->cookie;
 
-    n00b_utf8_t *result = n00b_cstr_format("{}exitinfo: pid #{}{}",
-                                           n00b_new_utf8("["),
-                                           (int64_t)psi->pid,
-                                           n00b_new_utf8("]"));
+    n00b_string_t *result = n00b_cformat("«#»exitinfo: pid #«#»«#»",
+                                         n00b_cached_lbracket(),
+                                         (int64_t)psi->pid,
+                                         n00b_cached_rbracket());
 
     return result;
 }
@@ -121,7 +121,7 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
             continue;
         }
 
-        n00b_io_set_repr(callback, n00b_new_utf8("drain_counter"));
+        n00b_io_set_repr(callback, n00b_cstring("drain_counter"));
 
         atomic_fetch_add(&cookie->streams_to_drain, 1);
         n00b_io_subscribe_oneshot(fd, callback, n00b_io_sk_close);

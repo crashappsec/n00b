@@ -5,13 +5,10 @@
 
 extern n00b_stream_filter_t *n00b_new_filter(n00b_filter_fn,
                                              n00b_filter_fn,
-                                             n00b_utf8_t *,
+                                             n00b_string_t *,
                                              size_t);
 extern void                  n00b_remove_filter(n00b_stream_t *,
                                                 n00b_stream_filter_t *);
-extern n00b_stream_filter_t *n00b_new_ensure_utf8_filter(n00b_stream_t *);
-extern void                  n00b_ensure_utf8_on_read(n00b_stream_t *);
-extern void                  n00b_ensure_utf8_on_write(n00b_stream_t *);
 extern n00b_stream_filter_t *n00b_new_line_buffering_xform(void);
 extern void                  n00b_line_buffer_reads(n00b_stream_t *);
 extern void                  n00b_line_buffer_writes(n00b_stream_t *);
@@ -33,6 +30,11 @@ extern void                  n00b_add_filter(n00b_stream_t *,
 extern n00b_list_t          *n00b_hex_dump_xform(n00b_stream_t *s,
                                                  void          *ctx,
                                                  void          *msg);
+extern void                  n00b_colorterm_enable(n00b_stream_t *,
+                                                   size_t,
+                                                   size_t,
+                                                   bool,
+                                                   n00b_theme_t *);
 
 static inline bool
 n00b_add_read_filter(n00b_stream_t *stream, n00b_stream_filter_t *f)
@@ -61,7 +63,7 @@ n00b_new_hex_dump(void)
 {
     return n00b_new_filter(n00b_hex_dump_xform,
                            NULL,
-                           n00b_new_utf8("hex dump"),
+                           n00b_cstring("hex dump"),
                            sizeof(int64_t));
 }
 

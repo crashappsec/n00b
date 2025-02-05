@@ -13,7 +13,7 @@ n00b_condition_open(n00b_condition_t *cv, void *aux)
                                           n00b_io_perm_w,
                                           n00b_io_ev_condition);
 
-    n00b_debug("cv", n00b_rich_lit("[h6]Condition opened"));
+    n00b_debug("cv", n00b_crich("«em6»Condition opened"));
 
     return res;
 }
@@ -33,12 +33,12 @@ n00b_io_condition_notify(n00b_stream_t *ev, void *msg)
     return NULL;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_condition_repr(n00b_stream_t *ev)
 {
     n00b_cv_cookie_t *cookie = ev->cookie;
 
-    return n00b_cstr_format("condition @{:x}", cookie->condition);
+    return n00b_cformat("condition @«#:p»", cookie->condition);
 }
 
 n00b_io_impl_info_t n00b_condition_impl = {

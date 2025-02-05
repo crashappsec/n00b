@@ -4,7 +4,7 @@
 n00b_stream_filter_t *
 n00b_new_filter(n00b_filter_fn xform_fn,
                 n00b_filter_fn flush_fn,
-                n00b_utf8_t   *name,
+                n00b_string_t *name,
                 size_t         cookie_sz)
 {
     n00b_stream_filter_t *filter = n00b_gc_alloc_mapped(n00b_stream_filter_t,
@@ -34,192 +34,10 @@ n00b_remove_filter(n00b_stream_t *party, n00b_stream_filter_t *filter)
     n00b_list_remove_item(party->write_filters, filter);
 }
 
-typedef struct {
-    // Because the most we might queue up is a three bytes of a
-    // four-byte UTF-8 sequence, the queue would only consist of
-    // condition variables, if anything at all.
-    n00b_list_t *queue;
-    unsigned int partial_len : 2;
-    char         partial[3];
-} fu8_state_t;
-
-// This filter takes a buffer, utf8 string, utf32
-// string or message, and converts them to a canonical utf8
-// representation if possible. Whenever there are errors,
-// an error posts, with the contents stored in the 'context' field.
-
-static n00b_list_t *
-n00b_u8_flush(n00b_stream_t *e, void *ctx, void *ignore)
-{
-    fu8_state_t *state = ctx;
-
-    if (state->partial_len) {
-        state->partial_len = 0;
-        n00b_post_cerror(e, "Flush operation dropped partial utf-8 char.");
-    }
-
-    n00b_list_t *result = state->queue;
-    state->queue        = NULL;
-
-    return result;
-}
-
-static n00b_list_t *
-n00b_to_u8_xform(n00b_stream_t *e, void *ctx, void *msg)
-{
-    fu8_state_t     *state    = ctx;
-    n00b_type_t     *t        = n00b_get_my_type(msg);
-    n00b_list_t     *result   = n00b_list(n00b_type_ref());
-    bool             bad_utf8 = false;
-    n00b_utf8_t     *output   = NULL;
-    n00b_utf8_t     *tmp;
-    n00b_buf_t      *tbuf = NULL;
-    n00b_buf_t      *msg_as_buf;
-    int              len;
-    char            *start;
-    char            *end;
-    char            *p;
-    n00b_codepoint_t cp;
-
-    if (n00b_type_is_condition(t)) {
-        if (!state->partial_len) {
-            n00b_list_append(result, msg);
-        }
-        else {
-            // We're not ready to return anything.
-            n00b_list_append(state->queue, msg);
-        }
-        return result;
-    }
-
-    if (state->partial_len && !n00b_type_is_buffer(t)) {
-        n00b_post_cerror_ctx(e,
-                             "Buffered utf8 state was not followed "
-                             "by a raw buffer.",
-                             msg);
-    }
-
-    if (n00b_type_is_buffer(t)) {
-        msg_as_buf = msg;
-    }
-    else {
-        if (n00b_type_is_string(t)) {
-            tmp = n00b_to_utf8(msg);
-        }
-        else {
-            tmp = n00b_object_repr_opt(msg);
-            if (!tmp) {
-                n00b_post_cerror_ctx(e, "Object doesn't have a repr.", msg);
-                return result;
-            }
-        }
-
-        msg_as_buf = n00b_new(n00b_type_buffer(),
-                              n00b_kw("raw",
-                                      tmp->data,
-                                      "length",
-                                      n00b_str_byte_len(tmp)));
-    }
-
-    n00b_buffer_acquire_r(msg_as_buf);
-
-    len = n00b_buffer_len(msg_as_buf);
-
-    if (state->partial_len) {
-        tbuf = n00b_new(n00b_type_buffer(),
-                        n00b_kw("length",
-                                n00b_ka(len + state->partial_len)));
-
-        n00b_buffer_acquire_w(tbuf);
-        memcpy(tbuf->data, state->partial, state->partial_len);
-        memcpy(tbuf->data + state->partial_len, msg_as_buf->data, len);
-        len += state->partial_len;
-        state->partial_len = 0;
-        n00b_buffer_release(msg_as_buf);
-        msg_as_buf = tbuf;
-    }
-
-    start = msg_as_buf->data;
-    p     = msg_as_buf->data;
-    end   = p + len;
-
-    while (p < end) {
-        int n = utf8proc_iterate((void *)p, len, &cp);
-        if (n < 1) {
-            if (p + 3 > end) {
-                state->partial_len = end - p;
-                for (int i = 0; i < n; i++) {
-                    state->partial[i] = *p++;
-                }
-                break;
-            }
-
-            bad_utf8 = true;
-
-            if (p != start) {
-                int64_t lo_len = p - start;
-                tmp            = n00b_new(n00b_type_utf8(),
-                               n00b_kw("start", start, "length", lo_len));
-                if (!output) {
-                    output = tmp;
-                }
-                else {
-                    output = n00b_str_concat(output, tmp);
-                }
-            }
-            p++;
-            continue;
-        }
-        p += n;
-    }
-
-    if (output) {
-        n00b_list_append(result, output);
-
-        if (state->queue && n00b_list_len(state->queue) != 0) {
-            result       = n00b_list_plus(result, state->queue);
-            state->queue = n00b_list(n00b_type_ref());
-        }
-    }
-
-    n00b_buffer_release(msg_as_buf);
-
-    if (bad_utf8) {
-        n00b_post_cerror_ctx(e,
-                             "Stripped invalid UTF-8 byte sequence(s)",
-                             (tbuf ? tbuf : msg));
-    }
-
-    return result;
-}
-
-n00b_stream_filter_t *
-n00b_new_ensure_utf8_filter(n00b_stream_t *party)
-{
-    n00b_stream_filter_t *r;
-
-    r = n00b_new_filter(n00b_to_u8_xform,
-                        n00b_u8_flush,
-                        n00b_new_utf8("ensure utf8"),
-                        sizeof(fu8_state_t));
-
-    fu8_state_t *s = r->state;
-    s->queue       = n00b_list(n00b_type_ref());
-
-    return r;
-}
-
-void
-n00b_ensure_utf8_on_read(n00b_stream_t *party)
-{
-    n00b_add_filter(party, n00b_new_ensure_utf8_filter(party), true);
-}
-
-void
-n00b_ensure_utf8_on_write(n00b_stream_t *party)
-{
-    n00b_add_filter(party, n00b_new_ensure_utf8_filter(party), false);
-}
+// TODO: replace the u8 filter, which takes a buffer or string string
+// or message, and converts them to a canonical string representation
+// if possible. Whenever there are errors, an error posts, with the
+// contents stored in the 'context' field.
 
 typedef struct lb_state_t {
     n00b_buf_t *b;
@@ -257,7 +75,7 @@ n00b_line_buffer_xform(n00b_stream_t *e, void *ctx, void *msg)
     }
 
     if (!n00b_can_coerce(t, n00b_type_buffer())) {
-        n00b_utf8_t *s = n00b_object_repr_opt(msg);
+        n00b_string_t *s = n00b_object_repr_opt(msg);
 
         if (!s) {
             n00b_post_cerror_ctx(e,
@@ -267,7 +85,7 @@ n00b_line_buffer_xform(n00b_stream_t *e, void *ctx, void *msg)
             return result;
         }
 
-        t   = n00b_type_utf8();
+        t   = n00b_type_string();
         msg = s;
     }
 
@@ -326,7 +144,7 @@ n00b_new_line_buffering_xform(void)
 {
     return n00b_new_filter(n00b_line_buffer_xform,
                            n00b_line_buffer_flush,
-                           n00b_new_utf8("line buffer"),
+                           n00b_cstring("line buffer"),
                            sizeof(lb_state_t));
 }
 
@@ -345,8 +163,8 @@ n00b_line_buffer_writes(n00b_stream_t *party)
 n00b_list_t *
 n00b_hex_dump_xform(n00b_stream_t *stream, void *ctx, void *msg)
 {
-    n00b_utf8_t *repr;
-    n00b_type_t *t = n00b_get_my_type(msg);
+    n00b_string_t *repr;
+    n00b_type_t   *t = n00b_get_my_type(msg);
 
     if (n00b_type_is_buffer(t)) {
         n00b_buf_t *b = msg;
@@ -354,8 +172,8 @@ n00b_hex_dump_xform(n00b_stream_t *stream, void *ctx, void *msg)
     }
     else {
         if (n00b_type_is_string(t)) {
-            n00b_utf8_t *str = n00b_to_utf8(msg);
-            repr             = n00b_hex_dump(str->data, str->byte_len);
+            n00b_string_t *str = msg;
+            repr             = n00b_hex_dump(str->data, str->u8_bytes);
         }
         else {
             repr = n00b_hex_debug_repr(msg);
@@ -366,12 +184,12 @@ n00b_hex_dump_xform(n00b_stream_t *stream, void *ctx, void *msg)
     *count_ptr         = count;
     uint64_t *ptr      = n00b_box_u64((uint64_t)stream);
 
-    n00b_utf8_t *s = n00b_cstr_format("{} @{:x} (msg: {}, ty: {}):\n{}",
-                                      stream,
-                                      ptr,
-                                      count,
-                                      t,
-                                      repr);
+    n00b_string_t *s = n00b_cformat("«#» @«#:p» (msg: «#», ty: «#»):\n«#»",
+                                  stream,
+                                  ptr,
+                                  count,
+                                  t,
+                                  repr);
 
     fprintf(stderr, "%s\n", s->data);
 
@@ -405,7 +223,7 @@ n00b_new_custom_callback_filter(n00b_callback_filter fn)
     n00b_stream_filter_t *result = n00b_new_filter(
         n00b_custom_cb_xform,
         NULL,
-        n00b_new_utf8("custom callback"),
+        n00b_cstring("custom callback"),
         sizeof(cb_state_t));
 
     cb_state_t *state = result->state;
@@ -429,14 +247,14 @@ n00b_add_custom_write_filter(n00b_stream_t *party, n00b_callback_filter fn)
 static n00b_list_t *
 n00b_to_json_xform(n00b_stream_t *e, void *ignore, void *msg)
 {
-    n00b_utf8_t *s = n00b_to_json(msg);
+    n00b_string_t *s = n00b_to_json(msg);
 
     if (!s) {
         n00b_post_cerror_ctx(e, "Value can't be converted to JSon.", msg);
         return NULL;
     }
 
-    n00b_list_t *result = n00b_list(n00b_type_utf8());
+    n00b_list_t *result = n00b_list(n00b_type_string());
     n00b_list_append(result, s);
 
     return result;
@@ -469,7 +287,7 @@ n00b_new_to_json_xform(void)
 {
     return n00b_new_filter(n00b_to_json_xform,
                            NULL,
-                           n00b_new_utf8("to json"),
+                           n00b_cstring("to json"),
                            0);
 }
 
@@ -490,7 +308,7 @@ n00b_new_from_json_xform(void)
 {
     return n00b_new_filter(n00b_from_json_xform,
                            NULL,
-                           n00b_new_utf8("from json"),
+                           n00b_cstring("from json"),
                            0);
 }
 

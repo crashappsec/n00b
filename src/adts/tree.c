@@ -12,6 +12,7 @@ tree_node_init(n00b_tree_node_t *t, va_list args)
     t->alloced_kids = 4;
     t->num_kids     = 0;
     t->contents     = contents;
+    t->noscan       = N00B_NOSCAN;
 }
 
 void
@@ -120,18 +121,18 @@ n00b_tree_children(n00b_tree_node_t *t)
 bool print_xform_info = false;
 
 n00b_tree_node_t *
-n00b_tree_str_transform(n00b_tree_node_t *t, n00b_str_t *(*fn)(void *))
+n00b_tree_string_transform(n00b_tree_node_t *t, n00b_string_t *(*fn)(void *))
 {
     if (t == NULL) {
         return NULL;
     }
 
-    n00b_str_t       *str    = n00b_to_utf8(fn(n00b_tree_get_contents(t)));
-    n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_utf8()),
+    n00b_string_t    *str    = fn(n00b_tree_get_contents(t));
+    n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_string()),
                                         n00b_kw("contents", n00b_ka(str)));
 
     for (int64_t i = 0; i < t->num_kids; i++) {
-        n00b_tree_adopt_node(result, n00b_tree_str_transform(t->children[i], fn));
+        n00b_tree_adopt_node(result, n00b_tree_string_transform(t->children[i], fn));
     }
 
     return result;
@@ -200,6 +201,25 @@ n00b_tree_walk(n00b_tree_node_t *root, n00b_walker_fn callback, void *thunk)
     n00b_tree_walk_with_cycles(root, callback, NULL, thunk);
 }
 
+n00b_list_t *
+n00b_tree_render(n00b_tree_node_t *root, int w, int h)
+{
+    void *f = root->repr_fn;
+
+    if (!f) {
+        f = n00b_stringify;
+    }
+
+    return n00b_table_render(n00b_tree_format(root, f, NULL, true), w, h);
+}
+
+n00b_string_t *
+n00b_tree_to_string(n00b_tree_node_t *root)
+{
+    n00b_list_t *l = n00b_tree_render(root, -1, 0);
+    return n00b_string_join(l, n00b_cached_empty_string());
+}
+
 void
 n00b_tree_node_set_gc_bits(uint64_t *bitfield, void *alloc)
 {
@@ -208,10 +228,11 @@ n00b_tree_node_set_gc_bits(uint64_t *bitfield, void *alloc)
 }
 
 const n00b_vtable_t n00b_tree_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)tree_node_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)n00b_tree_node_set_gc_bits,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_tree_to_string,
+        [N00B_BI_RENDER]      = (n00b_vtable_entry)n00b_tree_render,
         [N00B_BI_FINALIZER]   = NULL,
     },
 };

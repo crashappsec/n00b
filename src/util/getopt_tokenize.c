@@ -3,14 +3,14 @@
 
 static void n00b_gopt_comma(n00b_gopt_lex_state *);
 
-static inline n00b_utf8_t *
-n00b_gopt_normalize(n00b_gopt_lex_state *state, n00b_utf8_t *s)
+static inline n00b_string_t *
+n00b_gopt_normalize(n00b_gopt_lex_state *state, n00b_string_t *s)
 {
     if (state->gctx->options & N00B_CASE_SENSITIVE) {
-        return n00b_to_utf8(s);
+        return s;
     }
 
-    return n00b_to_utf8(n00b_str_lower(s));
+    return n00b_string_lower(s);
 }
 
 static int64_t
@@ -21,24 +21,24 @@ lookup_bi_id(n00b_gopt_lex_state *state, n00b_gopt_bi_ttype i)
 
 static void
 n00b_gopt_tok_emit(n00b_gopt_lex_state *state,
-                  int64_t             id,
-                  int                 word,
-                  int                 start,
-                  int                 end,
-                  n00b_utf8_t         *contents)
+                   int64_t              id,
+                   int                  word,
+                   int                  start,
+                   int                  end,
+                   n00b_string_t       *contents)
 {
     if (id >= 0 && id < N00B_GOTT_LAST_BI) {
         id = lookup_bi_id(state, id);
     }
 
     n00b_token_info_t *tok = n00b_gc_alloc_mapped(n00b_token_info_t,
-                                                N00B_GC_SCAN_ALL);
-    tok->value            = contents;
-    tok->tid              = id,
-    tok->index            = n00b_list_len(state->gctx->tokens);
-    tok->line             = word;
-    tok->column           = start;
-    tok->endcol           = end;
+                                                  N00B_GC_SCAN_ALL);
+    tok->value             = contents;
+    tok->tid               = id,
+    tok->index             = n00b_list_len(state->gctx->tokens);
+    tok->line              = word;
+    tok->column            = start;
+    tok->endcol            = end;
 
     n00b_list_append(state->gctx->tokens, tok);
 }
@@ -52,16 +52,16 @@ n00b_gopt_tok_command_name(n00b_gopt_lex_state *state)
 
     if (!state->command_name) {
         n00b_gopt_tok_emit(state,
-                          lookup_bi_id(state, N00B_GOTT_OTHER_COMMAND_NAME),
-                          0,
-                          0,
-                          0,
-                          n00b_new_utf8("??"));
+                           lookup_bi_id(state, N00B_GOTT_OTHER_COMMAND_NAME),
+                           0,
+                           0,
+                           0,
+                           n00b_cstring("??"));
         return;
     }
 
-    n00b_utf8_t *s     = n00b_to_utf8(state->command_name);
-    int64_t     tokid = (int64_t)hatrack_dict_get(state->gctx->sub_names,
+    n00b_string_t *s     = state->command_name;
+    int64_t        tokid = (int64_t)hatrack_dict_get(state->gctx->sub_names,
                                               s,
                                               NULL);
 
@@ -79,24 +79,23 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
     // for whatever is left. So slice it out, compare the normalized
     // version against our boolean values, and be done.
 
-    n00b_str_t  *raw_contents;
-    n00b_utf8_t *s;
-    n00b_utf8_t *truthstr;
+    n00b_string_t *raw_contents;
+    n00b_string_t *s;
+    n00b_string_t *truthstr;
 
     if (state->cur_word_position == 0) {
-        raw_contents = n00b_to_utf8(state->raw_word);
+        raw_contents = state->raw_word;
     }
     else {
-        raw_contents = n00b_str_slice(state->raw_word,
-                                     state->cur_word_position,
-                                     state->cur_wordlen);
+        raw_contents = n00b_string_slice(state->raw_word,
+                                         state->cur_word_position,
+                                         state->cur_wordlen);
     }
 
     if (n00b_len(raw_contents) == 0) {
         return; // Nothing to yield.
     }
 
-    raw_contents       = n00b_to_utf32(raw_contents);
     n00b_codepoint_t *p = (n00b_codepoint_t *)raw_contents->data;
 
     switch (*p) {
@@ -106,14 +105,15 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
             break;
         }
         // Even if it isn't normalized, force it...
-        s = n00b_to_utf8(n00b_str_lower(raw_contents));
-        if (n00b_str_eq(s, n00b_new_utf8("t")) || n00b_str_eq(s, n00b_new_utf8("true"))) {
+        s = n00b_string_lower(raw_contents);
+        if (n00b_string_eq(s, n00b_cstring("t"))
+            || n00b_string_eq(s, n00b_cstring("true"))) {
             n00b_gopt_tok_emit(state,
-                              N00B_GOTT_BOOL_T,
-                              state->word_id,
-                              state->cur_word_position,
-                              state->cur_wordlen,
-                              n00b_new_utf8("true"));
+                               N00B_GOTT_BOOL_T,
+                               state->word_id,
+                               state->cur_word_position,
+                               state->cur_wordlen,
+                               n00b_cstring("true"));
             return;
         }
         break;
@@ -123,14 +123,15 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
             break;
         }
         // Even if it isn't normalized, force it...
-        s = n00b_to_utf8(n00b_str_lower(raw_contents));
-        if (n00b_str_eq(s, n00b_new_utf8("f")) || n00b_str_eq(s, n00b_new_utf8("false"))) {
+        s = n00b_string_lower(raw_contents);
+        if (n00b_string_eq(s, n00b_cstring("f"))
+            || n00b_string_eq(s, n00b_cstring("false"))) {
             n00b_gopt_tok_emit(state,
-                              N00B_GOTT_BOOL_F,
-                              state->word_id,
-                              state->cur_word_position,
-                              state->cur_wordlen,
-                              n00b_new_utf8("false"));
+                               N00B_GOTT_BOOL_F,
+                               state->word_id,
+                               state->cur_word_position,
+                               state->cur_wordlen,
+                               n00b_cstring("false"));
             return;
         }
         break;
@@ -141,20 +142,21 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
         }
 
         if (n00b_gopt_gflag_is_set(state, N00B_GOPT_BOOL_NO_TF)) {
-            truthstr = n00b_new_utf8("yes");
+            truthstr = n00b_cstring("yes");
         }
         else {
-            truthstr = n00b_new_utf8("true");
+            truthstr = n00b_cstring("true");
         }
         // Even if it isn't normalized, force it...
-        s = n00b_to_utf8(n00b_str_lower(raw_contents));
-        if (n00b_str_eq(s, n00b_new_utf8("y")) || n00b_str_eq(s, n00b_new_utf8("yes"))) {
+        s = n00b_string_lower(raw_contents);
+        if (n00b_string_eq(s, n00b_cstring("y"))
+            || n00b_string_eq(s, n00b_cstring("yes"))) {
             n00b_gopt_tok_emit(state,
-                              N00B_GOTT_BOOL_T,
-                              state->word_id,
-                              state->cur_word_position,
-                              state->cur_wordlen,
-                              truthstr);
+                               N00B_GOTT_BOOL_T,
+                               state->word_id,
+                               state->cur_word_position,
+                               state->cur_wordlen,
+                               truthstr);
             return;
         }
         break;
@@ -165,26 +167,27 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
         }
 
         if (n00b_gopt_gflag_is_set(state, N00B_GOPT_BOOL_NO_TF)) {
-            truthstr = n00b_new_utf8("no");
+            truthstr = n00b_cstring("no");
         }
         else {
-            truthstr = n00b_new_utf8("false");
+            truthstr = n00b_cstring("false");
         }
         // Even if it isn't normalized, force it...
-        s = n00b_to_utf8(n00b_str_lower(raw_contents));
-        if (n00b_str_eq(s, n00b_new_utf8("n")) || n00b_str_eq(s, n00b_new_utf8("no"))) {
+        s = n00b_string_lower(raw_contents);
+        if (n00b_string_eq(s, n00b_cstring("n"))
+            || n00b_string_eq(s, n00b_cstring("no"))) {
             n00b_gopt_tok_emit(state,
-                              N00B_GOTT_BOOL_F,
-                              state->word_id,
-                              state->cur_word_position,
-                              state->cur_wordlen,
-                              truthstr);
+                               N00B_GOTT_BOOL_F,
+                               state->word_id,
+                               state->cur_word_position,
+                               state->cur_wordlen,
+                               truthstr);
             return;
         }
         break;
     }
 
-    int64_t ix = n00b_str_find(raw_contents, n00b_new_utf8(","));
+    int64_t ix = n00b_string_find(raw_contents, n00b_cached_comma());
     int64_t tokid;
 
     if (ix == -1) {
@@ -193,7 +196,7 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
         // for generic word.
 
         tokid = (int64_t)hatrack_dict_get(state->gctx->sub_names,
-                                          n00b_to_utf8(raw_contents),
+                                          raw_contents,
                                           NULL);
 
         if (!tokid) {
@@ -201,18 +204,18 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
         }
 
         n00b_gopt_tok_emit(state,
-                          tokid,
-                          state->word_id,
-                          state->cur_word_position,
-                          state->cur_wordlen,
-                          raw_contents);
+                           tokid,
+                           state->word_id,
+                           state->cur_word_position,
+                           state->cur_wordlen,
+                           raw_contents);
         return;
     }
 
-    raw_contents = n00b_str_slice(raw_contents, 0, ix);
+    raw_contents = n00b_string_slice(raw_contents, 0, ix);
 
     tokid = (int64_t)hatrack_dict_get(state->gctx->sub_names,
-                                      n00b_to_utf8(raw_contents),
+                                      raw_contents,
                                       NULL);
 
     if (!tokid) {
@@ -220,11 +223,11 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
     }
 
     n00b_gopt_tok_emit(state,
-                      tokid,
-                      state->word_id,
-                      state->cur_word_position,
-                      state->cur_word_position + ix,
-                      raw_contents);
+                       tokid,
+                       state->word_id,
+                       state->cur_word_position,
+                       state->cur_word_position + ix,
+                       raw_contents);
     state->cur_word_position += ix;
     n00b_gopt_comma(state);
     return;
@@ -236,7 +239,7 @@ n00b_gopt_tok_possible_number(n00b_gopt_lex_state *state)
     n00b_codepoint_t *start = (n00b_codepoint_t *)state->raw_word->data;
     n00b_codepoint_t *p     = start + state->cur_word_position;
     n00b_codepoint_t *end   = p + state->cur_wordlen;
-    bool             dot   = false;
+    bool              dot   = false;
 
     while (p < end) {
         switch (*p++) {
@@ -261,16 +264,16 @@ n00b_gopt_tok_possible_number(n00b_gopt_lex_state *state)
         case ',':;
             int ix = (p - start) + state->cur_word_position;
 
-            n00b_utf8_t *s = n00b_to_utf8(n00b_str_slice(state->raw_word,
-                                                      state->cur_word_position,
-                                                      ix));
+            n00b_string_t *s = n00b_string_slice(state->raw_word,
+                                                 state->cur_word_position,
+                                                 ix);
 
             n00b_gopt_tok_emit(state,
-                              dot ? N00B_GOTT_FLOAT : N00B_GOTT_INT,
-                              state->word_id,
-                              state->cur_word_position,
-                              end - start,
-                              s);
+                               dot ? N00B_GOTT_FLOAT : N00B_GOTT_INT,
+                               state->word_id,
+                               state->cur_word_position,
+                               end - start,
+                               s);
 
             state->cur_word_position = (end - start);
             n00b_gopt_comma(state);
@@ -281,15 +284,15 @@ n00b_gopt_tok_possible_number(n00b_gopt_lex_state *state)
         }
     }
 
-    n00b_utf8_t *s = n00b_to_utf8(n00b_str_slice(state->raw_word,
-                                              state->cur_word_position,
-                                              state->cur_wordlen));
+    n00b_string_t *s = n00b_string_slice(state->raw_word,
+                                         state->cur_word_position,
+                                         state->cur_wordlen);
     n00b_gopt_tok_emit(state,
-                      dot ? N00B_GOTT_FLOAT : N00B_GOTT_INT,
-                      state->word_id,
-                      state->cur_word_position,
-                      state->cur_wordlen,
-                      s); // Have emit take the slice.
+                       dot ? N00B_GOTT_FLOAT : N00B_GOTT_INT,
+                       state->word_id,
+                       state->cur_word_position,
+                       state->cur_wordlen,
+                       s); // Have emit take the slice.
 }
 
 static inline void
@@ -319,11 +322,11 @@ static void
 n00b_gopt_comma(n00b_gopt_lex_state *state)
 {
     n00b_gopt_tok_emit(state,
-                      N00B_GOTT_COMMA,
-                      state->word_id,
-                      state->cur_word_position,
-                      state->cur_word_position + 1,
-                      n00b_new_utf8(","));
+                       N00B_GOTT_COMMA,
+                       state->word_id,
+                       state->cur_word_position,
+                       state->cur_word_position + 1,
+                       n00b_cached_comma());
     state->cur_word_position++;
 
     if (state->cur_word_position != state->cur_wordlen) {
@@ -343,12 +346,11 @@ n00b_peek_and_disallow_assign(n00b_gopt_lex_state *state)
         return;
     }
 
-    n00b_str_t *s = n00b_list_get(state->words, state->word_id + 1, NULL);
-    if (n00b_str_codepoint_len(s) == 0) {
+    n00b_string_t *s = n00b_list_get(state->words, state->word_id + 1, NULL);
+    if (n00b_string_codepoint_len(s) == 0) {
         return;
     }
 
-    s = n00b_to_utf8(s);
     switch (s->data[0]) {
     case '=':
         state->force_word = true;
@@ -375,11 +377,11 @@ n00b_gopt_tok_argument_separator(n00b_gopt_lex_state *state, n00b_codepoint_t cp
     }
 
     n00b_gopt_tok_emit(state,
-                      N00B_GOTT_ASSIGN,
-                      state->word_id,
-                      state->cur_word_position,
-                      state->cur_word_position + 1,
-                      n00b_utf8_repeat(cp, 1));
+                       N00B_GOTT_ASSIGN,
+                       state->word_id,
+                       state->cur_word_position,
+                       state->cur_word_position + 1,
+                       n00b_string_from_codepoint(cp));
 
     state->cur_word_position++;
 
@@ -397,15 +399,14 @@ n00b_gopt_tok_argument_separator(n00b_gopt_lex_state *state, n00b_codepoint_t cp
 static void
 n00b_emit_proper_flag(n00b_gopt_lex_state *state, int end_ix)
 {
-    n00b_str_t *s = n00b_str_slice(state->word,
-                                 state->cur_word_position,
-                                 end_ix);
-    int64_t    tok_id;
+    n00b_string_t *s = n00b_string_slice(state->word,
+                                         state->cur_word_position,
+                                         end_ix);
+    int64_t        tok_id;
 
-    s                   = n00b_to_utf8(s);
     n00b_goption_t *info = hatrack_dict_get(state->gctx->all_options,
-                                           s,
-                                           NULL);
+                                            s,
+                                            NULL);
     if (!info) {
         tok_id = N00B_GOTT_UNKNOWN_OPT;
     }
@@ -413,17 +414,15 @@ n00b_emit_proper_flag(n00b_gopt_lex_state *state, int end_ix)
         tok_id = info->token_id;
     }
 
-    s = n00b_str_slice(state->raw_word,
-                      state->cur_word_position,
-                      end_ix);
-    s = n00b_to_utf8(s);
-
+    s = n00b_string_slice(state->raw_word,
+                          state->cur_word_position,
+                          end_ix);
     n00b_gopt_tok_emit(state,
-                      tok_id,
-                      state->word_id,
-                      state->cur_word_position,
-                      end_ix,
-                      s);
+                       tok_id,
+                       state->word_id,
+                       state->cur_word_position,
+                       end_ix,
+                       s);
 }
 
 static inline void
@@ -439,13 +438,13 @@ n00b_gopt_tok_gnu_short_opts(n00b_gopt_lex_state *state)
     n00b_codepoint_t *start   = (n00b_codepoint_t *)state->raw_word->data;
     n00b_codepoint_t *p       = start + state->cur_word_position;
     n00b_codepoint_t *end     = start + state->cur_wordlen;
-    bool             got_arg = false;
+    bool              got_arg = false;
     n00b_goption_t   *info;
-    n00b_utf8_t      *flag;
-    int64_t          tok_id;
+    n00b_string_t    *flag;
+    int64_t           tok_id;
 
     while (p < end) {
-        flag = n00b_utf8_repeat(*p, 1);
+        flag = n00b_string_from_codepoint(*p);
         info = hatrack_dict_get(state->gctx->all_options, flag, NULL);
 
         if (info == NULL) {
@@ -466,11 +465,11 @@ n00b_gopt_tok_gnu_short_opts(n00b_gopt_lex_state *state)
         }
 
         n00b_gopt_tok_emit(state,
-                          tok_id,
-                          state->word_id,
-                          state->cur_word_position,
-                          state->cur_word_position + 1,
-                          flag);
+                           tok_id,
+                           state->word_id,
+                           state->cur_word_position,
+                           state->cur_word_position + 1,
+                           flag);
         p++;
         state->cur_word_position++;
 
@@ -520,20 +519,20 @@ static inline void
 n00b_gopt_tok_unix_flag(n00b_gopt_lex_state *state)
 {
     if (!n00b_gopt_gflag_is_set(state, N00B_GOPT_SINGLE_DASH_ERR)) {
-        if (n00b_str_eq(state->word, n00b_new_utf8("-"))) {
+        if (n00b_string_eq(state->word, n00b_cached_minus())) {
             n00b_gopt_tok_word_or_bool(state);
             return;
         }
     }
     if (!n00b_gopt_gflag_is_set(state, N00B_GOPT_NO_DOUBLE_DASH)) {
-        if (n00b_str_eq(state->word, n00b_new_utf8("--"))) {
+        if (n00b_string_eq(state->word, n00b_cstring("--"))) {
             state->all_words = true;
         }
     }
 
     state->cur_word_position++;
 
-    if (n00b_str_starts_with(state->word, n00b_new_utf8("--"))) {
+    if (n00b_string_starts_with(state->word, n00b_cstring("--"))) {
         state->cur_word_position++;
         n00b_gopt_tok_longform_opt(state);
         return;
@@ -617,9 +616,9 @@ n00b_gopt_tok_main_loop(n00b_gopt_lex_state *state)
 
     for (int i = 0; i < n; i++) {
         state->word_id     = i;
-        state->raw_word    = n00b_to_utf32(n00b_list_get(state->words, i, NULL));
+        state->raw_word    = n00b_list_get(state->words, i, NULL);
         state->word        = n00b_gopt_normalize(state, state->raw_word);
-        state->cur_wordlen = n00b_str_codepoint_len(state->raw_word);
+        state->cur_wordlen = n00b_string_codepoint_len(state->raw_word);
 
         if (state->force_word) {
             n00b_gopt_tok_word_or_bool(state);
@@ -640,11 +639,11 @@ n00b_gopt_tok_main_loop(n00b_gopt_lex_state *state)
 // the Earley parser ourselves, but it's easier for me to not bother.
 void
 n00b_gopt_tokenize(n00b_gopt_ctx *ctx,
-                  n00b_utf8_t   *command_name,
-                  n00b_list_t   *words)
+                   n00b_string_t *command_name,
+                   n00b_list_t   *words)
 {
     n00b_gopt_lex_state *state = n00b_gc_alloc_mapped(n00b_gopt_lex_state,
-                                                    N00B_GC_SCAN_ALL);
+                                                      N00B_GC_SCAN_ALL);
 
     state->gctx         = ctx;
     state->command_name = command_name;

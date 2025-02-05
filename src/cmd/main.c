@@ -1,189 +1,173 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
-
-static char *n00b_cmd_doc =
-    "### The N00b compiler.\n\n"
-    "This is the long doc, but its contents are yet to be written.\n";
-
-static inline n00b_gopt_ctx *
-setup_cmd_line(void)
-{
-    n00b_gopt_ctx   *gopt    = n00b_new(n00b_type_gopt_parser(),
-                                   N00B_TOPLEVEL_IS_ARGV0);
-    n00b_gopt_cspec *top     = n00b_new(n00b_type_gopt_command(),
-                                    n00b_kw("context",
-                                            n00b_ka(gopt),
-                                            "short_doc",
-                                            n00b_new_utf8("The n00b compiler"),
-                                            "long_doc",
-                                            n00b_new_utf8(n00b_cmd_doc)));
-    n00b_gopt_cspec *compile = n00b_new(
-        n00b_type_gopt_command(),
-        n00b_kw("context",
-                n00b_ka(gopt),
-                "name",
-                n00b_ka(n00b_new_utf8("compile")),
-                "short_doc",
-                n00b_new_utf8("Compiles to an object file without running it."),
-                "parent",
-                n00b_ka(top)));
-    n00b_gopt_cspec *build = n00b_new(
-        n00b_type_gopt_command(),
-        n00b_kw("context",
-                n00b_ka(gopt),
-                "name",
-                n00b_ka(n00b_new_utf8("build")),
-                "short_doc",
-                n00b_new_utf8("Alias for compile."),
-                "parent",
-                n00b_ka(top)));
-    n00b_gopt_cspec *run = n00b_new(
-        n00b_type_gopt_command(),
-        n00b_kw("context",
-                n00b_ka(gopt),
-                "name",
-                n00b_ka(n00b_new_utf8("run")),
-                "short_doc",
-                n00b_new_utf8("Runs a file (compiling it first if needed)."),
-                "parent",
-                n00b_ka(top)));
-
-    n00b_new(n00b_type_gopt_option(),
-             n00b_kw("name",
-                     n00b_new_utf8("debug"),
-                     "linked_command",
-                     top,
-                     "opt_type",
-                     n00b_ka(N00B_GOAT_BOOL_T_DEFAULT)));
-    n00b_new(n00b_type_gopt_option(),
-             n00b_kw("name",
-                     n00b_new_utf8("show-command-parse"),
-                     "linked_command",
-                     top,
-                     "opt_type",
-                     n00b_ka(N00B_GOAT_BOOL_T_DEFAULT)));
-
-    n00b_gopt_add_subcommand(gopt, compile, n00b_new_utf8("(str)+"));
-    n00b_gopt_add_subcommand(gopt, build, n00b_new_utf8("(str)+"));
-    n00b_gopt_add_subcommand(gopt, run, n00b_new_utf8("str"));
-    n00b_gopt_add_subcommand(gopt,
-                             top,
-                             n00b_new_utf8("str"));
-    _n00b_gopt_add_subcommand(gopt,
-                              top,
-                              n00b_new_utf8(""),
-                              n00b_new_utf8("interactive mode (tbd)"));
-
-    return gopt;
-}
-
-static void
-exit_gracefully(n00b_stream_t *e, int64_t signal, void *aux)
-{
-    n00b_printf("[em]Shutting down[/] due to signal: [em]{}",
-                n00b_get_signal_name(signal));
-    n00b_exit(-1);
-}
+#include "n00b/cmd.h"
 
 static n00b_list_t *
 resolve_paths(n00b_list_t *args)
 {
-    n00b_list_t *result = n00b_list(n00b_type_utf8());
+    n00b_list_t *result = n00b_list(n00b_type_string());
     int          n      = n00b_list_len(args);
 
     for (int i = 0; i < n; i++) {
-        n00b_utf8_t *s = n00b_list_get(args, i, NULL);
-        s              = n00b_resolve_path(s);
+        n00b_string_t *s = n00b_list_get(args, i, NULL);
+        s                = n00b_resolve_path(s);
         n00b_list_append(result, s);
     }
 
     return result;
 }
 
+static int
+get_cmd_id(n00b_string_t *cmd)
+{
+    if (n00b_string_eq(cmd, n00b_cstring("compile"))) {
+        return N00B_CMD_COMPILE;
+    }
+    if (n00b_string_eq(cmd, n00b_cstring("build"))) {
+        return N00B_CMD_COMPILE;
+    }
+    if (n00b_string_eq(cmd, n00b_cstring("run"))) {
+        return N00B_CMD_RUN;
+    }
+
+    return N00B_CMD_REPL;
+}
+
+static inline void
+n00b_show_error_output(n00b_cmdline_ctx *ctx)
+{
+    n00b_table_t *err_output = n00b_format_errors(ctx->cctx);
+
+    if (err_output) {
+        n00b_eprint(n00b_crich("«em2»Errors:"));
+        n00b_eprint(err_output);
+    }
+}
+
+extern void n00b_rich_lex(n00b_string_t *s);
+
+const char *MD_EX =
+    "# This is a title.\n"
+    "\n"
+    "## This is a subtitle.\n"
+    "Here's a block of *normal* text with some _highlights_.\n"
+    "It runs a couple of lines, but not **too** long.\n"
+    "\n"
+    "Here's the next block of text, which should show up as "
+    "its own separate paragraph."
+    "\n"
+    "1. Hello\n"
+    "2. Sailor\n"
+    "\n"
+    "- Hi\n"
+    "- Mom\n"
+    "\n\n"
+    /*    "|       |       |\n"
+        "|-------|-------|\n"
+        "|   1   |   2   |\n"
+        "|   2   |   4   |\n"
+        "\n"*/
+    "### Bye!\n";
+
 void
-n00b_log_dev_compile_info(n00b_compile_ctx *ctx)
+layout_test(void)
 {
-    if (!ctx->entry_point->path) {
-        return;
-    }
+    n00b_tree_node_t *layout = n00b_new_layout();
+    n00b_new_layout_cell(layout,
+                         n00b_kw("min",
+                                 n00b_ka(10),
+                                 "preference",
+                                 n00b_ka(20)));
+    n00b_new_layout_cell(layout,
+                         n00b_kw("flex",
+                                 n00b_ka(1),
+                                 "preference",
+                                 n00b_ka(20)));
+    n00b_new_layout_cell(layout,
+                         n00b_kw("flex",
+                                 n00b_ka(1),
+                                 "preference",
+                                 n00b_ka(30)));
+    n00b_new_layout_cell(layout,
+                         n00b_kw("min",
+                                 n00b_ka(5),
+                                 "max",
+                                 n00b_ka(10)));
 
-    n00b_debug("entry module", ctx->entry_point->path);
-    n00b_debug("entry source", ctx->entry_point->source);
-    n00b_debug("entry tokens", n00b_format_tokens(ctx->entry_point));
-    if (ctx->entry_point->ct->parse_tree) {
-        n00b_debug("parse tree", n00b_format_ptree(ctx->entry_point));
-    }
-    if (ctx->entry_point->ct->cfg) {
-        n00b_debug("module cfg", n00b_cfg_repr(ctx->entry_point->ct->cfg));
-    }
-
-    for (int j = 0; j < n00b_list_len(ctx->entry_point->fn_def_syms); j++) {
-        n00b_symbol_t  *sym  = n00b_list_get(ctx->entry_point->fn_def_syms,
-                                           j,
-                                           NULL);
-        n00b_fn_decl_t *decl = sym->value;
-        n00b_debug("function", sym->name);
-        n00b_debug("function type", sym->type);
-        n00b_debug("function cfg", n00b_cfg_repr(decl->cfg));
-        n00b_debug("function scope",
-                   n00b_format_scope(decl->signature_info->fn_scope));
-    }
-
-    n00b_debug("module scope",
-               n00b_format_scope(ctx->entry_point->module_scope));
-    n00b_debug("global scope", n00b_format_scope(ctx->final_globals));
-
-    n00b_debug("attribute scope", n00b_format_scope(ctx->final_attrs));
-
-    n00b_debug("loaded modules", n00b_get_module_summary_info(ctx));
-    n00b_debug("attribute spec", n00b_repr_spec(ctx->final_spec));
+    n00b_tree_node_t *t = n00b_layout_calculate(layout, 120);
+    n00b_string_t    *s = n00b_to_string(t);
+    n00b_eprintf("layout has «#:i» kids.\n", (int64_t)layout->num_kids);
+    n00b_eprintf("res 1 has «#:i» kids.\n", (int64_t)t->num_kids);
+    n00b_eprintf("«em2»Layout 1");
+    n00b_eprint(s);
+    t = n00b_layout_calculate(layout, 20);
+    s = n00b_to_string(t);
+    n00b_eprintf("«em2»Layout 2");
+    n00b_eprint(s);
+    t = n00b_layout_calculate(layout, 19);
+    s = n00b_to_string(t);
+    n00b_eprintf("«em2»Layout 3");
+    n00b_eprint(s);
+    t = n00b_layout_calculate(layout, 10);
+    s = n00b_to_string(t);
+    n00b_eprintf("«em2»Layout 4«/»\n«#»", s);
 }
 
-static void
-compile(n00b_list_t *args, n00b_dict_t *opts)
+void
+tmp_testing(void)
 {
-}
+    n00b_string_t *s;
+    n00b_string_t *tc;
 
-static void
-compile_and_run(n00b_list_t *args, n00b_dict_t *opts)
-{
-    n00b_utf8_t *s = n00b_list_get(args, 0, NULL);
-    n00b_printf("[h1]Parsing module {} and its dependencies", s);
-    n00b_compile_ctx *ctx        = n00b_compile_from_entry_point(s);
-    n00b_grid_t      *err_output = n00b_format_errors(ctx);
+    tc = n00b_theme_palate_table(n00b_get_current_theme());
+    n00b_eprint(tc);
 
-    if (err_output != NULL) {
-        n00b_grid_t *err_grid = n00b_new(n00b_type_grid(),
-                                         n00b_kw("start_rows",
-                                                 n00b_ka(2),
-                                                 "start_cols",
-                                                 n00b_ka(1),
-                                                 "container_tag",
-                                                 n00b_ka(n00b_new_utf8("flow"))));
-        n00b_utf8_t *s        = n00b_new_utf8("Error Output");
-        n00b_grid_add_row(err_grid,
-                          n00b_to_str_renderable(s,
-                                                 n00b_new_utf8("h2")));
-        n00b_grid_add_row(err_grid, err_output);
-        n00b_print(err_grid);
-        n00b_exit(0);
-    }
+    tc = n00b_preview_theme(n00b_get_current_theme());
+    n00b_eprint(tc);
 
-    n00b_printf("[h1]Generating code.");
-    n00b_vm_t *vm = n00b_vm_new(ctx);
-    n00b_generate_code(ctx, vm);
-    n00b_printf("[h4]Beginning execution.");
-    n00b_vmthread_t *thread = n00b_vmthread_new(vm);
-    n00b_vmthread_run(thread);
-    n00b_printf("[h4]Execution finished.");
+    s = n00b_cstring("default text.");
 
-    bool debug_on = (bool)(void *)hatrack_dict_get(opts,
-                                                   n00b_new_utf8("debug"),
-                                                   NULL);
-    if (debug_on) {
-        n00b_log_dev_compile_info(ctx);
-        n00b_debug("disassembly", n00b_disasm(vm, ctx->entry_point));
-    }
+    n00b_eprint(s);
+
+    n00b_eprint(n00b_cformat("«#:i»wow", 1000));
+
+    layout_test();
+
+    n00b_tree_node_t *t   = n00b_parse_markdown(n00b_cstring(MD_EX));
+    n00b_table_t     *tbl = n00b_repr_md_parse(t);
+    n00b_eprint(tbl);
+    n00b_eprint(n00b_markdown_to_table(n00b_cstring(MD_EX), false));
+
+    n00b_eprint(n00b_crich("example [|h1|]bar "));
+    n00b_eprint(n00b_crich("[|em2|]example[|/|] [|em1|]bar «em2»[|bah"));
+    n00b_eprint(n00b_crich("«i»«b»hello,[|/b|] world!"));
+    n00b_eprint(n00b_crich("«i»hell«b»«strikethrough»o, wo[|/|]rld!"));
+    n00b_eprint(n00b_crich("«strikethrough»hello, wo[|/|]rld!"));
+    n00b_eprint(n00b_crich("«u»hello, wo[|/|]rld!"));
+    n00b_eprint(n00b_crich("«uu»hello, wo[|/|]rld!"));
+    n00b_eprint(n00b_crich("«allcaps»hello, wo[|/|]rld!"));
+    n00b_eprint(n00b_crich("«upper»hello, wo[|/|]rld!"));
+
+    s = n00b_crich("example [|em1|]bar ");
+    n00b_eprint(n00b_cformat("«caps»wow, bob, wow!", s));
+    n00b_eprint(n00b_cformat("«caps»«#0:»wow", s));
+    n00b_eprint(n00b_cformat("«upper»«#0:»wow", s));
+    n00b_eprint(n00b_cformat("«upper»«#0:!»wow", s));
+    n00b_eprint(n00b_cformat("«upper»«#1!»wow", s));
+
+    n00b_string_t *s1 = n00b_cstring("Hello, ");
+    n00b_string_t *s2 = n00b_cstring("world.");
+
+    n00b_list_t *l = n00b_list(n00b_type_string());
+    n00b_list_append(l, s1);
+    n00b_list_append(l, s2);
+    n00b_eprint(n00b_unordered_list(l, NULL));
+    n00b_eprint(n00b_ordered_list(l, NULL));
+
+    s2                = n00b_string_style_by_tag(s2,
+                                  n00b_cstring("h6"));
+    n00b_string_t *s3 = n00b_string_concat(s1, s2);
+    n00b_eprint(s3);
 
     n00b_exit(0);
 }
@@ -191,64 +175,55 @@ compile_and_run(n00b_list_t *args, n00b_dict_t *opts)
 int
 main(int argc, char **argv, char **envp)
 {
-    n00b_init(argc, argv, envp);
-    n00b_terminal_app_setup();
+    n00b_gopt_result_t *opt_res = n00b_basic_setup(argc, argv, envp);
+    n00b_cmdline_ctx   *ctx     = n00b_gc_alloc_mapped(n00b_cmdline_ctx,
+                                                 N00B_GC_SCAN_ALL);
 
-    n00b_io_register_signal_handler(SIGTERM, (void *)exit_gracefully);
-    // TODO: redo this on libevent.
-    /*
-    n00b_io_register_signal_handler(SIGSEGV, (void *)exit_crash_handler);
-    n00b_io_register_signal_handler(SIGBUS, (void *)exit_crash_handler);
-    */
+    ctx->cmd       = n00b_gopt_get_command(opt_res);
+    ctx->args      = NULL;
+    ctx->opts      = n00b_gopt_get_flags(opt_res);
+    ctx->cctx      = NULL;
+    ctx->vm        = NULL;
+    ctx->cmd_parse = opt_res ? opt_res->tree : NULL;
+    ctx->exit_code = 0;
 
-    n00b_eprintf(
-        "[em]N00b {}.{}.{}[/] [i]({}, {})[/]\n"
-        "© 2024-2025 Crash Override, Inc.\n"
-        "Licensed under the BSD-3-Clause license.\n",
-        n00b_box_u64(N00B_VERS_MAJOR),
-        n00b_box_u64(N00B_VERS_MINOR),
-        n00b_box_u64(N00B_VERS_PATCH),
-        n00b_compile_date(),
-        n00b_compile_time());
-    n00b_enable_debugging();
-    n00b_ignore_uncaught_io_errors();
+    if (ctx->cmd) {
+        ctx->args = resolve_paths(n00b_gopt_get_args(opt_res, ctx->cmd));
+    }
 
-    sigset_t saved_set, cur_set;
+    if (!n00b_cmd_quiet(ctx)) {
+        n00b_eprintf(
+            "«em2»N00b «#».«#».«#»«/» «i»(«#», «#»)«/»\n"
+            "© 2024-2025 Crash Override, Inc.\n"
+            "Licensed under the BSD-3-Clause license.\n",
+            (int64_t)N00B_VERS_MAJOR,
+            (int64_t)N00B_VERS_MINOR,
+            (int64_t)N00B_VERS_PATCH,
+            n00b_compile_date(),
+            n00b_compile_time());
 
-    sigemptyset(&cur_set);
-    sigaddset(&cur_set, SIGPIPE);
-    pthread_sigmask(SIG_BLOCK, &cur_set, &saved_set);
-
-    n00b_gopt_ctx      *opt_ctx = setup_cmd_line();
-    n00b_gopt_result_t *opt_res = n00b_run_getopt_raw(opt_ctx, NULL, NULL);
+        n00b_eprintf("«h3»N00b Root:«/» «#»", n00b_n00b_root());
+    }
 
     if (!opt_res) {
         n00b_exit(-1);
     }
 
-    n00b_utf8_t *cmd  = n00b_gopt_get_command(opt_res);
-    n00b_list_t *args = resolve_paths(n00b_gopt_get_args(opt_res, cmd));
-    n00b_dict_t *opts = n00b_gopt_get_flags(opt_res);
-
-    if (hatrack_dict_get(opts, n00b_new_utf8("show-command-parse"), NULL)) {
-        n00b_debug("n00b_parsed_cmd", cmd);
-        n00b_debug("n00b_parsed_args", args);
-        n00b_debug("n00b_cmd_parse_tree",
-                   n00b_parse_tree_format(opt_res->tree));
-        n00b_debug("n00b_cmd_options", opts);
+    switch (get_cmd_id(ctx->cmd)) {
+    case N00B_CMD_RUN:
+        n00b_compile_and_run(ctx);
+        break;
+    case N00B_CMD_COMPILE:
+        n00b_compile(ctx, true);
+        break;
+    case N00B_CMD_REPL:
+        n00b_eprintf("«em2»Interactive mode is not implemented yet.");
+        ctx->exit_code = N00B_NOT_DONE;
     }
 
-    if (n00b_str_eq(cmd, n00b_new_utf8("compile"))) {
-        compile(args, opts);
-    }
-    if (n00b_str_eq(cmd, n00b_new_utf8("build"))) {
-        compile(args, opts);
-    }
-    if (n00b_str_eq(cmd, n00b_new_utf8("run"))) {
-        compile_and_run(args, opts);
-    }
-    if (n00b_str_eq(cmd, n00b_new_utf8(""))) {
-        compile_and_run(args, opts);
-    }
-    n00b_exit(0);
+    n00b_show_cmdline_debug_info(ctx);
+    n00b_show_compiler_debug_info(ctx);
+    n00b_show_error_output(ctx);
+
+    n00b_exit(ctx->exit_code);
 }

@@ -23,10 +23,10 @@ extern uint8_t *SHA224(const uint8_t *data, size_t count, uint8_t *md_buf);
 extern uint8_t *SHA256(const uint8_t *data, size_t count, uint8_t *md_buf);
 extern uint8_t *SHA512(const uint8_t *data, size_t count, uint8_t *md_buf);
 
-extern void       n00b_sha_init(n00b_sha_t *, va_list);
-extern void       n00b_sha_cstring_update(n00b_sha_t *, char *);
-extern void       n00b_sha_int_update(n00b_sha_t *, uint64_t);
-extern void       n00b_sha_string_update(n00b_sha_t *, n00b_str_t *);
-extern void       n00b_sha_buffer_update(n00b_sha_t *, n00b_buf_t *);
+extern void        n00b_sha_init(n00b_sha_t *, va_list);
+extern void        n00b_sha_cstring_update(n00b_sha_t *, char *);
+extern void        n00b_sha_int_update(n00b_sha_t *, uint64_t);
+extern void        n00b_sha_string_update(n00b_sha_t *, n00b_string_t *);
+extern void        n00b_sha_buffer_update(n00b_sha_t *, n00b_buf_t *);
 extern n00b_buf_t *n00b_sha_finish(n00b_sha_t *);
-extern void       n00b_gc_openssl();
+extern void        n00b_gc_openssl();

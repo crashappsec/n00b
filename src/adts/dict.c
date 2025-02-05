@@ -17,18 +17,43 @@ hatrack_bucket_unreserved(hatrack_hash_t hv)
 
 #endif
 
-hatrack_hash_t
-n00b_custom_string_hash(n00b_str_t *s)
+static inline hatrack_hash_t
+new_string_hash(n00b_string_t *s)
 {
     union {
         hatrack_hash_t local_hv;
         XXH128_hash_t  xxh_hv;
     } hv;
 
-    static n00b_utf8_t *n00b_null_string = NULL;
+    if (!s || !s->codepoints) {
+        s = n00b_cached_empty_string();
+    }
+
+    hatrack_hash_t *cache = (void *)(((char *)s) + N00B_HASH_CACHE_OBJ_OFFSET);
+    hv.local_hv           = *cache;
+
+    // This isn't really testing a bucket, just seeing if the hash
+    // value is 0.
+    if (hatrack_bucket_unreserved(hv.local_hv)) {
+        hv.xxh_hv = XXH3_128bits(s->data, s->u8_bytes);
+        *cache    = hv.local_hv;
+    }
+
+    return *cache;
+}
+
+static inline hatrack_hash_t
+old_string_hash(n00b_string_t *s)
+{
+    union {
+        hatrack_hash_t local_hv;
+        XXH128_hash_t  xxh_hv;
+    } hv;
+
+    static n00b_string_t *n00b_null_string = NULL;
 
     if (n00b_null_string == NULL) {
-        n00b_null_string = n00b_new_utf8("");
+        n00b_null_string = n00b_cached_empty_string();
         n00b_gc_register_root(&n00b_null_string, 1);
     }
 
@@ -36,21 +61,29 @@ n00b_custom_string_hash(n00b_str_t *s)
 
     hv.local_hv = *cache;
 
-    if (!n00b_str_codepoint_len(s)) {
+    if (!n00b_string_codepoint_len(s)) {
         s = n00b_null_string;
     }
 
     if (hatrack_bucket_unreserved(hv.local_hv)) {
-        if (s->utf32) {
-            s = n00b_to_utf8(s);
-        }
-
-        hv.xxh_hv = XXH3_128bits(s->data, s->byte_len);
+        hv.xxh_hv = XXH3_128bits(s->data, s->u8_bytes);
 
         *cache = hv.local_hv;
     }
 
     return *cache;
+}
+
+hatrack_hash_t
+n00b_custom_string_hash(void *v)
+{
+    n00b_type_t *t = n00b_get_my_type(v);
+
+    if (t->base_index == N00B_T_STRING) {
+        return new_string_hash(v);
+    }
+
+    return old_string_hash(v);
 }
 
 void
@@ -204,7 +237,7 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
         // clang-format on
         break;
     case HATRACK_DICT_KEY_TYPE_OBJ_CSTR:
-        hatrack_dict_set_hash_offset(dict, N00B_STR_HASH_KEY_POINTER_OFFSET);
+        hatrack_dict_set_hash_offset(dict, N00B_string_HASH_KEY_POINTER_OFFSET);
         /* fallthrough */
     case HATRACK_DICT_KEY_TYPE_OBJ_PTR:
     case HATRACK_DICT_KEY_TYPE_OBJ_INT:
@@ -218,31 +251,30 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
     dict->slow_views = false;
 }
 
-static n00b_str_t *
+static n00b_string_t *
 dict_repr(n00b_dict_t *dict)
 {
     uint64_t             view_len;
     hatrack_dict_item_t *view = hatrack_dict_items_sort(dict, &view_len);
 
-    n00b_list_t *items    = n00b_new(n00b_type_list(n00b_type_utf32()),
+    n00b_list_t   *items    = n00b_new(n00b_type_list(n00b_type_string()),
                                   n00b_kw("length", n00b_ka(view_len)));
-    n00b_list_t *one_item = n00b_new(n00b_type_list(n00b_type_utf32()));
-    n00b_utf8_t *colon    = n00b_get_colon_const();
+    n00b_list_t   *one_item = n00b_new(n00b_type_list(n00b_type_string()));
+    n00b_string_t *colon    = n00b_cached_colon();
 
     for (uint64_t i = 0; i < view_len; i++) {
         n00b_list_set(one_item, 0, n00b_repr(view[i].key));
         n00b_list_set(one_item, 1, n00b_repr(view[i].value));
-        n00b_list_append(items, n00b_str_join(one_item, colon));
+        n00b_list_append(items, n00b_string_join(one_item, colon));
     }
 
-    return n00b_cstr_format("\\{{}\\}",
-                            n00b_str_join(items, n00b_get_comma_const()));
+    return n00b_cformat("{«#»}", n00b_string_join(items, n00b_cached_comma()));
     /*
-    n00b_list_set(one_item, 0, n00b_get_lbrace_const());
-    n00b_list_set(one_item, 1, n00b_str_join(items, n00b_get_comma_const()));
-    n00b_list_append(one_item, n00b_get_rbrace_const());
+    n00b_list_set(one_item, 0, n00b_cached_lbrace());
+    n00b_list_set(one_item, 1, n00b_string_join(items, n00b_cached_comma()));
+    n00b_list_append(one_item, n00b_cached_rbrace());
 
-    return n00b_str_join(one_item, n00b_get_space_const());*/
+    return n00b_string_join(one_item, n00b_cached_space());*/
 }
 
 static bool
@@ -368,7 +400,7 @@ n00b_dict_values(n00b_dict_t *dict)
 }
 
 static n00b_dict_t *
-to_dict_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *lm)
+to_dict_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *lm)
 {
     uint64_t     n      = n00b_list_len(items);
     n00b_dict_t *result = n00b_new(objtype);
@@ -382,8 +414,7 @@ to_dict_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *lm)
 }
 
 const n00b_vtable_t n00b_dict_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_dict_init,
         [N00B_BI_FINALIZER]     = (n00b_vtable_entry)hatrack_dict_cleanup,
         [N00B_BI_TO_STR]        = (n00b_vtable_entry)dict_repr,

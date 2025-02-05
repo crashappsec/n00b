@@ -6,8 +6,8 @@ extern n00b_buf_t  *n00b_buffer_add(n00b_buf_t *, n00b_buf_t *);
 extern n00b_buf_t  *n00b_buffer_join(n00b_list_t *, n00b_buf_t *);
 extern int64_t      n00b_buffer_len(n00b_buf_t *);
 extern void         n00b_buffer_resize(n00b_buf_t *, uint64_t);
-extern n00b_utf8_t *n00b_buf_to_utf8_string(n00b_buf_t *);
-extern n00b_utf8_t *n00b_buffer_to_hex_str(n00b_buf_t *buf);
+extern n00b_string_t *n00b_buf_to_utf8_string(n00b_buf_t *);
+extern n00b_string_t *n00b_buffer_to_hex_str(n00b_buf_t *buf);
 extern int64_t      _n00b_buffer_find(n00b_buf_t *, n00b_buf_t *, ...);
 
 #define n00b_buffer_find(buf_main, sub, ...) \
@@ -35,4 +35,10 @@ static inline void
 n00b_buffer_release(n00b_buf_t *b)
 {
     n00b_rw_lock_release(&b->lock);
+}
+
+static inline n00b_string_t *
+n00b_buf_to_string(n00b_buf_t *b)
+{
+    return n00b_utf8(b->data, b->byte_len);
 }

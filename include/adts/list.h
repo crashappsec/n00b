@@ -50,6 +50,10 @@ extern bool         n00b_list_contains(n00b_list_t *, n00b_obj_t);
 extern void        *n00b_list_view(n00b_list_t *, uint64_t *);
 extern void         n00b_private_list_reverse(n00b_list_t *);
 extern void         n00b_list_reverse(n00b_list_t *);
+extern n00b_list_t *_n00b_to_list(n00b_type_t *, int, ...);
+
+#define n00b_to_list(t, ...) \
+    _n00b_to_list(t, N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)
 
 #define n00b_lock_list(x)                         \
     if (x) {                                      \
@@ -70,6 +74,10 @@ n00b_list_enforce_uniqueness_when_adding(n00b_list_t *l)
     n00b_rw_lock_acquire_for_read(&(list_obj->lock), true);
 
 #define n00b_lock_list_write n00b_lock_list
+
+extern n00b_list_t *_n00b_c_map(char *, ...);
+
+#define n00b_c_map(s, ...) _n00b_c_map(s, N00B_VA(__VA_ARGS__))
 
 #ifdef N00B_USE_INTERNAL_API
 extern void n00b_list_add_if_unique(n00b_list_t *list,

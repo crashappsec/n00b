@@ -25,29 +25,29 @@ typedef struct {
     unsigned int   show_module : 1;
 } inst_info_t;
 
-n00b_utf8_t *n00b_instr_utf8_names[256] = {
+n00b_string_t *n00b_instr_utf8_names[256] = {
     NULL,
 };
 
-static n00b_utf8_t *bi_fn_names[N00B_BI_NUM_FUNCS];
+static n00b_string_t *bi_fn_names[N00B_BI_NUM_FUNCS];
 
-static const n00b_utf8_t *
+static const n00b_string_t *
 get_bool_label(n00b_zop_t op)
 {
     switch (op) {
     case N00B_ZLoadFromAttr:
-        return n00b_new_utf8("addressof");
+        return n00b_cstring("addressof");
     case N00B_ZAssignAttr:
-        return n00b_new_utf8("lock");
+        return n00b_cstring("lock");
     case N00B_ZLoadFromView:
-        return n00b_new_utf8("load kv pair");
+        return n00b_cstring("load kv pair");
     case N00B_ZPushFfiPtr:
-        return n00b_new_utf8("skip boxing");
+        return n00b_cstring("skip boxing");
     case N00B_ZRunCallback:
-        return n00b_new_utf8("use return");
+        return n00b_cstring("use return");
 #ifdef N00B_VM_DEBUG
     case N00B_ZDebug:
-        return n00b_new_utf8("set debug");
+        return n00b_cstring("set debug");
 #endif
     default:
         n00b_unreachable();
@@ -379,7 +379,7 @@ const inst_info_t inst_info[256] = {
 };
 
 static void
-init_disasm()
+init_disasm(void)
 {
     static bool inited = false;
 
@@ -390,54 +390,53 @@ init_disasm()
 
         for (int i = 0; i < 256; i++) {
             if (inst_info[i].name != NULL) {
-                n00b_instr_utf8_names[i] = n00b_new_utf8(inst_info[i].name);
+                n00b_instr_utf8_names[i] = n00b_cstring(inst_info[i].name);
             }
         }
 
-        bi_fn_names[N00B_BI_TO_STR]        = n00b_new_utf8("$str");
-        bi_fn_names[N00B_BI_FORMAT]        = n00b_new_utf8("$format");
-        bi_fn_names[N00B_BI_FINALIZER]     = n00b_new_utf8("$final");
-        bi_fn_names[N00B_BI_COERCIBLE]     = n00b_new_utf8("$can_cast");
-        bi_fn_names[N00B_BI_COERCE]        = n00b_new_utf8("$cast");
-        bi_fn_names[N00B_BI_FROM_LITERAL]  = n00b_new_utf8("$parse_literal");
-        bi_fn_names[N00B_BI_COPY]          = n00b_new_utf8("$copy");
-        bi_fn_names[N00B_BI_ADD]           = n00b_new_utf8("$add");
-        bi_fn_names[N00B_BI_SUB]           = n00b_new_utf8("$sub");
-        bi_fn_names[N00B_BI_MUL]           = n00b_new_utf8("$mul");
-        bi_fn_names[N00B_BI_DIV]           = n00b_new_utf8("$div");
-        bi_fn_names[N00B_BI_MOD]           = n00b_new_utf8("$mod");
-        bi_fn_names[N00B_BI_EQ]            = n00b_new_utf8("$eq");
-        bi_fn_names[N00B_BI_LT]            = n00b_new_utf8("$lt");
-        bi_fn_names[N00B_BI_GT]            = n00b_new_utf8("$gt");
-        bi_fn_names[N00B_BI_LEN]           = n00b_new_utf8("$len");
-        bi_fn_names[N00B_BI_INDEX_GET]     = n00b_new_utf8("$get_item");
-        bi_fn_names[N00B_BI_INDEX_SET]     = n00b_new_utf8("$set_item");
-        bi_fn_names[N00B_BI_SLICE_GET]     = n00b_new_utf8("$get_slice");
-        bi_fn_names[N00B_BI_SLICE_SET]     = n00b_new_utf8("$set_slice");
-        bi_fn_names[N00B_BI_VIEW]          = n00b_new_utf8("$view");
-        bi_fn_names[N00B_BI_ITEM_TYPE]     = n00b_new_utf8("$item_type");
-        bi_fn_names[N00B_BI_CONTAINER_LIT] = n00b_new_utf8("$parse_literal");
+        bi_fn_names[N00B_BI_TO_STR]        = n00b_cstring("$str");
+        bi_fn_names[N00B_BI_FORMAT]        = n00b_cstring("$format");
+        bi_fn_names[N00B_BI_FINALIZER]     = n00b_cstring("$final");
+        bi_fn_names[N00B_BI_COERCIBLE]     = n00b_cstring("$can_cast");
+        bi_fn_names[N00B_BI_COERCE]        = n00b_cstring("$cast");
+        bi_fn_names[N00B_BI_FROM_LITERAL]  = n00b_cstring("$parse_literal");
+        bi_fn_names[N00B_BI_COPY]          = n00b_cstring("$copy");
+        bi_fn_names[N00B_BI_ADD]           = n00b_cstring("$add");
+        bi_fn_names[N00B_BI_SUB]           = n00b_cstring("$sub");
+        bi_fn_names[N00B_BI_MUL]           = n00b_cstring("$mul");
+        bi_fn_names[N00B_BI_DIV]           = n00b_cstring("$div");
+        bi_fn_names[N00B_BI_MOD]           = n00b_cstring("$mod");
+        bi_fn_names[N00B_BI_EQ]            = n00b_cstring("$eq");
+        bi_fn_names[N00B_BI_LT]            = n00b_cstring("$lt");
+        bi_fn_names[N00B_BI_GT]            = n00b_cstring("$gt");
+        bi_fn_names[N00B_BI_LEN]           = n00b_cstring("$len");
+        bi_fn_names[N00B_BI_INDEX_GET]     = n00b_cstring("$get_item");
+        bi_fn_names[N00B_BI_INDEX_SET]     = n00b_cstring("$set_item");
+        bi_fn_names[N00B_BI_SLICE_GET]     = n00b_cstring("$get_slice");
+        bi_fn_names[N00B_BI_SLICE_SET]     = n00b_cstring("$set_slice");
+        bi_fn_names[N00B_BI_VIEW]          = n00b_cstring("$view");
+        bi_fn_names[N00B_BI_ITEM_TYPE]     = n00b_cstring("$item_type");
+        bi_fn_names[N00B_BI_CONTAINER_LIT] = n00b_cstring("$parse_literal");
     }
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 fmt_builtin_fn(int64_t value)
 {
-    n00b_utf8_t *s = bi_fn_names[value];
+    n00b_string_t *s = bi_fn_names[value];
 
     if (s == NULL) {
-        s = n00b_new_utf8("???");
+        s = n00b_cstring("???");
     }
 
-    return n00b_cstr_format("[em]{}[/]", s);
+    return n00b_cformat("«em2»«#»«/»", s);
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 fmt_arg_or_imm_no_syms(n00b_vm_t *vm, n00b_zinstruction_t *instr, int i, bool imm)
 {
     inst_arg_fmt_t fmt;
     int64_t        value;
-    void          *box;
 
     if (imm) {
         fmt   = inst_info[instr->op].imm_fmt;
@@ -450,156 +449,133 @@ fmt_arg_or_imm_no_syms(n00b_vm_t *vm, n00b_zinstruction_t *instr, int i, bool im
 
     switch (fmt) {
     case fmt_unused:
-        return n00b_get_space_const();
+        return n00b_cached_space();
     case fmt_const_obj:
-        box = n00b_box_i64(value);
-        return n00b_cstr_format("[em]{}[/]\n(const obj #{})",
-                               vm->obj->static_contents->items[value].v,
-                               box);
+        return n00b_cformat("«em2»«em»«/»\n(const obj #«#:i»)",
+                            vm->obj->static_contents->items[value].v,
+                            (int64_t)value);
     case fmt_const_ptr:
-        box = n00b_box_i64(value);
-        return n00b_cstr_format("offset to ptr: {:4x}", box);
+        return n00b_cformat("offset to ptr: «#:x»", (int64_t)value);
     case fmt_offset:
-        box = n00b_box_i64(value);
-        return n00b_cstr_format("target @{:10x}", box);
+        return n00b_cformat("target «#:x»", (int64_t)value);
     case fmt_bool:
-        box = n00b_box_bool((bool)value);
-        return n00b_cstr_format("{}: {}", get_bool_label(instr->op), box);
+        return n00b_cformat("{}: {}",
+                            get_bool_label(instr->op),
+                            (int64_t)value);
     case fmt_int:
-        box = n00b_box_i64(value);
-        return n00b_cstr_format("{}", box);
+        return n00b_cformat("«#:i»", value);
     case fmt_hex:
-        box = n00b_box_i64(value);
-        return n00b_cstr_format("{:18x}", box);
+        return n00b_cformat("«#:x»}", value);
     case fmt_sym_local:
-        box = n00b_box_i64(value);
-        return n00b_cstr_format("sym stack slot offset: {}", box);
+        return n00b_cformat("sym stack slot offset: «#»", value);
     case fmt_sym_static:
-        box = n00b_box_i64(value);
-        return n00b_cstr_format("static offset: {:4x}", box);
+        return n00b_cformat("static offset: «#:x»", value);
     case fmt_load_from_attr:
-        return n00b_cstr_format("attr [em]{}[/]",
-                               vm->obj->static_contents->items[value].v);
+        return n00b_cformat("attr «em2»«#»",
+                            vm->obj->static_contents->items[value].v);
     case fmt_label:
-        return n00b_cstr_format("[h2]{}",
-                               vm->obj->static_contents->items[value].v);
+        return n00b_cformat("«em2»«#»",
+                            vm->obj->static_contents->items[value].v);
     case fmt_tcall:
-        return n00b_cstr_format("builtin call of [em]{}[/]",
-                               fmt_builtin_fn(value));
+        return n00b_cformat("builtin call of «em2»«#»",
+                            fmt_builtin_fn(value));
     default:
         n00b_unreachable();
     }
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 fmt_type_no_syms(n00b_zinstruction_t *instr)
 {
     if (!inst_info[instr->op].show_type || !instr->type_info) {
-        return n00b_get_space_const();
+        return n00b_cached_space();
     }
 
-    return n00b_cstr_format("{}", instr->type_info);
+    return n00b_cformat("«#»", instr->type_info);
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 fmt_module_no_syms(n00b_zinstruction_t *instr)
 {
     if (!inst_info[instr->op].show_module) {
-        return n00b_get_space_const();
+        return n00b_cached_space();
     }
 
-    return n00b_cstr_format("{}", n00b_box_u64(instr->module_id));
+    return n00b_cformat("«#»", (int64_t)instr->module_id);
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 fmt_addr(int64_t i)
 {
-    return n00b_cstr_format("{:8x}", n00b_box_u64(i));
+    return n00b_cformat("«#:x»", i);
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_fmt_instr_name(n00b_zinstruction_t *instr)
 {
-    n00b_utf8_t *result = n00b_instr_utf8_names[instr->op];
+    n00b_string_t *result = n00b_instr_utf8_names[instr->op];
 
     if (!result) {
         // This shouldn't really happen.
-        return n00b_new_utf8("???");
+        return n00b_cstring("???");
     }
 
     return result;
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 fmt_line_no_syms(n00b_zinstruction_t *instr)
 {
-    return n00b_cstr_format("{}", n00b_box_u64(instr->line_no));
+    return n00b_cformat("«#»", (int64_t)instr->line_no);
 }
 
-n00b_grid_t *
+n00b_table_t *
 n00b_disasm(n00b_vm_t *vm, n00b_module_t *m)
 {
     init_disasm();
 
-    n00b_grid_t *grid = n00b_new(n00b_type_grid(),
-                               n00b_kw("start_cols",
-                                      n00b_ka(7),
-                                      "header_rows",
-                                      n00b_ka(1),
-                                      "container_tag",
-                                      n00b_ka(n00b_new_utf8("table2")),
-                                      "stripe",
-                                      n00b_ka(true)));
-    n00b_utf8_t *snap = n00b_new_utf8("snap");
-    n00b_utf8_t *flex = n00b_new_utf8("flex");
-    n00b_list_t *row  = n00b_new_table_row();
-    int64_t     len  = n00b_list_len(m->instructions);
-    n00b_list_append(row, n00b_new_utf8("Address"));
-    n00b_list_append(row, n00b_new_utf8("Instruction"));
-    n00b_list_append(row, n00b_new_utf8("Arg"));
-    n00b_list_append(row, n00b_new_utf8("Immediate"));
-    n00b_list_append(row, n00b_new_utf8("Type"));
-    n00b_list_append(row, n00b_new_utf8("Module"));
-    n00b_list_append(row, n00b_new_utf8("Line"));
+    n00b_table_t *tbl = n00b_table("columns", n00b_ka(7));
+    int64_t       len = n00b_list_len(m->instructions);
 
-    n00b_grid_add_row(grid, row);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_flex(tbl, 1);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+
+    n00b_table_add_cell(tbl, n00b_cstring("Address"));
+    n00b_table_add_cell(tbl, n00b_cstring("Instruction"));
+    n00b_table_add_cell(tbl, n00b_cstring("Arg"));
+    n00b_table_add_cell(tbl, n00b_cstring("Immediate"));
+    n00b_table_add_cell(tbl, n00b_cstring("Type"));
+    n00b_table_add_cell(tbl, n00b_cstring("Module"));
+    n00b_table_add_cell(tbl, n00b_cstring("Line"));
 
     for (int64_t i = 0; i < len; i++) {
-        row = n00b_new_table_row();
-
         n00b_zinstruction_t *ins  = n00b_list_get(m->instructions, i, NULL);
-        n00b_utf8_t         *addr = fmt_addr(i);
-        n00b_utf8_t         *name = n00b_fmt_instr_name(ins);
-        n00b_utf8_t         *arg  = fmt_arg_or_imm_no_syms(vm, ins, i, false);
-        n00b_utf8_t         *imm  = fmt_arg_or_imm_no_syms(vm, ins, i, true);
-        n00b_utf8_t         *type = fmt_type_no_syms(ins);
-        n00b_utf8_t         *mod  = fmt_module_no_syms(ins);
-        n00b_utf8_t         *line = fmt_line_no_syms(ins);
+        n00b_string_t       *addr = fmt_addr(i);
+        n00b_string_t       *name = n00b_fmt_instr_name(ins);
+        n00b_string_t       *arg  = fmt_arg_or_imm_no_syms(vm, ins, i, false);
+        n00b_string_t       *imm  = fmt_arg_or_imm_no_syms(vm, ins, i, true);
+        n00b_string_t       *type = fmt_type_no_syms(ins);
+        n00b_string_t       *mod  = fmt_module_no_syms(ins);
+        n00b_string_t       *line = fmt_line_no_syms(ins);
 
         if (ins->op == N00B_ZNop) {
-            n00b_grid_add_row(grid, row);
-            n00b_renderable_t *r = n00b_to_str_renderable(imm, NULL);
-            n00b_grid_add_col_span(grid, r, i + 1, 0, 7);
+            n00b_table_add_cell(tbl, imm, N00B_COL_SPAN_ALL);
             continue;
         }
 
-        n00b_list_append(row, addr);
-        n00b_list_append(row, name);
-        n00b_list_append(row, arg);
-        n00b_list_append(row, imm);
-        n00b_list_append(row, type);
-        n00b_list_append(row, mod);
-        n00b_list_append(row, line);
-        n00b_grid_add_row(grid, row);
+        n00b_table_add_cell(tbl, addr);
+        n00b_table_add_cell(tbl, name);
+        n00b_table_add_cell(tbl, arg);
+        n00b_table_add_cell(tbl, imm);
+        n00b_table_add_cell(tbl, type);
+        n00b_table_add_cell(tbl, mod);
+        n00b_table_add_cell(tbl, line);
     }
 
-    n00b_set_column_style(grid, 0, snap);
-    n00b_set_column_style(grid, 1, snap);
-    n00b_set_column_style(grid, 2, flex);
-    n00b_set_column_style(grid, 3, snap);
-    n00b_set_column_style(grid, 4, snap);
-    n00b_set_column_style(grid, 5, snap);
-    n00b_set_column_style(grid, 6, snap);
-
-    return grid;
+    return tbl;
 }

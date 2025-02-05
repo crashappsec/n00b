@@ -33,12 +33,12 @@ n00b_vmthread_reset(n00b_vmthread_t *tstate);
 // provided, throw an exception when the attribute is not found.
 extern void *
 n00b_vm_attr_get(n00b_vmthread_t *tstate,
-                 n00b_str_t      *key,
+                 n00b_string_t      *key,
                  bool            *found);
 
 extern void
 n00b_vm_attr_set(n00b_vmthread_t *tstate,
-                 n00b_str_t      *key,
+                 n00b_string_t      *key,
                  void            *value,
                  n00b_type_t     *type,
                  bool             lock,
@@ -48,7 +48,7 @@ n00b_vm_attr_set(n00b_vmthread_t *tstate,
 // lock an attribute immediately of on_write is false; otherwise, lock it when
 // it is set.
 extern void
-n00b_vm_attr_lock(n00b_vmthread_t *tstate, n00b_str_t *key, bool on_write);
+n00b_vm_attr_lock(n00b_vmthread_t *tstate, n00b_string_t *key, bool on_write);
 
 extern void
 n00b_vm_marshal(n00b_vm_t    *vm,

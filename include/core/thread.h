@@ -50,7 +50,6 @@ typedef enum : int8_t {
     n00b_gts_go          = 1,
     n00b_gts_yield       = 2,
     n00b_gts_stop        = 3,
-    // Used only at the thread level for clarity.
 } n00b_global_thread_state_t;
 
 // This has an upper bound of 2^16 concurrent threads. But that allows us
@@ -67,58 +66,29 @@ extern void n00b_gts_start(void);
 extern void n00b_gts_suspend(void);
 extern void n00b_gts_resume(void);
 extern void n00b_gts_checkin(void);
-extern void n00b_gts_quit(void);
 extern void n00b_gts_stop_the_world(void);
 extern void n00b_gts_restart_the_world(void);
+extern void n00b_gts_notify_abort(void);
 
-extern void                       n00b_thread_stack_region(n00b_thread_t *);
-extern n00b_thread_t             *n00b_thread_self(void);
-extern n00b_thread_t             *n00b_thread_register(void);
-extern void                       n00b_thread_unregister(void *);
-extern int                        n00b_thread_spawn(void *(*)(void *), void *);
-extern n00b_global_thread_state_t n00b_get_thread_state(void);
-extern int                        n00b_thread_run_count(void);
+extern void           n00b_thread_stack_region(n00b_thread_t *);
+extern n00b_thread_t *n00b_thread_register(void);
+extern void           n00b_thread_unregister(void *);
+extern n00b_thread_t *n00b_thread_spawn(void *(*)(void *), void *);
 
 typedef struct {
     void *(*true_cb)(void *);
     void *true_arg;
 } n00b_tbundle_t;
 
-static inline int
-n00b_nanosleep_raw(n00b_duration_t *rqtp, n00b_duration_t *rmtp)
-{
-    int result;
-    n00b_gts_suspend();
-    result = nanosleep(rqtp, rmtp);
-    n00b_gts_resume();
-
-    return result;
-}
-
-static inline void
-n00b_nanosleep(uint64_t s, uint64_t ns)
-{
-    struct timespec ts        = {.tv_sec = s, .tv_nsec = ns};
-    struct timespec remainder = ts;
-
-    n00b_gts_suspend();
-    while (nanosleep((void *)&ts, (void *)&remainder)) {
-        ts = remainder;
-    }
-    n00b_gts_resume();
-}
 // 1/1000th of a second
 #define N00B_GTS_POLL_DURATION_NS 100000
 
 #ifdef N00B_USE_INTERNAL_API
-extern n00b_thread_t            *n00b_thread_list_acquire(void);
-extern void                      n00b_thread_list_release(void);
-extern void                      n00b_lock_register(n00b_lock_t *);
-extern void                      n00b_lock_unregister(n00b_lock_t *);
-extern void                      n00b_thread_unlock_all(void);
-extern bool                      n00b_current_process_is_exiting(void);
-extern void                      n00b_initialize_global_thread_info(void);
-extern void                      n00b_thread_bootstrap_initialization();
-extern void                      n00b_thread_get_gta_slot();
-extern _Atomic(n00b_thread_t *) *n00b_global_thread_list;
+extern void           n00b_threading_setup(void);
+extern n00b_thread_t *n00b_thread_list_acquire(void);
+extern void           n00b_thread_list_release(void);
+extern void           n00b_thread_unlock_all(void);
+extern bool           n00b_current_process_is_exiting(void);
+extern void           n00b_initialize_global_thread_info(void);
+extern n00b_thread_t *n00b_thread_find_by_pthread_id(pthread_t);
 #endif

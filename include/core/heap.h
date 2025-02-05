@@ -18,7 +18,33 @@ typedef struct n00b_alloc_hdr         n00b_alloc_hdr;
 typedef struct n00b_heap_t            n00b_heap_t;
 typedef struct n00b_arena_t           n00b_arena_t;
 
-// This needs to stay in sync w/ n00b_marshaled_hdr
+// Combine these ASAP.
+typedef struct n00b_alloc_record_t {
+    uint64_t     empty_guard;
+    n00b_type_t *type;
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    char *alloc_file;
+#endif
+    uint32_t alloc_len;
+
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    int16_t alloc_line;
+#endif
+
+    uint8_t n00b_marshal_end : 1;
+    uint8_t n00b_ptr_scan    : 1;
+    uint8_t n00b_obj         : 1;
+    uint8_t n00b_finalize    : 1;
+    uint8_t n00b_traced      : 1;
+    uint8_t n00b_moving      : 1;
+#if defined(N00B_GC_ALLOW_DEBUG_BIT)
+    uint8_t n00b_debug : 1;
+#endif
+
+    uint64_t cached_hash[2];
+    alignas(N00B_FORCED_ALIGNMENT) uint64_t data[0];
+} n00b_alloc_record_t;
+
 struct n00b_alloc_hdr {
     // A guard value added to every allocation so that cross-heap
     // memory accesses can scan backwards (if needed) to determine if
@@ -30,8 +56,11 @@ struct n00b_alloc_hdr {
     // The guard value is picked once per runtime by reading from
     // /dev/urandom, to make sure that we do not start adding
     // references  in memory to it.
-    uint64_t            guard;
-    // This can go down to just a 32-bit int.
+    uint64_t guard;
+    // This can eventually go down to just a 32-bit int.  For the
+    // moment, this pointer gets overwritten when we set n00b_moved;
+    // it certainly does get migrated first.
+
     struct n00b_type_t *type;
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
@@ -53,27 +82,42 @@ struct n00b_alloc_hdr {
     // to a bitfield that contains that many bits. The bits that
     // correspond to words with pointers should be set.
     // n00b_mem_scan_fn scan_fn;
+
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     int16_t alloc_line;
 #endif
+
     // True if the memory allocation is a direct n00b object, in
     // which case, we expect the type field to be valid.
     //
     // Used by Marshal to deliniate end-of-record.
-    uint32_t n00b_marshal_end : 1;
-    uint32_t n00b_ptr_scan    : 1;
+    uint8_t n00b_marshal_end : 1;
+    uint8_t n00b_ptr_scan    : 1;
     // Currently, we aren't using this for anything, because we just
     // rely on the presence of the type field. However, it's no cost
     // to keep it if we want the double checking.
-    uint32_t n00b_obj         : 1;
+    uint8_t n00b_obj         : 1;
     // Uses the finalizer associated w/ the type, so n00b_obj must be true.
-    uint32_t n00b_finalize    : 1;
-    // Should always be 0 until the data is no longer live.
-    uint32_t n00b_moved       : 1;
+    uint8_t n00b_finalize    : 1;
+    // This gets set in out-of-heap allocs that have pointers, then cleared
+    // when we finish GC.
+    uint8_t n00b_traced      : 1;
+    // This makes it easy for us to keep track of whether an alloc is
+    // being copied.
+    uint8_t n00b_moving      : 1;
 
+#if defined(N00B_GC_ALLOW_DEBUG_BIT)
+    // Can be set in debug mode to determine whether to print info on
+    // the object.
+    uint8_t n00b_debug : 1;
+#endif
+    // For the moment,this gets commandeered during collection.
+    // It's turned into 2 64-byte objects, by casting it to a
+    // n00b_alloc_record_t above.
+    //
+    // The first item is used to store the forwarding pointer.
     __uint128_t cached_hash;
 
-    // The actual exposed data. This must be 16-byte aligned!
     alignas(N00B_FORCED_ALIGNMENT) uint64_t data[];
 };
 
@@ -172,7 +216,7 @@ struct n00b_heap_t {
     // collected).
     //
     // For instance, we do not want to munge pointers in the GC
-    // scratch heap or destination heap curing collection.
+    // destination heap curing collection if we have one on the stack.
     //
     // Heaps with this set do not have their roots traced when
     // collecting other heaps. This is used to indicate that the heap
@@ -207,6 +251,7 @@ struct n00b_heap_t {
 struct n00b_arena_t {
     void         *addr_start;
     void         *addr_end;
+    void         *last_issued;
     n00b_arena_t *successor;
     size_t        user_length; // Just for convenience.
 };
@@ -229,12 +274,12 @@ typedef union n00b_mem_ptr {
 } n00b_mem_ptr;
 
 extern uint64_t n00b_gc_guard;
+extern int      __n00b_collector_running;
 
 #if defined(N00B_FULL_MEMCHECK)
-#define N00B_EXTRA_MEMCHECK_BYTES 8
-extern uint64_t n00b_end_guard;
+extern void n00b_run_memcheck(n00b_heap_t *);
 #else
-#define N00B_EXTRA_MEMCHECK_BYTES 0
+#define n00b_run_memcheck(h)
 #endif
 
 #ifdef N00B_ADD_ALLOC_LOC_INFO
@@ -255,8 +300,6 @@ extern n00b_heap_t *n00b_default_heap;
 // you call it, to ensure that sub-allocations use the same
 // allocator. When that happens, it will reset to NULL.
 
-extern __thread n00b_heap_t *n00b_thread_heap;
-
 extern n00b_heap_t    *n00b_addr_find_heap(void *);
 extern bool            n00b_addr_in_heap(n00b_heap_t *, void *);
 extern n00b_heap_t    *_n00b_new_heap(uint64_t, char *, int);
@@ -273,6 +316,7 @@ extern void            n00b_heap_remove_root(n00b_heap_t *, void *);
 extern n00b_alloc_hdr *n00b_find_allocation_record(void *);
 extern void           *_n00b_heap_alloc(n00b_heap_t *,
                                         size_t,
+                                        bool,
                                         n00b_mem_scan_fn
                                             N00B_ALLOC_XTRA);
 extern void           *n00b_malloc_wrap(size_t, void *, char *, int);
@@ -291,24 +335,16 @@ extern void            n00b_gc_set_system_finalizer(n00b_system_finalizer_fn);
 extern void            n00b_heap_collect(n00b_heap_t *, int64_t);
 extern uint64_t        n00b_get_page_size(void);
 extern void            n00b_long_term_pin(n00b_heap_t *);
+// in utils/deep_copy.c
+extern void           *n00b_heap_deep_copy(void *);
 
 #define n00b_new_heap(x) _n00b_new_heap(x, __FILE__, __LINE__)
 #define n00b_global_heap_collect() \
     n00b_heap_collect(n00b_default_heap, 0)
 #define n00b_heap_alloc(h, sz, f) \
-    _n00b_heap_alloc(h, sz, f N00B_ALLOC_CALLPARAM)
-
-static inline n00b_heap_t *
-n00b_get_heap(n00b_heap_t *h)
-{
-    if (h) {
-        return h;
-    }
-    if (n00b_thread_heap) {
-        return n00b_thread_heap;
-    }
-    return n00b_default_heap;
-}
+    _n00b_heap_alloc(h, sz, false, f N00B_ALLOC_CALLPARAM)
+#define n00b_heap_alloc_guarded(h, sz, f) \
+    _n00b_heap_alloc(h, sz, true, f N00B_ALLOC_CALLPARAM)
 
 static inline bool
 n00b_in_heap(void *addr)
@@ -358,6 +394,12 @@ n00b_ptr_diff(void *base, void *field)
     return (int64_t *)field - (int64_t *)base;
 }
 
+static inline bool
+n00b_heap_is_pinned(n00b_heap_t *h)
+{
+    return h->pinned || __n00b_collector_running;
+}
+
 static inline void
 n00b_mark_raw_to_addr(uint64_t *bitfield, void *base, void *end)
 {
@@ -403,17 +445,44 @@ n00b_delete_mempage(void *page)
 }
 
 #ifdef N00B_ADD_ALLOC_LOC_INFO
-#define n00b_gc_raw_alloc(sz, mem) \
-    _n00b_heap_alloc(n00b_get_heap(NULL), sz, mem, __FILE__, __LINE__)
-#define n00b_halloc(heap, sz, mem) \
-    _n00b_heap_alloc(n00b_get_heap(heap), sz, mem, __FILE__, __LINE__)
+#define n00b_gc_raw_alloc(sz, mem)            \
+    _n00b_heap_alloc(n00b_current_heap(NULL), \
+                     sz,                      \
+                     false,                   \
+                     mem,                     \
+                     __FILE__,                \
+                     __LINE__)
+#define n00b_gc_guarded_alloc(sz, mem)        \
+    _n00b_heap_alloc(n00b_current_heap(NULL), \
+                     sz,                      \
+                     true,                    \
+                     mem,                     \
+                     __FILE__,                \
+                     __LINE__)
+#define n00b_halloc(heap, sz, mem)            \
+    _n00b_heap_alloc(n00b_current_heap(heap), \
+                     sz,                      \
+                     false,                   \
+                     mem,                     \
+                     __FILE__,                \
+                     __LINE__)
+#define n00b_guarded_halloc(heap, sz, mem)    \
+    _n00b_heap_alloc(n00b_current_heap(heap), \
+                     sz,                      \
+                     true,                    \
+                     mem,                     \
+                     __FILE__,                \
+                     __LINE__)
 
 #else
 #define n00b_gc_raw_alloc(sz, mem) \
-    _n00b_heap_alloc(n00b_get_heap(NULL), sz, mem)
+    _n00b_heap_alloc(n00b_current_heap(NULL), sz, false, mem)
+#define n00b_gc_guarded_alloc(sz, mem) \
+    _n00b_heap_alloc(n00b_current_heap(NULL), sz, true, mem)
 #define n00b_halloc(heap, sz, mem) \
-    _n00b_heap_alloc(n00b_get_heap(heap), sz, mem)
-#define
+    _n00b_heap_alloc(n00b_current_heap(heap), sz, false, mem)
+#define n00b_guarded_halloc(heap, sz, mem) \
+    _n00b_heap_alloc(n00b_current_heap(heap), sz, true, mem)
 #endif
 
 static inline uint64_t
@@ -439,6 +508,10 @@ n00b_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
 #define n00b_gc_flex_alloc(fixed, var, numv, map) \
     (n00b_gc_raw_alloc((size_t)(sizeof(fixed)) + (sizeof(var)) * (numv), (map)))
 
+#define n00b_gc_flexguard_alloc(fixed, var, numv, map)                       \
+    (n00b_gc_guarded_alloc((size_t)(sizeof(fixed)) + (sizeof(var)) * (numv), \
+                           (map)))
+
 #define n00b_gc_alloc(typename) \
     n00b_gc_raw_alloc(sizeof(typename), N00B_GC_SCAN_ALL)
 
@@ -456,12 +529,12 @@ n00b_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
 
 #ifdef N00B_ADD_ALLOC_LOC_INFO
 #define n00b_heap_register_root(h, p, l) \
-    _n00b_heap_register_root(n00b_get_heap(h), p, l, __FILE__, __LINE__)
+    _n00b_heap_register_root(n00b_current_heap(h), p, l, __FILE__, __LINE__)
 #define n00b_heap_register_dynamic_root(h, p, l) \
     _n00b_heap_register_dynamic_root(h, p, l, __FILE__, __LINE__)
 #else
 #define n00b_heap_register_root(h, p, l) \
-    _n00b_heap_register_root(n00b_get_heap(h), p, l)
+    _n00b_heap_register_root(n00b_current_heap(h), p, l)
 #define n00b_heap_register_dynamic_root(h, p, l) \
     _n00b_heap_register_dynamic_root(h, p, l)
 #endif
@@ -478,21 +551,19 @@ n00b_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
 #define N00B_ARENA_OVERHEAD (4 * n00b_page_bytes)
 #define N00B_ALLOC_OVERHEAD sizeof(n00b_header_t)
 
-extern void n00b_add_arena(n00b_heap_t *, uint64_t);
-extern bool n00b_addr_in_one_heap(n00b_heap_t *, void *);
+extern void         n00b_add_arena(n00b_heap_t *, uint64_t);
+extern bool         n00b_addr_in_one_heap(n00b_heap_t *, void *);
+extern n00b_string_t *noob_debug_repr_heap(n00b_heap_t *);
+extern void         n00b_debug_print_heap(n00b_heap_t *);
+extern n00b_string_t *n00b_debug_repr_all_heaps(void);
+extern void         n00b_debug_all_heaps(void);
 
-extern int __n00b_collector_running;
-
-#define N00B_USING_HEAP(heap_name, ...)               \
-    {                                                 \
-        n00b_heap_t *__saved_heap = n00b_thread_heap; \
-        n00b_thread_heap          = heap_name;        \
-        __VA_ARGS__;                                  \
-        n00b_thread_heap = __saved_heap;              \
-    }
+extern int          __n00b_collector_running;
+extern n00b_heap_t *__n00b_current_from_space;
 
 extern n00b_heap_t *n00b_all_heaps;
 extern n00b_heap_t *n00b_cur_heap_page;
+extern n00b_heap_t *n00b_to_space;
 extern n00b_heap_t *n00b_internal_heap;
 extern n00b_heap_t *n00b_debug_heap;
 extern uint64_t     n00b_next_heap_index;
@@ -501,6 +572,9 @@ extern uint64_t     n00b_page_modulus;
 extern uint64_t     n00b_modulus_mask;
 // Heap entries per page, capculated once.
 extern int          n00b_heap_entries_pp;
+extern bool         n00b_collection_suspended;
+extern void         n00b_suspend_collections(void);
+extern void         n00b_allow_collections(void);
 
 static inline void
 n00b_heap_set_name(n00b_heap_t *h, char *n)
@@ -514,13 +588,14 @@ n00b_addr_in_arena(n00b_arena_t *arena, void *addr)
     // We consider addresses in the arena if it's a user-usable
     // address, or if it's the start position of the end guard.
 
+    assert(arena->addr_end > arena->addr_start);
     return addr >= arena->addr_start && addr < arena->addr_end;
 }
 
 static inline int64_t
 n00b_calculate_alloc_len(int64_t ask)
 {
-    int64_t len = ask + sizeof(n00b_alloc_hdr) + N00B_EXTRA_MEMCHECK_BYTES;
+    int64_t len = ask + sizeof(n00b_alloc_hdr);
 
     return n00b_round_up_to_given_power_of_2(N00B_FORCED_ALIGNMENT, len);
 }
@@ -580,13 +655,76 @@ n00b_unlock_arena_header(n00b_arena_t *a)
     mprotect(a, n00b_page_bytes, PROT_READ | PROT_WRITE);
 }
 
+#if defined(N00B_GC_ALLOW_DEBUG_BIT)
+extern bool n00b_using_debug_bit;
+
+static inline void
+n00b_start_using_debug_bit(void)
+{
+    n00b_using_debug_bit = true;
+}
+
+static inline void
+n00b_stop_using_debug_bit(void)
+{
+    n00b_using_debug_bit = false;
+}
+
+static inline void *
+n00b_debug_alloc(void *addr)
+{
+    n00b_alloc_hdr *h = n00b_find_allocation_record(addr);
+
+    h->n00b_debug = true;
+
+    return addr;
+}
+
+#endif
+
 extern void n00b_heap_clear(n00b_heap_t *);
 extern void n00b_heap_prune(n00b_heap_t *);
 
 #endif
-#define n00b_push_heap(heap)                           \
-    n00b_heap_t *__n00b_saved_heap = n00b_thread_heap; \
-    n00b_thread_heap               = heap
 
-#define n00b_pop_heap() \
-    n00b_thread_heap = __n00b_saved_heap
+static inline void
+n00b_heap_force_expansion(n00b_heap_t *h)
+{
+    h->expand = true;
+}
+
+static inline void
+n00b_heap_no_force_expansion(n00b_heap_t *h)
+{
+    h->expand = false;
+}
+
+static inline bool
+n00b_heap_has_multiple_arenas(n00b_heap_t *h)
+{
+    return h->first_arena && h->newest_arena
+        && h->first_arena != h->newest_arena;
+}
+
+#ifdef N00B_ENABLE_ALLOC_DEBUG
+#define n00b_enable_thread_alloc_log()                   \
+    {                                                    \
+        n00b_get_tsi_ptr()->show_alloc_locations = true; \
+        fprintf(stderr,                                  \
+                "Alloc logging on for thread %p\n",      \
+                n00b_thread_self());                     \
+    }
+#define n00b_disable_thread_alloc_log()                   \
+    {                                                     \
+        n00b_get_tsi_ptr()->show_alloc_locations = false; \
+        fprintf(stderr,                                   \
+                "Alloc logging off for thread %p\n",      \
+                n00b_thread_self());                      \
+    }
+
+#endif
+
+#if defined(N00B_MPROTECT_WRAPPED_ALLOCS)
+extern bool n00b_protect_wrapped_allocs;
+extern bool n00b_protect_wrapping_auto_off;
+#endif

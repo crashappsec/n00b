@@ -60,39 +60,33 @@ n00b_flags_invert(n00b_flags_t *self)
     return result;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 flags_repr(const n00b_flags_t *self)
 {
-    N00B_STATIC_ASCII_STR(prefix, "0x{");
-    N00B_STATIC_ASCII_STR(fmt_cons, ":{}x}");
-    n00b_utf8_t *result;
-    int          n = self->alloc_wordlen;
+    n00b_string_t *result;
+    int            n = self->alloc_wordlen;
 
     if (self->bit_modulus) {
-        n00b_utf8_t *fmt = n00b_str_format(fmt_cons, (self->bit_modulus + 3) / 4);
-        fmt              = n00b_to_utf8(n00b_str_concat(prefix, fmt));
-        result           = n00b_str_format(fmt, n00b_box_u64(self->contents[--n]));
+        result = n00b_cformat("0x«#:x»", (int64_t)self->contents[--n]);
     }
     else {
-        result = n00b_new_utf8("0x");
+        result = n00b_cstring("0x");
     }
 
     while (n--) {
-        result = n00b_cstr_format("{}{:x}",
-                                  result,
-                                  n00b_box_u64(self->contents[n]));
+        result = n00b_cformat("«#»«#:x»", result, (int64_t)self->contents[n]);
     }
 
     return result;
 }
 
 static n00b_flags_t *
-flags_lit(const n00b_utf8_t    *s,
+flags_lit(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
-          n00b_utf8_t          *m,
+          n00b_string_t        *m,
           n00b_compile_error_t *code)
 {
-    int64_t       len    = n00b_str_codepoint_len(s);
+    int64_t       len    = n00b_string_codepoint_len(s);
     n00b_flags_t *result = n00b_new(n00b_type_flags(),
                                     n00b_kw("length", n00b_ka(len * 4)));
 
@@ -410,8 +404,7 @@ flags_view(n00b_flags_t *self, uint64_t *n)
 }
 
 const n00b_vtable_t n00b_flags_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)flags_init,
         [N00B_BI_TO_STR]       = (n00b_vtable_entry)flags_repr,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)flags_lit,

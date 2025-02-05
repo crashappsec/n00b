@@ -45,7 +45,7 @@ typedef enum {
     N00B_P_BIC_LOWER,
     N00B_P_BIC_LOWER_ASCII,
     N00B_P_BIC_SPACE,
-    N00B_P_BIC_JSON_STR_CONTENTS,
+    N00B_P_BIC_JSON_string_CONTENTS,
     N00B_P_BIC_HEX_DIGIT,
     N00B_P_BIC_NONZERO_ASCII_DIGIT,
 } n00b_bi_class_t;
@@ -120,13 +120,13 @@ typedef void *(*n00b_parse_action_t)(n00b_parse_node_t *,
                                      void *);
 
 struct n00b_terminal_t {
-    n00b_utf8_t *value;
-    void        *user_data;
-    int64_t      id;
+    n00b_string_t *value;
+    void          *user_data;
+    int64_t        id;
 };
 
 struct n00b_nonterm_t {
-    n00b_utf8_t        *name;
+    n00b_string_t      *name;
     n00b_list_t        *rules; // A list of n00b_parse_rule_t objects;
     n00b_parse_action_t action;
     void               *user_data;
@@ -147,8 +147,8 @@ struct n00b_parse_rule_t {
     // For penalty rules. We track the original rule so that we can
     // more easily reconstruct the intended tree structure.
     n00b_parse_rule_t *link;
-    n00b_utf8_t       *doc;
-    n00b_utf8_t       *short_doc;
+    n00b_string_t     *doc;
+    n00b_string_t     *short_doc;
     // Used when creating error rules; it denotes that the nonterminal
     // would be nullable if we allow a token omission, and that we
     // generated rules for single token omission that respect that
@@ -165,7 +165,7 @@ struct n00b_rule_group_t {
 
 struct n00b_pitem_t {
     n00b_parser_t *parser;
-    n00b_utf8_t   *s; // cached repr. Should go away I think.
+    n00b_string_t *s; // cached repr. Should go away I think.
 
     union {
         n00b_list_t       *items; // n00b_pitem_t's
@@ -178,17 +178,22 @@ struct n00b_pitem_t {
 };
 
 struct n00b_token_info_t {
-    void        *user_info;
-    n00b_utf8_t *value;
-    int32_t      tid;
-    int32_t      index;
+    void          *user_info;
+    n00b_string_t *value;
+    int32_t        tid;
+    int32_t        index;
     // These capture the start location.
-    uint32_t     line;   // 1-indexed.
-    uint32_t     column; // 0-indexed.
-    uint32_t     endcol;
+    uint32_t       line;   // 1-indexed.
+    uint32_t       column; // 0-indexed.
+    uint32_t       endcol;
 };
 
 struct n00b_parse_node_t {
+    union {
+        n00b_token_info_t *token;
+        n00b_string_t     *name;
+    } info;
+    int64_t  noscan;
     int64_t  id;
     int64_t  hv;
     int32_t  start;
@@ -202,11 +207,6 @@ struct n00b_parse_node_t {
     bool     group_top;
     bool     missing;
     bool     bad_prefix;
-
-    union {
-        n00b_token_info_t *token;
-        n00b_utf8_t       *name;
-    } info;
 };
 
 struct n00b_earley_item_t {
@@ -236,6 +236,7 @@ struct n00b_earley_item_t {
     n00b_earley_item_t *group_top;
     // Used to cache info related to the state during tree-building.
     n00b_dict_t        *cache;
+    int64_t             noscan;
     // The `rule_id` is the non-terminal we pulled the rule from.
     // The non-terminal can contain multiple rules though.
     int32_t             ruleset_id;
@@ -453,7 +454,7 @@ extern n00b_parse_rule_t *_n00b_ruleset_add_rule(n00b_grammar_t *,
                                                  n00b_nonterm_t *,
                                                  n00b_list_t *,
                                                  int,
-                                                 n00b_utf8_t *);
+                                                 n00b_string_t *);
 #define n00b_ruleset_add_rule(g, nt, l, i) \
     _n00b_ruleset_add_rule(g, nt, l, i, NULL)
 
@@ -465,30 +466,29 @@ extern void            n00b_parse_token_list(n00b_parser_t *,
                                              n00b_list_t *,
                                              n00b_nonterm_t *);
 extern void            n00b_parse_string(n00b_parser_t *,
-                                         n00b_str_t *,
+                                         n00b_string_t *,
                                          n00b_nonterm_t *);
 extern void            n00b_parse_string_list(n00b_parser_t *,
                                               n00b_list_t *,
                                               n00b_nonterm_t *);
 extern n00b_nonterm_t *n00b_pitem_get_ruleset(n00b_grammar_t *,
                                               n00b_pitem_t *);
-extern n00b_grid_t    *n00b_grammar_to_grid(n00b_grammar_t *);
-extern n00b_grid_t    *n00b_parse_state_format(n00b_parser_t *, bool);
-extern n00b_grid_t    *n00b_forest_format(n00b_list_t *);
-extern n00b_utf8_t    *n00b_repr_token_info(n00b_token_info_t *);
+extern n00b_table_t   *n00b_parse_state_format(n00b_parser_t *, bool);
+extern n00b_table_t   *n00b_forest_format(n00b_list_t *);
+extern n00b_string_t  *n00b_repr_token_info(n00b_token_info_t *);
 extern int64_t         n00b_token_stream_codepoints(n00b_parser_t *,
                                                     void **);
 extern int64_t         n00b_token_stream_strings(n00b_parser_t *, void **);
-extern n00b_grid_t    *n00b_get_parse_state(n00b_parser_t *, bool);
-extern n00b_grid_t    *n00b_format_parse_state(n00b_parser_t *, bool);
-extern n00b_grid_t    *n00b_grammar_format(n00b_grammar_t *);
+extern n00b_table_t   *n00b_get_parse_state(n00b_parser_t *, bool);
+extern n00b_table_t   *n00b_format_parse_state(n00b_parser_t *, bool);
+extern n00b_table_t   *n00b_grammar_format(n00b_grammar_t *);
 extern void            n00b_parser_reset(n00b_parser_t *);
-extern n00b_utf8_t    *n00b_repr_parse_node(n00b_parse_node_t *);
+extern n00b_string_t  *n00b_repr_parse_node(n00b_parse_node_t *);
 extern n00b_list_t    *n00b_parse_get_parses(n00b_parser_t *);
 extern void           *n00b_parse_tree_walk(n00b_parser_t *,
                                             n00b_tree_node_t *,
                                             void *);
-extern n00b_utf8_t    *n00b_repr_rule(n00b_grammar_t *,
+extern n00b_string_t  *n00b_repr_rule(n00b_grammar_t *,
                                       n00b_list_t *,
                                       int);
 
@@ -518,7 +518,7 @@ n00b_pitem_terminal_from_int(n00b_grammar_t *g, int64_t n)
 }
 
 static inline n00b_pitem_t *
-n00b_pitem_term_raw(n00b_grammar_t *p, n00b_utf8_t *name)
+n00b_pitem_term_raw(n00b_grammar_t *p, n00b_string_t *name)
 {
     n00b_pitem_t    *result   = n00b_new_pitem(N00B_P_TERMINAL);
     n00b_terminal_t *tok      = n00b_new(n00b_type_terminal(), p, name);
@@ -538,7 +538,7 @@ n00b_pitem_from_nt(n00b_nonterm_t *nt)
 }
 
 static inline int64_t
-n00b_grammar_add_term(n00b_grammar_t *g, n00b_utf8_t *s)
+n00b_grammar_add_term(n00b_grammar_t *g, n00b_string_t *s)
 {
     n00b_pitem_t *pi = n00b_pitem_term_raw(g, s);
     return pi->contents.terminal;
@@ -554,7 +554,7 @@ n00b_pitem_terminal_cp(n00b_codepoint_t cp)
 }
 
 static inline n00b_pitem_t *
-n00b_pitem_nonterm_raw(n00b_grammar_t *p, n00b_utf8_t *name)
+n00b_pitem_nonterm_raw(n00b_grammar_t *p, n00b_string_t *name)
 {
     n00b_pitem_t   *result   = n00b_new_pitem(N00B_P_NT);
     n00b_nonterm_t *nt       = n00b_new(n00b_type_ruleset(), p, name);
@@ -608,11 +608,10 @@ n00b_terminal_set_user_data(n00b_terminal_t *term, void *data)
     term->user_data = data;
 }
 
-static inline n00b_grid_t *
+static inline n00b_table_t *
 n00b_parse_tree_format(n00b_tree_node_t *t)
 {
-    return n00b_grid_tree_new(t,
-                              n00b_kw("callback", n00b_ka(n00b_repr_parse_node)));
+    return n00b_tree_format(t, n00b_repr_parse_node, NULL, false);
 }
 
 static inline void *
@@ -660,19 +659,19 @@ n00b_parse_get_user_data(n00b_grammar_t *g, n00b_parse_node_t *node)
 #define N00B_DEFAULT_MAX_PARSE_PENALTY 128
 
 extern n00b_nonterm_t *n00b_get_nonterm(n00b_grammar_t *, int64_t);
-extern n00b_utf8_t    *n00b_repr_rule(n00b_grammar_t *, n00b_list_t *, int);
+extern n00b_string_t  *n00b_repr_rule(n00b_grammar_t *, n00b_list_t *, int);
 extern n00b_list_t    *n00b_repr_earley_item(n00b_parser_t *,
                                              n00b_earley_item_t *,
                                              int);
-extern n00b_utf8_t    *n00b_repr_nonterm(n00b_grammar_t *, int64_t, bool);
-extern n00b_utf8_t    *n00b_repr_group(n00b_grammar_t *, n00b_rule_group_t *);
-extern n00b_utf8_t    *n00b_repr_term(n00b_grammar_t *, int64_t);
-extern n00b_utf8_t    *n00b_repr_rule(n00b_grammar_t *, n00b_list_t *, int);
-extern n00b_utf8_t    *n00b_repr_token_info(n00b_token_info_t *);
-extern n00b_grid_t    *n00b_repr_state_table(n00b_parser_t *, bool);
+extern n00b_string_t  *n00b_repr_nonterm(n00b_grammar_t *, int64_t, bool);
+extern n00b_string_t  *n00b_repr_group(n00b_grammar_t *, n00b_rule_group_t *);
+extern n00b_string_t  *n00b_repr_term(n00b_grammar_t *, int64_t);
+extern n00b_string_t  *n00b_repr_rule(n00b_grammar_t *, n00b_list_t *, int);
+extern n00b_string_t  *n00b_repr_token_info(n00b_token_info_t *);
+extern n00b_table_t   *n00b_repr_state_table(n00b_parser_t *, bool);
 extern void            n00b_parser_load_token(n00b_parser_t *);
-extern n00b_grid_t    *n00b_get_parse_state(n00b_parser_t *, bool);
-extern n00b_utf8_t    *n00b_parse_repr_item(n00b_grammar_t *, n00b_pitem_t *);
+extern n00b_table_t   *n00b_get_parse_state(n00b_parser_t *, bool);
+extern n00b_string_t  *n00b_parse_repr_item(n00b_grammar_t *, n00b_pitem_t *);
 extern void            n00b_prep_first_parse(n00b_grammar_t *);
 extern bool            n00b_is_nullable_pitem(n00b_grammar_t *,
                                               n00b_pitem_t *,

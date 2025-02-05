@@ -53,7 +53,7 @@ n00b_sha_init(n00b_sha_t *ctx, va_list args)
 }
 
 void
-n00b_sha_cn00b_str_update(n00b_sha_t *ctx, char *str)
+n00b_sha_cn00b_string_update(n00b_sha_t *ctx, char *str)
 {
     size_t len = strlen(str);
     if (len > 0) {
@@ -68,16 +68,22 @@ n00b_sha_int_update(n00b_sha_t *ctx, uint64_t n)
     EVP_DigestUpdate(ctx->openssl_ctx, &n, sizeof(uint64_t));
 }
 
-// Note; we should probably go back and correct 'byte_length' whenever
-// we overestimate so that this doesn't seem nondeterministic when it
-// hashes extra 0's.
 void
-n00b_sha_string_update(n00b_sha_t *ctx, n00b_str_t *str)
+n00b_sha_string_update(n00b_sha_t *ctx, n00b_string_t *str)
 {
-    int64_t len = n00b_str_byte_len(str);
+    n00b_type_t *t = n00b_get_my_type(str);
 
-    if (len > 0) {
-        EVP_DigestUpdate(ctx->openssl_ctx, str->data, len);
+    if (t->base_index != N00B_T_STRING) {
+        int64_t len = n00b_string_byte_len(str);
+
+        if (len > 0) {
+            EVP_DigestUpdate(ctx->openssl_ctx, str->data, len);
+        }
+    }
+    else {
+        if (str->u8_bytes) {
+            EVP_DigestUpdate(ctx->openssl_ctx, str->data, str->u8_bytes);
+        }
     }
 }
 
@@ -105,8 +111,7 @@ n00b_sha_finish(n00b_sha_t *ctx)
 }
 
 const n00b_vtable_t n00b_sha_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_sha_init,
         [N00B_BI_FINALIZER]   = (n00b_vtable_entry)n00b_sha_cleanup,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,

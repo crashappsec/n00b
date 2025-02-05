@@ -2,8 +2,8 @@
 #include "n00b.h"
 
 typedef struct {
-    n00b_utf8_t  *name;
-    n00b_type_t  *type;
+    n00b_string_t *name;
+    n00b_type_t *type;
     unsigned int ffi_holds  : 1;
     unsigned int ffi_allocs : 1;
 } n00b_fn_param_info_t;
@@ -14,17 +14,18 @@ typedef struct n00b_sig_info_t {
     n00b_scope_t         *fn_scope;
     n00b_scope_t         *formals;
     n00b_fn_param_info_t  return_info; // minus initialization.
-    int                  num_params;
-    unsigned int         pure        : 1;
-    unsigned int         void_return : 1;
+    int                   num_params;
+    unsigned int          pure        : 1;
+    unsigned int          void_return : 1;
 } n00b_sig_info_t;
 
 typedef struct {
-    n00b_utf8_t            *short_doc;
-    n00b_utf8_t            *long_doc;
+    n00b_string_t            *short_doc;
+    n00b_string_t            *long_doc;
     n00b_sig_info_t        *signature_info;
     struct n00b_cfg_node_t *cfg;
-    int32_t                frame_size;
+    int64_t                 noscan;
+    int32_t                 frame_size;
     // sc = 'short circuit'
     // If we are a 'once' function, this is the offset into static data,
     // where we will place:
@@ -38,12 +39,12 @@ typedef struct {
     // it's false, we grab the lock, check the boolean a second time,
     // run thecm function, set the memo and the boolean, and then
     // unlock.
-    int32_t                sc_lock_offset;
-    int32_t                sc_bool_offset;
-    int32_t                sc_memo_offset;
-    int32_t                local_id;
-    int32_t                module_id;
-    int32_t                offset;
+    int32_t                 sc_lock_offset;
+    int32_t                 sc_bool_offset;
+    int32_t                 sc_memo_offset;
+    int32_t                 local_id;
+    int32_t                 module_id;
+    int32_t                 offset;
 
     unsigned int private : 1;
     unsigned int once    : 1;

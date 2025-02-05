@@ -5,7 +5,7 @@
 #define gen_debug(debug_arg) \
     emit(ctx, N00B_ZDebug, n00b_kw("arg", n00b_ka(debug_arg)))
 #define debug_label(cstr) \
-    gen_label(ctx, n00b_new_utf8(cstr))
+    gen_label(ctx, n00b_cstring(cstr))
 #else
 #define gen_debug(debug_arg)
 #define debug_label(cstr)
@@ -56,7 +56,12 @@ n00b_zinstruction_t *
 n00b_new_instruction()
 {
     // TODO: fixme
-    return n00b_gc_alloc_mapped(n00b_zinstruction_t, N00B_GC_SCAN_ALL);
+    n00b_zinstruction_t *result;
+
+    result         = n00b_gc_alloc_mapped(n00b_zinstruction_t, N00B_GC_SCAN_ALL);
+    result->noscan = N00B_NOSCAN;
+
+    return result;
 }
 
 void
@@ -473,7 +478,7 @@ gen_sym_store(gen_ctx *ctx, n00b_symbol_t *sym, bool pop_and_lock)
         // Byte offset into the const object arena where the attribute
         // name can be found.
         arg = n00b_add_static_string(sym->name, ctx->cctx);
-        gen_load_const_by_offset(ctx, arg, n00b_type_utf8());
+        gen_load_const_by_offset(ctx, arg, n00b_type_string());
 
         emit(ctx, N00B_ZAssignAttr, n00b_kw("arg", n00b_ka(pop_and_lock)));
         return;
@@ -497,21 +502,21 @@ gen_sym_store(gen_ctx *ctx, n00b_symbol_t *sym, bool pop_and_lock)
 }
 
 static inline void
-gen_load_string(gen_ctx *ctx, n00b_utf8_t *s)
+gen_load_string(gen_ctx *ctx, n00b_string_t *s)
 {
     int64_t offset = n00b_add_static_string(s, ctx->cctx);
     emit(ctx, N00B_ZPushConstObj, n00b_kw("arg", n00b_ka(offset)));
 }
 
 static void
-gen_bail(gen_ctx *ctx, n00b_utf8_t *s)
+gen_bail(gen_ctx *ctx, n00b_string_t *s)
 {
     gen_load_string(ctx, s);
     emit(ctx, N00B_ZBail);
 }
 
 static bool
-gen_label(gen_ctx *ctx, n00b_utf8_t *s)
+gen_label(gen_ctx *ctx, n00b_string_t *s)
 {
     if (s == NULL) {
         return false;
@@ -866,9 +871,9 @@ gen_param_via_callback(gen_ctx                  *ctx,
 static inline void
 gen_param_bail_if_missing(gen_ctx *ctx, n00b_symbol_t *sym)
 {
-    n00b_utf8_t *err = n00b_cstr_format(
-        "Required parameter [em]{}[/] didn't have a value when "
-        "entering module [em]{}[/].",
+    n00b_string_t *err = n00b_cformat(
+        "Required parameter «em2»«#»«/» didn't have a value when "
+        "entering module «em2»«#»«/».",
         sym->name,
         ctx->fctx->path);
     GEN_JNZ(gen_bail(ctx, err));
@@ -925,7 +930,7 @@ gen_parameter_checks(gen_ctx *ctx)
 static inline void
 gen_module(gen_ctx *ctx)
 {
-    gen_label(ctx, n00b_cstr_format("Module '{}': ", ctx->fctx->path));
+    gen_label(ctx, n00b_cformat("Module '«#»': ", ctx->fctx->path));
 
     int num_params = gen_parameter_checks(ctx);
 
@@ -1808,7 +1813,7 @@ gen_callback_literal(gen_ctx *ctx)
     n00b_callback_info_t *scb = (n00b_callback_info_t *)ctx->cur_pnode->value;
 
     int64_t arg = n00b_add_static_string(scb->target_symbol_name, ctx->cctx);
-    gen_load_const_by_offset(ctx, arg, n00b_type_utf8());
+    gen_load_const_by_offset(ctx, arg, n00b_type_string());
 
     if (scb->binding.ffi) {
         n00b_ffi_decl_t *f = scb->binding.implementation.ffi_interface;
@@ -1870,7 +1875,7 @@ gen_literal(gen_ctx *ctx)
     }
 
     // We need to convert each set of items into a tuple object.
-    n00b_type_t *ttype = n00b_type_tuple_from_xlist(li->type->items);
+    n00b_type_t *ttype = n00b_type_tuple_from_list(li->type->items);
 
     for (int i = 0; i < n->num_kids;) {
         for (int j = 0; j < li->num_items; j++) {
@@ -2403,7 +2408,7 @@ gen_function(gen_ctx       *ctx,
     n00b_zfn_info_t *fn_info_for_obj = n00b_new_zfn();
 
     ctx->retsym = hatrack_dict_get(decl->signature_info->fn_scope->symbols,
-                                   n00b_new_utf8("$result"),
+                                   n00b_cstring("$result"),
                                    NULL);
 
     fn_info_for_obj->mid      = module->module_id;
@@ -2532,7 +2537,7 @@ gen_module_code(gen_ctx *ctx, n00b_vm_t *vm)
     int          n       = n00b_list_len(symlist);
 
     if (n) {
-        gen_label(ctx, n00b_new_utf8("Functions: "));
+        gen_label(ctx, n00b_cstring("Functions: "));
     }
 
     for (int i = 0; i < n; i++) {

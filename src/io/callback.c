@@ -29,12 +29,12 @@ n00b_callback_write(n00b_stream_t *stream, void *msg)
     return NULL;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_callback_repr(n00b_stream_t *ev)
 {
     n00b_callback_cookie_t *c = (n00b_callback_cookie_t *)ev->cookie;
 
-    return n00b_cstr_format("callback @{:x}", c->fn);
+    return n00b_cformat("callback @{#:p}", c->fn);
 }
 
 n00b_io_impl_info_t n00b_callback_impl = {

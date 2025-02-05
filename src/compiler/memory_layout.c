@@ -64,7 +64,7 @@ n00b_add_static_object(void *obj, n00b_compile_ctx *ctx)
 }
 
 uint64_t
-n00b_add_static_string(n00b_str_t *s, n00b_compile_ctx *ctx)
+n00b_add_static_string(n00b_string_t *s, n00b_compile_ctx *ctx)
 {
     // Strings that have style info are currently NOT cached by hash,
     // because the string hashing algorithm ignores the style info.
@@ -76,9 +76,7 @@ n00b_add_static_string(n00b_str_t *s, n00b_compile_ctx *ctx)
     bool     found = false;
     uint64_t res;
 
-    s = n00b_to_utf8(s);
-
-    if (s->styling && s->styling->num_entries != 0) {
+    if (s->styling && s->styling->num_styles != 0) {
         res = (uint64_t)hatrack_dict_get(ctx->obj_consts, s, &found);
         if (found) {
             return res;
@@ -140,11 +138,11 @@ _n00b_layout_const_obj(n00b_compile_ctx *cctx, n00b_obj_t obj, ...)
 
     n00b_module_t    *fctx = va_arg(args, n00b_module_t *);
     n00b_tree_node_t *loc  = NULL;
-    n00b_utf8_t      *name = NULL;
+    n00b_string_t      *name = NULL;
 
     if (fctx != NULL) {
         loc  = va_arg(args, n00b_tree_node_t *);
-        name = va_arg(args, n00b_utf8_t *);
+        name = va_arg(args, n00b_string_t *);
     }
 
     va_end(args);
@@ -187,7 +185,7 @@ layout_static(n00b_compile_ctx *cctx,
 
         switch (sym->kind) {
         case N00B_SK_ENUM_VAL:
-            if (n00b_types_are_compat(sym->type, n00b_type_utf8(), NULL)) {
+            if (n00b_types_are_compat(sym->type, n00b_type_string(), NULL)) {
                 sym->static_offset = n00b_layout_const_obj(cctx,
                                                            sym->value,
                                                            fctx,

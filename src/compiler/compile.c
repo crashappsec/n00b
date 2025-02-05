@@ -29,7 +29,7 @@ module_ctx_hash(n00b_module_t *ctx)
 }
 
 n00b_compile_ctx *
-n00b_new_compile_context(n00b_str_t *input)
+n00b_new_compile_context(n00b_string_t *input)
 {
     n00b_compile_ctx *result = n00b_new_compile_ctx();
 
@@ -43,7 +43,7 @@ n00b_new_compile_context(n00b_str_t *input)
                                  n00b_kw("hash", n00b_ka(module_ctx_hash)));
     result->memory_layout = n00b_gc_alloc_mapped(n00b_static_memory,
                                                  N00B_GC_SCAN_ALL);
-    result->str_consts    = n00b_dict(n00b_type_utf8(), n00b_type_u64());
+    result->str_consts    = n00b_dict(n00b_type_string(), n00b_type_u64());
     result->obj_consts    = n00b_dict(n00b_type_ref(), n00b_type_u64());
     result->value_consts  = n00b_dict(n00b_type_u64(), n00b_type_u64());
 
@@ -55,15 +55,15 @@ n00b_new_compile_context(n00b_str_t *input)
     return result;
 }
 
-static n00b_utf8_t *str_to_type_tmp_path = NULL;
+static n00b_string_t *str_to_type_tmp_path = NULL;
 
 // This lives in this module because we invoke the parser; things that
 // invoke the compiler live here.
 n00b_type_t *
-n00b_str_to_type(n00b_utf8_t *str)
+n00b_string_to_type(n00b_string_t *str)
 {
     if (str_to_type_tmp_path == NULL) {
-        str_to_type_tmp_path = n00b_new_utf8("<< string evaluation >>");
+        str_to_type_tmp_path = n00b_cstring("<< string evaluation >>");
         n00b_gc_register_root(&str_to_type_tmp_path, 1);
     }
 
@@ -82,7 +82,7 @@ n00b_str_to_type(n00b_utf8_t *str)
     n00b_close(stream);
 
     if (ctx.ct->parse_tree != NULL) {
-        n00b_dict_t *type_ctx = n00b_new(n00b_type_dict(n00b_type_utf8(),
+        n00b_dict_t *type_ctx = n00b_new(n00b_type_dict(n00b_type_string(),
                                                         n00b_type_ref()));
 
         result = n00b_node_to_type(&ctx, ctx.ct->parse_tree, type_ctx);
@@ -343,9 +343,9 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
             true_root->short_doc = root_adds->short_doc;
         }
         else {
-            true_root->short_doc = n00b_cstr_format("{}\n{}",
-                                                    true_root->short_doc,
-                                                    root_adds->short_doc);
+            true_root->short_doc = n00b_cformat("«#»\n«#»",
+                                                true_root->short_doc,
+                                                root_adds->short_doc);
         }
     }
     if (root_adds->long_doc) {
@@ -353,9 +353,9 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
             true_root->long_doc = root_adds->long_doc;
         }
         else {
-            true_root->long_doc = n00b_cstr_format("{}\n{}",
-                                                   true_root->long_doc,
-                                                   root_adds->long_doc);
+            true_root->long_doc = n00b_cformat("«#»\n«#»",
+                                               true_root->long_doc,
+                                               root_adds->long_doc);
         }
     }
 
@@ -474,7 +474,7 @@ n00b_system_module_files()
 }
 
 n00b_compile_ctx *
-n00b_compile_from_entry_point(n00b_str_t *entry)
+n00b_compile_from_entry_point(n00b_string_t *entry)
 {
     // This creates a new compilation; a second entry point
     // needs to be added seprately after code has been generated
@@ -483,8 +483,8 @@ n00b_compile_from_entry_point(n00b_str_t *entry)
 
     result->sys_package = n00b_find_module(result,
                                            n00b_n00b_root(),
-                                           n00b_new_utf8(N00B_PACKAGE_INIT_MODULE),
-                                           n00b_new_utf8("sys"),
+                                           n00b_cstring(N00B_PACKAGE_INIT_MODULE),
+                                           n00b_cstring("sys"),
                                            NULL,
                                            NULL,
                                            NULL);
@@ -522,7 +522,7 @@ n00b_compile_from_entry_point(n00b_str_t *entry)
 
 bool
 n00b_incremental_module(n00b_vm_t         *vm,
-                        n00b_str_t        *location,
+                        n00b_string_t        *location,
                         bool               new_entry,
                         n00b_compile_ctx **compile_state)
 {
@@ -565,8 +565,8 @@ n00b_incremental_module(n00b_vm_t         *vm,
 
     sys = n00b_find_module(ctx,
                            n00b_n00b_root(),
-                           n00b_new_utf8(N00B_PACKAGE_INIT_MODULE),
-                           n00b_new_utf8("sys"),
+                           n00b_cstring(N00B_PACKAGE_INIT_MODULE),
+                           n00b_cstring("sys"),
                            NULL,
                            NULL,
                            NULL);

@@ -9,20 +9,20 @@ typedef enum {
 } n00b_http_method_t;
 
 typedef struct {
-    CURL         *curl;
-    n00b_buf_t   *buf;
+    CURL          *curl;
+    n00b_buf_t    *buf;
     n00b_stream_t *to_send;
     n00b_stream_t *output_stream;
-    char         *errbuf;
+    char          *errbuf;
     // Internal lock makes sure that two threads don't call at once.
-    n00b_lock_t   lock;
-    CURLcode      code; // Holds the last result code.
+    n00b_lock_t    lock;
+    CURLcode       code; // Holds the last result code.
 } n00b_basic_http_t;
 
 typedef struct {
-    n00b_buf_t  *contents;
-    n00b_utf8_t *error;
-    CURLcode     code;
+    n00b_buf_t    *contents;
+    n00b_string_t *error;
+    CURLcode       code;
 } n00b_basic_http_response_t;
 
 static inline CURLcode
@@ -55,13 +55,13 @@ n00b_basic_http_run_request(n00b_basic_http_t *self)
 // POST.
 // Cert pin.
 
-extern n00b_basic_http_response_t *_n00b_http_get(n00b_str_t *, ...);
-extern n00b_basic_http_response_t *_n00b_http_upload(n00b_str_t *,
+extern n00b_basic_http_response_t *_n00b_http_get(n00b_string_t *, ...);
+extern n00b_basic_http_response_t *_n00b_http_upload(n00b_string_t *,
                                                      n00b_buf_t *,
                                                      ...);
 
 static inline bool
-n00b_validate_url(n00b_utf8_t *candidate)
+n00b_validate_url(n00b_string_t *candidate)
 {
     CURLU *handle = curl_url();
 
@@ -84,14 +84,14 @@ n00b_http_op_get_output_buffer(n00b_basic_http_response_t *op)
     return op->contents;
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 n00b_http_op_get_output_utf8(n00b_basic_http_response_t *op)
 {
     if (!n00b_http_op_succeded(op)) {
         return NULL;
     }
 
-    return n00b_buf_to_utf8_string(op->contents);
+    return n00b_buf_to_string(op->contents);
 }
 
 #define n00b_http_get(u, ...) \

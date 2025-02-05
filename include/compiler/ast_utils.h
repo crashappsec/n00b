@@ -15,27 +15,25 @@ n00b_print_type(n00b_obj_t o)
     n00b_print(n00b_get_my_type(o));
 }
 
-extern n00b_utf8_t *n00b_node_type_name(n00b_node_kind_t);
+extern n00b_string_t *n00b_node_type_name(n00b_node_kind_t);
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 n00b_content_formatter(void *contents)
 {
     n00b_node_kind_t kind = (n00b_node_kind_t)(uint64_t)contents;
 
     if (kind == n00b_nt_any) {
-        return n00b_rich_lit("[h2]n00b_nt_any[/]");
+        return n00b_rich("«em2»n00b_nt_any");
     }
 
-    return n00b_cstr_format("[h2]{}[/]", n00b_node_type_name(kind));
+    return n00b_cformat("«em2»«#»", n00b_node_type_name(kind));
 }
 
 static inline void
 _show_pattern(n00b_tpat_node_t *pat)
 {
     n00b_tree_node_t *t = n00b_pat_repr(pat, n00b_content_formatter);
-    n00b_grid_t      *g = n00b_grid_tree(t);
-
-    n00b_print(g);
+    n00b_print(n00b_tree_format(t, NULL, NULL, true));
 }
 
 #define show_pattern(x)                                              \
@@ -61,14 +59,10 @@ n00b_node_has_type(n00b_tree_node_t *node, n00b_node_kind_t expect)
     return expect == pnode->kind;
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 n00b_get_litmod(n00b_pnode_t *p)
 {
-    if (!p->extra_info) {
-        return NULL;
-    }
-
-    return n00b_to_utf8(p->extra_info);
+    return p->extra_info;
 }
 
 // Return the first capture if there's a match, and NULL if not.

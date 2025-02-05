@@ -3,7 +3,7 @@ Make sure lex phase produces errors properly.
 """
 """
 $errors:
-eof_in_str_lit
+eof_in_string_lit
 """
 
 x = "

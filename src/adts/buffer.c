@@ -1,22 +1,13 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
-
-/*
- * Note that, unlike strings, buffers are intended to be mutable.
- * BUT! Currently, this implementation does not guard against
- * writes happenening concurrent to any operation.
- *
- * We should add locking to allow multiple concurrent readers, but
- * give exclusivity and priority to writes. But it's fine to wait on
- * that until needed.
- */
 
 static void
 buffer_init(n00b_buf_t *obj, va_list args)
 {
-    int64_t     length = -1;
-    char       *raw    = NULL;
-    n00b_str_t *hex    = NULL;
-    char       *ptr    = NULL;
+    int64_t        length = -1;
+    char          *raw    = NULL;
+    n00b_string_t *hex    = NULL;
+    char          *ptr    = NULL;
 
     n00b_karg_va_init(args);
 
@@ -35,7 +26,7 @@ buffer_init(n00b_buf_t *obj, va_list args)
             N00B_CRAISE("Must specify length for raw / ptr initializer.");
         }
         else {
-            length = n00b_str_codepoint_len(hex) >> 1;
+            length = n00b_string_codepoint_len(hex) >> 1;
         }
     }
 
@@ -81,9 +72,7 @@ buffer_init(n00b_buf_t *obj, va_list args)
         uint8_t cur         = 0;
         int     valid_count = 0;
 
-        hex = n00b_to_utf8(hex);
-
-        for (int i = 0; i < hex->byte_len; i++) {
+        for (int i = 0; i < hex->u8_bytes; i++) {
             uint8_t byte = hex->data[i];
             if (byte >= '0' && byte <= '9') {
                 if ((++valid_count) % 2 == 1) {
@@ -151,14 +140,13 @@ n00b_buffer_resize(n00b_buf_t *buffer, uint64_t new_sz)
     n00b_buffer_release(buffer);
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_buffer_to_hex_str(n00b_buf_t *buf)
 {
-    n00b_utf8_t *result;
+    n00b_string_t *result;
 
     n00b_buffer_acquire_r(buf);
-    result  = n00b_new(n00b_type_utf8(),
-                      n00b_kw("length", n00b_ka(buf->byte_len * 2)));
+    result  = n00b_alloc_utf8_to_copy(buf->byte_len * 2);
     char *p = result->data;
 
     for (int i = 0; i < buf->byte_len; i++) {
@@ -168,41 +156,50 @@ n00b_buffer_to_hex_str(n00b_buf_t *buf)
     }
 
     result->codepoints = p - result->data;
-    result->byte_len   = result->codepoints;
+    result->u8_bytes   = result->codepoints;
+    result->styling    = NULL;
 
     n00b_buffer_release(buf);
 
     return result;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 buffer_repr(n00b_buf_t *buf)
 {
     n00b_buffer_acquire_r(buf);
 
-    n00b_utf8_t *result = n00b_hex_dump(buf->data, buf->byte_len);
+    n00b_string_t *result = n00b_hex_dump(buf->data, buf->byte_len);
 
+    result->styling = NULL;
     n00b_buffer_release(buf);
 
     return result;
 }
 
-static n00b_str_t *
-buffer_fmt(n00b_buf_t *buf, n00b_fmt_spec_t *spec)
+static n00b_string_t *
+buffer_fmt(n00b_buf_t *buf, n00b_string_t *spec)
 {
-    switch (spec->type) {
-    case 0:
-    case 'h':
+    if (!spec || !n00b_string_codepoint_len(spec)) {
         return buffer_repr(buf);
-    case 'x':
-        return n00b_buffer_to_hex_str(buf);
-    case 'p':
-        return n00b_format_address(buf);
-    case 'u':
-        return n00b_buf_to_utf8_string(buf);
-    default:
-        N00B_CRAISE("Invalid format specifier for buffer.");
     }
+
+    if (n00b_string_codepoint_len(spec)) {
+        switch (spec->data[0]) {
+        case 'h':
+            return buffer_repr(buf);
+        case 'x':
+            return n00b_buffer_to_hex_str(buf);
+        case 'p':
+            return n00b_cformat("@«#:p»", buf);
+        case 'u':
+            return n00b_buf_to_utf8_string(buf);
+        default:
+            break;
+        }
+    }
+
+    N00B_CRAISE("Invalid format specifier for buffer.");
 }
 
 n00b_buf_t *
@@ -297,22 +294,13 @@ n00b_buffer_len(n00b_buf_t *buffer)
     return (int64_t)buffer->byte_len;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_buf_to_utf8_string(n00b_buf_t *buffer)
 {
     n00b_buffer_acquire_r(buffer);
-    n00b_utf8_t *result = n00b_new(n00b_type_utf8(),
-                                   n00b_kw("cstring",
-                                           n00b_ka(buffer->data),
-                                           "length",
-                                           n00b_ka(buffer->byte_len)));
-
-    if (n00b_utf8_validate(result) < 0) {
-        n00b_buffer_release(buffer);
-        N00B_CRAISE("Buffer contains invalid UTF-8.");
-    }
-
+    n00b_string_t *result = n00b_utf8(buffer->data, buffer->byte_len);
     n00b_buffer_release(buffer);
+
     return result;
 }
 
@@ -320,7 +308,7 @@ static bool
 buffer_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
 {
     // clang-format off
-    if (n00b_types_are_compat(target_type, n00b_type_utf8(), NULL) ||
+    if (n00b_types_are_compat(target_type, n00b_type_string(), NULL) ||
 	n00b_types_are_compat(target_type, n00b_type_buffer(), NULL) ||
 	n00b_types_are_compat(target_type, n00b_type_bytering(), NULL) ||
 	n00b_types_are_compat(target_type, n00b_type_bool(), NULL)) {
@@ -353,7 +341,7 @@ buffer_coerce_to(n00b_buf_t *b, n00b_type_t *target_type)
         n00b_buffer_release(b);
     }
 
-    if (n00b_types_are_compat(target_type, n00b_type_utf8(), NULL)) {
+    if (n00b_types_are_compat(target_type, n00b_type_string(), NULL)) {
         n00b_buffer_acquire_r(b);
 
         int32_t          count = 0;
@@ -371,9 +359,9 @@ buffer_coerce_to(n00b_buf_t *b, n00b_type_t *target_type)
             p += cplen;
         }
 
-        n00b_utf8_t *result = n00b_new(target_type,
-                                       n00b_kw("length", n00b_ka(b->byte_len)));
-        result->codepoints  = count;
+        n00b_string_t *result = n00b_new(target_type,
+                                         n00b_kw("length", n00b_ka(b->byte_len)));
+        result->codepoints    = count;
 
         memcpy(result->data, b->data, b->byte_len);
         n00b_buffer_release(b);
@@ -538,9 +526,9 @@ buffer_set_slice(n00b_buf_t *b, int64_t start, int64_t end, n00b_buf_t *val)
 }
 
 static n00b_obj_t
-buffer_lit(n00b_utf8_t          *su8,
+buffer_lit(n00b_string_t        *su8,
            n00b_lit_syntax_t     st,
-           n00b_utf8_t          *lu8,
+           n00b_string_t        *lu8,
            n00b_compile_error_t *err)
 {
     char *s      = su8->data;
@@ -656,8 +644,7 @@ n00b_buffer_set_gc_bits(uint64_t *bitfield, void *alloc)
 }
 
 const n00b_vtable_t n00b_buffer_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)buffer_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)buffer_repr,
         [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_buffer_to_hex_str,
@@ -675,7 +662,6 @@ const n00b_vtable_t n00b_buffer_vtable = {
         [N00B_BI_ITEM_TYPE]    = (n00b_vtable_entry)buffer_item_type,
         [N00B_BI_VIEW]         = (n00b_vtable_entry)buffer_view,
         [N00B_BI_GC_MAP]       = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
-        NULL,
     },
 };
 

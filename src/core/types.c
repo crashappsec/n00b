@@ -163,12 +163,12 @@ n00b_type_universe_t n00b_type_universe;
 
 static bool log_types = true;
 
-#define type_log(x, y)                                \
-    if (log_types) {                                  \
-        n00b_printf("[h2]{}:[/] [h1]{}[/] (line {})", \
-                    n00b_new_utf8(x),                 \
-                    n00b_type_resolve(y),             \
-                    n00b_box_i64(__LINE__));          \
+#define type_log(x, y)                                     \
+    if (log_types) {                                       \
+        n00b_printf("«em2»«#»:«/» «em1»«#»«/» (line «#»)", \
+                    n00b_cstring(x),                       \
+                    n00b_type_resolve(y),                  \
+                    (int64_t)__LINE__);                    \
     }
 
 void
@@ -274,8 +274,9 @@ alloc_type_list(void)
     n00b_list_t    *result;
     n00b_alloc_hdr *hdr;
 
-    result = n00b_gc_alloc_mapped(n00b_list_t, N00B_GC_SCAN_ALL);
-    hdr    = n00b_object_header(result);
+    result         = n00b_gc_alloc_mapped(n00b_list_t, N00B_GC_SCAN_ALL);
+    hdr            = n00b_object_header(result);
+    result->noscan = N00B_NOSCAN;
 
     hdr->n00b_obj = true;
     hdr->type     = n00b_bi_types[N00B_T_INTERNAL_TLIST];
@@ -656,6 +657,7 @@ n00b_type_is_concrete(n00b_type_t *node)
         return true;
     default:
         n00b_assert(false);
+        return false;
     }
 }
 
@@ -1019,18 +1021,6 @@ _n00b_unify(n00b_type_t *t1, n00b_type_t *t2)
         return t1;
     }
 
-    // Currently, treat utf8 and utf32 as the same type, until all ops
-    // are available on each. We'll just always return N00B_T_UTF8 in
-    // these cases.
-    if (t1->typeid == N00B_T_UTF8 && t2->typeid == N00B_T_UTF32) {
-        type_log("unify(t1, t2)", t1);
-        return t1;
-    }
-    if (t1->typeid == N00B_T_UTF32 && t2->typeid == N00B_T_UTF8) {
-        type_log("unify(t1, t2)", t2);
-        return t2;
-    }
-
     if (t1->typeid == N00B_T_ERROR || t2->typeid == N00B_T_ERROR) {
         type_log("unify(t1, t2)", n00b_type_error());
         return n00b_type_error();
@@ -1261,13 +1251,6 @@ _n00b_type_cmp_exact(n00b_type_t *t1, n00b_type_t *t2)
         return n00b_type_match_exact;
     }
 
-    if (t1->typeid == N00B_T_UTF8 && t2->typeid == N00B_T_UTF32) {
-        return n00b_type_match_exact;
-    }
-    if (t1->typeid == N00B_T_UTF32 && t2->typeid == N00B_T_UTF8) {
-        return n00b_type_match_exact;
-    }
-
     if (t1->typeid == N00B_T_ERROR || t2->typeid == N00B_T_ERROR) {
         return n00b_type_cant_match;
     }
@@ -1356,7 +1339,7 @@ n00b_type_cmp_exact(n00b_type_t *t1, n00b_type_t *t2)
     return result;
 }
 
-static inline n00b_str_t *
+static inline n00b_string_t *
 create_typevar_name(int64_t num)
 {
     char buf[19] = {
@@ -1369,88 +1352,88 @@ create_typevar_name(int64_t num)
         num >>= 4;
     }
 
-    return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(buf)));
+    return n00b_cstring(buf);
 }
 
-static inline n00b_str_t *
+static inline n00b_string_t *
 internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 {
-    n00b_str_t *s = hatrack_dict_get(memos, t, NULL);
+    n00b_string_t *s = hatrack_dict_get(memos, t, NULL);
 
     if (s != NULL) {
         return s;
     }
 
     if (n00b_partial_inference(t)) {
-        bool         list_ok  = n00b_list_syntax_possible(t);
-        bool         set_ok   = n00b_set_syntax_possible(t);
-        bool         dict_ok  = n00b_dict_syntax_possible(t);
-        bool         tuple_ok = n00b_tuple_syntax_possible(t);
-        int          num_ok   = 0;
-        n00b_list_t *parts    = n00b_list(n00b_type_utf8());
-        n00b_utf8_t *res;
+        bool           list_ok  = n00b_list_syntax_possible(t);
+        bool           set_ok   = n00b_set_syntax_possible(t);
+        bool           dict_ok  = n00b_dict_syntax_possible(t);
+        bool           tuple_ok = n00b_tuple_syntax_possible(t);
+        int            num_ok   = 0;
+        n00b_list_t   *parts    = n00b_list(n00b_type_string());
+        n00b_string_t *res;
 
         if (list_ok) {
             num_ok++;
-            n00b_list_append(parts, n00b_new_utf8("some_list"));
+            n00b_list_append(parts, n00b_cstring("some_list"));
         }
         // For now, hardcode knowing we don't expose other options.
         if (dict_ok) {
             num_ok++;
-            n00b_list_append(parts, n00b_new_utf8("dict"));
+            n00b_list_append(parts, n00b_cstring("dict"));
         }
         if (set_ok) {
             num_ok++;
-            n00b_list_append(parts, n00b_new_utf8("set"));
+            n00b_list_append(parts, n00b_cstring("set"));
         }
         if (tuple_ok) {
-            n00b_list_append(parts, n00b_new_utf8("tuple"));
+            n00b_list_append(parts, n00b_cstring("tuple"));
             num_ok++;
         }
 
         switch (num_ok) {
         case 0:
-            return n00b_new_utf8("$non_container");
+            return n00b_cstring("$non_container");
         case 1:
             if (list_ok) {
-                res = n00b_new_utf8("$some_list[");
+                res = n00b_cstring("$some_list[");
             }
             else {
-                res = n00b_cstr_format("{}{}",
-                                       n00b_list_get(parts, 0, NULL),
-                                       n00b_new_utf8("["));
+                res = n00b_cformat("«#»«#»",
+                                   n00b_list_get(parts, 0, NULL),
+                                   n00b_cached_lbracket());
             }
             break;
         default:
-            res = n00b_cstr_format("${}{}",
-                                   n00b_str_join(parts,
-                                                 n00b_new_utf8("_or_")),
-                                   n00b_new_utf8("["));
+            res = n00b_cformat("$«#»«#»",
+                               n00b_string_join(parts,
+                                                n00b_cstring("_or_")),
+                               n00b_cached_lbracket());
             break;
         }
 
         int num = n00b_type_get_num_params(t);
 
         if (num) {
-            n00b_type_t *sub = n00b_type_get_param(t, 0);
-            n00b_utf8_t *one = n00b_internal_type_repr(sub, memos, nexttv);
+            n00b_type_t   *sub = n00b_type_get_param(t, 0);
+            n00b_string_t *one = n00b_internal_type_repr(sub, memos, nexttv);
 
-            res = n00b_cstr_format("{}{}", res, one);
+            res = n00b_cformat("«#»«#»", res, one);
         }
 
         for (int i = 1; i < num; i++) {
-            n00b_utf8_t *one = n00b_internal_type_repr(n00b_type_get_param(t, i),
-                                                       memos,
-                                                       nexttv);
+            n00b_string_t *one = n00b_internal_type_repr(n00b_type_get_param(t, i),
+                                                         memos,
+                                                         nexttv);
 
-            res = n00b_cstr_format("{}, {}", res, one);
+            res = n00b_cformat("«#», «#»", res, one);
         }
 
         if (t->flags & N00B_FN_UNKNOWN_TV_LEN) {
-            res = n00b_cstr_format("{}...]", res);
+            res = n00b_cformat("«#»...]", res);
         }
         else {
-            res = n00b_cstr_format("{}]", res);
+            res = n00b_cformat("«#»]", res);
         }
         return res;
     }
@@ -1464,36 +1447,33 @@ internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
         *nexttv   = v;
     }
 
-    s = n00b_str_concat(n00b_get_backtick_const(), s);
+    s = n00b_string_concat(n00b_cached_backtick(), s);
 
     hatrack_dict_put(memos, t, s);
 
     return s;
 }
 
-static inline n00b_str_t *
+static inline n00b_string_t *
 internal_repr_container(n00b_type_t *type,
                         n00b_dict_t *memos,
                         int64_t     *nexttv)
 {
-    int          num_types = n00b_list_len(type->items);
-    n00b_list_t *to_join   = n00b_list(n00b_type_utf8());
-    int          i         = 0;
-    n00b_type_t *subnode;
-    n00b_str_t  *substr;
+    int            num_types = n00b_list_len(type->items);
+    n00b_list_t   *to_join   = n00b_list(n00b_type_string());
+    int            i         = 0;
+    n00b_type_t   *subnode;
+    n00b_string_t *substr;
 
-    n00b_list_append(to_join,
-                     n00b_new(n00b_type_utf8(),
-                              n00b_kw("cstring",
-                                      n00b_ka(n00b_internal_type_name(type)))));
-    n00b_list_append(to_join, n00b_get_lbrak_const());
+    n00b_list_append(to_join, n00b_cstring(n00b_internal_type_name(type)));
+    n00b_list_append(to_join, n00b_cached_lbracket());
 
     int n = type->items ? 0 : n00b_list_len(type->items);
 
     goto first_loop_start;
 
     for (; i < num_types; i++) {
-        n00b_list_append(to_join, n00b_get_comma_const());
+        n00b_list_append(to_join, n00b_cached_comma());
 
 first_loop_start:
         if (i >= n) {
@@ -1508,23 +1488,23 @@ first_loop_start:
         n00b_list_append(to_join, substr);
     }
 
-    n00b_list_append(to_join, n00b_get_rbrak_const());
+    n00b_list_append(to_join, n00b_cached_rbracket());
 
-    return n00b_str_join(to_join, n00b_empty_string());
+    return n00b_string_join(to_join, n00b_cached_empty_string());
 }
 
 // This will get more complicated when we add keyword parameter sypport.
 
-static inline n00b_str_t *
+static inline n00b_string_t *
 internal_repr_func(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 {
-    int          num_types = n00b_list_len(t->items);
-    n00b_list_t *to_join   = n00b_list(n00b_type_utf8());
-    int          i         = 0;
-    n00b_type_t *subnode;
-    n00b_str_t  *substr;
+    int            num_types = n00b_list_len(t->items);
+    n00b_list_t   *to_join   = n00b_list(n00b_type_string());
+    int            i         = 0;
+    n00b_type_t   *subnode;
+    n00b_string_t *substr;
 
-    n00b_list_append(to_join, n00b_get_lparen_const());
+    n00b_list_append(to_join, n00b_cached_lparen());
 
     // num_types - 1 will be 0 if there are no args, but there is a
     // return value. So the below loop won't run in all cases.  But
@@ -1535,12 +1515,12 @@ internal_repr_func(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
         goto first_loop_start;
 
         for (; i < num_types - 1; i++) {
-            n00b_list_append(to_join, n00b_get_comma_const());
+            n00b_list_append(to_join, n00b_cached_comma());
 
 first_loop_start:
 
             if ((i == num_types - 2) && t->flags & N00B_FN_TY_VARARGS) {
-                n00b_list_append(to_join, n00b_get_asterisk_const());
+                n00b_list_append(to_join, n00b_cached_star());
             }
 
             subnode = n00b_list_get(t->items, i, NULL);
@@ -1549,8 +1529,8 @@ first_loop_start:
         }
     }
 
-    n00b_list_append(to_join, n00b_get_rparen_const());
-    n00b_list_append(to_join, n00b_get_arrow_const());
+    n00b_list_append(to_join, n00b_cached_rparen());
+    n00b_list_append(to_join, n00b_cached_arrow());
 
     subnode = n00b_list_get(t->items, num_types - 1, NULL);
 
@@ -1559,12 +1539,12 @@ first_loop_start:
         n00b_list_append(to_join, substr);
     }
 
-    return n00b_str_join(to_join, n00b_empty_string());
+    return n00b_string_join(to_join, n00b_cached_empty_string());
 }
 
-static n00b_str_t *n00b_type_repr(n00b_type_t *);
+static n00b_string_t *n00b_type_repr(n00b_type_t *);
 
-n00b_str_t *
+n00b_string_t *
 n00b_internal_type_repr(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 {
     t = n00b_type_resolve(t);
@@ -1573,7 +1553,7 @@ n00b_internal_type_repr(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
     case N00B_DT_KIND_nil:
     case N00B_DT_KIND_primitive:
     case N00B_DT_KIND_internal:
-        return n00b_new_utf8(n00b_internal_type_name(t));
+        return n00b_cstring(n00b_internal_type_name(t));
     case N00B_DT_KIND_type_var:
         return internal_repr_tv(t, memos, nexttv);
     case N00B_DT_KIND_list:
@@ -1583,10 +1563,10 @@ n00b_internal_type_repr(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
     case N00B_DT_KIND_func:
         return internal_repr_func(t, memos, nexttv);
     case N00B_DT_KIND_box:
-        return n00b_cstr_format("{}(boxed)",
-                                n00b_internal_type_repr(n00b_type_unbox(t),
-                                                        memos,
-                                                        nexttv));
+        return n00b_cformat("«#»(boxed)",
+                            n00b_internal_type_repr(n00b_type_unbox(t),
+                                                    memos,
+                                                    nexttv));
     default:
         n00b_assert(false);
     }
@@ -1594,18 +1574,17 @@ n00b_internal_type_repr(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
     return NULL;
 }
 
-static n00b_str_t *
+static n00b_string_t *
 n00b_type_repr(n00b_type_t *t)
 {
-    n00b_dict_t *memos = n00b_dict(n00b_type_ref(), n00b_type_utf8());
+    n00b_dict_t *memos = n00b_dict(n00b_type_ref(), n00b_type_string());
     int64_t      n     = 0;
 
     return n00b_internal_type_repr(n00b_type_resolve(t), memos, &n);
 }
 
 const n00b_vtable_t n00b_type_spec_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_type_init,
         [N00B_BI_REPR]        = (n00b_vtable_entry)n00b_type_repr,
         [N00B_BI_COPY]        = (n00b_vtable_entry)n00b_type_copy,
@@ -1724,7 +1703,6 @@ _n00b_type_list(n00b_type_t *sub, char *file, int line)
 }
 
 DECLARE_ONE_PARAM_FN(flist, N00B_T_FLIST);
-DECLARE_ONE_PARAM_FN(xlist, N00B_T_XLIST);
 DECLARE_ONE_PARAM_FN(tree, N00B_T_TREE);
 DECLARE_ONE_PARAM_FN(queue, N00B_T_QUEUE);
 DECLARE_ONE_PARAM_FN(ring, N00B_T_RING);
@@ -1831,7 +1809,7 @@ n00b_type_tuple(int64_t nitems, ...)
 }
 
 n00b_type_t *
-n00b_type_tuple_from_xlist(n00b_list_t *items)
+n00b_type_tuple_from_list(n00b_list_t *items)
 {
     n00b_push_heap(n00b_internal_heap);
 

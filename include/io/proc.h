@@ -21,7 +21,7 @@ enum {
 };
 
 typedef struct {
-    n00b_utf8_t     *cmd;
+    n00b_string_t   *cmd;
     n00b_list_t     *args;
     n00b_list_t     *env;
     n00b_stream_t   *subproc_stdin;
@@ -63,7 +63,7 @@ typedef struct {
 #define n00b_proc_post_check(p)
 
 static inline void
-n00b_proc_set_command(n00b_proc_t *proc, n00b_utf8_t *cmd)
+n00b_proc_set_command(n00b_proc_t *proc, n00b_string_t *cmd)
 {
     n00b_proc_check_and_set(proc, proc->cmd = cmd);
 }
@@ -234,10 +234,10 @@ n00b_proc_get_exit_code(n00b_proc_t *proc)
 
 // TODO: Add a callback option.
 
-extern n00b_proc_t *_n00b_run_process(n00b_utf8_t *cmd,
-                                      n00b_list_t *argv,
-                                      bool         proxy,
-                                      bool         capture,
+extern n00b_proc_t *_n00b_run_process(n00b_string_t *cmd,
+                                      n00b_list_t   *argv,
+                                      bool           proxy,
+                                      bool           capture,
                                       ...);
 #define n00b_run_process(cmd, proxy, capture, ...) \
     _n00b_run_process(cmd, proxy, capture, N00B_VA(__VA_ARGS__))

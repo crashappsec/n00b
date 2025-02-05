@@ -12,5 +12,5 @@ typedef struct n00b_tpat_node_t {
     unsigned int             ignore_kids : 1;
 } n00b_tpat_node_t;
 
-typedef n00b_utf8_t *(*n00b_pattern_fmt_fn)(void *);
+typedef n00b_string_t *(*n00b_pattern_fmt_fn)(void *);
 extern n00b_tree_node_t *n00b_pat_repr(n00b_tpat_node_t *, n00b_pattern_fmt_fn);

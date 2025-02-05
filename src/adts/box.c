@@ -8,20 +8,20 @@ box_init(n00b_box_t *box, va_list args)
     return;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 box_repr(n00b_box_t *box)
 {
     return n00b_repr_explicit(box->v, n00b_type_unbox(n00b_get_my_type(box)));
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 box_to_str(n00b_box_t *box)
 {
     return n00b_to_str(box->v, n00b_type_unbox(n00b_get_my_type(box)));
 }
 
-static n00b_utf8_t *
-box_format(n00b_box_t *box, n00b_fmt_spec_t *spec)
+static n00b_string_t *
+box_format(n00b_box_t *box, n00b_string_t *spec)
 {
     n00b_type_t    *t      = n00b_type_unbox(n00b_get_my_type(box));
     n00b_dt_info_t *info   = n00b_type_get_data_type_info(t);
@@ -38,8 +38,7 @@ box_from_lit(n00b_box_t *b, void *i1, void *i2, void *i3)
 }
 
 const n00b_vtable_t n00b_box_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)box_init,
         [N00B_BI_TO_STR]       = (n00b_vtable_entry)box_repr,
         [N00B_BI_REPR]         = (n00b_vtable_entry)box_to_str,

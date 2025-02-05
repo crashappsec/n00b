@@ -12,7 +12,7 @@ extern void _n00b_debug(void *, void *, ...);
     _n00b_debug(x, y, __VA_ARGS__ __VA_OPT__(, ) NULL)
 #endif
 
-typedef bool (*n00b_debug_filter)(n00b_utf8_t *, void *);
+typedef bool (*n00b_debug_filter)(n00b_string_t *, void *);
 
 extern void           n00b_disable_debugging(void);
 extern void           n00b_enable_debugging(void);
@@ -29,37 +29,37 @@ extern bool           n00b_is_debug_shutdown_queue_processed(void);
 #define n00b_debug_internal_subscribe(topic, ...) \
     _n00b_debug_internal_subscribe(topic, __VA_ARGS__ __VA_OPT__(, ) NULL)
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 n00b_hex_debug_repr(void *addr)
 {
     if (!n00b_in_heap(addr)) {
-        return n00b_cstr_format("\n{}", n00b_hex_dump(&addr, sizeof(void *)));
+        return n00b_cformat("\n«#»", n00b_hex_dump(&addr, sizeof(void *)));
     }
 
     n00b_alloc_hdr *h      = n00b_find_allocation_record(addr);
-    n00b_utf8_t    *result = n00b_heap_dump((char *)h,
-                                         h->alloc_len,
-                                         n00b_gc_guard,
-                                         true);
+    n00b_string_t  *result = (void *)n00b_heap_dump((char *)h,
+                                                   h->alloc_len,
+                                                   n00b_gc_guard,
+                                                   true);
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     if (h->alloc_file) {
-        n00b_utf8_t *alloc = n00b_cstr_format("\n[h2]Allocation from {}:{}[/]\n",
-                                              n00b_new_utf8(h->alloc_file),
-                                              h->alloc_line);
-        result             = n00b_str_concat(alloc, result);
+        n00b_string_t *alloc = n00b_cformat("\n«em2»Alloc from «#»:«#»\n",
+                                            n00b_cstring(h->alloc_file),
+                                            h->alloc_line);
+        result               = n00b_string_concat(alloc, result);
     }
 #endif
 
     if (h->data != addr) {
-        void    *box = n00b_box_u64((uint64_t)addr);
-        uint64_t n   = (uint64_t)((char *)addr - (char *)h->data);
+        uint64_t n = (uint64_t)((char *)addr - (char *)h->data);
 
-        n00b_utf8_t *addendum = n00b_cstr_format(
-            "[em]Debug param pointed to @{:x}, {} ({:x}) bytes into the above.",
-            box,
+        n00b_string_t *addendum = n00b_cformat(
+            "«em»Debug param pointed to @«#:x», «#» "
+            "(«#:x») bytes into the above.",
+            (uint64_t)addr,
             n,
             n);
-        result = n00b_str_concat(result, addendum);
+        result = n00b_string_concat(result, addendum);
     }
 
     return result;

@@ -1,270 +1,665 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
+// We *always* store a u8 representation, and optionally keep a u32
+// one, if some API call requires it.
 
-N00B_STATIC_ASCII_STR(n00b_empty_string_const, "");
-N00B_STATIC_ASCII_STR(n00b_newline_const, "\n");
-N00B_STATIC_ASCII_STR(n00b_crlf_const, "\r\n");
+n00b_string_t *n00b_common_string_cache[N00B_STRCACHE_BUILTIN_MAX];
 
 const char n00b_hex_map_lower[16] = "0123456789abcdef";
 const char n00b_hex_map_upper[16] = "0123456789ABCDEF";
 
+#define cache_init(x, y) \
+    n00b_common_string_cache[N00B_STRCACHE_##x] = y
+#define cache_cp_init(x, y) \
+    cache_init(x, n00b_string_from_codepoint(y))
+#define cache_cstr_init(x, y) \
+    cache_init(x, n00b_cstring(y))
 void
-n00b_internal_utf8_set_codepoint_count(n00b_utf8_t *instr)
+n00b_init_common_string_cache(void)
 {
-    uint8_t         *p   = (uint8_t *)instr->data;
-    uint8_t         *end = p + instr->byte_len;
-    n00b_codepoint_t cp;
-
-    instr->codepoints = 0;
-    while (p < end) {
-        instr->codepoints += 1;
-        int n = utf8proc_iterate(p, 4, &cp);
-        if (n < 0) {
-            // Assume we have a partial code point at the end.
-            return;
-        }
-        p += n;
+    if (!n00b_startup_complete) {
+        n00b_gc_register_root(n00b_common_string_cache,
+                              N00B_STRCACHE_BUILTIN_MAX);
+        n00b_string_t *s = n00b_new(n00b_type_string(), NULL, false, 0, NULL);
+        // A single null for the empty string constant.
+        s->data          = n00b_gc_value_alloc(char);
+        cache_init(EMPTY_STR, s);
+        cache_cp_init(NEWLINE, '\n');
+        cache_cp_init(CR, '\r');
+        cache_cp_init(COMMA, ',');
+        cache_cp_init(LBRACKET, '[');
+        cache_cp_init(RBRACKET, ']');
+        cache_cp_init(LBRACE, '{');
+        cache_cp_init(RBRACE, '}');
+        cache_cp_init(LPAREN, '(');
+        cache_cp_init(RPAREN, ')');
+        cache_cp_init(BACKTICK, '`');
+        cache_cp_init(1QUOTE, '\'');
+        cache_cp_init(2QUOTE, '"');
+        cache_cp_init(STAR, '*');
+        cache_cp_init(SPACE, ' ');
+        cache_cp_init(SLASH, '/');
+        cache_cp_init(BACKSLASH, '\\');
+        cache_cp_init(PERIOD, '.');
+        cache_cp_init(COLON, ':');
+        cache_cp_init(SEMICOLON, ';');
+        cache_cp_init(BANG, '!');
+        cache_cp_init(AT, '@');
+        cache_cp_init(HASH, '#');
+        cache_cp_init(DOLLAR, '$');
+        cache_cp_init(PERCENT, '%');
+        cache_cp_init(CARAT, '^');
+        cache_cp_init(AMPERSAND, '&');
+        cache_cp_init(MINUS, '&');
+        cache_cp_init(UNDERSCORE, '_');
+        cache_cp_init(PLUS, '+');
+        cache_cp_init(EQUALS, '=');
+        cache_cp_init(PIPE, '=');
+        cache_cp_init(GT, '=');
+        cache_cp_init(LT, '=');
+        cache_cp_init(QUESTION_MARK, '?');
+        cache_cp_init(TILDE, '~');
+        cache_cstr_init(ARROW, " -> ");
+        cache_cstr_init(COMMA_PADDED, ",  ");
+        cache_cstr_init(COLON_PADDED, " : ");
+        cache_cp_init(ELLIPSIS, 0x2026);
     }
 }
 
-int64_t
-n00b_utf8_validate(const n00b_utf8_t *instr)
+bool
+n00b_valid_codepoint(n00b_codepoint_t cp)
 {
-    uint8_t         *p   = (uint8_t *)instr->data;
-    uint8_t         *end = p + instr->byte_len;
-    n00b_codepoint_t cp;
-    int64_t          n = 0;
-
-    while (p < end) {
-        int to_add = utf8proc_iterate(p, 4, &cp);
-
-        if (to_add < 0) {
-            return n;
-        }
-
-        p += to_add;
-
-        n++;
+    if (cp < 0 || cp > 0x10ffff) {
+        return false;
+    }
+    if (cp >= 0xd800 && cp <= 0xdfff) {
+        return false;
     }
 
-    return 0;
+    return true;
 }
 
-// For now, we're going to do this just for u32, so u8 will convert to
-// u32, in full.
-n00b_utf32_t *
-n00b_str_slice(const n00b_str_t *instr, int64_t start, int64_t end)
+// Returns true if valid, and if so, sets the byte length and # of codepoints.
+
+int
+n00b_string_set_codepoint_count(n00b_string_t *s)
 {
-    if (!instr || n00b_str_codepoint_len(instr) == 0) {
-        return n00b_to_utf32(n00b_empty_string());
-    }
-    n00b_utf32_t *s   = n00b_to_utf32(instr);
-    int64_t       len = n00b_str_codepoint_len(s);
+    char            *p   = s->data;
+    char            *end = s->data + s->u8_bytes;
+    n00b_codepoint_t cp;
+    int              count = 0;
 
-    if (end < 0) {
-        end += len;
-    }
-    else {
-        if (end > len) {
-            end = len;
-        }
-    }
-    if (start < 0) {
-        start += len;
-    }
-    else {
-        if (start >= len) {
-            return n00b_to_utf32(n00b_empty_string());
-        }
-    }
-    if ((start | end) < 0 || start >= end) {
-        return n00b_to_utf32(n00b_empty_string());
+    while (p < end) {
+        int l = utf8proc_iterate((uint8_t *)p, 4, &cp);
+        count++;
+        n00b_assert(l > 0);
+        n00b_assert(cp);
+        p += l;
     }
 
-    int64_t       slice_len = end - start;
-    n00b_utf32_t *res       = n00b_new(n00b_type_utf32(),
-                                 n00b_kw("length", n00b_ka(slice_len)));
+    return count;
+}
 
-    res->codepoints = slice_len;
-
-    n00b_codepoint_t *src = (n00b_codepoint_t *)s->data;
-    n00b_codepoint_t *dst = (n00b_codepoint_t *)res->data;
-
-    for (int i = 0; i < slice_len; i++) {
-        dst[i] = src[start + i];
+static inline bool
+n00b_cstring_validate_u8(char *s, int *num_cp, int *num_bytes, int max_bytes)
+{
+    if (!max_bytes) {
+        max_bytes = strlen(s);
     }
 
-    while (res->codepoints != 0) {
-        if (dst[res->codepoints - 1] == 0) {
-            --res->codepoints;
+    int              cp_count = 0;
+    char            *p        = s;
+    char            *end      = p + max_bytes;
+    n00b_codepoint_t cp;
+
+    while (p < end) {
+        int l = utf8proc_iterate((uint8_t *)p, 4, &cp);
+        if (l < 0) {
+            return false;
         }
-        else {
-            break;
+        p += l;
+        ++cp_count;
+    }
+
+    *num_cp    = cp_count;
+    *num_bytes = p - s;
+
+    return true;
+}
+
+void
+n00b_string_sanity_check(n00b_string_t *s)
+{
+    int num_cp;
+    int num_bytes;
+
+    if (!s) {
+        return;
+    }
+
+    if (!s->u8_bytes && !s->codepoints) {
+        return;
+    }
+
+    char *check = s->data;
+    for (int i = 0; i < s->u8_bytes; i++) {
+        if (!*check++) {
+            printf("Null in string.");
+            abort();
         }
     }
 
-    if (n00b_str_is_styled(s)) {
-        int64_t first = -1;
-        int64_t last  = 0;
-        int64_t i     = 0;
-
-        for (i = 0; i < s->styling->num_entries; i++) {
-            if (s->styling->styles[i].end < start) {
-                continue;
-            }
-            if (s->styling->styles[i].start >= end) {
-                break;
-            }
-            if (first == -1) {
-                first = i;
-            }
-            last = i + 1;
-        }
-
-        if (first == -1) {
-            return res;
-        }
-
-        last = i;
-        while (last < s->styling->num_entries) {
-            if (s->styling->styles[++last].end >= end) {
-                break;
-            }
-            if (i == s->styling->num_entries) {
-                break;
-            }
-            if (s->styling->styles[last].start >= end) {
-                break;
-            }
-        }
-
-        if (last == -1) {
-            last = first + 1;
-        }
-        int64_t sliced_style_count = last - first;
-        n00b_alloc_styles(res, sliced_style_count);
-
-        for (i = 0; i < sliced_style_count; i++) {
-            int64_t      sold = s->styling->styles[i + first].start;
-            n00b_style_t info = s->styling->styles[i + first].info;
-            int64_t      snew = n00b_max(sold - start, 0);
-            int64_t      enew = n00b_min(s->styling->styles[i + first].end,
-                                    end)
-                         - start;
-
-            if (enew > slice_len) {
-                enew = slice_len;
-            }
-
-            if (snew >= enew) {
-                res->styling->num_entries = i;
-                break;
-            }
-
-            res->styling->styles[i].start = snew;
-            res->styling->styles[i].end   = enew;
-            res->styling->styles[i].info  = info;
-        }
+    if (!n00b_cstring_validate_u8(s->data, &num_cp, &num_bytes, s->u8_bytes)) {
+        printf("String validation failed.");
+        abort();
     }
+
+    if (num_bytes != s->u8_bytes) {
+        printf("Bad byte count.");
+        abort();
+    }
+
+    if (num_cp != s->codepoints) {
+        printf("Bad codepoint count.");
+        abort();
+    }
+}
+
+static inline void
+n00b_string_initialize_from_cstring(n00b_string_t *s, char *p)
+{
+    int num_cp    = 0;
+    int num_bytes = 0;
+
+    if (!n00b_cstring_validate_u8(p, &num_cp, &num_bytes, 0)) {
+        N00B_CRAISE("Invalid UTF-8 in C string.");
+    }
+
+    if (!n00b_in_heap(p)) {
+        char *copy = n00b_gc_raw_alloc(num_bytes + 1, N00B_GC_SCAN_NONE);
+        memcpy(copy, p, num_bytes);
+        p = copy;
+    }
+
+    s->data       = p;
+    s->codepoints = num_cp;
+    s->u8_bytes   = num_bytes;
+}
+
+static inline void
+n00b_string_init_from_cstring_with_len(n00b_string_t *s,
+                                       char          *p,
+                                       int            len)
+{
+    int num_cp    = 0;
+    int num_bytes = 0;
+
+    if (!n00b_cstring_validate_u8(p, &num_cp, &num_bytes, len)
+        || len != num_bytes) {
+        N00B_CRAISE("Invalid UTF-8 in C string.");
+    }
+
+    if (!n00b_in_heap(p)) {
+        char *copy = n00b_gc_raw_alloc(num_bytes + 1, N00B_GC_SCAN_NONE);
+        memcpy(copy, p, num_bytes);
+        p = copy;
+    }
+
+    s->data       = p;
+    s->codepoints = num_cp;
+    s->u8_bytes   = num_bytes;
+}
+
+static inline void
+n00b_string_initialize_from_prechecked_bytes(n00b_string_t *s, char *p, int l)
+{
+    assert(n00b_in_heap(p));
+    s->data       = p;
+    s->codepoints = l;
+    s->u8_bytes   = l;
+}
+
+n00b_codepoint_t *
+n00b_string_to_codepoint_array(n00b_string_t *s)
+{
+    if (s->u32_data) {
+        return s->u32_data;
+    }
+
+    n00b_codepoint_t *res = n00b_gc_raw_alloc(s->codepoints * 4,
+                                              N00B_GC_SCAN_NONE);
+
+    char            *p = s->data;
+    int              n = s->codepoints;
+    n00b_codepoint_t cp;
+
+    for (int i = 0; i < n; i++) {
+        int l = utf8proc_iterate((uint8_t *)p, 4, &cp);
+        if (l <= 0) {
+            N00B_CRAISE("Corrupted UTF-8 in C string.");
+        }
+        p += l;
+        res[i] = cp;
+    }
+
+    s->u8_bytes = p - s->data;
 
     return res;
 }
 
-static inline n00b_codepoint_t
-n00b_utf8_index(const n00b_utf8_t *s, int64_t n)
+// This assumes you've validated you need it.
+static bool
+u32_required(n00b_string_t *s)
 {
-    int64_t l = n00b_str_codepoint_len(s);
-
-    if (n < 0) {
-        n += l;
-
-        if (n < 0) {
-            N00B_CRAISE("Index would be before the start of the string.");
-        }
+    if (s->u32_data) {
+        return true;
+    }
+    if (s->codepoints == s->u8_bytes) {
+        return false;
     }
 
-    if (n >= l) {
-        N00B_CRAISE("Index out of bounds.");
-    }
-
-    char            *p = (char *)s->data;
-    n00b_codepoint_t cp;
-
-    for (int i = 0; i <= n; i++) {
-        int val = utf8proc_iterate((uint8_t *)p, 4, &cp);
-        if (val < 0) {
-            N00B_CRAISE("Index out of bounds.");
-        }
-        p += val;
-    }
-
-    return cp;
+    s->u32_data = n00b_string_to_codepoint_array(s);
+    return true;
 }
 
-static inline n00b_codepoint_t
-n00b_utf32_index(const n00b_utf32_t *s, int64_t i)
+static inline void
+n00b_string_initialize_from_codepoint_array(n00b_string_t    *s,
+                                            n00b_codepoint_t *p,
+                                            int64_t           len)
 {
-    int64_t l = n00b_str_codepoint_len(s);
+    n00b_assert(p);
+    n00b_assert(len);
 
-    if (i < 0) {
-        i += l;
+    if (!n00b_in_heap(p)) {
+        n00b_codepoint_t *p2 = n00b_gc_array_value_alloc(n00b_codepoint_t, len);
+        memcpy(p2, p, len * 4);
+        p = p2;
+    }
 
-        if (i < 0) {
-            N00B_CRAISE("Index would be before the start of the string.");
+    s->u32_data   = p;
+    s->codepoints = len;
+
+    // This runs through the string once to figure out how many cp to alloc.
+    int u8_len = 0;
+
+    for (int64_t i = 0; i < len; i++) {
+        n00b_codepoint_t cp = p[i];
+
+        if (!(cp & 0xffffff80)) {
+            u8_len += 1;
+            continue;
+        }
+        if (cp & 0xffff0000) {
+            u8_len += 4;
+            continue;
+        }
+        if (cp & 0xfffff800) {
+            u8_len += 3;
+            continue;
+        }
+        u8_len += 2;
+    }
+
+    s->data     = n00b_gc_array_value_alloc(char, u8_len);
+    s->u8_bytes = u8_len;
+
+    char *new = s->data;
+
+    for (int64_t i = 0; i < len; i++) {
+        int l = utf8proc_encode_char(p[i], (uint8_t *)new);
+
+        if (l <= 0) {
+            N00B_CRAISE("Invalid UTF-32.");
+        }
+        new += l;
+    }
+}
+
+static void
+n00b_string_init(n00b_string_t *s, va_list args)
+{
+    void   *p    = va_arg(args, void *);
+    bool    cstr = va_arg(args, int);
+    int64_t len  = va_arg(args, int64_t);
+
+    if (!len) {
+        if (!p) {
+            return; // Totally empty.
+        }
+        n00b_assert(cstr);
+        n00b_string_initialize_from_cstring(s, p);
+        return;
+    }
+    if (cstr) {
+        if (p) {
+            if (n00b_in_heap(p)) {
+                n00b_string_initialize_from_prechecked_bytes(s, p, len);
+            }
+            else {
+                n00b_string_init_from_cstring_with_len(s, p, len);
+            }
+            return;
+        }
+
+        s->data       = n00b_gc_array_value_alloc(char, len + 1);
+        s->codepoints = len;
+        s->u8_bytes   = len;
+        return;
+    }
+
+    n00b_string_initialize_from_codepoint_array(s, p, len);
+}
+
+static n00b_string_t *
+slice_styles(n00b_string_t *dst, n00b_string_t *src, int64_t start, int64_t end)
+{
+    if (!src->styling) {
+        return dst;
+    }
+
+    int64_t first = -1;
+    int64_t last  = 0;
+    int64_t i     = 0;
+
+    for (; i < src->styling->num_styles; i++) {
+        if (src->styling->styles[i].end <= start) {
+            continue;
+        }
+        if (src->styling->styles[i].start >= end) {
+            last = i;
+            break;
+        }
+        if (first == -1) {
+            first = i;
+        }
+        last = i + 1;
+    }
+
+    if (first == -1) {
+        n00b_string_sanity_check(dst);
+        return dst;
+    }
+
+    dst->styling = n00b_gc_flex_alloc(n00b_string_style_info_t,
+                                      n00b_style_record_t,
+                                      last - first,
+                                      N00B_GC_SCAN_ALL);
+
+    int n = 0;
+
+    for (i = first; i < last; i++) {
+        int64_t sold = src->styling->styles[i].start;
+        int64_t eold = src->styling->styles[i].end;
+        int64_t snew = n00b_max(sold - start, 0);
+        int64_t enew = n00b_min(eold, end) - start;
+
+        if (snew >= enew) {
+            break;
+        }
+
+        dst->styling->styles[n].start = snew;
+        dst->styling->styles[n].end   = enew;
+        dst->styling->styles[n].info  = src->styling->styles[i].info;
+        n++;
+    }
+
+    dst->styling->num_styles = n;
+    n00b_string_sanity_check(dst);
+
+    return dst;
+}
+
+static n00b_string_t *
+copy_styles(n00b_string_t *dst, n00b_string_t *src)
+{
+    if (!src->styling || !src->styling->num_styles) {
+        n00b_string_sanity_check(dst);
+
+        return dst;
+    }
+
+    dst->styling = n00b_gc_flex_alloc(n00b_string_style_info_t,
+                                      n00b_style_record_t,
+                                      src->styling->num_styles,
+                                      N00B_GC_SCAN_ALL);
+
+    dst->styling->num_styles = src->styling->num_styles;
+
+    for (int i = 0; i < src->styling->num_styles; i++) {
+        dst->styling->styles[i].info  = src->styling->styles[i].info;
+        dst->styling->styles[i].start = src->styling->styles[i].start;
+        dst->styling->styles[i].end   = src->styling->styles[i].end;
+        if (i + 1 == src->styling->num_styles) {
+            if (src->styling->styles[i].end >= src->codepoints) {
+                dst->styling->styles[i].end = dst->codepoints;
+            }
         }
     }
 
-    if (i >= l) {
-        N00B_CRAISE("Index out of bounds.");
+    n00b_string_sanity_check(dst);
+    return dst;
+}
+
+static inline n00b_string_t *
+copy_styles_and_extend(n00b_string_t *dst, n00b_string_t *src)
+{
+    copy_styles(dst, src);
+
+    // Check to see if we should extend the last style to the end.
+    if (src->styling && src->styling->num_styles) {
+        int n = src->styling->num_styles;
+
+        if (src->styling->styles[n - 1].end >= src->codepoints) {
+            dst->styling->styles[n - 1].end = dst->codepoints;
+        }
     }
 
-    n00b_codepoint_t *p = (n00b_codepoint_t *)s->data;
+    n00b_string_sanity_check(dst);
+    return dst;
+}
 
-    return p[i];
+static inline n00b_string_t *
+copy_styles_with_offset(n00b_string_t *dst, n00b_string_t *src, int offset)
+{
+    if (!src->styling || !src->styling->num_styles) {
+        n00b_string_sanity_check(dst);
+        return dst;
+    }
+
+    copy_styles(dst, src);
+    int n = src->styling->num_styles;
+
+    // Offset all the copied styles.
+
+    for (int i = 0; i < n; i++) {
+        dst->styling->styles[i].start += offset;
+        dst->styling->styles[i].end += offset;
+    }
+
+    // Check to see if we should extend the last style to the end.
+    if (src->styling->styles[n - 1].end >= src->codepoints) {
+        dst->styling->styles[n - 1].end = dst->codepoints;
+    }
+
+    n00b_string_sanity_check(dst);
+    return dst;
+}
+
+// This Assumes that s1 + s2 resulted in dst, and dst needs its styles set.
+static inline n00b_string_t *
+concat_styles(n00b_string_t *dst, n00b_string_t *s1, n00b_string_t *s2)
+{
+    int num_styles = 0;
+    if (s1->styling) {
+        num_styles = s1->styling->num_styles;
+    }
+
+    if (s2->styling) {
+        num_styles += s2->styling->num_styles;
+    }
+
+    if (!num_styles) {
+        n00b_string_sanity_check(dst);
+        return dst;
+    }
+
+    dst->styling = n00b_gc_flex_alloc(n00b_string_style_info_t,
+                                      n00b_style_record_t,
+                                      num_styles,
+                                      N00B_GC_SCAN_ALL);
+
+    dst->styling->num_styles = num_styles;
+
+    int  n1           = 0;
+    int  n2           = 0;
+    bool back_extend  = false;
+    bool front_extend = false;
+
+    if (s1->styling) {
+        n1 = s1->styling->num_styles;
+    }
+    else {
+        front_extend = true;
+    }
+
+    if (s2->styling) {
+        n2 = s2->styling->num_styles;
+    }
+
+    for (int i = 0; i < n1; i++) {
+        dst->styling->styles[i].info  = s1->styling->styles[i].info;
+        dst->styling->styles[i].start = s1->styling->styles[i].start;
+        dst->styling->styles[i].end   = s1->styling->styles[i].end;
+        if (i + 1 == n1) {
+            if (s1->styling->styles[i].end >= s1->codepoints) {
+                back_extend = true;
+            }
+        }
+    }
+
+    int s1_cp = s1->codepoints;
+
+    int n = n1;
+
+    for (int i = 0; i < n2; i++) {
+        dst->styling->styles[n].info  = s2->styling->styles[i].info;
+        dst->styling->styles[n].start = s2->styling->styles[i].start + s1_cp;
+        dst->styling->styles[n].end   = s2->styling->styles[i].end + s1_cp;
+        n++;
+    }
+
+    // If the final style extended to the end of the string, then we
+    // extend it to the next start (or the end of the combined string
+    // if there is no style in d2.
+    if (back_extend) {
+        if (!n2) {
+            dst->styling->styles[n1 - 1].end = dst->codepoints;
+        }
+        else {
+            dst->styling->styles[n1 - 1].end = dst->styling->styles[n1].start;
+        }
+    }
+
+    if (front_extend && n > 0 && !s2->styling->styles[0].start) {
+        dst->styling->styles[0].start = 0;
+    }
+
+    n00b_string_sanity_check(dst);
+    return dst;
+}
+
+n00b_string_t *
+n00b_string_slice(n00b_string_t *s, int64_t start, int64_t end)
+{
+    if (!s || s->codepoints == 0) {
+        return slice_styles(n00b_string_empty(), s, 0, 0);
+    }
+
+    if (end < 0) {
+        end += s->codepoints;
+    }
+    else {
+        if (end > s->codepoints) {
+            end = s->codepoints;
+        }
+    }
+    if (start < 0) {
+        start += s->codepoints;
+    }
+    else {
+        if (start >= s->codepoints) {
+            return slice_styles(n00b_string_empty(), s, start, end);
+        }
+    }
+
+    if ((start | end) < 0 || start >= end) {
+        return slice_styles(n00b_string_empty(), s, start, end);
+    }
+
+    int64_t len = end - start;
+
+    if (!u32_required(s)) {
+        // First 'true' is c-string; if it's got a number passed after
+        // for the length, we know it was pre-checked.
+        n00b_string_t *new;
+        new = n00b_new(n00b_type_string(), s->data + start, true, len);
+
+        return slice_styles(new, s, start, end);
+    }
+
+    n00b_codepoint_t *u32 = &s->u32_data[start];
+
+    n00b_string_t *copy = n00b_new(n00b_type_string(), u32, false, len);
+    return slice_styles(copy, s, start, end);
 }
 
 n00b_codepoint_t
-n00b_index(const n00b_str_t *s, int64_t i)
+n00b_string_index(n00b_string_t *s, int64_t n)
 {
-    if (!n00b_str_is_u8(s)) {
-        return n00b_utf32_index(s, i);
+    if (n < 0) {
+        n += s->codepoints;
     }
-    else {
-        return n00b_utf8_index(s, i);
+    if (n < 0) {
+        N00B_CRAISE("String is too short for the negative index.");
     }
+    if (n >= s->codepoints) {
+        N00B_CRAISE("Index out of bounds.");
+    }
+
+    if (!u32_required(s)) {
+        return s->data[n];
+    }
+
+    return s->u32_data[n];
 }
 
-n00b_utf8_t *
-n00b_str_to_hex(n00b_str_t *s, bool upper)
+n00b_string_t *
+n00b_string_to_hex(n00b_string_t *s, bool upper)
 {
-    s = n00b_to_utf8(s);
+    n00b_string_t *result = n00b_new(n00b_type_string(),
+                                     NULL,
+                                     true,
+                                     s->u8_bytes * 2);
+    char          *map    = (char *)n00b_hex_map_lower;
 
-    n00b_utf8_t *result = n00b_new(n00b_type_utf8(),
-                                   n00b_kw("length",
-                                           n00b_ka(s->byte_len * 2)));
-    char        *map    = (char *)(upper ? n00b_hex_map_upper : n00b_hex_map_lower);
+    if (upper) {
+        map = (char *)n00b_hex_map_upper;
+    }
 
     char *src = s->data;
     char *dst = result->data;
-
-    for (int i = 0; i < s->byte_len; i++) {
+    for (int i = 0; i < s->u8_bytes; i++) {
         char c = *src++;
         *dst++ = map[c >> 4];
         *dst++ = map[c & 0x0f];
     }
-    *dst = 0;
-
-    result->byte_len   = 2 * s->byte_len;
-    result->codepoints = 2 * s->byte_len;
 
     return result;
 }
 
-n00b_utf32_t *
-_n00b_str_strip(const n00b_str_t *s, ...)
+n00b_string_t *
+_n00b_string_strip(n00b_string_t *s, ...)
 {
-    // TODO: this is needlessly slow for u8 since we convert it to u32
-    // twice, both here and in slice.
-
     bool front = true;
     bool back  = true;
 
@@ -272,538 +667,120 @@ _n00b_str_strip(const n00b_str_t *s, ...)
     n00b_kw_bool("front", front);
     n00b_kw_bool("back", back);
 
-    n00b_utf32_t     *as32  = n00b_to_utf32(s);
-    n00b_codepoint_t *p     = (n00b_codepoint_t *)as32->data;
-    int64_t           start = 0;
-    int               len   = n00b_str_codepoint_len(as32);
-    int               end   = len;
+    char *start = s->data;
+    char *end   = start + s->u8_bytes;
 
     if (front) {
-        while (start < end && n00b_codepoint_is_space(p[start]))
+        while (start < end && n00b_codepoint_is_space(*start)) {
             start++;
+        }
     }
-
-    if (back && (end > start)) {
+    if (back && end > start) {
         while (--end != start) {
-            if (!n00b_codepoint_is_space(p[end])) {
+            if (!n00b_codepoint_is_space(*end)) {
                 break;
             }
         }
         end++;
     }
 
-    if (!start && end == len) {
-        return as32;
+    if (start == s->data && end == start + s->u8_bytes) {
+        return s;
     }
 
-    return n00b_str_slice(as32, start, end);
+    int            shaved_from_front = start - s->data;
+    int            shaved_from_back  = s->data + s->u8_bytes - end;
+    int            shaved            = shaved_from_front + shaved_from_back;
+    n00b_string_t *result            = n00b_string_empty();
+
+    result->data       = start;
+    result->codepoints = s->codepoints - shaved;
+    result->u8_bytes   = s->u8_bytes - shaved;
+
+    if (s->u32_data) {
+        result->u32_data = s->u32_data + shaved_from_front;
+    }
+
+    return slice_styles(result,
+                        s,
+                        shaved_from_front,
+                        s->codepoints - shaved_from_back);
 }
 
-n00b_utf32_t *
-n00b_str_concat(const n00b_str_t *p1, const n00b_str_t *p2)
+n00b_string_t *
+n00b_string_concat(n00b_string_t *s1, n00b_string_t *s2)
 {
-    if (!p1) {
-        return n00b_to_utf32(p2);
-    }
-    if (!p2) {
-        return n00b_to_utf32(p1);
-    }
+    n00b_string_sanity_check(s1);
+    n00b_string_sanity_check(s2);
 
-    n00b_utf32_t *s1     = n00b_to_utf32(p1);
-    n00b_utf32_t *s2     = n00b_to_utf32(p2);
-    int64_t       s1_len = n00b_str_codepoint_len(s1);
-    int64_t       s2_len = n00b_str_codepoint_len(s2);
-
-    n00b_codepoint_t *p = (void *)s1->data;
-
-    while (s1_len) {
-        if (p[s1_len - 1] != 0) {
-            break;
-        }
-        s1_len--;
-    }
-
-    if (!s1_len) {
+    if (!s1) {
         return s2;
     }
-
-    p = (void *)s2->data;
-    while (s2_len) {
-        if (p[s2_len - 1] != 0) {
-            break;
-        }
-        s2_len--;
-    }
-
-    if (!s2_len) {
+    if (!s2) {
         return s1;
     }
 
-    int64_t       n = s1_len + s2_len;
-    n00b_utf32_t *r = n00b_new(n00b_type_utf32(),
-                               n00b_kw("length", n00b_ka(n)));
+    n00b_string_t *result = n00b_string_empty();
+    result->codepoints    = s1->codepoints + s2->codepoints;
+    result->u8_bytes      = s1->u8_bytes + s2->u8_bytes;
 
-    uint64_t num_entries = n00b_style_num_entries(s1);
-    num_entries          = num_entries + n00b_style_num_entries(s2);
+    result->data = n00b_gc_array_value_alloc(char, result->u8_bytes + 1);
+    memcpy(result->data, s1->data, s1->u8_bytes);
+    memcpy(result->data + s1->u8_bytes, s2->data, s2->u8_bytes);
 
-    if (!s1_len) {
-        return s2;
-    }
+    n00b_string_sanity_check(result);
 
-    if (!s2_len) {
-        return s1;
-    }
-
-    n00b_alloc_styles(r, num_entries);
-
-    int start = n00b_style_num_entries(s1);
-    if (start) {
-        for (unsigned int i = 0; i < s1->styling->num_entries; i++) {
-            r->styling->styles[i] = s1->styling->styles[i];
-        }
-    }
-
-    if (n00b_style_num_entries(s2)) {
-        int start = n00b_style_num_entries(s1);
-        for (unsigned int i = 0; i < s2->styling->num_entries; i++) {
-            r->styling->styles[i + start] = s2->styling->styles[i];
-        }
-
-        // Here, we loop through after the copy to adjust the offsets.
-        for (uint64_t i = n00b_style_num_entries(s1); i < num_entries; i++) {
-            r->styling->styles[i].start += s1_len;
-            r->styling->styles[i].end += s1_len;
-        }
-    }
-
-    // Now copy the actual string data.
-    uint32_t *ptr = (uint32_t *)r->data;
-    memcpy(r->data, s1->data, s1_len * 4);
-    ptr += s1_len;
-
-    memcpy(ptr, s2->data, s2_len * 4);
-
-    r->codepoints = n;
-
-    return r;
+    return concat_styles(result, s1, s2);
 }
 
-static n00b_utf8_t *
-n00b_utf8_join(n00b_list_t *l, const n00b_utf8_t *joiner, bool add_trailing)
-{
-    int64_t      num_items = n00b_list_len(l);
-    int64_t      new_len   = 0;
-    int          jlen      = 0;
-    n00b_list_t *tmplist   = n00b_list(n00b_type_utf8());
-
-    for (int i = 0; i < num_items; i++) {
-        n00b_str_t *s = n00b_list_get(l, i, NULL);
-        if (!s) {
-            continue;
-        }
-        s = n00b_to_utf8(s);
-        new_len += s->byte_len;
-        n00b_list_append(tmplist, s);
-    }
-
-    if (joiner != NULL) {
-        jlen = joiner->byte_len;
-        new_len += jlen * (num_items - (add_trailing ? 0 : 1));
-    }
-
-    if (new_len <= 0) {
-        return n00b_empty_string();
-    }
-
-    n00b_utf8_t *result = n00b_new(n00b_type_utf8(),
-                                   n00b_kw("length", n00b_ka(new_len)));
-    char        *p      = result->data;
-    n00b_utf8_t *cur    = n00b_list_get(tmplist, 0, NULL);
-
-    if (cur && cur->byte_len) {
-        memcpy(p, cur->data, cur->byte_len);
-    }
-
-    for (int i = 1; i < num_items; i++) {
-        p += cur->byte_len;
-
-        if (jlen != 0) {
-            memcpy(p, joiner->data, jlen);
-            p += jlen;
-        }
-
-        cur = n00b_list_get(tmplist, i, NULL);
-        if (cur && cur->byte_len) {
-            memcpy(p, cur->data, cur->byte_len);
-        }
-    }
-
-    if (add_trailing && jlen != 0) {
-        p += cur->byte_len;
-        memcpy(p, joiner->data, jlen);
-    }
-
-    while (new_len && result->data[new_len - 1] == 0) {
-        new_len--;
-    }
-
-    result->byte_len      = new_len;
-    result->data[new_len] = 0;
-    n00b_internal_utf8_set_codepoint_count(result);
-
-    return result;
-}
-
-static n00b_utf32_t *
-n00b_utf32_join(n00b_list_t *l, const n00b_utf32_t *joiner, bool add_trailing)
-{
-    int64_t n_parts = n00b_list_len(l);
-    int64_t joinlen = joiner ? n00b_str_codepoint_len(joiner) : 0;
-    int64_t len     = joinlen * n_parts; // An overestimate when !add_trailing
-
-    for (int i = 0; i < n_parts; i++) {
-        n00b_str_t *part = (n00b_str_t *)n00b_list_get(l, i, NULL);
-        len += n00b_str_codepoint_len(part);
-    }
-
-    n00b_utf32_t     *result = n00b_new(n00b_type_utf32(),
-                                    n00b_kw("length", n00b_ka(len)));
-    n00b_codepoint_t *p      = (n00b_codepoint_t *)result->data;
-    n00b_utf32_t     *j      = joinlen ? n00b_to_utf32(joiner) : NULL;
-
-    result->codepoints = len;
-
-    if (!add_trailing) {
-        --n_parts; // skip the last item during the loop.
-    }
-
-    for (int i = 0; i < n_parts; i++) {
-        n00b_str_t   *v    = (n00b_str_t *)n00b_list_get(l, i, NULL);
-        n00b_utf32_t *part = n00b_to_utf32(v);
-        int64_t       n_cp = n00b_str_codepoint_len(part);
-
-        if (!n_cp) {
-            continue;
-        }
-        memcpy(p, part->data, n_cp * 4);
-        p += n_cp;
-
-        if (joinlen != 0) {
-            memcpy(p, j->data, joinlen * 4);
-            p += joinlen;
-        }
-    }
-
-    if (!add_trailing) {
-        uint64_t wrong_cp  = result->codepoints;
-        result->codepoints = wrong_cp - joinlen;
-
-        n00b_utf32_t *line = n00b_to_utf32((n00b_str_t *)n00b_list_get(l,
-                                                                       n_parts,
-                                                                       NULL));
-        int64_t       n_cp = n00b_str_codepoint_len(line);
-
-        memcpy(p, line->data, n_cp * 4);
-    }
-
-    return result;
-}
-
-n00b_str_t *
-_n00b_str_join(n00b_list_t *l, const n00b_str_t *joiner, ...)
+n00b_string_t *
+_n00b_string_join(n00b_list_t *l, n00b_string_t *joiner, ...)
 {
     n00b_karg_only_init(joiner);
 
-    bool        add_trailing = false;
-    n00b_str_t *result;
+    bool           add_trailing = false;
+    n00b_string_t *result;
+    n00b_string_t *tmp;
 
     n00b_kw_bool("add_trailing", add_trailing);
+    // This would be more efficient overall to alloc one string
+    // instead of doing a bunch of concatenations. But since I'm
+    // rewriting the string library, and expect it'll take some time
+    // to work out subtle bugs, I'm going to revert to the much
+    // simpler approach of leveraging concat() and then come back to
+    // the 'better' approach when it seems appropriate (probably
+    // after grids/tables are re-done and working).
 
-    if (joiner && joiner->utf32) {
-        result = n00b_utf32_join(l, joiner, add_trailing);
+    bool use_joiner = joiner && joiner->codepoints;
+    n00b_lock_list_read(l);
+    int n = n00b_list_len(l);
+
+    if (!n) {
+        n00b_unlock_list(l);
+        return n00b_string_empty();
     }
-    else {
-        result = n00b_utf8_join(l, joiner, add_trailing);
-    }
 
-    int64_t n_parts  = n00b_list_len(l);
-    int64_t n_styles = 0;
-    int64_t joinlen  = joiner ? n00b_str_codepoint_len(joiner) : 0;
+    result = n00b_private_list_get(l, 0, NULL);
 
-    for (int i = 0; i < n_parts; i++) {
-        n00b_str_t *part = (n00b_str_t *)n00b_list_get(l, i, NULL);
-        n_styles += n00b_style_num_entries(part);
-    }
-
-    int txt_ix   = 0;
-    int style_ix = 0;
-
-    n00b_alloc_styles(result, n_styles);
-
-    for (int i = 0; i < n_parts; i++) {
-        n00b_str_t *part = (n00b_str_t *)n00b_list_get(l, i, NULL);
-        int64_t     n_cp = n00b_str_codepoint_len(part);
-
-        if (!n_cp) {
-            continue;
+    for (int i = 1; i < n; i++) {
+        if (use_joiner) {
+            result = n00b_string_concat(result, joiner);
         }
-        style_ix = n00b_copy_and_offset_styles(part, result, style_ix, txt_ix);
-        txt_ix += n_cp;
+        tmp    = n00b_private_list_get(l, i, NULL);
+        result = n00b_string_concat(result, tmp);
+    }
 
-        if (joinlen != 0) {
-            if (i + 1 == n_parts && !add_trailing) {
-                break;
-            }
-            style_ix = n00b_copy_and_offset_styles((n00b_str_t *)joiner,
-                                                   result,
-                                                   style_ix,
-                                                   txt_ix);
-            txt_ix += joinlen;
-        }
+    n00b_unlock_list(l);
+
+    if (add_trailing) {
+        result = n00b_string_concat(result, joiner);
     }
 
     return result;
 }
 
-n00b_utf8_t *
-n00b_to_utf8(const n00b_utf32_t *inp)
-{
-    if (inp == NULL || n00b_str_codepoint_len(inp) == 0) {
-        return n00b_empty_string();
-    }
-
-    if (!n00b_str_is_u32(inp)) {
-        return (n00b_utf8_t *)inp;
-    }
-
-    // Allocates 4 bytes per codepoint; this is an overestimate in
-    // cases where UTF8 codepoints are above U+00ff. But nbd.
-
-    n00b_utf8_t *res = n00b_new(n00b_type_utf8(),
-                                n00b_kw("length", n00b_ka(inp->byte_len + 1)));
-
-    n00b_codepoint_t *p      = (n00b_codepoint_t *)inp->data;
-    uint8_t          *outloc = (uint8_t *)res->data;
-    int               l;
-
-    res->codepoints = n00b_str_codepoint_len(inp);
-
-    for (int i = 0; i < res->codepoints; i++) {
-        l = utf8proc_encode_char(p[i], outloc);
-        n00b_assert(*outloc);
-        n00b_assert(l > 0);
-        outloc += l;
-    }
-
-    res->byte_len = (int32_t)(outloc - (uint8_t *)res->data);
-
-    n00b_copy_style_info(inp, res);
-
-    return res;
-}
-
-n00b_utf32_t *
-n00b_to_utf32(const n00b_utf8_t *instr)
-{
-    if (!instr || instr->byte_len == 0) {
-        n00b_utf32_t *outstr = n00b_new(n00b_type_utf32(),
-                                        n00b_kw("length", n00b_ka(0)));
-        return outstr;
-    }
-
-    if (n00b_str_is_u32(instr)) {
-        return (n00b_utf32_t *)instr;
-    }
-
-    int64_t len = (int64_t)n00b_str_codepoint_len(instr);
-
-    if (!len) {
-        return (n00b_utf32_t *)instr;
-    }
-
-    n00b_utf32_t    *outstr = n00b_new(n00b_type_utf32(),
-                                    n00b_kw("length", n00b_ka(len)));
-    uint8_t         *inp    = (uint8_t *)(instr->data);
-    n00b_codepoint_t cp;
-
-    n00b_codepoint_t *outp = (n00b_codepoint_t *)(outstr->data);
-
-    for (int i = 0; i < len; i++) {
-        int val = utf8proc_iterate(inp, 4, &cp);
-
-        if (val < 0) {
-            N00B_CRAISE("Invalid utf8 in string when convering to utf32.");
-        }
-
-        outp[i] = cp;
-        inp += val;
-    }
-
-    outstr->codepoints = len;
-
-    n00b_copy_style_info(instr, outstr);
-
-    return outstr;
-}
-
-static void
-utf8_init(n00b_utf8_t *s, va_list args)
-{
-    int64_t      length        = 0; // BYTE length.
-    int64_t      start         = 0;
-    char        *cstring       = NULL;
-    n00b_style_t style         = N00B_STY_BAD;
-    bool         replace_style = true;
-    char        *tag           = NULL;
-    bool         share_cstring = false;
-
-    n00b_karg_va_init(args);
-    n00b_kw_int64("length", length);
-    n00b_kw_int64("start", start);
-    n00b_kw_ptr("cstring", cstring);
-    n00b_kw_uint64("style", style);
-    n00b_kw_bool("replace_style", replace_style);
-    n00b_kw_ptr("tag", tag);
-
-    if (length == 0 && cstring == NULL) {
-        return;
-    }
-
-    if (cstring != NULL) {
-        if (length <= 0) {
-            length = strlen(cstring);
-        }
-
-        if (start > length) {
-            N00B_CRAISE(
-                "Invalid string constructor call: "
-                "len(cstring) is less than the start index");
-        }
-
-        if (share_cstring == true && ((char *)s->data)[length] == 0) {
-            s->data = cstring;
-        }
-        else {
-            s->data = n00b_gc_raw_alloc(length + 1, NULL);
-        }
-        s->byte_len = length;
-        memcpy(s->data, cstring, length);
-        s->data[length] = 0;
-        n00b_internal_utf8_set_codepoint_count(s);
-    }
-    else {
-        if (length <= 0) {
-            s->data = 0;
-            N00B_CRAISE("length cannot be < 0 for string initialization");
-        }
-        s->data = n00b_gc_raw_alloc(length + 1, NULL);
-    }
-
-    if (style != N00B_STY_BAD) {
-        n00b_str_apply_style(s, style, replace_style);
-    }
-
-    if (tag != NULL) {
-        n00b_render_style_t *rs = n00b_lookup_cell_style(n00b_new_utf8(tag));
-        if (rs != NULL) {
-            n00b_str_apply_style(s, rs->base_style, replace_style);
-        }
-    }
-}
-
-static void
-utf32_init(n00b_utf32_t *s, va_list args)
-{
-    int64_t           length        = 0; // NUMBER OF CODEPOINTS.
-    int64_t           start         = 0;
-    char             *cstring       = NULL;
-    n00b_codepoint_t *codepoints    = NULL;
-    n00b_style_t      style         = N00B_STY_BAD;
-    bool              replace_style = true;
-    char             *tag           = NULL;
-
-    n00b_karg_va_init(args);
-    n00b_kw_int64("length", length);
-    n00b_kw_int64("start", start);
-    n00b_kw_ptr("cstring", cstring);
-    n00b_kw_uint64("style", style);
-    n00b_kw_ptr("codepoints", codepoints);
-    n00b_kw_bool("replace_style", replace_style);
-    n00b_kw_ptr("tag", tag);
-
-    s->utf32 = 1;
-
-    n00b_assert(length >= 0);
-
-    if (length == 0 && cstring == NULL) {
-        return;
-    }
-
-    if (codepoints != NULL && cstring != NULL) {
-        N00B_CRAISE("Cannot specify both 'codepoints' and 'cstring' keywords.");
-    }
-
-    if (codepoints != NULL) {
-        if (length == 0) {
-            N00B_CRAISE(
-                "When specifying 'codepoints', must provide a valid "
-                "'length' containing the number of codepoints.");
-        }
-        s->byte_len = length * 4;
-        s->data     = n00b_gc_raw_alloc((length + 1) * 4, NULL);
-
-        n00b_codepoint_t *local = (n00b_codepoint_t *)s->data;
-
-        for (int i = 0; i < length; i++) {
-            local[i] = codepoints[i];
-        }
-
-        s->codepoints = length;
-    }
-    else {
-        if (cstring != NULL) {
-            if (length == 0) {
-                length = strlen(cstring);
-            }
-
-            if (start > length) {
-                N00B_CRAISE(
-                    "Invalid string constructor call: "
-                    "len(cstring) is less than the start index");
-            }
-            s->byte_len = length * 4;
-            s->data     = n00b_gc_raw_alloc((length + 1) * 4, NULL);
-
-            for (int64_t i = 0; i < length; i++) {
-                ((uint32_t *)s->data)[i] = (uint32_t)(cstring[i]);
-            }
-            s->codepoints = length;
-        }
-        else {
-            if (length == 0) {
-                N00B_CRAISE(
-                    "Must specify a valid length if not initializing "
-                    "with a null-terminated cstring.");
-            }
-            s->byte_len = length * 4;
-            s->data     = n00b_gc_raw_alloc((length + 1) * 8, NULL);
-        }
-    }
-
-    if (style != N00B_STY_BAD) {
-        n00b_str_apply_style(s, style, replace_style);
-    }
-
-    if (tag != NULL) {
-        n00b_render_style_t *rs = n00b_lookup_cell_style(n00b_new_utf8(tag));
-        if (rs != NULL) {
-            n00b_str_apply_style(s, rs->base_style, replace_style);
-        }
-    }
-}
-
-n00b_utf8_t *
-n00b_str_from_int(int64_t n)
+n00b_string_t *
+n00b_string_from_int(int64_t n)
 {
     char buf[21] = {
         0,
@@ -811,7 +788,7 @@ n00b_str_from_int(int64_t n)
     char *p = &buf[20];
 
     if (!n) {
-        return n00b_utf8_repeat('0', 1);
+        return n00b_string_repeat('0', 1);
     }
 
     int64_t i = n;
@@ -825,220 +802,117 @@ n00b_str_from_int(int64_t n)
         *--p = '-';
     }
 
-    return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(p)));
+    return n00b_new(n00b_type_string(), p, true, 0);
 }
 
-// For repeat, we leave an extra alloc'd character to ensure we
-// can easily drop in a newline.
-n00b_utf8_t *
-n00b_utf8_repeat(n00b_codepoint_t cp, int64_t num)
+n00b_string_t *
+n00b_string_repeat(n00b_codepoint_t cp, int64_t num)
 {
-    uint8_t buf[4] = {
-        0,
-    };
-    int          buf_ix = 0;
-    int          l      = utf8proc_encode_char(cp, &buf[0]);
-    int          blen   = l * num;
-    n00b_utf8_t *res    = n00b_new(n00b_type_utf8(),
-                                n00b_kw("length", n00b_ka(blen + 1)));
-    char        *p      = res->data;
+    int            u8_len;
+    int            alloc_len;
+    n00b_string_t *result;
+    char           encoded[4];
 
-    res->codepoints = l;
-    res->byte_len   = blen;
+    u8_len = utf8proc_encode_char(cp, (uint8_t *)&encoded[0]);
 
-    for (int i = 0; i < blen; i++) {
-        p[i] = buf[buf_ix++];
-        buf_ix %= l;
+    if (u8_len <= 0) {
+        N00B_CRAISE("Invalid codepoint.");
     }
 
-    return res;
-}
+    alloc_len = num * u8_len;
+    result    = n00b_new(n00b_type_string(), NULL, true, alloc_len);
+    char *p   = result->data;
 
-n00b_utf32_t *
-n00b_utf32_repeat(n00b_codepoint_t cp, int64_t num)
-{
-    if (num <= 0) {
-        return n00b_empty_string();
-    }
-
-    n00b_utf32_t     *res = n00b_new(n00b_type_utf32(),
-                                 n00b_kw("length", n00b_ka(num)));
-    n00b_codepoint_t *p   = (n00b_codepoint_t *)res->data;
-
-    res->codepoints = num;
-
-    for (int i = 0; i < num; i++) {
-        *p++ = cp;
-    }
-
-    return res;
-}
-
-int64_t
-n00b_str_render_len(const n00b_str_t *s)
-{
-    int64_t result = 0;
-    int64_t n      = n00b_str_codepoint_len(s);
-
-    if (n00b_str_is_u32(s)) {
-        n00b_codepoint_t *p = (n00b_codepoint_t *)s->data;
-
-        for (int i = 0; i < n; i++) {
-            result += n00b_codepoint_width(p[i]);
+    if (u8_len == 1) {
+        for (int i = 0; i < num; i++) {
+            *p++ = cp;
         }
     }
     else {
-        uint8_t         *p = (uint8_t *)s->data;
-        n00b_codepoint_t cp;
-
-        for (int i = 0; i < n; i++) {
-            int val = utf8proc_iterate(p, 4, &cp);
-
-            if (val < 0) {
-                return result;
+        for (int i = 0; i < num; i++) {
+            for (int j = 0; j < u8_len; j++) {
+                *p++ = encoded[j];
             }
-
-            p += val;
-
-            result += n00b_codepoint_width(cp);
         }
     }
+
+    result->codepoints = num;
+
     return result;
 }
 
-n00b_str_t *
-_n00b_str_truncate(const n00b_str_t *s, int64_t len, ...)
+int64_t
+n00b_string_render_len(n00b_string_t *s)
 {
-    n00b_karg_only_init(len);
+    int64_t  result = 0;
+    uint8_t *p      = (uint8_t *)s->data;
 
-    bool use_render_width = false;
-
-    n00b_kw_bool("use_render_width", use_render_width);
-
-    int64_t n = n00b_str_codepoint_len(s);
-    int64_t c = 0;
-
-    if (n00b_str_is_u32(s)) {
-        n00b_codepoint_t *p = (n00b_codepoint_t *)s->data;
-
-        if (use_render_width) {
-            for (int i = 0; i < n; i++) {
-                int w = n00b_codepoint_width(p[i]);
-                if (c + w > len) {
-                    return n00b_str_slice(s, 0, i);
-                }
-            }
-            return (n00b_str_t *)s; // Didn't need to truncate.
+    if (s->codepoints == s->u8_bytes) {
+        for (int i = 0; i < s->u8_bytes; i++) {
+            result += n00b_codepoint_width(*p++);
         }
-        if (n <= len) {
-            return (n00b_str_t *)s;
-        }
-        return n00b_str_slice(s, 0, len);
+
+        return result;
     }
-    else {
-        uint8_t         *p = (uint8_t *)s->data;
-        uint8_t         *next;
-        n00b_codepoint_t cp;
-        int64_t          num_cp = 0;
 
-        if (use_render_width) {
-            for (int i = 0; i < n; i++) {
-                int val = utf8proc_iterate(p, 4, &cp);
-                if (val < 0) {
-                    break;
-                }
-                next  = p + val;
-                int w = n00b_codepoint_width(cp);
-                if (c + w > len) {
-                    goto u8_slice;
-                }
-                num_cp++;
-                p = next;
-            }
-            return (n00b_str_t *)s;
+    n00b_codepoint_t cp;
+    int              n = s->u8_bytes;
+
+    while (n) {
+        int l = utf8proc_iterate(p, 4, &cp);
+
+        if (l < 0) {
+            N00B_CRAISE("UTF-8 is corrupt.");
         }
-
-        else {
-            num_cp = len;
-
-            for (int i = 0; i < n; i++) {
-                if (c++ == len) {
-u8_slice:
-                    // Since we don't have a full u8 slice yet...
-                    {
-                        uint8_t     *start = (uint8_t *)s->data;
-                        int64_t      blen  = p - start;
-                        n00b_utf8_t *res   = n00b_new(n00b_type_utf8(),
-                                                    n00b_kw("length",
-                                                            n00b_ka(blen)));
-
-                        memcpy(res->data, start, blen);
-                        n00b_copy_style_info(s, res);
-
-                        if (res->styling != NULL) {
-                            for (int i = 0; i < res->styling->num_entries; i++) {
-                                n00b_style_entry_t e = res->styling->styles[i];
-                                if (e.start > num_cp) {
-                                    res->styling->num_entries = i;
-                                    return res;
-                                }
-                                if (e.end > num_cp) {
-                                    res->styling->styles[i].end = num_cp;
-                                    res->styling->num_entries   = i + 1;
-                                    return res;
-                                }
-                            }
-                        }
-                        return res;
-                    }
-                }
-                int val = utf8proc_iterate(p, 4, &cp);
-                if (val < 0) {
-                    break;
-                }
-                p += val;
-            }
-            return (n00b_str_t *)s;
-        }
+        p += l;
+        n -= l;
+        result += n00b_codepoint_width(cp);
     }
+
+    return result;
 }
 
-static bool
-u8_starts_with(const n00b_utf8_t *s1, const n00b_utf8_t *s2)
+n00b_string_t *
+n00b_string_truncate(n00b_string_t *s, int64_t len)
 {
-    int len = n00b_str_codepoint_len(s2);
+    // This truncates to the *render width.* Use n00b_string_slice to
+    // truncate to the codepoint.
+    int64_t          n      = s->u8_bytes;
+    uint8_t         *p      = (uint8_t *)s->data;
+    int64_t          width  = 0;
+    int64_t          num_cp = 0;
+    n00b_codepoint_t cp;
 
-    if (len > n00b_str_codepoint_len(s1)) {
+    while (n) {
+        int val = utf8proc_iterate(p, 4, &cp);
+        if (val <= 0) {
+            N00B_CRAISE("Corrupt UTF-8.");
+        }
+        n -= val;
+        int w = n00b_codepoint_width(cp);
+        if (width + w > len) {
+            break;
+        }
+        width += w;
+        num_cp++;
+    }
+
+    return n00b_string_slice(s, 0, num_cp);
+}
+
+bool
+n00b_string_starts_with(n00b_string_t *s1, n00b_string_t *s2)
+{
+    if (s2->codepoints > s1->codepoints) {
         return false;
     }
 
-    for (int i = 0; i < len; i++) {
-        if (s1->data[i] != s2->data[i]) {
-            return false;
-        }
-    }
+    int   n = s2->u8_bytes;
+    char *p = s1->data;
+    char *q = s2->data;
 
-    return true;
-}
-
-static bool
-u32_starts_with(const n00b_utf32_t *s1, const n00b_utf32_t *s2)
-{
-    int len = n00b_str_codepoint_len(s2);
-
-    if (len > n00b_str_codepoint_len(s1)) {
-        return false;
-    }
-
-    if (len == 0) {
-        return true;
-    }
-
-    n00b_codepoint_t *cp1 = (n00b_codepoint_t *)s1->data;
-    n00b_codepoint_t *cp2 = (n00b_codepoint_t *)s2->data;
-
-    for (int i = 0; i < len; i++) {
-        if (cp1[i] != cp2[i]) {
+    for (int i = 0; i < n; i++) {
+        if (*p++ != *q++) {
             return false;
         }
     }
@@ -1047,46 +921,58 @@ u32_starts_with(const n00b_utf32_t *s1, const n00b_utf32_t *s2)
 }
 
 bool
-n00b_str_starts_with(const n00b_str_t *s1, const n00b_str_t *s2)
+n00b_string_ends_with(n00b_string_t *s1, n00b_string_t *s2)
 {
-    if (n00b_str_is_u8(s1)) {
-        return u8_starts_with(s1, n00b_to_utf8(s2));
-    }
-
-    return u32_starts_with(s1, n00b_to_utf32(s2));
-}
-
-bool
-n00b_str_ends_with(const n00b_str_t *s1, const n00b_str_t *s2)
-{
-    int l1 = n00b_str_codepoint_len(s1);
-    int l2 = n00b_str_codepoint_len(s2);
-
-    if (l2 > l1) {
+    if (s2->codepoints > s1->codepoints) {
         return false;
     }
 
-    n00b_utf32_t *u1 = n00b_to_utf32(s1);
-    n00b_utf32_t *u2 = n00b_to_utf32(s2);
+    int   n = s2->u8_bytes;
+    char *p = s1->data + s1->u8_bytes;
+    char *q = s2->data + n;
 
-    u1 = n00b_str_slice(u1, l1 - l2, l1);
+    for (int i = 0; i < n; i++) {
+        if (*--p != *--q) {
+            return false;
+        }
+    }
 
-    return n00b_str_eq(u1, u2);
+    return true;
 }
 
-n00b_utf8_t *
-n00b_from_file(const n00b_str_t *name, int *err)
+static n00b_string_t *
+count_codepoints(n00b_string_t *s)
 {
-    n00b_utf32_t *n = n00b_to_utf32(name);
+    int              remaining = s->u8_bytes;
+    n00b_codepoint_t cp;
+    uint8_t         *p = (uint8_t *)s->data;
 
-    if (!n00b_str_codepoint_len(n)) {
+    s->codepoints = 0;
+
+    while (remaining) {
+        int n = utf8proc_iterate(p, 4, &cp);
+        if (n < 0) {
+            N00B_CRAISE("Corrupt UTF-8.");
+        }
+        p += n;
+        remaining -= n;
+        s->codepoints++;
+    }
+
+    return s;
+}
+
+bool
+n00b_string_from_file(n00b_string_t *name, int *err)
+{
+    if (!name || !name->codepoints) {
         N00B_CRAISE("Cannot accept an empty string for a file name.");
     }
 
     // Assumes file is UTF-8.
     //
     // On BSDs, we might add O_EXLOCK. Should do similar on Linux too.
-    int fd = open(n->data, O_RDONLY);
+    int fd = open(name->data, O_RDONLY);
     if (fd == -1) {
         *err = errno;
         return NULL;
@@ -1095,54 +981,48 @@ n00b_from_file(const n00b_str_t *name, int *err)
     off_t len = lseek(fd, 0, SEEK_END);
 
     if (len == -1) {
-err:
         *err = errno;
         close(fd);
         return NULL;
     }
     if (lseek(fd, 0, SEEK_SET) == -1) {
-        goto err;
+        n00b_raise_errno();
     }
 
-    n00b_utf8_t *result = n00b_new(n00b_type_utf8(), n00b_kw("length", n00b_ka(len)));
-    char        *p      = result->data;
+    n00b_string_t *result     = n00b_new(n00b_type_string(), NULL, true, len);
+    char          *p          = result->data;
+    int64_t        total_read = 0;
 
-    while (1) {
-        ssize_t num_read = read(fd, p, len);
+    while (total_read < len) {
+        ssize_t num_read = read(fd, p, len - total_read);
 
         if (num_read == -1) {
             if (errno == EINTR || errno == EAGAIN) {
                 continue;
             }
-            goto err;
-        }
-
-        if (num_read == len) {
-            n00b_internal_utf8_set_codepoint_count(result);
-            return result;
+            close(fd);
+            *err = errno;
+            return NULL;
         }
 
         p += num_read;
-        len -= num_read;
+        total_read += num_read;
+
+        if (total_read == len) {
+            break;
+        }
+        n00b_assert(total_read > len);
     }
+    return count_codepoints(result);
 }
 
-int64_t
-_n00b_str_find(n00b_str_t *str, n00b_str_t *sub, ...)
+static int64_t
+n00b_find_base(n00b_string_t *s, n00b_string_t *sub, int64_t start, int64_t end)
 {
-    int64_t start = 0;
-    int64_t end   = -1;
+    n00b_codepoint_t cp;
 
-    n00b_karg_only_init(sub);
-
-    n00b_kw_int64("start", start);
-    n00b_kw_int64("end", end);
-
-    str = n00b_to_utf32(str);
-    sub = n00b_to_utf32(sub);
-
-    uint64_t strcp = n00b_str_codepoint_len(str);
-    uint64_t subcp = n00b_str_codepoint_len(sub);
+    uint64_t strcp = s->codepoints;
+    uint64_t subcp = sub->codepoints;
 
     if (start < 0) {
         start += strcp;
@@ -1163,44 +1043,87 @@ _n00b_str_find(n00b_str_t *str, n00b_str_t *sub, ...)
         return start;
     }
 
-    uint32_t *strp = (uint32_t *)str->data;
-    uint32_t *endp = &strp[end - subcp + 1];
-    uint32_t *subp;
-    uint32_t *p;
+    char *next = s->data;
+    char *endp;
 
-    strp += start;
-    while (strp < endp) {
-        p    = strp;
-        subp = (uint32_t *)sub->data;
-        for (uint64_t i = 0; i < subcp; i++) {
-            if (*p++ != *subp++) {
-                goto next_start;
+    if (s->codepoints == s->u8_bytes) {
+        next += start;
+        endp = s->data + end - subcp + 1;
+    }
+    else {
+        if (start != 0) {
+            for (int i = 0; i < start; i++) {
+                int n = utf8proc_iterate((uint8_t *)next, 4, &cp);
+                if (n < 0) {
+                    N00B_CRAISE("Corrupt UTF-8.");
+                }
+                next += n;
             }
         }
-        return start;
-next_start:
-        strp++;
-        start++;
+        endp = next;
+
+        for (int i = 0; i < end - start + 1; i++) {
+            int n = utf8proc_iterate((uint8_t *)endp, 4, &cp);
+
+            if (n < 0) {
+                N00B_CRAISE("Corrupt UTF-8.");
+            }
+            endp += n;
+        }
     }
+
+    int pos = start;
+
+    // This is just very naive for now. There's a lot of literature
+    // here, can do much better.
+    while (next < endp) {
+        if (!memcmp(next, sub->data, sub->u8_bytes)) {
+            return pos;
+        }
+        int l = utf8proc_iterate((uint8_t *)next, 4, &cp);
+        n00b_assert(l > 0);
+        next += l;
+        pos++;
+    }
+
     return -1;
 }
 
 int64_t
-_n00b_str_rfind(n00b_str_t *str, n00b_str_t *sub, ...)
+_n00b_string_find(n00b_string_t *s, n00b_string_t *sub, ...)
 {
-    int64_t stop  = 0;
-    int64_t start = -1;
+    int64_t start = 0;
+    int64_t end   = -1;
+
+    n00b_karg_only_init(sub);
+
+    n00b_kw_int64("start", start);
+    n00b_kw_int64("end", end);
+
+    return n00b_find_base(s, sub, start, end);
+}
+
+int64_t
+_n00b_string_rfind(n00b_string_t *s, n00b_string_t *sub, ...)
+{
+    // For now, this is just porting the old utf32-only algorithm.
+    int stop  = 0;
+    int start = -1;
 
     n00b_karg_only_init(sub);
 
     n00b_kw_int64("stop", stop);
     n00b_kw_int64("start", start);
 
-    str = n00b_to_utf32(str);
-    sub = n00b_to_utf32(sub);
+    if (!s->u32_data) {
+        s->u32_data = n00b_string_to_codepoint_array(s);
+    }
+    if (!sub->u32_data) {
+        sub->u32_data = n00b_string_to_codepoint_array(sub);
+    }
 
-    uint64_t strcp = n00b_str_codepoint_len(str);
-    uint64_t subcp = n00b_str_codepoint_len(sub);
+    int strcp = s->codepoints;
+    int subcp = sub->codepoints;
 
     if (stop < 0) {
         stop += strcp;
@@ -1215,7 +1138,7 @@ _n00b_str_rfind(n00b_str_t *str, n00b_str_t *sub, ...)
     if (start <= stop) {
         return -1;
     }
-    if ((uint64_t)stop > strcp) {
+    if (stop > strcp) {
         stop = strcp;
     }
 
@@ -1223,7 +1146,7 @@ _n00b_str_rfind(n00b_str_t *str, n00b_str_t *sub, ...)
         return start - 1;
     }
 
-    uint32_t *strp   = (uint32_t *)str->data;
+    uint32_t *strp   = (uint32_t *)s->u32_data;
     uint32_t *startp = (strp + start) - subcp;
     uint32_t *endp   = strp + stop;
     uint32_t *p;
@@ -1231,8 +1154,8 @@ _n00b_str_rfind(n00b_str_t *str, n00b_str_t *sub, ...)
 
     while (startp >= endp) {
         p    = startp;
-        subp = (uint32_t *)sub->data;
-        for (uint64_t i = 0; i < subcp; i++) {
+        subp = (uint32_t *)sub->u32_data;
+        for (int i = 0; i < subcp; i++) {
             if (*p++ != *subp++) {
                 goto next_start;
             }
@@ -1244,253 +1167,194 @@ next_start:
     return -1;
 }
 
-flexarray_t *
-n00b_str_fsplit(n00b_str_t *str, n00b_str_t *sub)
+n00b_list_t *
+n00b_string_split(n00b_string_t *str, n00b_string_t *sub)
 {
-    str            = n00b_to_utf32(str);
-    sub            = n00b_to_utf32(sub);
-    uint64_t strcp = n00b_str_codepoint_len(str);
-    uint64_t subcp = n00b_str_codepoint_len(sub);
+    n00b_list_t *result   = n00b_list(n00b_type_string());
+    int          last_end = 0;
+    int          str_len  = str->codepoints;
+    int          sub_len  = sub->codepoints;
+    int64_t      ix;
+    bool         done = false;
 
-    flexarray_t *result = n00b_new(n00b_type_list(n00b_type_utf32()),
-                                   n00b_kw("length", n00b_ka(strcp)));
-
-    if (!subcp) {
-        for (uint64_t i = 0; i < strcp; i++) {
-            flexarray_set(result, i, n00b_str_slice(str, i, i + 1));
+    if (!sub_len) {
+        for (int i = 0; i < str_len; i++) {
+            n00b_string_t *s = n00b_string_slice(str, i, i + 1);
+            n00b_list_append(result, s);
         }
         return result;
     }
 
-    int64_t start = 0;
-    int64_t ix    = n00b_str_find(str, sub, n00b_kw("start", n00b_ka(start)));
-    int     n     = 0;
+    while (!done) {
+        ix = n00b_find_base(str, sub, last_end, str_len);
+        if (ix == -1) {
+            ix   = str_len;
+            done = true;
+        }
 
-    while (ix != -1) {
-        flexarray_set(result, n++, n00b_str_slice(str, start, ix));
-        start = ix + subcp;
-        ix    = n00b_str_find(str, sub, n00b_kw("start", n00b_ka(start)));
+        n00b_string_t *s = n00b_string_slice(str, last_end, ix);
+        n00b_list_append(result, s);
+
+        last_end = ix + sub_len;
+
+        if (last_end == str_len) {
+            // The final substring ended at the end of the parent string,
+            // and we need to add an empty string to the end.
+            n00b_list_append(result, n00b_string_empty());
+            done = true;
+        }
     }
-
-    if ((uint64_t)start != strcp) {
-        flexarray_set(result, n++, n00b_str_slice(str, start, strcp));
-    }
-
-    flexarray_shrink(result, n);
 
     return result;
 }
 
 n00b_list_t *
-n00b_str_split(n00b_str_t *str, n00b_str_t *sub)
+n00b_string_split_and_crop(n00b_string_t *str, n00b_string_t *sub, int64_t w)
 {
-    str            = n00b_to_utf32(str);
-    sub            = n00b_to_utf32(sub);
-    uint64_t strcp = n00b_str_codepoint_len(str);
-    uint64_t subcp = n00b_str_codepoint_len(sub);
+    n00b_list_t *result   = n00b_list(n00b_type_string());
+    int          last_end = 0;
+    int          str_len  = str->codepoints;
+    int          sub_len  = sub->codepoints;
+    int64_t      ix;
+    bool         done = false;
 
-    n00b_list_t *result = n00b_new(n00b_type_list(n00b_type_utf32()));
-
-    if (!subcp) {
-        for (uint64_t i = 0; i < strcp; i++) {
-            n00b_list_append(result, n00b_str_slice(str, i, i + 1));
+    if (!sub->codepoints) {
+        for (int i = 0; i < str_len; i++) {
+            n00b_string_t *s = n00b_string_slice(str, i, i + 1);
+            n00b_list_append(result, n00b_string_truncate(s, w));
         }
         return result;
     }
 
-    int64_t start = 0;
-    int64_t ix    = n00b_str_find(str, sub, n00b_kw("start", n00b_ka(start)));
+    while (!done) {
+        ix = n00b_find_base(str, sub, last_end, str_len);
+        if (ix == -1) {
+            ix   = str_len;
+            done = true;
+        }
+        n00b_string_t *s = n00b_string_slice(str, last_end, ix);
+        n00b_list_append(result, n00b_string_truncate(s, w));
+        last_end += sub_len;
 
-    while (ix != -1) {
-        n00b_list_append(result, n00b_str_slice(str, start, ix));
-        start = ix + subcp;
-        ix    = n00b_str_find(str, sub, n00b_kw("start", n00b_ka(start)));
-    }
-
-    if ((uint64_t)start != strcp) {
-        n00b_list_append(result, n00b_str_slice(str, start, strcp));
+        if (last_end == str_len) {
+            // The final substring ended at the end of the parent string,
+            // and we need to add an empty string to the end.
+            n00b_list_append(result, n00b_string_empty());
+            done = true;
+        }
     }
 
     return result;
 }
 
-n00b_utf8_t *
-n00b_cstring(char *s, int64_t len)
+static n00b_string_t *
+n00b_string_repr(n00b_string_t *str)
 {
-    return n00b_new(n00b_type_utf8(),
-                    n00b_kw("cstring", n00b_ka(s), "length", n00b_ka(len)));
+    n00b_string_t *q = n00b_cached_2quote();
+
+    return n00b_string_concat(n00b_string_concat(q, str), q);
 }
 
-n00b_utf8_t *
-n00b_rich(n00b_utf8_t *to_copy, n00b_utf8_t *style)
-{
-    n00b_utf8_t         *res = n00b_str_copy(to_copy);
-    n00b_render_style_t *rs  = n00b_lookup_cell_style(n00b_new_utf8(style->data));
-
-    if (rs != NULL) {
-        n00b_str_apply_style(res, rs->base_style, 0);
-    }
-
-    return res;
-}
-
-static n00b_str_t *
-n00b_str_repr(n00b_str_t *str)
-{
-    // TODO: actually implement string quoting.
-    n00b_utf32_t *q = n00b_new(n00b_type_utf32(),
-                               n00b_kw("cstring", n00b_ka("\"")));
-
-    return n00b_str_concat(n00b_str_concat(q, str), q);
-}
-
-static n00b_str_t *
-n00b_str_to_str(n00b_str_t *str)
+static n00b_string_t *
+n00b_string_to_str(n00b_string_t *str)
 {
     return str;
 }
 
-bool
-n00b_str_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
+static bool
+n00b_string_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
 {
-    // clang-format off
-    if (n00b_types_are_compat(target_type, n00b_type_utf8(), NULL) ||
-	n00b_types_are_compat(target_type, n00b_type_utf32(), NULL) ||
-	n00b_types_are_compat(target_type, n00b_type_buffer(), NULL) ||
-	n00b_types_are_compat(target_type, n00b_type_bytering(), NULL) ||
-	n00b_types_are_compat(target_type, n00b_type_bool(), NULL)) {
+    switch (target_type->base_index) {
+    case N00B_T_STRING:
+    case N00B_T_BOOL:
+    case N00B_T_BUFFER:
+    case N00B_T_BYTERING:
         return true;
+    default:
+        return false;
     }
-    // clang-format on
-
-    return false;
 }
-
-n00b_obj_t
-n00b_str_coerce_to(const n00b_str_t *s, n00b_type_t *target_type)
+static n00b_obj_t
+n00b_string_coerce_to(n00b_string_t *s, n00b_type_t *t)
 {
-    if (n00b_types_are_compat(target_type, n00b_type_utf8(), NULL)) {
-        return n00b_to_utf8(s);
+    switch (t->base_index) {
+    case N00B_T_STRING:
+        return s;
+    case N00B_T_BOOL:
+        return (n00b_obj_t)(int64_t)(s && s->codepoints);
+    case N00B_T_BUFFER:
+        return n00b_new(t,
+                        n00b_kw("length",
+                                n00b_ka(s->u8_bytes),
+                                "raw",
+                                s->data));
+    case N00B_T_BYTERING:
+        return n00b_new(t, n00b_kw("string", s));
+    default:
+        N00B_CRAISE("Invalid coersion.");
     }
-    if (n00b_types_are_compat(target_type, n00b_type_utf32(), NULL)) {
-        return n00b_to_utf32(s);
-    }
-    if (n00b_types_are_compat(target_type, n00b_type_bytering(), NULL)) {
-        return n00b_new(target_type, n00b_kw("string", s));
-    }
-
-    if (n00b_types_are_compat(target_type, n00b_type_buffer(), NULL)) {
-        // We can't just point into the UTF8 string, since buffers
-        // are mutable but strings are not.
-
-        s               = n00b_to_utf8(s);
-        n00b_buf_t *res = n00b_new(target_type, s->byte_len);
-        memcpy(res->data, s->data, s->byte_len);
-
-        return res;
-    }
-    if (n00b_types_are_compat(target_type, n00b_type_bool(), NULL)) {
-        if (!s || !n00b_str_codepoint_len(s)) {
-            return (n00b_obj_t) false;
-        }
-        else {
-            return (n00b_obj_t) true;
-        }
-    }
-
-    N00B_CRAISE("Invalid coersion.");
 }
 
 static n00b_obj_t
-n00b_str_lit(n00b_utf8_t          *s_u8,
-             n00b_lit_syntax_t     st,
-             n00b_utf8_t          *lit_u8,
-             n00b_compile_error_t *err)
+n00b_string_lit(n00b_string_t        *s,
+                n00b_lit_syntax_t     st,
+                n00b_string_t        *litmod,
+                n00b_compile_error_t *err)
 {
-    char *s      = s_u8->data;
-    char *litmod = lit_u8->data;
-
-    // clang-format off
-    if (!litmod || *litmod == 0 ||
-	!strcmp(litmod, "u8") || !strcmp(litmod, "utf8")) {
-        return s_u8;
-    }
-    // clang-format on
-
-    if (!strcmp(litmod, "u32") || !strcmp(litmod, "utf32")) {
-        return n00b_to_utf32(s_u8);
+    if (!litmod || litmod->data[0] == 0) {
+        return s;
     }
 
-    if (!strcmp(litmod, "r") || !strcmp(litmod, "rich")) {
-        return n00b_rich_lit(s);
-    }
-
-    if (!strcmp(litmod, "url")) {
-        if (!n00b_validate_url(s_u8)) {
-            *err = n00b_err_malformed_url;
-            return NULL;
+    switch (litmod->data[0]) {
+    case 'r':
+        if (!strcmp(litmod->data, "rich") || !strcmp(litmod->data, "r")) {
+            return n00b_crich(s->data);
         }
-        return s_u8;
-    }
+        break;
+    case 'u':
 
-    if (n00b_str_codepoint_len(lit_u8) != 0) {
-        *err = n00b_err_parse_no_lit_mod_match;
-        return NULL;
-    }
+        if (!strcmp(litmod->data, "u8")) {
+            return s;
+        }
 
-    return s_u8;
+        if (!strcmp(litmod->data, "url")) {
+            if (!n00b_validate_url(s)) {
+                *err = n00b_err_malformed_url;
+                return NULL;
+            }
+        }
+    default:
+        break;
+    }
+    *err = n00b_err_parse_no_lit_mod_match;
+    return NULL;
 }
 
 bool
-n00b_str_eq(n00b_str_t *s1, n00b_str_t *s2)
+n00b_string_eq(n00b_string_t *s1, n00b_string_t *s2)
 {
-    if (!s1) {
-        if (!s2) {
-            return true;
-        }
-        return false;
-    }
-    if (!s2) {
+    if (s1->u8_bytes != s2->u8_bytes) {
         return false;
     }
 
-    bool s1_is_u32 = n00b_str_is_u32(s1);
-    bool s2_is_u32 = n00b_str_is_u32(s2);
-
-    if (s1_is_u32 ^ s2_is_u32) {
-        if (s1_is_u32) {
-            s2 = n00b_to_utf32(s2);
-        }
-        else {
-            s1 = n00b_to_utf32(s1);
-        }
-    }
-
-    if (s1->byte_len != s2->byte_len) {
-        return false;
-    }
-
-    return memcmp(s1->data, s2->data, s1->byte_len) == 0;
+    return !memcmp(s1->data, s2->data, s1->u8_bytes);
 }
 
-static n00b_str_t *
-n00b_string_format(n00b_str_t *obj, n00b_fmt_spec_t *spec)
+static n00b_string_t *
+n00b_string_format(n00b_string_t *obj, n00b_string_t *fmt)
 {
-    // For now, just do nothing.
+    // TODO: Add hex formatting.
     return obj;
 }
 
 n00b_list_t *
-n00b_str_wrap(const n00b_str_t *s, int64_t width, int64_t hang)
+n00b_string_wrap(n00b_string_t *s, int64_t width, int64_t hang)
 {
-    n00b_list_t *result = n00b_list(n00b_type_utf32());
+    n00b_list_t *result = n00b_list(n00b_type_string());
 
-    if (!s || !n00b_str_codepoint_len(s)) {
+    if (!s || !s->codepoints) {
         return result;
     }
-
-    n00b_utf32_t *as_u32 = n00b_to_utf32(s);
-    int32_t       i;
 
     if (width <= 0) {
         width = n00b_terminal_width();
@@ -1499,208 +1363,332 @@ n00b_str_wrap(const n00b_str_t *s, int64_t width, int64_t hang)
         }
     }
 
-    n00b_break_info_t *line_starts = n00b_wrap_text(as_u32, width, hang);
+    n00b_break_info_t *line_starts = n00b_break_wrap(s, width, hang);
 
-    for (i = 0; i < line_starts->num_breaks - 1; i++) {
-        n00b_utf32_t *slice = n00b_str_slice(as_u32,
-                                             line_starts->breaks[i],
-                                             line_starts->breaks[i + 1]);
+    int i = 0;
+
+    for (; i < line_starts->num_breaks - 1; i++) {
+        n00b_string_t *slice = n00b_string_slice(s,
+                                                 line_starts->breaks[i],
+                                                 line_starts->breaks[i + 1]);
+
         n00b_list_append(result, slice);
-
-        if (!n00b_str_ends_with(slice, n00b_get_newline_const())) {
-            // Add a newline if we wrapped somewhere else.
-            n00b_list_append(result, n00b_get_newline_const());
-        }
     }
 
     if (i == line_starts->num_breaks - 1) {
-        n00b_utf32_t *slice = n00b_str_slice(as_u32,
-                                             line_starts->breaks[i],
-                                             n00b_str_codepoint_len(as_u32));
+        n00b_string_t *slice = n00b_string_slice(s,
+                                                 line_starts->breaks[i],
+                                                 s->codepoints);
         n00b_list_append(result, slice);
     }
 
     return result;
 }
 
-n00b_utf32_t *
-n00b_str_upper(n00b_str_t *s)
+n00b_string_t *
+n00b_string_all_caps(n00b_string_t *s)
 {
-    n00b_utf32_t *result;
-    if (n00b_str_is_u8(s)) {
-        result = n00b_to_utf32(s);
-    }
-    else {
-        result = n00b_str_copy(s);
+    // This assumes the UTF-8 encoding sizes of all characters are the
+    // same. This is my understanding, but if I'm wrong, this will
+    // certainly need to change.
+    //
+    // This uses the upper-case mapping only, and applies it to all
+    // characters; string_title_caps converts only the first letter of
+    // words, and does so with Unicode title case characters.
+    //
+    // This also does not yet handle special mappings (e.g., locale).
+
+    n00b_string_t *result;
+
+    result       = n00b_new(n00b_type_string(), NULL, true, s->codepoints);
+    uint8_t *src = (uint8_t *)s->data;
+    uint8_t *dst = (uint8_t *)result->data;
+
+    n00b_codepoint_t cp;
+
+    for (int i = 0; i < s->codepoints; i++) {
+        int dsz = utf8proc_iterate(src, 4, &cp);
+
+        src += dsz;
+
+        if (dsz <= 0) {
+            N00B_CRAISE("Corrupt UTF-8.");
+        }
+        cp = utf8proc_toupper(cp);
+
+        dst += utf8proc_encode_char(cp, dst);
     }
 
-    n00b_codepoint_t *p = (n00b_codepoint_t *)result->data;
-    int64_t           n = n00b_str_codepoint_len(s);
-
-    for (int i = 0; i < n; i++) {
-        *p = utf8proc_toupper(*p);
-        p++;
-    }
-
-    result->codepoints = n;
-    return n00b_to_utf8(result);
+    return copy_styles(result, s);
 }
 
-n00b_utf32_t *
-n00b_str_lower(n00b_str_t *s)
+n00b_string_t *
+n00b_string_lower(n00b_string_t *s)
 {
-    n00b_utf32_t *result;
-    if (n00b_str_is_u8(s)) {
-        result = n00b_to_utf32(s);
-    }
-    else {
-        result = n00b_str_copy(s);
+    // Same note as above on not handling mappings.
+    n00b_string_t *result;
+
+    result       = n00b_new(n00b_type_string(), NULL, true, s->codepoints);
+    uint8_t *src = (uint8_t *)s->data;
+    uint8_t *dst = (uint8_t *)result->data;
+
+    n00b_codepoint_t cp;
+
+    for (int i = 0; i < s->codepoints; i++) {
+        int dsz = utf8proc_iterate(src, 4, &cp);
+
+        src += dsz;
+
+        if (dsz <= 0) {
+            N00B_CRAISE("Corrupt UTF-8.");
+        }
+        cp = utf8proc_tolower(cp);
+
+        dst += utf8proc_encode_char(cp, dst);
     }
 
-    n00b_codepoint_t *p = (n00b_codepoint_t *)result->data;
-    int64_t           n = n00b_str_codepoint_len(s);
-
-    for (int i = 0; i < n; i++) {
-        *p = utf8proc_tolower(*p);
-        p++;
-    }
-
-    result->codepoints = n;
-    return n00b_to_utf8(result);
+    return copy_styles(result, s);
 }
 
-n00b_utf32_t *
-n00b_str_title_case(n00b_str_t *s)
+n00b_codepoint_t
+n00b_codepoint_title_case(n00b_codepoint_t cp, bool *prev_cased)
 {
-    n00b_utf32_t *result;
-    if (n00b_str_is_u8(s)) {
-        result = n00b_to_utf32(s);
+    bool             cased = *prev_cased;
+    n00b_codepoint_t result;
+
+    if (cased) {
+        result = utf8proc_tolower(cp);
     }
     else {
-        result = n00b_str_copy(s);
+        result = utf8proc_totitle(cp);
+    }
+    switch (utf8proc_category(cp)) {
+    case UTF8PROC_CATEGORY_LU:
+    case UTF8PROC_CATEGORY_LL:
+    case UTF8PROC_CATEGORY_LT:
+    case UTF8PROC_CATEGORY_LM:
+    case UTF8PROC_CATEGORY_LO:
+        *prev_cased = true;
+        break;
+    default:
+        *prev_cased = false;
+        break;
     }
 
-    n00b_codepoint_t *p = (n00b_codepoint_t *)result->data;
-    int64_t           n = n00b_str_codepoint_len(s);
-
-    for (int i = 0; i < n; i++) {
-        *p = utf8proc_totitle(*p);
-        p++;
-    }
-
-    result->codepoints = n;
-    return n00b_to_utf8(result);
+    return result;
 }
 
-n00b_str_t *
-n00b_str_pad(n00b_str_t *s, int64_t to_len)
+n00b_string_t *
+n00b_string_upper(n00b_string_t *s)
 {
-    int64_t n = n00b_str_codepoint_len(s);
+    bool           prev_was_cased = false;
+    n00b_string_t *result         = n00b_new(n00b_type_string(),
+                                     NULL,
+                                     true,
+                                     s->codepoints);
+    uint8_t       *src            = (uint8_t *)s->data;
+    uint8_t       *dst            = (uint8_t *)result->data;
 
-    if (n >= to_len) {
+    n00b_codepoint_t cp;
+
+    for (int i = 0; i < s->codepoints; i++) {
+        int dsz = utf8proc_iterate(src, 4, &cp);
+
+        src += dsz;
+
+        if (dsz <= 0) {
+            N00B_CRAISE("Corrupt UTF-8.");
+        }
+
+        if (prev_was_cased) {
+            cp = utf8proc_tolower(cp);
+        }
+        else {
+            cp = utf8proc_totitle(cp);
+        }
+
+        switch (utf8proc_category(cp)) {
+        case UTF8PROC_CATEGORY_LU:
+        case UTF8PROC_CATEGORY_LL:
+        case UTF8PROC_CATEGORY_LT:
+        case UTF8PROC_CATEGORY_LM:
+        case UTF8PROC_CATEGORY_LO:
+            prev_was_cased = true;
+            break;
+        default:
+            prev_was_cased = false;
+            break;
+        }
+
+        dst += utf8proc_encode_char(cp, dst);
+    }
+
+    return copy_styles(result, s);
+}
+
+n00b_string_t *
+n00b_string_pad(n00b_string_t *s, int64_t to_len)
+{
+    // This RIGHT-pads strings.
+
+    int diff = to_len - s->codepoints;
+
+    if (diff <= 0) {
         return s;
     }
 
-    s = n00b_to_utf32(s);
+    int len = s->codepoints + diff;
 
-    n00b_utf32_t     *result = n00b_new(n00b_type_utf32(),
-                                    n00b_kw("length", n00b_ka(to_len)));
-    n00b_codepoint_t *from   = (n00b_codepoint_t *)s->data;
-    n00b_codepoint_t *to     = (n00b_codepoint_t *)result->data;
-    int               i;
-
-    for (i = 0; i < n; i++) {
-        *to++ = *from++;
+    n00b_string_t *result = n00b_new(n00b_type_string(),
+                                     NULL,
+                                     true,
+                                     len);
+    memcpy(result->data, s->data, s->u8_bytes);
+    for (int i = s->u8_bytes; i < len; i++) {
+        result->data[i] = ' ';
     }
 
-    for (; i < to_len; i++) {
-        *to++ = ' ';
-    }
+    copy_styles(result, s);
 
-    result->codepoints = to_len;
-    return result;
-}
+    if (result->styling && result->styling->num_styles) {
+        int n = result->styling->num_styles - 1;
 
-n00b_list_t *
-n00b_u8_map(n00b_list_t *inlist)
-{
-    int len = n00b_list_len(inlist);
-
-    n00b_list_t *result = n00b_list(n00b_type_utf8());
-
-    for (int i = 0; i < len; i++) {
-        n00b_list_append(result, n00b_to_utf8(n00b_list_get(inlist, i, NULL)));
+        // If the style goes to the end of the original string,
+        // extend it out.
+        if (result->styling->styles[n].end == s->codepoints) {
+            result->styling->styles[n].end = len;
+        }
     }
 
     return result;
-}
-
-n00b_list_t *
-_n00b_c_map(char *s, ...)
-{
-    n00b_list_t *result = n00b_list(n00b_type_utf8());
-    va_list      args;
-
-    va_start(args, s);
-
-    while (s != NULL) {
-        n00b_list_append(result, n00b_new_utf8(s));
-        s = va_arg(args, char *);
-    }
-
-    return result;
-}
-
-static inline n00b_type_t *
-n00b_str_item_type(n00b_obj_t ignore)
-{
-    return n00b_type_char();
 }
 
 static void *
-n00b_str_view(n00b_str_t *s, uint64_t *n)
+n00b_string_view(n00b_string_t *s, uint64_t *n)
 {
-    n00b_utf32_t *as_u32 = n00b_to_utf32(s);
-    *n                   = n00b_str_codepoint_len(as_u32);
-
-    return as_u32->data;
+    // TODO: consider returning an array of styled 1 char strings.
+    *n = s->codepoints;
+    return n00b_string_to_codepoint_array(s);
 }
 
-void
-n00b_str_set_gc_bits(uint64_t *bitfield, void *alloc)
+n00b_string_t *
+n00b_string_reuse_text(n00b_string_t *s)
 {
-    n00b_str_t *s = (n00b_str_t *)alloc;
+    // Copies the string data by reference, since the bytes are fully
+    // immutable.
+    //
+    // This does NOT copy styles.  n00b_string_copy() does.
 
-    n00b_mark_raw_to_addr(bitfield, alloc, &s->styling);
+    n00b_string_t *result = n00b_new(n00b_type_string(), NULL, false, 0);
+    result->data          = s->data;
+    result->u32_data      = s->u32_data;
+    result->codepoints    = s->codepoints;
+    result->u8_bytes      = s->u8_bytes;
+
+    return result;
 }
 
-n00b_str_t *
-n00b_str_copy(const n00b_str_t *s)
+n00b_string_t *
+n00b_string_copy(n00b_string_t *s)
 {
-    n00b_str_t *res;
+    return copy_styles(n00b_string_reuse_text(s), s);
+}
 
-    if (s->utf32) {
-        res = n00b_new(n00b_type_utf32(),
-                       n00b_kw("length",
-                               n00b_ka(s->codepoints),
-                               "codepoints",
-                               n00b_ka(s->data)));
-    }
-    else {
-        res = n00b_new(n00b_type_utf8(),
-                       n00b_kw("length",
-                               n00b_ka(s->byte_len),
-                               "cstring",
-                               n00b_ka(s->data)));
+n00b_string_t *
+n00b_string_align_left(n00b_string_t *s, int w)
+{
+    int l = n00b_string_render_len(s);
+
+    if (l >= w) {
+        return s;
     }
 
-    n00b_copy_style_info(s, res);
+    int            diff   = w - l;
+    int            n      = s->u8_bytes + diff;
+    n00b_string_t *result = n00b_new(n00b_type_string(), NULL, true, n);
 
-    return res;
+    result->codepoints = s->codepoints + diff;
+
+    memcpy(result->data, s->data, s->u8_bytes);
+    char *p = result->data + s->u8_bytes;
+
+    for (int i = 0; i < diff; i++) {
+        *p++ = ' ';
+    }
+
+    return copy_styles_and_extend(result, s);
+}
+
+n00b_string_t *
+n00b_string_align_right(n00b_string_t *s, int w)
+{
+    int l = n00b_string_render_len(s);
+
+    if (l >= w) {
+        return s;
+    }
+
+    int            diff   = w - l;
+    int            n      = s->u8_bytes + diff;
+    n00b_string_t *result = n00b_new(n00b_type_string(), NULL, true, n);
+
+    result->codepoints = s->codepoints + diff;
+
+    char *p = result->data;
+
+    for (int i = 0; i < diff; i++) {
+        *p++ = ' ';
+    }
+
+    memcpy(p, s->data, s->u8_bytes);
+
+    return copy_styles_with_offset(result, s, diff);
+}
+
+n00b_string_t *
+n00b_string_align_center(n00b_string_t *s, int w)
+{
+    int l = n00b_string_render_len(s);
+
+    if (l >= w) {
+        return s;
+    }
+    int            diff     = w - l;
+    int            n        = s->u8_bytes + diff;
+    int            lpad_len = diff / 2;
+    int            rpad_len = lpad_len + diff % 2;
+    n00b_string_t *result   = n00b_new(n00b_type_string(), NULL, true, n);
+
+    result->codepoints = s->codepoints + diff;
+
+    char *p = result->data;
+
+    for (int i = 0; i < lpad_len; i++) {
+        *p++ = ' ';
+    }
+
+    memcpy(p, s->data, s->u8_bytes);
+
+    p += s->u8_bytes;
+
+    for (int i = 0; i < rpad_len; i++) {
+        *p++ = ' ';
+    }
+
+    return copy_styles_with_offset(result, s, lpad_len);
+}
+
+char *
+n00b_string_to_cstr(n00b_string_t *s)
+{
+    char *result = n00b_gc_array_value_alloc(char, s->u8_bytes + 1);
+    memcpy(result, s->data, s->u8_bytes);
+
+    return result;
 }
 
 static inline char *
-copy_buffer_contents(n00b_buf_t *b)
+n00b_copy_buffer_contents(n00b_buf_t *b)
 {
     n00b_buffer_acquire_r(b);
     char *result = n00b_gc_raw_alloc(b->byte_len + 1, N00B_GC_SCAN_ALL);
@@ -1718,14 +1706,14 @@ n00b_to_cstr(void *v)
     n00b_type_t *t = n00b_get_my_type(v);
 
     if (n00b_type_is_buffer(t)) {
-        return copy_buffer_contents(v);
+        return n00b_copy_buffer_contents(v);
     }
     else {
         if (!n00b_type_is_string(t)) {
             N00B_CRAISE("Expected a string or a buffer.");
         }
-        n00b_utf8_t *s = n00b_to_utf8(v);
-        return s->data;
+
+        return n00b_string_to_cstr(v);
     }
 }
 
@@ -1754,45 +1742,95 @@ n00b_make_cstr_array(n00b_list_t *l, int *lenp)
     return result;
 }
 
-const n00b_vtable_t n00b_u8str_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
-        [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)utf8_init,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)n00b_str_repr,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_str_to_str,
-        [N00B_BI_FORMAT]       = (n00b_vtable_entry)n00b_string_format,
-        [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)n00b_str_can_coerce_to,
-        [N00B_BI_COERCE]       = (n00b_vtable_entry)n00b_str_coerce_to,
-        [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)n00b_str_lit,
-        [N00B_BI_COPY]         = (n00b_vtable_entry)n00b_str_copy,
-        [N00B_BI_ADD]          = (n00b_vtable_entry)n00b_str_concat,
-        [N00B_BI_LEN]          = (n00b_vtable_entry)n00b_str_codepoint_len,
-        [N00B_BI_INDEX_GET]    = (n00b_vtable_entry)n00b_utf8_index,
-        [N00B_BI_SLICE_GET]    = (n00b_vtable_entry)n00b_str_slice,
-        [N00B_BI_ITEM_TYPE]    = (n00b_vtable_entry)n00b_str_item_type,
-        [N00B_BI_VIEW]         = (n00b_vtable_entry)n00b_str_view,
-        [N00B_BI_GC_MAP]       = (n00b_vtable_entry)n00b_str_set_gc_bits,
-        [N00B_BI_FINALIZER]    = NULL,
-    },
-};
+n00b_string_t *
+n00b_to_string(void *item)
+{
+    if (!n00b_in_heap(item)) {
+        return NULL;
+    }
 
-const n00b_vtable_t n00b_u32str_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
-        [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)utf32_init,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)n00b_str_repr,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_str_to_str,
+    n00b_type_t *t = n00b_get_my_type(item);
+
+    if (!t) {
+        return NULL;
+    }
+
+    uint64_t                x = t->base_index;
+    n00b_string_convertor_t p;
+
+    // TODO: Remove this after adding the method.
+    if (x == N00B_T_STRING) {
+        return item;
+    }
+
+    p = (void *)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_STRING];
+
+    if (!p) {
+        return n00b_to_literal(item);
+    }
+
+    return (*p)(item);
+}
+
+n00b_string_t *
+n00b_to_literal(void *item)
+{
+    if (!n00b_in_heap(item)) {
+        return NULL;
+    }
+
+    n00b_type_t *t = n00b_get_my_type(item);
+
+    if (!t) {
+        return NULL;
+    }
+
+    uint64_t                x = t->base_index;
+    n00b_string_convertor_t p;
+
+    p = (void *)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_LITERAL];
+
+    if (!p) {
+        return NULL;
+    }
+
+    return (*p)(item);
+}
+
+static inline n00b_type_t *
+n00b_string_item_type(n00b_obj_t ignore)
+{
+    return n00b_type_char();
+}
+
+n00b_string_t *
+n00b_cstring_copy(char *s)
+{
+    int n = strlen(s);
+
+    n00b_string_t *result = n00b_alloc_utf8_to_copy(n);
+    memcpy(result->data, s, n);
+
+    return result;
+}
+
+const n00b_vtable_t n00b_string_vtable = {
+    .methods = {
+        [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)n00b_string_init,
+        [N00B_BI_REPR]         = (n00b_vtable_entry)n00b_string_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)n00b_string_to_str,
+        [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_string_to_str,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)n00b_string_format,
-        [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)n00b_str_can_coerce_to,
-        [N00B_BI_COERCE]       = (n00b_vtable_entry)n00b_str_coerce_to,
-        [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)n00b_str_lit,
-        [N00B_BI_ADD]          = (n00b_vtable_entry)n00b_str_concat,
-        [N00B_BI_LEN]          = (n00b_vtable_entry)n00b_str_codepoint_len,
-        [N00B_BI_INDEX_GET]    = (n00b_vtable_entry)n00b_utf32_index,
-        [N00B_BI_SLICE_GET]    = (n00b_vtable_entry)n00b_str_slice,
-        [N00B_BI_ITEM_TYPE]    = (n00b_vtable_entry)n00b_str_item_type,
-        [N00B_BI_VIEW]         = (n00b_vtable_entry)n00b_str_view,
-        [N00B_BI_GC_MAP]       = (n00b_vtable_entry)n00b_str_set_gc_bits,
-        [N00B_BI_FINALIZER]    = NULL,
+        [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)n00b_string_can_coerce_to,
+        [N00B_BI_COERCE]       = (n00b_vtable_entry)n00b_string_coerce_to,
+        [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)n00b_string_lit,
+        [N00B_BI_COPY]         = (n00b_vtable_entry)n00b_string_copy,
+        [N00B_BI_ADD]          = (n00b_vtable_entry)n00b_string_concat,
+        [N00B_BI_LEN]          = (n00b_vtable_entry)n00b_string_codepoint_len,
+        [N00B_BI_INDEX_GET]    = (n00b_vtable_entry)n00b_string_index,
+        [N00B_BI_SLICE_GET]    = (n00b_vtable_entry)n00b_string_slice,
+        [N00B_BI_ITEM_TYPE]    = (n00b_vtable_entry)n00b_string_item_type,
+        [N00B_BI_VIEW]         = (n00b_vtable_entry)n00b_string_view,
+        [N00B_BI_RENDER]       = NULL,
     },
 };

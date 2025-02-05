@@ -48,8 +48,8 @@ typedef struct {
 
 typedef struct {
     void          *fptr;
-    n00b_utf8_t    *local_name;
-    n00b_utf8_t    *extern_name;
+    n00b_string_t    *local_name;
+    n00b_string_t    *extern_name;
     uint64_t       str_convert;
     uint64_t       hold_info;
     uint64_t       alloc_info;
@@ -66,11 +66,11 @@ typedef enum {
 } n00b_ffi_status;
 
 typedef struct n00b_ffi_decl_t {
-    n00b_utf8_t            *short_doc;
-    n00b_utf8_t            *long_doc;
-    n00b_utf8_t            *local_name;
+    n00b_string_t            *short_doc;
+    n00b_string_t            *long_doc;
+    n00b_string_t            *local_name;
     struct n00b_sig_info_t *local_params;
-    n00b_utf8_t            *external_name;
+    n00b_string_t            *external_name;
     n00b_list_t            *dll_list;
     uint8_t               *external_params;
     uint8_t                external_return_type;

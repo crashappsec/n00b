@@ -33,6 +33,7 @@ c_args = [
     '-Wno-unused-parameter',
     '-Wno-cast-function-type',
     '-fno-omit-frame-pointer',
+    '-ffunction-sections',
     '-DHATRACK_PER_INSTANCE_AUX',
     '-DHATRACK_DONT_DEALLOC',    
     '-DN00B_MIN_RENDER_WIDTH=' + render_width,
@@ -60,6 +61,13 @@ else
     if get_option('use_frame_intrinsic').enabled()
         c_args = c_args + ['-DN00B_USE_FRAME_INTRINSIC']
     endif
+endif
+
+if using_osx
+    dead_strip = '-dead_strip'
+else
+    dead_strip = '--gc-sections'
+dead_strip
 endif
 
 if get_option('forkless_tests').enabled()
@@ -169,40 +177,45 @@ if get_option('dev_mode') == true
 
 endif
 
-exe_link_args = link_args + ['-flto', '-w']
+exe_link_args = link_args + ['-flto', '-w', '-Wl', dead_strip]
 exe_c_args = c_args + ['-flto', '-DHATRACK_REFERENCE_ALGORITHMS']
 n00b_c_args = c_args
 
 
 n00b_core = [
     'src/core/init.c',
-    'src/core/exit.c',    
+    'src/core/exit.c',
     'src/core/heap.c',
-    'src/core/collect.c',    
+    'src/core/heap_alloc.c',
+    'src/core/heap_collect.c',    
     'src/core/kargs.c',
     'src/core/exceptions.c',
     'src/core/types.c',
     'src/core/typestore.c',
     'src/core/literals.c',
-    'src/core/attrstore.c',
-    'src/core/vm.c',
-    'src/core/ffi.c',
     'src/core/object.c',
     'src/core/validation.c',
     'src/core/rtsetup.c',
-    'src/core/thread.c',
-    'src/core/thread_coop.c',
-    'src/core/locks.c',
-    'src/core/lock_registry.c',    
+    'src/core/thread.c',        # Basic thread interface
+    'src/core/thread_tsi.c',    # Internal API; thread specific data
+    'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
+    'src/core/locks.c',         # Convenience wrapper around pthread locking
+    'src/core/lock_registry.c', # Support for helping manage deadlocks
 ]
+
+n00b_runtime = [
+    'src/runtime/attrstore.c',
+    'src/runtime/vm.c',
+    'src/runtime/ffi.c',
+]
+
 n00b_adts = [
-    'src/adts/string.c',
+    'src/adts/string.c',    
     'src/adts/buffer.c',
     'src/adts/dict.c',
     'src/adts/set.c',
     'src/adts/hatlists.c',
     'src/adts/list.c',
-    'src/adts/grid.c',
     'src/adts/tree.c',
     'src/adts/numbers.c',
     'src/adts/mixed.c',
@@ -215,6 +228,7 @@ n00b_adts = [
     'src/adts/flags.c',
     'src/adts/box.c',
     'src/adts/bytering.c',
+    'src/adts/table.c',
 ]
 
 n00b_io = [
@@ -234,7 +248,7 @@ n00b_io = [
     'src/io/subproxy.c',
     'src/io/buffer.c',
     'src/io/strstream.c',
-    'src/io/ansi.c',
+    'src/io/colorterm.c',    
     'src/io/print.c',
     'src/io/term.c',
     'src/io/http.c',
@@ -261,15 +275,13 @@ n00b_compiler = [
 ]
 
 n00b_util = [
-    'src/util/style.c',
-    'src/util/styledb.c',
+    'src/util/style.c',    
     'src/util/colors.c',
-    'src/util/breaks.c',
+    'src/util/breaks.c',    
     'src/util/hex.c',
     'src/util/tree_pattern.c',
-    'src/util/conststr.c',
-    'src/util/richlit.c',
-    'src/util/format.c',
+    'src/util/rich.c',    
+    'src/util/fmt_numbers.c',    
     'src/util/fptostr.c',
     'src/util/path.c',
     'src/util/watch.c',
@@ -287,17 +299,27 @@ n00b_util = [
     'src/util/getopt_docs.c',
     'src/util/markdown.c',
     'src/util/json.c',
-    'src/util/highlights.c',
     'src/util/assert.c',
+    'src/util/memcheck.c',
+    'src/util/deep_copy.c',
+    'src/util/theme.c',
+    'src/util/table_utils.c',
+    'src/util/layout.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
 
-n00b_cmd = ['src/cmd/main.c']
+n00b_cmd = ['src/cmd/main.c',
+            'src/cmd/setup.c',
+            'src/cmd/compile.c',
+            'src/cmd/run.c',            
+            'src/cmd/debug.c',
+]
 
 n00b_log = ['src/cmd/n00b_debug.c']
 
-n00b_base = n00b_core + n00b_adts + n00b_io + n00b_compiler + n00b_util + n00b_crypto
+n00b_base = n00b_core +  n00b_runtime + n00b_adts + n00b_io 
+n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
 
 n00b_src = n00b_base + n00b_cmd
 log_src = n00b_base + n00b_log

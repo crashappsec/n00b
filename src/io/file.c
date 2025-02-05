@@ -47,6 +47,7 @@ add_file_info(n00b_stream_t *stream, n00b_io_permission_t perms)
                                                        N00B_GC_SCAN_ALL);
     n00b_stream_base_t *base      = n00b_get_ev_base(&n00b_fileio_impl);
     cookie->aux                   = file_info;
+    file_info->noscan             = N00B_NOSCAN;
 
     fstat(cookie->id, &file_info->fd_info);
 
@@ -95,7 +96,8 @@ void
 n00b_new_file_init(n00b_stream_t *stream, va_list args)
 {
     // Fixed arguments.n
-    n00b_str_t      *filename                    = va_arg(args, n00b_str_t *);
+    n00b_string_t   *filename                    = va_arg(args,
+                                     n00b_string_t *);
     n00b_file_mode_t mode                        = va_arg(args,
                                    n00b_file_mode_t);
     // o0744
@@ -146,11 +148,8 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
 
     int relative_fd = 0;
 
-    if (!n00b_str_codepoint_len(filename)) {
+    if (!n00b_string_codepoint_len(filename)) {
         N00B_CRAISE("Must provide a filename.");
-    }
-    else {
-        filename = n00b_to_utf8(filename);
     }
 
     switch (mode) {
@@ -294,18 +293,16 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
     }
 
     if (!allow_backtracking) {
-        n00b_list_t *parts = n00b_str_split(filename, n00b_get_slash_const());
+        n00b_list_t *parts = n00b_string_split(filename, n00b_cached_slash());
         int          n     = n00b_list_len(parts);
 
         for (int i = 0; i < n; i++) {
-            n00b_utf8_t *s = n00b_list_get(parts, i, NULL);
+            n00b_string_t *s = n00b_list_get(parts, i, NULL);
             if (!strcmp(s->data, "..")) {
                 N00B_CRAISE("Path backtracking is disabled.");
             }
         }
     }
-
-    filename = n00b_to_utf8(filename);
 
     if (relative_fd) {
         if (flags & O_CREAT) {
@@ -485,90 +482,90 @@ n00b_stderr(void)
     return __n00b_stderr_cache;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_get_fd_extras(n00b_stream_t *e)
 {
     n00b_ev2_cookie_t *cookie = e->cookie;
-    n00b_utf8_t       *aux    = cookie->aux;
-    n00b_utf8_t       *xtxt;
+    n00b_string_t     *aux    = cookie->aux;
+    n00b_string_t     *xtxt;
     n00b_list_t       *extras = NULL;
 
     if (e->is_tty) {
-        extras = n00b_list(n00b_type_utf8());
-        n00b_list_append(extras, n00b_new_utf8("tty"));
+        extras = n00b_list(n00b_type_string());
+        n00b_list_append(extras, n00b_cstring("tty"));
     }
 
     if (e->closed_for_read | e->closed_for_write) {
         if (!extras) {
-            extras = n00b_list(n00b_type_utf8());
+            extras = n00b_list(n00b_type_string());
         }
 
         if (e->perms != n00b_io_perm_rw
             || (e->closed_for_read && e->closed_for_write)) {
-            n00b_list_append(extras, n00b_new_utf8("closed"));
+            n00b_list_append(extras, n00b_cstring("closed"));
         }
         else {
             if (e->closed_for_read) {
-                n00b_list_append(extras, n00b_new_utf8("closed for read"));
+                n00b_list_append(extras, n00b_cstring("closed for read"));
             }
             else {
-                n00b_list_append(extras, n00b_new_utf8("closed for write"));
+                n00b_list_append(extras, n00b_cstring("closed for write"));
             }
         }
     }
 
     if (e->error) {
         if (!extras) {
-            extras = n00b_list(n00b_type_utf8());
+            extras = n00b_list(n00b_type_string());
         }
-        n00b_list_append(extras, n00b_new_utf8("error"));
+        n00b_list_append(extras, n00b_cstring("error"));
     }
 
     if (!aux) {
-        aux = n00b_new_utf8("");
+        aux = n00b_cached_empty_string();
     }
     else {
-        aux = n00b_cstr_format(" {}", aux);
+        aux = n00b_cformat(" «#»", aux);
     }
 
     if (!extras) {
-        xtxt = n00b_new_utf8(" (open)");
+        xtxt = n00b_cstring(" (open)");
     }
     else {
-        xtxt = n00b_cstr_format(" ({})",
-                                n00b_str_join(extras, n00b_new_utf8(", ")));
+        xtxt = n00b_cformat(" («#»)",
+                            n00b_string_join(extras, n00b_cached_comma_padded()));
     }
-    return n00b_str_concat(aux, xtxt);
+    return n00b_string_concat(aux, xtxt);
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 repr_perms(n00b_stream_t *e)
 {
     switch (e->perms) {
     case n00b_io_perm_none:
-        return n00b_new_utf8("");
+        return n00b_cached_empty_string();
     case n00b_io_perm_r:
-        return n00b_new_utf8("(r)");
+        return n00b_cstring("(r)");
     case n00b_io_perm_w:
-        return n00b_new_utf8("(w)");
+        return n00b_cstring("(w)");
     case n00b_io_perm_rw:
-        return n00b_new_utf8("(rw)");
+        return n00b_cstring("(rw)");
     }
     n00b_unreachable();
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_io_fd_repr(n00b_stream_t *e)
 {
     n00b_ev2_cookie_t *cookie = e->cookie;
 
-    return n00b_cstr_format("fd {}{}",
-                            cookie->id,
-                            repr_perms(e),
-                            n00b_get_fd_extras(e));
+    return n00b_cformat("fd «#»«#»",
+                        cookie->id,
+                        repr_perms(e),
+                        n00b_get_fd_extras(e));
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_file_repr(n00b_stream_t *f)
 {
     n00b_ev2_cookie_t *cookie = f->cookie;
@@ -593,7 +590,7 @@ n00b_file_repr(n00b_stream_t *f)
         s = "special file";
         break;
     }
-    return n00b_cstr_format("{} {}", n00b_new_utf8(s), d->name);
+    return n00b_cformat("«#» «#»", n00b_cstring(s), d->name);
 }
 
 bool
@@ -629,8 +626,7 @@ n00b_io_impl_info_t n00b_fileio_impl = {
 };
 
 const n00b_vtable_t n00b_file_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_new_file_init,
         [N00B_BI_TO_STR]      = (n00b_vtable_entry)n00b_file_repr,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
@@ -641,7 +637,7 @@ const n00b_vtable_t n00b_file_vtable = {
 // loop to hit the end. But it's more sensical just to directly drain
 // the descripfor ourselves.
 n00b_buf_t *
-n00b_read_binary_file(n00b_str_t *path, bool lock)
+n00b_read_binary_file(n00b_string_t *path, bool lock)
 {
     bool           err = false;
     n00b_stream_t *f;
@@ -699,8 +695,8 @@ n00b_read_binary_file(n00b_str_t *path, bool lock)
     return result;
 }
 
-n00b_utf8_t *
-n00b_read_utf8_file(n00b_str_t *path, bool lock)
+n00b_string_t *
+n00b_read_utf8_file(n00b_string_t *path, bool lock)
 {
     n00b_buf_t *b = n00b_read_binary_file(path, lock);
 

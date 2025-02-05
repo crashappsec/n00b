@@ -113,10 +113,10 @@ n00b_buf_at_eof(n00b_stream_t *e)
     return result;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_buf_repr(n00b_stream_t *stream)
 {
-    return n00b_cstr_format("io buffer (@{})", n00b_box_u64((int64_t)stream));
+    return n00b_cformat("io buffer (@«#:p»)", stream);
 }
 
 n00b_io_impl_info_t n00b_bufferio_impl = {

@@ -9,7 +9,7 @@ is_group_node(n00b_parse_node_t *cur)
     return cur->group_top == true || cur->group_item == true;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 get_node_text(n00b_tree_node_t *n)
 {
     while (n->num_kids) {
@@ -35,7 +35,7 @@ handle_subcommand(n00b_gopt_extraction_ctx *ctx)
 
     int                len        = n->num_kids;
     n00b_parse_node_t *cmd_node   = n00b_tree_get_contents(n);
-    n00b_utf8_t       *saved_path = ctx->path;
+    n00b_string_t     *saved_path = ctx->path;
     n00b_gopt_cspec   *cmd        = ctx->cur_cmd;
     int64_t            cmd_key;
 
@@ -50,10 +50,10 @@ handle_subcommand(n00b_gopt_extraction_ctx *ctx)
 
     n00b_list_append(ctx->cmd_stack, ctx->cur_cmd);
 
-    n00b_utf8_t *cmd_name = ctx->cur_cmd->name;
+    n00b_string_t *cmd_name = ctx->cur_cmd->name;
 
-    if (n00b_str_codepoint_len(saved_path)) {
-        ctx->path = n00b_cstr_format("{}.{}", saved_path, cmd_name);
+    if (n00b_string_codepoint_len(saved_path)) {
+        ctx->path = n00b_cformat("«#».«#»", saved_path, cmd_name);
     }
     else {
         ctx->path = cmd_name;
@@ -118,11 +118,11 @@ negate_bool_array(n00b_list_t *l)
     }
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 bad_num(n00b_gopt_extraction_ctx *ctx, n00b_parse_node_t *cur)
 {
-    n00b_utf8_t *msg = n00b_cstr_format("Number out of range: [em]{}[/] ",
-                                        cur->info.token->value);
+    n00b_string_t *msg = n00b_cformat("Number out of range: «em»«#»«/» ",
+                                      cur->info.token->value);
     n00b_list_append(ctx->errors, msg);
 
     return cur->info.token->value;
@@ -179,7 +179,7 @@ extract_value_from_node(n00b_gopt_extraction_ctx *ctx,
         }
         return n00b_box_bool(false);
     case N00B_GTNT_WORD_NT:
-        val = n00b_to_utf8(cur->info.token->value);
+        val = cur->info.token->value;
         if (!val && ok) {
             *ok = false;
         }
@@ -268,7 +268,7 @@ static void
 handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
 {
     int                len              = n->num_kids;
-    n00b_utf8_t       *name             = get_node_text(n);
+    n00b_string_t     *name             = get_node_text(n);
     n00b_tree_node_t  *name_tnode       = n->children[0]->children[0];
     n00b_parse_node_t *name_pnode       = n00b_tree_get_contents(name_tnode);
     int                flag_id          = name_pnode->info.token->tid;
@@ -276,8 +276,8 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
     int64_t            key;
 
     if (flag_id == (N00B_START_TOK_ID + N00B_GOTT_UNKNOWN_OPT)) {
-        n00b_utf8_t *msg = n00b_cstr_format("Unknown option: [em]{}[/] ",
-                                            name_pnode->info.token->value);
+        n00b_string_t *msg = n00b_cformat("Unknown option: «em»«#»«/» ",
+                                          name_pnode->info.token->value);
         n00b_list_append(ctx->errors, msg);
         printf("Death 1.\n");
         return;
@@ -585,16 +585,20 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
     n00b_grammar_t     *g   = ctx->parser->grammar;
     n00b_gopt_node_type t   = (n00b_gopt_node_type)n00b_parse_get_user_data(g,
                                                                           pn);
-    n00b_utf8_t        *msg;
+    n00b_string_t      *msg;
     n00b_tree_node_t   *n;
 
     if (pn->missing) {
-        if (n00b_str_eq(pn->info.name, n00b_new_utf8("'«Unknown Opt»'"))) {
-            msg = n00b_new_utf8("Invalid argument.");
+        if (n00b_string_eq(pn->info.name, n00b_cstring("'«Unknown Opt»'"))) {
+            msg = n00b_cstring("Invalid argument.");
+            while (cur->parent != NULL) {
+                cur = cur->parent;
+            }
+            n00b_eprint(n00b_parse_tree_format(cur));
         }
         else {
-            msg = n00b_cstr_format("Missing an expected [em]{}[/].",
-                                   pn->info.name);
+            msg = n00b_cformat("Missing an expected «em»«#»«/».",
+                               pn->info.name);
         }
 
         n00b_list_append(ctx->errors, msg);
@@ -610,13 +614,13 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
         n00b_parse_node_t *bad_kid = n00b_tree_get_contents(cur->children[0]);
 
         if (!(strcmp(pn->info.name->data, "ε"))) {
-            msg = n00b_cstr_format("Unexpected input: [em]{}[/].",
-                                   bad_kid->info.token->value);
+            msg = n00b_cformat("Unexpected input: «em»«#»«/».",
+                               bad_kid->info.token->value);
         }
         else {
-            msg = n00b_cstr_format(
-                "Unexpected [em]{}[/] "
-                "when expecting a [em]{}[/].",
+            msg = n00b_cformat(
+                "Unexpected «em»«#»«/» "
+                "when expecting a «em»«#»«/».",
                 bad_kid->info.token->value,
                 pn->info.name);
         }
@@ -628,10 +632,10 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
 
     switch (t) {
     case N00B_GTNT_BAD_ARGS:
-        msg = n00b_cstr_format("Invalid arguments for command.");
+        msg = n00b_cformat("Invalid arguments for command.");
 
         if (ctx->path) {
-            msg = n00b_cstr_format("In command [em]{}[/]: {}", ctx->path, msg);
+            msg = n00b_cformat("In command «em»«#»«/»: «#»", ctx->path, msg);
         }
 
         n00b_list_append(ctx->errors, msg);
@@ -650,10 +654,10 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
             break;
         }
 
-        n00b_utf8_t *cmd_name = ctx->cur_cmd->name;
+        n00b_string_t *cmd_name = ctx->cur_cmd->name;
 
-        if (n00b_str_codepoint_len(ctx->path)) {
-            ctx->path = n00b_cstr_format("{}.{}", ctx->path, cmd_name);
+        if (n00b_string_codepoint_len(ctx->path)) {
+            ctx->path = n00b_cformat("«#».«#»", ctx->path, cmd_name);
         }
         else {
             ctx->path = cmd_name;
@@ -682,7 +686,7 @@ gopt_structural_error_check(n00b_gopt_extraction_ctx *ctx)
                                     NULL);
 
     if (top->penalty) {
-        n00b_list_append(ctx->errors, n00b_new_utf8("Parse error."));
+        n00b_list_append(ctx->errors, n00b_cstring("Parse error."));
         populate_penalty_errors(ctx);
         return true;
     }
@@ -705,8 +709,8 @@ check_opt_against_commands(n00b_gopt_extraction_ctx *ctx, n00b_rt_option_t *opt)
         }
     }
 
-    n00b_utf8_t *err = n00b_cstr_format(
-        "Option [em]{}[/] is not valid for this command.",
+    n00b_string_t *err = n00b_cformat(
+        "Option «em»«#»«/» is not valid for this command.",
         opt->spec->name);
     n00b_list_append(ctx->errors, err);
 }
@@ -726,15 +730,15 @@ static n00b_gopt_result_t *
 convert_parse_tree(n00b_gopt_ctx *gctx, n00b_parser_t *p, n00b_tree_node_t *node)
 {
     n00b_gopt_extraction_ctx ctx = {
-        .errors       = n00b_list(n00b_type_utf8()),
+        .errors       = n00b_list(n00b_type_string()),
         .cmd_stack    = n00b_list(n00b_type_ref()),
         .flag_nodes   = n00b_list(n00b_type_ref()),
         .flags        = n00b_dict(n00b_type_int(), n00b_type_ref()),
-        .args         = n00b_dict(n00b_type_utf8(), n00b_type_ref()),
+        .args         = n00b_dict(n00b_type_string(), n00b_type_ref()),
         .intree       = node,
         .gctx         = gctx,
-        .path         = n00b_new_utf8(""),
-        .deepest_path = n00b_new_utf8(""),
+        .path         = n00b_cached_empty_string(),
+        .deepest_path = n00b_cached_empty_string(),
         .parser       = p,
     };
     n00b_gopt_result_t *result = n00b_gc_alloc_mapped(n00b_gopt_result_t,
@@ -754,8 +758,8 @@ convert_parse_tree(n00b_gopt_ctx *gctx, n00b_parser_t *p, n00b_tree_node_t *node
 
     if (gctx->show_debug) {
         for (int i = 0; i < n00b_list_len(ctx.flag_nodes); i++) {
-            n00b_grid_t *s;
-            n00b_printf("[h4]Flag {}", i + 1);
+            n00b_table_t *s;
+            n00b_printf("«em4»Flag «#»", i + 1);
             s = n00b_parse_tree_format(n00b_list_get(ctx.flag_nodes, i, NULL));
             n00b_print(s);
         }
@@ -799,7 +803,7 @@ fix_pruned_tree(n00b_tree_node_t *t)
 }
 
 n00b_list_t *
-n00b_gopt_parse(n00b_gopt_ctx *ctx, n00b_str_t *argv0, n00b_list_t *args)
+n00b_gopt_parse(n00b_gopt_ctx *ctx, n00b_string_t *argv0, n00b_list_t *args)
 {
     if (args == NULL && argv0 == NULL) {
         argv0 = n00b_get_argv0();

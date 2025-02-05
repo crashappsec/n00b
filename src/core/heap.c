@@ -1,67 +1,3 @@
-// I keep rewriting this, but here the goal has been to make it
-// simpler, ensuring it's MT-safe now that every runtime is implicitly
-// using threads for I/O, and removing fields we don't need, since we
-// are now marshaling into the exact same memory structure, and would
-// like it to be more compact.
-//
-// Additionally, we've added an option for heap pinning (even while
-// doing unbound allocations), and might (at some point) add the
-// ability to make non-pinned heaps mark-and-sweep (they are copying,
-// which has plenty of advantages, but occasionally mark-and-sweep is
-// more appropriate).
-//
-// To that end, I've temporarily removed some things:
-//
-// 1. Finalization (object clean-up routines for objects that
-//    *weren't* collected. This will come back soon.
-//
-// 2. The ability to provide pointer maps for allocations.  First,
-//    building the and maintaining the pointer maps is a huge pain
-//    (leading me to just set everything to 'scan all'), and second,
-//    they take up too much space per allocation right now. I can
-//    definitely solve problem #2, but would like to make real
-//    progress on problem #1.
-//
-//    However, I've still left in the ability to say, "don't scan this
-//    allocation for pointers". And, I will NEED to add back in
-//    something more nuanced, because without it, false positives will
-//    be possible, where data gets munged on a collection (which can
-//    even be a security concern).
-//
-//    Realistically, once I add user-definable objects, this problem
-//    is easy to solve for managed objects, given the type
-//    system. However, the more practical issue is all the internal
-//    allocations that aren't mapped to an external type, since
-//    they're meant to be internal state.
-//
-//    For the time being, the 64-bit field to hold a callback to get a
-//    pointer map remains. It could end up compressing down to a
-//    single bit, but I don't think it will, which is why I'm not
-//    taking the field out, even though I want to add pointer mapping
-//    back in after adding a few more language-level features.
-//
-// 3. Most GC metric calculation and reporting (just wanted to
-//    declutter and haven't been needing it, but will probably add it
-//    back in).
-//
-// 4. The most draconian memory checks, including ASAN integration. It
-//    takes up space, and hasn't been tremendously useful in a long
-//    time (it was almost doubling the size of the collector's code
-//    with no practical benefit after the first few weeks). There's
-//    still the option to leave room for an end-guard, but I'm not
-//    even checking it right now. I will add the check back in, but to
-//    be seen if I feel the need to add back in the more intricate
-//    capabilities.
-
-//
-// Note that it would be reasonably straightforward here to do
-// cooperative collections, where threads divide up the roots to
-// trace, and the migrations to do.  The get_relocation_addr() call
-// would just need to migrate to a compare-and-swap, and the ordering
-// of the hash table insertion would need to change to before that's
-// done. And we'd switch to crown_add() to handle contention for the
-// same allocation record.
-
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
@@ -74,102 +10,26 @@
 // This value is chosen randomly, and is used to identify the start of
 // memory records. Each process gets a single guard; it is not
 // persistant.
-uint64_t              n00b_gc_guard      = 0;
-// This value is also chosen randomly, and is used to identify the end
-// of memory records. Generally this should be back-to-back with the
-// normal guard.
-uint64_t              n00b_end_guard     = 0;
+uint64_t            n00b_gc_guard      = 0;
 // The global heap.
-n00b_heap_t          *n00b_default_heap  = NULL;
+n00b_heap_t        *n00b_default_heap  = NULL;
 // This is the current heap for a given thread. If it's null, use the
 // default heap.
-n00b_heap_t          *n00b_internal_heap = NULL;
-__thread n00b_heap_t *n00b_thread_heap   = NULL;
+n00b_heap_t        *n00b_internal_heap = NULL;
 // The heap we're migrating into. We only allocate this once; when
 // we're done, we move around the destination arena and leave the
 // heap reference around to avoid needless heap entries.
 // The scratch heap is used during GC.
-n00b_heap_t          *n00b_all_heaps     = NULL;
-n00b_heap_t          *n00b_cur_heap_page;
-uint64_t              n00b_next_heap_index = 0;
-uint64_t              n00b_page_bytes;
-uint64_t              n00b_page_modulus;
-uint64_t              n00b_modulus_mask;
-// Heap entries per page, capculated once.
-int                   n00b_heap_entries_pp;
-
-static _Atomic(uint64_t) heap_creation_lock = 0;
-
-uint64_t
-n00b_get_page_size(void)
-{
-    return n00b_page_bytes;
-}
-
-void
-n00b_heap_creation_lock_acquire(void)
-{
-    uint64_t expected;
-    uint64_t desired = n00b_rand64();
-
-    do {
-        expected = 0;
-    } while (!CAS(&heap_creation_lock, &expected, desired));
-}
-
-static inline void
-n00b_heap_creation_lock_release(void)
-{
-    atomic_store(&heap_creation_lock, 0);
-}
-
-void
-n00b_heap_clear(n00b_heap_t *h)
-{
-    n00b_heap_creation_lock_acquire();
-    // Delete all arenas, but leave the heap intact.
-    n00b_arena_t *a = h->first_arena;
-    n00b_arena_t *next;
-
-    h->first_arena  = NULL;
-    h->newest_arena = NULL;
-    h->to_finalize  = NULL;
-    h->released     = false;
-
-    n00b_heap_creation_lock_release();
-
-    while (a) {
-        next = a->successor;
-        n00b_delete_arena(a);
-        a = next;
-    }
-}
-
-void
-n00b_heap_prune(n00b_heap_t *h)
-{
-    n00b_heap_creation_lock_acquire();
-    // Delete all arenas, but leave the heap intact.
-    n00b_arena_t *a = h->first_arena;
-    n00b_arena_t *next;
-
-    while (a->successor) {
-        next = a->successor;
-        a    = next;
-    }
-
-    h->first_arena  = a;
-    h->newest_arena = a;
-    h->released     = false;
-
-    n00b_heap_creation_lock_release();
-
-    while (a->successor) {
-        next = a->successor;
-        n00b_delete_arena(a);
-        a = next;
-    }
-}
+n00b_heap_t        *n00b_all_heaps     = NULL;
+n00b_heap_t        *n00b_cur_heap_page = NULL;
+static n00b_heap_t *long_term_pins     = NULL;
+n00b_heap_t        *n00b_to_space      = NULL;
+n00b_heap_t        *__n00b_current_from_space;
+uint64_t            n00b_page_bytes;
+uint64_t            n00b_page_modulus;
+uint64_t            n00b_modulus_mask;
+uint64_t            n00b_next_heap_index;
+int                 n00b_heap_entries_pp;
 
 n00b_heap_t *
 n00b_addr_find_heap(void *p)
@@ -196,339 +56,456 @@ n00b_addr_find_heap(void *p)
     return NULL;
 }
 
-static inline void
-n00b_add_heap_entry_page(void)
+bool
+n00b_addr_in_one_heap(n00b_heap_t *h, void *p)
 {
-    // You should have the lock to call this (or call from init).
-    n00b_heap_t *new_page = n00b_unprotected_mempage();
+    if (h->released) {
+        return false;
+    }
 
-    if (!n00b_all_heaps) {
-        n00b_all_heaps = new_page;
+    if (h->private && __n00b_current_from_space != h) {
+        return false;
+    }
+
+    n00b_arena_t *a = h->first_arena;
+
+    while (a) {
+        if (n00b_addr_in_arena(a, p)) {
+            if (a == h->newest_arena) {
+                n00b_crit_t crit = atomic_read(&h->ptr);
+                if (p > (void *)crit.next_alloc) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        a = a->successor;
+    }
+
+    return false;
+}
+
+n00b_string_t *
+n00b_debug_repr_heap(n00b_heap_t *p)
+{
+    n00b_push_heap(n00b_default_heap);
+    n00b_crit_t   crit = atomic_read(&p->ptr);
+    char         *head = (char *)crit.next_alloc;
+    int64_t       used = 0;
+    uint64_t      free = 0;
+    n00b_arena_t *a    = p->first_arena;
+
+    while (a) {
+        if (a->successor) {
+            used += ((char *)a->addr_end) - (char *)a->addr_start;
+        }
+        else {
+            used += head - (char *)a->addr_start;
+            if (head < (char *)a->addr_end) {
+                free = ((char *)a->addr_end) - head;
+            }
+        }
+        a = a->successor;
+    }
+
+    char name[PIPE_BUF];
+
+    if (p->name) {
+        snprintf(name, PIPE_BUF - 1, "'%s' ", p->name);
     }
     else {
-        void *lloc = (n00b_heap_t *)&n00b_cur_heap_page[n00b_heap_entries_pp];
-
-        *(n00b_heap_t **)lloc = new_page;
+        name[0] = 0;
     }
 
-    n00b_cur_heap_page = new_page;
+    assert(used >= 0);
+    n00b_string_t *propstr;
+    n00b_string_t *r;
+
+    if (p->released) {
+        propstr = n00b_cstring(" (released)");
+    }
+    else {
+        if (p->pinned) {
+            propstr = n00b_cstring(" (pinned)");
+        }
+        else {
+            propstr = n00b_cached_empty_string();
+        }
+        if (p->no_trace) {
+            propstr = n00b_string_concat(propstr, n00b_cstring(" (no-trace)"));
+        }
+        if (p->local_collects) {
+            propstr = n00b_string_concat(propstr, n00b_cstring(" (local gc)"));
+        }
+        if (p->private) {
+            propstr = n00b_string_concat(propstr, n00b_cstring(" (private)"));
+        }
+    }
+
+    r = n00b_cformat("Heap «#» (#«#»; «#»:«#»)«#»\n",
+                     n00b_cstring(name),
+                     (uint64_t)p->heap_id,
+                     n00b_cstring(p->file),
+                     (uint64_t)p->line,
+                     propstr);
+
+    if (p->released) {
+        n00b_pop_heap();
+        return r;
+    }
+
+    n00b_string_t *stats;
+    stats = n00b_cformat(
+        "\n«em4»Collects:«/»«#»\n"
+        "«em4»Memory«/» Used: «#»b; Free: «#»b\n"
+        "«em4»Allocs:«/» Since collect: «#»; "
+        "Inherited: «#»; Lifetime: «#»\n",
+        (uint64_t)p->num_collects,
+        (uint64_t)used,
+        (uint64_t)free,
+        (uint64_t)p->alloc_count,
+        (uint64_t)p->inherit_count,
+        (uint64_t)p->total_alloc_count);
+
+    r = n00b_string_concat(r, stats);
+    a = p->first_arena;
+
+    if (a) {
+        r = n00b_cformat("«#»«em5»Next alloc:«/» «#:x»\n«em6»Arenas:«/»",
+                         r,
+                         (uint64_t)crit.next_alloc);
+
+        while (a) {
+            r = n00b_cformat("«#»  «#:p»-«#:p»\n",
+                             r,
+                             (uint64_t)a->addr_start,
+                             (uint64_t)a->addr_end);
+            a = a->successor;
+        }
+    }
+
+    n00b_pop_heap();
+    return r;
 }
 
-static inline n00b_arena_t *
-n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
+void
+n00b_debug_print_heap(n00b_heap_t *p)
 {
-    // This assumes that byte_len is already a multiple of the page
-    // size. It returns a pointer TWO PAGES past where it
-    // allocates. The first page can contain debug information, but
-    // also contains the heap ID and other info used to manage the
-    // heap (n00b_arena_t *).
-    //
-    // The second page is a guard page.
-    // The final page of the heap is also a guard page.
+    n00b_crit_t   crit = atomic_read(&p->ptr);
+    char         *head = (char *)crit.next_alloc;
+    int64_t       used = 0;
+    uint64_t      free = 0;
+    n00b_arena_t *a    = p->first_arena;
 
-    uint64_t      total_len  = byte_len + N00B_ARENA_OVERHEAD;
-    char         *true_start = mmap(NULL,
-                            total_len,
-                            PROT_READ | PROT_WRITE,
-                            MAP_PRIVATE | MAP_ANON,
-                            -1,
-                            0);
-    n00b_arena_t *result     = n00b_raw_alloc_to_arena_addr(true_start);
-
-    if (result == MAP_FAILED) {
-        n00b_raise_errno();
+    while (a) {
+        if (a->successor) {
+            used += ((char *)a->addr_end) - (char *)a->addr_start;
+        }
+        else {
+            used += head - (char *)a->addr_start;
+            if (head < (char *)a->addr_end) {
+                free = ((char *)a->addr_end) - head;
+            }
+        }
+        a = a->successor;
     }
 
-    result->user_length = byte_len;
-    result->addr_start  = n00b_arena_user_data_start(result);
-    result->addr_end    = n00b_arena_rear_guard_start(result);
+    fprintf(stderr, "Heap ");
 
-    n00b_assert(result->addr_start < result->addr_end);
+    if (p->name) {
+        fprintf(stderr, "'%s' ", p->name);
+    }
 
-    if (h->newest_arena) {
+    fprintf(stderr, "(#%lld; %s:%d)", p->heap_id, p->file, p->line);
+
+    if (p->released) {
+        fprintf(stderr, " (released)\n");
+        return;
+    }
+    if (p->pinned) {
+        fprintf(stderr, " (pinned)");
+    }
+    if (p->no_trace) {
+        fprintf(stderr, " (no-trace)");
+    }
+    if (p->local_collects) {
+        fprintf(stderr, " (local gc)");
+    }
+    if (p->private) {
+        fprintf(stderr, " (private)");
+    }
+
+    fprintf(stderr,
+            "\nCollects: %d\nMemory used: %lld b; Free: %lld b\n",
+            p->num_collects,
+            used,
+            free);
+    fprintf(stderr,
+            "Allocs: Since collect: %d; Inherited: %d; Lifetime: %d\n",
+            p->alloc_count,
+            p->inherit_count,
+            p->total_alloc_count);
+
+    a = p->first_arena;
+
+    if (a) {
+        fprintf(stderr, "Next alloc: %p\nArenas:\n", crit.next_alloc);
+
+        while (a) {
+            fprintf(stderr, "  %p-%p\n", a->addr_start, a->addr_end);
+
+            a = a->successor;
+        }
+    }
+
+    return;
+}
+
+n00b_string_t *
+n00b_debug_repr_all_heaps(void)
+{
+    n00b_push_heap(n00b_default_heap);
+    n00b_string_t *r = n00b_debug_repr_heap(n00b_all_heaps);
+
+    for (unsigned int i = 1; i < n00b_next_heap_index; i++) {
+        r = n00b_string_concat(r, n00b_debug_repr_heap(n00b_all_heaps + i));
+    }
+
+    n00b_pop_heap();
+    return r;
+}
+
+void
+n00b_debug_all_heaps(void)
+{
+    for (unsigned int i = 0; i < n00b_next_heap_index; i++) {
+        n00b_debug_print_heap(n00b_all_heaps + i);
+    }
+}
+
+static inline void
+n00b_create_alloc_guards(void)
+{
+    n00b_gc_guard = n00b_rand64();
+}
+
+static inline void
+n00b_discover_page_info(void)
+{
+    n00b_page_bytes   = getpagesize();
+    // Page size is always a power of 2.
+    n00b_page_modulus = n00b_page_bytes - 1;
+    n00b_modulus_mask = ~n00b_page_modulus;
+}
+
+static inline void
+n00b_setup_heap_info(void)
+{
+    n00b_heap_entries_pp = (n00b_page_bytes / sizeof(n00b_heap_t)) - 1;
+}
+
+static inline void
+n00b_create_first_heaps(void)
+{
+    n00b_default_heap = n00b_new_heap(N00B_DEFAULT_HEAP_SIZE);
+    n00b_heap_set_name(n00b_default_heap, "user");
+
+    // Create the main allocation heap and the 'to_space' heap that
+    // marshalling uses.
+
+    // No arenas get created within this heap at first.
+    n00b_to_space = n00b_new_heap(0);
+    n00b_heap_pin(n00b_to_space);
+    n00b_heap_set_no_trace(n00b_to_space);
+
+    long_term_pins = n00b_new_heap(0);
+    n00b_heap_pin(long_term_pins);
+
+    n00b_internal_heap = n00b_new_heap(N00B_SYSTEM_HEAP_SIZE);
+    n00b_heap_set_name(n00b_internal_heap, "internal");
+
+    n00b_default_heap->name  = "user";
+    n00b_internal_heap->name = "internal";
+    n00b_to_space->name      = "gc 'to-space'";
+    long_term_pins->name     = "long-term pins";
+
+    long_term_pins->no_trace = true;
+}
+
+void
+n00b_long_term_pin(n00b_heap_t *h)
+{
+    // Long-term pins a heap, which marks it as no_trace.
+    n00b_gts_stop_the_world();
+    n00b_heap_collect(h, 0);
+    n00b_crit_t crit = atomic_read(&h->ptr);
+
+    if (!long_term_pins->first_arena) {
+        long_term_pins->first_arena = h->first_arena;
         n00b_unlock_arena_header(h->newest_arena);
-        h->newest_arena->successor = result;
+        h->newest_arena->last_issued = crit.next_alloc;
         n00b_lock_arena_header(h->newest_arena);
+        long_term_pins->newest_arena      = h->newest_arena;
+        long_term_pins->total_alloc_count = atomic_read(&h->alloc_count);
+        h->ptr                            = crit;
+    }
+    else {
+        n00b_arena_t *a = long_term_pins->newest_arena;
+        a->successor    = h->first_arena;
+        n00b_unlock_arena_header(h->newest_arena);
+        h->newest_arena->last_issued = crit.next_alloc;
+        n00b_lock_arena_header(h->newest_arena);
+        long_term_pins->newest_arena = h->newest_arena;
+        long_term_pins->total_alloc_count += atomic_read(&h->alloc_count);
+        n00b_lock_arena_header(a);
+        h->ptr = crit;
     }
 
-    n00b_crit_t info = {
-        .next_alloc = result->addr_start,
-        .thread     = NULL,
-    };
+    h->first_arena  = NULL;
+    h->newest_arena = NULL;
+    n00b_add_arena(h, long_term_pins->newest_arena->user_length);
 
-    h->newest_arena  = result;
-    h->cur_arena_end = result->addr_end;
-    atomic_store(&h->ptr, info);
-
-    void *separator_guard = n00b_arena_front_guard_start(result);
-    void *end_guard       = result->addr_end;
-
-    mprotect(true_start, n00b_page_bytes, PROT_NONE);
-    mprotect(separator_guard, n00b_page_bytes, PROT_NONE);
-    mprotect(end_guard, n00b_page_bytes, PROT_NONE);
-
-    n00b_lock_arena_header(result);
-
-    return result;
+    n00b_gts_restart_the_world();
 }
 
 void
-n00b_add_arena(n00b_heap_t *h, uint64_t byte_len)
+_n00b_heap_register_root(n00b_heap_t *h, void *p, uint64_t l N00B_ALLOC_XTRA)
 {
-    if (byte_len & n00b_page_modulus) {
-        byte_len = (byte_len & n00b_modulus_mask) + n00b_page_bytes;
+    // Len is measured in 64 bit words and must be at least 1.
+    n00b_gc_root_info_t *ri;
+
+    h = n00b_current_heap(h);
+
+    if (!h->roots) {
+        h->roots = hatrack_zarray_new(N00B_MAX_GC_ROOTS,
+                                      sizeof(n00b_gc_root_info_t));
     }
 
-    n00b_arena_t *a = n00b_new_arena_pre_aligned(h, byte_len);
-
-    if (!h->first_arena) {
-        h->first_arena = a;
-    }
-}
-
-n00b_heap_t *
-_n00b_new_heap(uint64_t byte_len, char *file, int line)
-{
-    n00b_heap_creation_lock_acquire();
-
-    n00b_heap_t *result;
-    n00b_heap_t *h = n00b_all_heaps;
-
-    for (uint64_t i = 0; i < n00b_next_heap_index; i++) {
-        if (i && !(i % n00b_heap_entries_pp)) {
-            h = *(n00b_heap_t **)h;
-            continue;
-        }
-
-        if (h->released) {
-            h->released = false;
-            h->file     = file;
-            h->line     = line;
-            result      = h;
-
-            goto finish_setup;
-        }
-
-        h++;
-    }
-
-    int64_t heap_id     = n00b_next_heap_index++;
-    int     entry_index = heap_id % n00b_heap_entries_pp;
-
-    if (!entry_index) {
-        n00b_add_heap_entry_page();
-    }
-
-    result               = n00b_cur_heap_page + entry_index;
-    result->heap_id      = heap_id;
-    result->alloc_count  = 0;
-    result->first_arena  = NULL;
-    result->newest_arena = NULL;
-    result->roots        = NULL;
-    result->to_finalize  = NULL;
-    result->pinned       = false;
-    result->released     = false;
-    result->file         = file;
-    result->line         = line;
-
-    if (!heap_id) {
-        n00b_default_heap = result;
-    }
-
-finish_setup:
-    if (byte_len) {
-        n00b_add_arena(result, byte_len);
-    }
-
-    n00b_heap_creation_lock_release();
-
-    return result;
-}
-
-void
-n00b_delete_heap(n00b_heap_t *h)
-{
-    n00b_heap_clear(h);
-    bzero(((char *)h) + sizeof(int64_t),
-          sizeof(n00b_heap_t) - sizeof(int64_t));
-    h->released = true;
-}
-
-// The wrappers always use the global arena.
-//
-// The first set of wrappers is used by hatrack, so conforms to its
-// API, even though we ignore many of the parameters.
-#if !defined(HATRACK_ALLOC_PASS_LOCATION)
-#error
+    hatrack_zarray_new_cell(h->roots, (void *)&ri);
+    ri->num_items = l;
+    ri->ptr       = p;
+#ifdef N00B_ADD_ALLOC_LOC_INFO
+    ri->file = file;
+    ri->line = line;
 #endif
-
-void *
-n00b_malloc_wrap(size_t size, void *arg, char *file, int line)
-{
-    void *result = _n00b_heap_alloc(NULL,
-                                    size,
-                                    arg
-                                        N00B_ALLOC_XPARAM);
-
-    return result;
 }
 
 void
-n00b_free_wrap(void *p, size_t sz, void *arg, char *file, int line)
+_n00b_heap_register_dynamic_root(n00b_heap_t *h,
+                                 void        *p,
+                                 uint64_t l
+                                     N00B_ALLOC_XTRA)
 {
-    bzero(p, sz);
-}
+    int                  max = h->roots ? hatrack_zarray_len(h->roots) : 0;
+    uint64_t             id  = (uint64_t)n00b_thread_self();
+    n00b_gc_root_tinfo_t expect;
+    n00b_gc_root_tinfo_t new = {.thread_id = id >> 1, .inactive = false};
 
-void *
-n00b_realloc_wrap(void  *p,
-                  size_t ig,
-                  size_t len,
-                  void  *arg,
-                  char  *file,
-                  int    line)
-{
-    if (p == NULL) {
-        return n00b_malloc_wrap(len, NULL N00B_ALLOC_XPARAM);
-    }
+    for (int i = 0; i < max; i++) {
+        n00b_gc_root_info_t *ri = hatrack_zarray_cell_address(h->roots, i);
+        expect.thread_id        = 0;
+        expect.inactive         = true;
 
-    n00b_assert(n00b_in_heap(p));
-
-    n00b_alloc_hdr *hdr = n00b_object_header(p);
-    n00b_assert(hdr->guard == n00b_gc_guard);
-
-    if (len + N00B_EXTRA_MEMCHECK_BYTES <= hdr->alloc_len) {
-        return p;
-    }
-
-    void *result = n00b_malloc_wrap(len, arg, file, line);
-    memcpy(result, p, hdr->alloc_len - N00B_EXTRA_MEMCHECK_BYTES);
-
-    return result;
-}
-
-// Compat versions only ever have one argument, and don't track
-// allocation location (it'll point here).  These are only necessary
-// when we have N00B_ADD_ALLOC_LOC_INFO on; otherwise they get
-// #defined to forward to the wrap versions.
-
-void *
-n00b_malloc_compat(size_t sz)
-{
-    return n00b_malloc_wrap(sz, NULL, __FILE__, __LINE__);
-}
-
-void *
-n00b_realloc_compat(void *old, size_t len)
-{
-    return n00b_realloc_wrap(old, len, len, NULL, __FILE__, __LINE__);
-}
-
-void
-n00b_free_compat(void *p)
-{
-}
-
-static inline bool
-n00b_heap_is_pinned(n00b_heap_t *h)
-{
-    return h->pinned || __n00b_collector_running;
-}
-
-void *
-_n00b_heap_alloc(n00b_heap_t *h,
-                 size_t       request_len,
-                 n00b_mem_scan_fn scan
-                     N00B_ALLOC_XTRA)
-{
-    h = n00b_get_heap(h);
-
-    n00b_crit_t   prev_entry;
-    n00b_crit_t   new_entry;
-    int64_t       alloc_len = n00b_calculate_alloc_len(request_len);
-    n00b_arena_t *newest_arena;
-
-    // #if defined(N00B_DEBUG) && defined(N00B_ADD_ALLOC_LOC_INFO)
-    //     _n00b_watch_scan(file, line);
-    // #endif
-
-    // Since other heaps than ours need to collect too, always
-    // check in at least once.
-    n00b_gts_checkin();
-
-    while (true) {
-        newest_arena = h->newest_arena;
-        prev_entry   = atomic_read(&h->ptr);
-
-        if (((void *)prev_entry.next_alloc) < newest_arena->addr_start
-            || ((void *)prev_entry.next_alloc) >= newest_arena->addr_end) {
-            // Someone should be installing a new arena (if h->pinned)
-            // or collecting otherwise.
-            if (__n00b_collector_running) {
-                goto emergency_arena;
-            }
-
-            n00b_gts_checkin();
-            continue;
+        if (CAS(&ri->tinfo, &expect, new)) {
+            ri->num_items = l;
+            ri->ptr       = p;
+#ifdef N00B_ADD_ALLOC_LOC_INFO
+            ri->file = file;
+            ri->line = line;
+#endif
+            return;
         }
-        // Try to reserve things.
+    }
+    n00b_heap_register_root(h, p, l);
+}
 
-        new_entry.next_alloc = (void *)((char *)prev_entry.next_alloc)
-                             + alloc_len;
-        new_entry.thread = n00b_thread_self();
+void
+n00b_heap_remove_root(n00b_heap_t *h, void *ptr)
+{
+    int32_t max = atomic_load(&h->roots->length);
 
-        if (CAS(&h->ptr, &prev_entry, new_entry)) {
-            if (((void *)new_entry.next_alloc) >= newest_arena->addr_end) {
-                // We won, but we lost because there's not enough
-                // room left in the current arena.
-                if (n00b_heap_is_pinned(h)) {
-emergency_arena:
-                    n00b_add_arena(h,
-                                   n00b_max(alloc_len,
-                                            N00B_START_SCRATCH_HEAP_SIZE));
-                    continue;
-                }
-                else {
-                    n00b_heap_collect(h, alloc_len);
-                }
-                continue;
-            }
+    for (int i = 0; i < max; i++) {
+        n00b_gc_root_info_t *ri = hatrack_zarray_cell_address(h->roots, i);
+        if (ri->ptr == ptr) {
+            ri->num_items = 0;
+            ri->ptr       = NULL;
 
+            n00b_gc_root_tinfo_t ti = {.thread_id = 0, .inactive = true};
+            atomic_store(&ri->tinfo, ti);
+        }
+    }
+}
+
+n00b_alloc_hdr *
+n00b_find_allocation_record(void *addr)
+{
+    if (((uint64_t)addr) & 0x0000000000000007) {
+        addr = (void *)(((uint64_t)addr) & ~0x0000000000000007ULL);
+    }
+
+    void       **p = (void **)addr;
+    n00b_heap_t *h = n00b_addr_find_heap(p);
+
+    if (!h) {
+        return NULL;
+    }
+
+    n00b_arena_t *a = h->first_arena;
+    while (true) {
+        if (!a) {
+            return NULL;
+        }
+        if (addr >= a->addr_start && addr < a->addr_end) {
+            break;
+        }
+        a = a->successor;
+    }
+
+    while (p > (void **)a->addr_start) {
+        // If we crash here do to an access protection issue, but the
+        // address crashes w/ an access error, it's been mprotected to
+        // PRTC_NONE, which should only be for a full read guard.
+        //
+        // Add after the protected region the N00B_GC_PAGEJUMP sentinel.
+        if (*(uint64_t *)p == n00b_gc_guard) {
             break;
         }
 
-        n00b_gts_checkin();
+        if (*(uint64_t *)p == N00B_GC_PAGEJUMP) {
+            // We added a page plus a two word sentinel.
+            p -= (n00b_page_bytes / sizeof(void **));
+            p -= 2;
+            continue;
+        }
+
+        --p;
     }
 
-    atomic_fetch_add(&h->alloc_count, 1);
+    return (n00b_alloc_hdr *)p;
+}
 
-    n00b_alloc_hdr *hdr = prev_entry.next_alloc;
+static n00b_system_finalizer_fn system_finalizer = NULL;
 
-    hdr->guard     = n00b_gc_guard;
-    hdr->alloc_len = alloc_len;
+void
+n00b_gc_set_system_finalizer(n00b_system_finalizer_fn fn)
+{
+    system_finalizer = fn;
+}
 
-    if (scan != N00B_GC_SCAN_NONE) {
-        hdr->n00b_ptr_scan = true;
-    }
+static hatrack_mem_manager_t hatrack_manager = {
+    .mallocfn  = n00b_malloc_wrap,
+    .zallocfn  = n00b_malloc_wrap,
+    .reallocfn = n00b_realloc_wrap,
+    .freefn    = n00b_free_wrap,
+    .arg       = NULL,
+};
 
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-    hdr->alloc_file = file;
-    hdr->alloc_line = line;
-#endif
-
-#if defined(N00B_FULL_MEMCHECK)
-    uint64_t *guard_loc = ((uint64_t *)(((char *)hdr) + hdr->alloc_len)) - 1;
-    *guard_loc          = n00b_end_guard;
-#endif
-
-#if defined(N00B_WARN_ON_ZERO_ALLOCS)
-    if (orig_len == 0) {
-        fprintf(stderr,
-                "Memcheck zero-byte alloc from %s:%d (record @%p)\n",
-                file,
-                line,
-                raw);
-    }
-#endif
-
-    return hdr->data;
+void
+n00b_initialize_gc(void)
+{
+    n00b_create_alloc_guards();
+    n00b_discover_page_info();
+    n00b_setup_heap_info();
+    n00b_create_first_heaps();
+    hatrack_setmallocfns(&hatrack_manager);
 }

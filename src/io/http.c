@@ -23,28 +23,28 @@ format_cookies(n00b_dict_t *cookies)
     int                  len  = n * 2 + 1;
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_utf8_t *s = n00b_to_utf8(view[i].key);
-        view[i].key    = s;
-        len += n00b_str_byte_len(s);
+        n00b_string_t *s = view[i].key;
+        view[i].key      = s;
+        len += n00b_string_byte_len(s);
 
-        s             = n00b_to_utf8(view[i].value);
+        s             = view[i].value;
         view[i].value = s;
-        len += n00b_str_byte_len(s);
+        len += n00b_string_byte_len(s);
     }
 
     char *res = n00b_gc_raw_alloc(len, N00B_GC_SCAN_NONE);
     char *p   = res;
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_utf8_t *s = view[i].key;
-        int          l = n00b_str_byte_len(s);
+        n00b_string_t *s = view[i].key;
+        int            l = n00b_string_byte_len(s);
 
         memcpy(p, s->data, l);
         p += l;
         *p++ = '=';
 
         s = view[i].value;
-        l = n00b_str_byte_len(s);
+        l = n00b_string_byte_len(s);
 
         memcpy(p, s->data, l);
         p += l;
@@ -93,51 +93,52 @@ n00b_basic_http_set_gc_bits(uint64_t *bitmap, n00b_basic_http_t *self)
     n00b_mark_raw_to_addr(bitmap, self, &self->errbuf);
 }
 
-#define HTTP_CORE_COMMON_START(provided_url, vararg_name)   \
-    n00b_basic_http_response_t *result;                     \
-    int64_t                     connect_timeout = -1;       \
-    int64_t                     total_timeout   = -1;       \
-    n00b_str_t                 *aws_sig         = NULL;     \
-    n00b_str_t                 *access_key      = NULL;     \
-    n00b_dict_t                *cookies         = NULL;     \
-    n00b_basic_http_t          *connection      = NULL;     \
-                                                            \
-    n00b_karg_only_init(vararg_name);                       \
-    n00b_kw_int64("connect_timeout", connect_timeout);      \
-    n00b_kw_int64("total_timeout", total_timeout);          \
-    n00b_kw_ptr("aws_sig", aws_sig);                        \
-    n00b_kw_ptr("access_key", access_key);                  \
-    n00b_kw_ptr("cookies", cookies);                        \
-                                                            \
-    connection = n00b_new(n00b_type_http(),                 \
-                          n00b_kw("url",                    \
-                                  n00b_ka(provided_url),    \
-                                  "connect_timeout",        \
-                                  n00b_ka(connect_timeout), \
-                                  "total_timeout",          \
-                                  n00b_ka(total_timeout),   \
-                                  "aws_sig",                \
-                                  n00b_ka(aws_sig),         \
-                                  "access_key",             \
-                                  n00b_ka(access_key),      \
-                                  "cookies",                \
-                                  n00b_ka(cookies)));       \
-    result     = n00b_gc_alloc_mapped(n00b_basic_http_response_t, N00B_GC_SCAN_ALL)
+#define HTTP_CORE_COMMON_START(provided_url, vararg_name)         \
+    n00b_basic_http_response_t *result;                           \
+    int64_t                     connect_timeout = -1;             \
+    int64_t                     total_timeout   = -1;             \
+    n00b_string_t              *aws_sig         = NULL;           \
+    n00b_string_t              *access_key      = NULL;           \
+    n00b_dict_t                *cookies         = NULL;           \
+    n00b_basic_http_t          *connection      = NULL;           \
+                                                                  \
+    n00b_karg_only_init(vararg_name);                             \
+    n00b_kw_int64("connect_timeout", connect_timeout);            \
+    n00b_kw_int64("total_timeout", total_timeout);                \
+    n00b_kw_ptr("aws_sig", aws_sig);                              \
+    n00b_kw_ptr("access_key", access_key);                        \
+    n00b_kw_ptr("cookies", cookies);                              \
+                                                                  \
+    connection = n00b_new(n00b_type_http(),                       \
+                          n00b_kw("url",                          \
+                                  n00b_ka(provided_url),          \
+                                  "connect_timeout",              \
+                                  n00b_ka(connect_timeout),       \
+                                  "total_timeout",                \
+                                  n00b_ka(total_timeout),         \
+                                  "aws_sig",                      \
+                                  n00b_ka(aws_sig),               \
+                                  "access_key",                   \
+                                  n00b_ka(access_key),            \
+                                  "cookies",                      \
+                                  n00b_ka(cookies)));             \
+    result     = n00b_gc_alloc_mapped(n00b_basic_http_response_t, \
+                                  N00B_GC_SCAN_ALL)
 
-#define HTTP_CORE_COMMON_END()                             \
-    n00b_basic_http_run_request(connection);               \
-    result->code = connection->code;                       \
-                                                           \
-    if (connection->errbuf && connection->errbuf[0]) {     \
-        result->error = n00b_new_utf8(connection->errbuf); \
-    }                                                      \
-                                                           \
-    result->contents = connection->buf;                    \
-                                                           \
+#define HTTP_CORE_COMMON_END()                            \
+    n00b_basic_http_run_request(connection);              \
+    result->code = connection->code;                      \
+                                                          \
+    if (connection->errbuf && connection->errbuf[0]) {    \
+        result->error = n00b_cstring(connection->errbuf); \
+    }                                                     \
+                                                          \
+    result->contents = connection->buf;                   \
+                                                          \
     return result
 
 n00b_basic_http_response_t *
-_n00b_http_get(n00b_str_t *url, ...)
+_n00b_http_get(n00b_string_t *url, ...)
 {
     HTTP_CORE_COMMON_START(url, url);
     n00b_basic_http_raw_setopt(connection, CURLOPT_HTTPGET, n00b_vp(1L));
@@ -145,7 +146,7 @@ _n00b_http_get(n00b_str_t *url, ...)
 }
 
 n00b_basic_http_response_t *
-_n00b_http_upload(n00b_str_t *url, n00b_buf_t *data, ...)
+_n00b_http_upload(n00b_string_t *url, n00b_buf_t *data, ...)
 {
     // Does NOT make a copy of the buffer.
 
@@ -164,12 +165,12 @@ _n00b_http_upload(n00b_str_t *url, n00b_buf_t *data, ...)
 static void
 n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
 {
-    int64_t       connect_timeout = -1;
-    int64_t       total_timeout   = -1;
-    n00b_str_t   *url             = NULL;
-    n00b_str_t   *aws_sig         = NULL;
-    n00b_str_t   *access_key      = NULL;
-    n00b_dict_t  *cookies         = NULL;
+    int64_t        connect_timeout = -1;
+    int64_t        total_timeout   = -1;
+    n00b_string_t *url             = NULL;
+    n00b_string_t *aws_sig         = NULL;
+    n00b_string_t *access_key      = NULL;
+    n00b_dict_t   *cookies         = NULL;
     n00b_stream_t *output_stream   = NULL;
 
     ensure_curl();
@@ -193,11 +194,13 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
     self->curl = curl_easy_init();
 
     if (url) {
-        n00b_basic_http_raw_setopt(self, CURLOPT_URL, n00b_to_utf8(url)->data);
+        n00b_basic_http_raw_setopt(self, CURLOPT_URL, url->data);
     }
 
     if (total_timeout >= 0 && total_timeout > connect_timeout) {
-        n00b_basic_http_raw_setopt(self, CURLOPT_TIMEOUT_MS, n00b_vp(total_timeout));
+        n00b_basic_http_raw_setopt(self,
+                                   CURLOPT_TIMEOUT_MS,
+                                   n00b_vp(total_timeout));
     }
 
     if (connect_timeout >= 0) {
@@ -207,11 +210,11 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
     }
 
     if (aws_sig != NULL) {
-        n00b_basic_http_raw_setopt(self, CURLOPT_AWS_SIGV4, n00b_to_utf8(aws_sig)->data);
+        n00b_basic_http_raw_setopt(self, CURLOPT_AWS_SIGV4, aws_sig->data);
     }
 
     if (access_key != NULL) {
-        n00b_basic_http_raw_setopt(self, CURLOPT_USERPWD, n00b_to_utf8(access_key)->data);
+        n00b_basic_http_raw_setopt(self, CURLOPT_USERPWD, access_key->data);
     }
 
     if (cookies) {
@@ -235,8 +238,7 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
 }
 
 const n00b_vtable_t n00b_basic_http_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_basic_http_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)n00b_basic_http_set_gc_bits,
         [N00B_BI_FINALIZER]   = (n00b_vtable_entry)n00b_basic_http_teardown,

@@ -28,45 +28,48 @@ ptree(void *v, char *txt)
     }
 
     n00b_tree_node_t *t = (n00b_tree_node_t *)v;
-    n00b_printf("[h2]{}", n00b_new_utf8(txt));
+    n00b_printf("«em2»«#»", n00b_new_string(txt));
 
-    n00b_print(n00b_grid_tree_new(t,
-                                  n00b_kw("callback",
-                                          n00b_ka(n00b_repr_parse_node))));
+    n00b_print(n00b_tree_format(t,
+                                n00b_kw("callback",
+                                        n00b_ka(n00b_repr_parse_node))));
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 dei_base(n00b_parser_t *p, n00b_earley_item_t *ei)
 {
     n00b_assert(ei);
     n00b_list_t *repr = n00b_repr_earley_item(p, ei, 0);
 
-    return n00b_cstr_format(" [em]{}:{}[/] {} ({})  [reverse]{}[/]",
-                            ei->estate_id,
-                            ei->eitem_index,
-                            n00b_list_get(repr, 1, NULL),
-                            n00b_list_get(repr, 4, NULL),
-                            n00b_list_get(repr, 5, NULL));
+    return n00b_cformat(" «em4»«#»:«#»«/» «#» («#»)  «reverse»«#»«/»",
+                        ei->estate_id,
+                        ei->eitem_index,
+                        n00b_list_get(repr, 1, NULL),
+                        n00b_list_get(repr, 4, NULL),
+                        n00b_list_get(repr, 5, NULL));
 }
 
 static void
-_dei(n00b_parser_t *p, n00b_earley_item_t *start, n00b_earley_item_t *end, char *s)
+_dei(n00b_parser_t      *p,
+     n00b_earley_item_t *start,
+     n00b_earley_item_t *end,
+     char               *s)
 {
-    n00b_utf8_t *custom = s ? n00b_rich_lit(s) : n00b_rich_lit("[h2]dei:[/] ");
-    n00b_utf8_t *s1     = dei_base(p, start);
-    n00b_utf8_t *s2     = NULL;
-    n00b_utf8_t *to_print;
+    n00b_string_t *custom = s ? n00b_crich(s) : n00b_crich("«em2»dei:«/» ");
+    n00b_string_t *s1     = dei_base(p, start);
+    n00b_string_t *s2     = NULL;
+    n00b_string_t *to_print;
 
     if (end) {
         s2 = dei_base(p, end);
 
-        to_print = n00b_str_concat(custom, n00b_rich_lit(" [h6]Top: "));
-        to_print = n00b_str_concat(to_print, s1);
-        to_print = n00b_str_concat(to_print, n00b_rich_lit(" [h6]End: "));
-        to_print = n00b_str_concat(to_print, s2);
+        to_print = n00b_string_concat(custom, n00b_crich(" «em6»Top: "));
+        to_print = n00b_string_concat(to_print, s1);
+        to_print = n00b_string_concat(to_print, n00b_crich(" «em6»End: "));
+        to_print = n00b_string_concat(to_print, s2);
     }
     else {
-        to_print = n00b_str_concat(custom, s1);
+        to_print = n00b_string_concat(custom, s1);
     }
 
     n00b_print(to_print);
@@ -120,7 +123,7 @@ n00b_parse_node_hash(n00b_tree_node_t *t)
         tinfo |= (uint64_t)pn->info.token->index;
         n00b_sha_int_update(sha, tinfo);
 
-        n00b_utf8_t *s = pn->info.token->value;
+        n00b_string_t *s = pn->info.token->value;
         if (s) {
             n00b_sha_string_update(sha, s);
         }
@@ -177,23 +180,23 @@ add_penalty_info(n00b_grammar_t    *g,
 static void
 add_penalty_annotation(n00b_parse_node_t *pn)
 {
-    n00b_utf8_t *s = NULL;
+    n00b_string_t *s = NULL;
 
     if (pn->missing) {
-        s = n00b_cstr_format(" [em i](Missing token before position {})",
-                             (uint64_t)pn->penalty_location);
+        s = n00b_cformat(" «em»«i»(Missing token before position #)",
+                         (uint64_t)pn->penalty_location);
     }
 
     if (pn->bad_prefix) {
-        s = n00b_cstr_format(" [em i](Unexpected token at position {})",
-                             (uint64_t)pn->penalty_location);
+        s = n00b_cformat(" «em»«i»(Unexpected token at position #)",
+                         (uint64_t)pn->penalty_location);
     }
 
     if (!s) {
-        s = n00b_rich_lit(" [em i](Custom Penalty)");
+        s = n00b_crich(" «em»«i»(Custom Penalty)");
     }
 
-    pn->info.name = n00b_str_concat(pn->info.name, s);
+    pn->info.name = n00b_string_concat(pn->info.name, s);
 }
 
 n00b_list_t *
@@ -270,6 +273,7 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
     pn->rule_index = top->rule_index;
     pn->start      = top->estate_id;
     pn->end        = b->estate_id;
+    pn->noscan     = N00B_NOSCAN;
     // Will add in kid penalties too, later.
     pn->penalty    = b->penalty;
     pn->cost       = b->cost;
@@ -282,7 +286,7 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
     // by the match count. Everything else that might get down here is
     // a non-terminal, and the number of kids is determined by the
     // rule length
-    n00b_utf8_t *s1;
+    n00b_string_t *s1;
 
     if (b->subtree_info == N00B_SI_GROUP_END) {
         s1            = n00b_repr_nonterm(p->grammar,
@@ -305,7 +309,7 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
         n00b_list_append(result->slots, NULL);
     }
 
-    n00b_utf8_t *s2;
+    n00b_string_t *s2;
 
     if (top->group) {
         s2 = n00b_repr_group(p->grammar, top->group);
@@ -314,7 +318,7 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
         s2 = n00b_repr_rule(p->grammar, rule->contents, -1);
     }
 
-    pn->info.name = n00b_cstr_format("{}  [yellow]⟶  [/]{}", s1, s2);
+    pn->info.name = n00b_cformat("«#»  «em3»⟶  «/»«#»", s1, s2);
 
     if (rule->penalty_rule) {
         add_penalty_info(p->grammar, pn, rule);
@@ -470,8 +474,9 @@ new_epsilon_node(void)
 {
     n00b_parse_node_t *pn = n00b_gc_alloc_mapped(n00b_parse_node_t,
                                                  N00B_GC_SCAN_ALL);
-    pn->info.name         = n00b_new_utf8("ε");
+    pn->info.name         = n00b_cstring("ε");
     pn->id                = N00B_EMPTY_STRING;
+    pn->noscan            = N00B_NOSCAN;
 
     return pn;
 }
@@ -687,6 +692,7 @@ add_token_node(n00b_parser_t *p, nb_info_t *node, n00b_earley_item_t *ei)
     pn->start      = s->id;
     pn->end        = s->id + 1;
     pn->info.token = s->token;
+    pn->noscan     = N00B_NOSCAN;
     if (s->token) {
         pn->id = s->token->tid;
     }
@@ -707,7 +713,7 @@ add_epsilon_node(nb_info_t *node, n00b_earley_item_t *ei)
 
     pn->start       = ei->estate_id;
     pn->end         = ei->estate_id;
-    pn->info.name   = n00b_new_utf8("ε");
+    pn->info.name   = n00b_cstring("ε");
     pn->id          = N00B_EMPTY_STRING;
     ni->top_item    = ei;
     ni->bottom_item = ei;

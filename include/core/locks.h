@@ -128,6 +128,10 @@ n00b_raw_rw_lock_init(n00b_rw_lock_t *l)
 static inline bool
 _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
 {
+    if (!n00b_startup_complete || !n00b_get_tsi_ptr()) {
+        return true;
+    }
+
     switch (pthread_rwlock_trywrlock(&l->lock)) {
     case EDEADLK:
     case EBUSY:
@@ -149,6 +153,10 @@ _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
 static inline void
 _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
 {
+    if (!n00b_startup_complete || !n00b_get_tsi_ptr()) {
+        return;
+    }
+
     if (!_n00b_rw_lock_acquire_for_write_if_unlocked(l, f, ln)) {
         if (!l->nosleep) {
             n00b_gts_suspend();
@@ -177,6 +185,10 @@ _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
 static inline void
 n00b_rw_lock_release(n00b_rw_lock_t *l)
 {
+    if (!n00b_startup_complete) {
+        return;
+    }
+
     if (l->level && l->thread == pthread_self()) {
         l->level--;
         return;
@@ -246,6 +258,8 @@ n00b_rw_lock_release(n00b_rw_lock_t *l)
 
 #if defined(N00B_USE_INTERNAL_API)
 extern void n00b_setup_lock_registry(void);
+extern void n00b_lock_register(n00b_lock_t *);
+extern void n00b_lock_unregister(n00b_lock_t *);
 
 #if defined(N00B_DEBUG_LOCKS)
 extern void         n00b_debug_held_locks(char *, int);

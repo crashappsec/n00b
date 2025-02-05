@@ -2,17 +2,18 @@
 #include "n00b.h"
 
 n00b_stream_t *
-n00b_get_topic(n00b_utf8_t *topic, n00b_utf8_t *namespace)
+n00b_get_topic(n00b_string_t *topic, n00b_string_t *namespace)
 {
+    n00b_push_heap(n00b_default_heap);
     if (namespace == NULL) {
-        namespace = n00b_new_utf8("");
+        namespace = n00b_cached_empty_string();
     }
 
     n00b_dict_t *ns = hatrack_dict_get(n00b_system_event_base->io_topic_ns_cache,
                                        namespace,
                                        NULL);
     if (!ns) {
-        ns = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+        ns = n00b_dict(n00b_type_string(), n00b_type_ref());
         if (!hatrack_dict_add(n00b_system_event_base->io_topic_ns_cache,
                               namespace,
                               ns)) {
@@ -45,6 +46,7 @@ n00b_get_topic(n00b_utf8_t *topic, n00b_utf8_t *namespace)
         }
     }
 
+    n00b_pop_heap();
     return res;
 }
 
@@ -70,10 +72,10 @@ add_topic_proxy(n00b_stream_sub_t *info, n00b_stream_filter_t *filter)
     n00b_topic_cookie_t *cookie = info->cookie;
 
     n00b_io_set_repr(proxy,
-                     n00b_cstr_format("{}{} proxy{}",
-                                      n00b_new_utf8("["),
-                                      cookie->name,
-                                      n00b_new_utf8("]")));
+                     n00b_cformat("«#»«#» proxy«#»",
+                                  n00b_cached_lbracket(),
+                                  cookie->name,
+                                  n00b_cached_rbracket()));
 
     return result;
 }
@@ -127,16 +129,16 @@ n00b_check_topic(n00b_stream_t *t)
     }
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_topic_repr(n00b_stream_t *e)
 {
     n00b_topic_cookie_t *cookie = e->cookie;
 
     n00b_assert(cookie->name);
-    return n00b_cstr_format("{}topic [em]{}{}",
-                            n00b_new_utf8("["),
-                            cookie->name,
-                            n00b_new_utf8("]"));
+    return n00b_cformat("«#»topic «em»«#»«#»}",
+                        n00b_cached_lbracket(),
+                        cookie->name,
+                        n00b_cached_rbracket());
 }
 
 extern bool
@@ -207,10 +209,10 @@ n00b_message_init(n00b_message_t *obj, va_list args)
     obj->payload                = msg;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_message_repr(n00b_message_t *obj)
 {
-    return n00b_cstr_format("@{}: {}", obj->topic, obj->payload);
+    return n00b_cformat("@«#»: «#»", obj->topic, obj->payload);
 }
 
 static void *

@@ -16,7 +16,7 @@ static inline void
 no_more_containers()
 {
     all_container_types = n00b_gc_array_value_alloc(uint64_t,
-                                                   container_bitfield_words);
+                                                    container_bitfield_words);
 
     for (int i = 0; i < container_bitfield_words; i++) {
         all_container_types[i] = list_types[i] | dict_types[i];
@@ -29,13 +29,13 @@ initialize_container_bitfields()
 {
     if (list_types == NULL) {
         list_types  = n00b_gc_array_value_alloc(uint64_t,
-                                              container_bitfield_words);
-        dict_types  = n00b_gc_array_value_alloc(uint64_t,
-                                              container_bitfield_words);
-        set_types   = n00b_gc_array_value_alloc(uint64_t,
-                                             container_bitfield_words);
-        tuple_types = n00b_gc_array_value_alloc(uint64_t,
                                                container_bitfield_words);
+        dict_types  = n00b_gc_array_value_alloc(uint64_t,
+                                               container_bitfield_words);
+        set_types   = n00b_gc_array_value_alloc(uint64_t,
+                                              container_bitfield_words);
+        tuple_types = n00b_gc_array_value_alloc(uint64_t,
+                                                container_bitfield_words);
         n00b_gc_register_root(&list_types, 1);
         n00b_gc_register_root(&dict_types, 1);
         n00b_gc_register_root(&set_types, 1);
@@ -47,8 +47,8 @@ initialize_container_bitfields()
 
 void
 n00b_register_container_type(n00b_builtin_t    bi,
-                            n00b_lit_syntax_t st,
-                            bool             alt_syntax)
+                             n00b_lit_syntax_t st,
+                             bool              alt_syntax)
 {
     initialize_container_bitfields();
     int word = ((int)bi) / 64;
@@ -77,7 +77,7 @@ n00b_register_container_type(n00b_builtin_t    bi,
 void
 n00b_register_literal(n00b_lit_syntax_t st, char *mod, n00b_builtin_t bi)
 {
-    n00b_utf8_t *u8mod = n00b_new_utf8(mod);
+    n00b_string_t *u8mod = n00b_cstring(mod);
     if (!hatrack_dict_add(mod_map[st],
                           u8mod,
                           (void *)(int64_t)bi)) {
@@ -103,15 +103,14 @@ n00b_register_literal(n00b_lit_syntax_t st, char *mod, n00b_builtin_t bi)
 }
 
 n00b_builtin_t
-n00b_base_type_from_litmod(n00b_lit_syntax_t st, n00b_utf8_t *mod)
+n00b_base_type_from_litmod(n00b_lit_syntax_t st, n00b_string_t *mod)
 {
     n00b_builtin_t bi;
-    bool          found = false;
+    bool           found = false;
 
     if (mod == NULL) {
-        mod = n00b_new_utf8("");
+        mod = n00b_cached_empty_string();
     }
-    mod = n00b_to_utf8(mod);
 
     bi = (n00b_builtin_t)hatrack_dict_get(mod_map[st], mod, &found);
 
@@ -119,8 +118,8 @@ n00b_base_type_from_litmod(n00b_lit_syntax_t st, n00b_utf8_t *mod)
         return bi;
     }
     bi = (n00b_builtin_t)hatrack_dict_get(mod_map[st],
-                                         n00b_new_utf8("*"),
-                                         &found);
+                                          n00b_cached_star(),
+                                          &found);
     if (found) {
         return bi;
     }
@@ -133,7 +132,7 @@ n00b_init_literal_handling()
 {
     if (mod_map[0] == NULL) {
         for (int i = 0; i < ST_MAX; i++) {
-            mod_map[i] = n00b_dict(n00b_type_utf8(), n00b_type_int());
+            mod_map[i] = n00b_dict(n00b_type_string(), n00b_type_int());
         }
 
         n00b_gc_register_root(&mod_map[0], ST_MAX);
@@ -165,14 +164,12 @@ n00b_init_literal_handling()
         n00b_register_literal(ST_Hex, "char", N00B_T_CHAR);
         n00b_register_literal(ST_Float, "f", N00B_T_F64);
         n00b_register_literal(ST_Float, "f64", N00B_T_F64);
-        n00b_register_literal(ST_2Quote, "", N00B_T_UTF8);
-        n00b_register_literal(ST_2Quote, "*", N00B_T_UTF8);
-        n00b_register_literal(ST_2Quote, "u8", N00B_T_UTF8);
-        n00b_register_literal(ST_2Quote, "utf8", N00B_T_UTF8);
-        n00b_register_literal(ST_2Quote, "r", N00B_T_UTF8);
-        n00b_register_literal(ST_2Quote, "rich", N00B_T_UTF8);
-        n00b_register_literal(ST_2Quote, "u32", N00B_T_UTF32);
-        n00b_register_literal(ST_2Quote, "utf32", N00B_T_UTF32);
+        n00b_register_literal(ST_2Quote, "", N00B_T_STRING);
+        n00b_register_literal(ST_2Quote, "*", N00B_T_STRING);
+        n00b_register_literal(ST_2Quote, "u8", N00B_T_STRING);
+        n00b_register_literal(ST_2Quote, "utf8", N00B_T_STRING);
+        n00b_register_literal(ST_2Quote, "r", N00B_T_STRING);
+        n00b_register_literal(ST_2Quote, "rich", N00B_T_STRING);
         n00b_register_literal(ST_2Quote, "date", N00B_T_DATE);
         n00b_register_literal(ST_2Quote, "time", N00B_T_TIME);
         n00b_register_literal(ST_2Quote, "datetime", N00B_T_DATETIME);
@@ -181,19 +178,19 @@ n00b_init_literal_handling()
         n00b_register_literal(ST_2Quote, "ip", N00B_T_IPV4);
         n00b_register_literal(ST_2Quote, "sz", N00B_T_SIZE);
         n00b_register_literal(ST_2Quote, "size", N00B_T_SIZE);
-        n00b_register_literal(ST_2Quote, "url", N00B_T_UTF8);
+        n00b_register_literal(ST_2Quote, "url", N00B_T_STRING);
         n00b_register_literal(ST_1Quote, "", N00B_T_CHAR);
         n00b_register_literal(ST_1Quote, "c", N00B_T_CHAR);
         n00b_register_literal(ST_1Quote, "char", N00B_T_CHAR);
         n00b_register_literal(ST_1Quote, "b", N00B_T_BYTE);
         n00b_register_literal(ST_1Quote, "byte", N00B_T_BYTE);
-        n00b_register_literal(ST_List, "", N00B_T_XLIST);
-        n00b_register_literal(ST_List, "l", N00B_T_XLIST);
-        n00b_register_literal(ST_List, "flow", N00B_T_GRID);
-        n00b_register_literal(ST_List, "table", N00B_T_GRID);
-        n00b_register_literal(ST_List, "ol", N00B_T_GRID);
-        n00b_register_literal(ST_List, "ul", N00B_T_GRID);
-        n00b_register_literal(ST_List, "list", N00B_T_XLIST);
+        n00b_register_literal(ST_List, "", N00B_T_LIST);
+        n00b_register_literal(ST_List, "l", N00B_T_LIST);
+        n00b_register_literal(ST_List, "flow", N00B_T_TABLE);
+        n00b_register_literal(ST_List, "table", N00B_T_TABLE);
+        n00b_register_literal(ST_List, "ol", N00B_T_TABLE);
+        n00b_register_literal(ST_List, "ul", N00B_T_TABLE);
+        n00b_register_literal(ST_List, "list", N00B_T_LIST);
         // n00b_register_literal(ST_List, "f", N00B_T_FLIST);
         // n00b_register_literal(ST_List, "flist", N00B_T_FLIST);
         // n00b_register_literal(ST_List, "q", N00B_T_QUEUE);
@@ -220,12 +217,12 @@ n00b_init_literal_handling()
 }
 
 n00b_compile_error_t
-n00b_parse_simple_lit(n00b_token_t *tok, n00b_lit_syntax_t *kptr, n00b_utf8_t **lm)
+n00b_parse_simple_lit(n00b_token_t *tok, n00b_lit_syntax_t *kptr, n00b_string_t **lm)
 {
     n00b_init_literal_handling();
 
-    n00b_utf8_t         *txt = n00b_token_raw_content(tok);
-    n00b_utf8_t         *mod = n00b_to_utf8(tok->literal_modifier);
+    n00b_string_t       *txt = n00b_token_raw_content(tok);
+    n00b_string_t       *mod = tok->literal_modifier;
     n00b_lit_syntax_t    kind;
     n00b_compile_error_t err = n00b_err_no_error;
 
@@ -293,14 +290,14 @@ n00b_fix_litmod(n00b_token_t *tok, n00b_pnode_t *pnode)
     // the type.
 
     uint64_t             n;
-    n00b_dict_t          *d         = mod_map[tok->syntax];
-    n00b_type_t          *t         = n00b_type_resolve(pnode->type);
-    n00b_builtin_t        base_type = t->base_index;
+    n00b_dict_t         *d         = mod_map[tok->syntax];
+    n00b_type_t         *t         = n00b_type_resolve(pnode->type);
+    n00b_builtin_t       base_type = t->base_index;
     hatrack_dict_item_t *items     = hatrack_dict_items_sort(d, &n);
 
     for (unsigned int i = 0; i < n; i++) {
         if (base_type == (n00b_builtin_t)items[i].value) {
-            n00b_utf8_t         *lm = items[i].key;
+            n00b_string_t       *lm = items[i].key;
             n00b_vtable_t       *vtbl;
             n00b_literal_fn      fn;
             n00b_compile_error_t err = n00b_err_no_error;
@@ -382,7 +379,7 @@ n00b_get_list_bitfield()
     n00b_init_literal_handling();
 
     uint64_t *result = n00b_gc_array_value_alloc(uint64_t,
-                                                container_bitfield_words);
+                                                 container_bitfield_words);
     for (int i = 0; i < container_bitfield_words; i++) {
         result[i] = list_types[i];
     }
@@ -396,7 +393,7 @@ n00b_get_dict_bitfield()
     n00b_init_literal_handling();
 
     uint64_t *result = n00b_gc_array_value_alloc(uint64_t,
-                                                container_bitfield_words);
+                                                 container_bitfield_words);
     for (int i = 0; i < container_bitfield_words; i++) {
         result[i] = dict_types[i];
     }
@@ -410,7 +407,7 @@ n00b_get_set_bitfield()
     n00b_init_literal_handling();
 
     uint64_t *result = n00b_gc_array_value_alloc(uint64_t,
-                                                container_bitfield_words);
+                                                 container_bitfield_words);
     for (int i = 0; i < container_bitfield_words; i++) {
         result[i] = set_types[i];
     }
@@ -424,7 +421,7 @@ n00b_get_tuple_bitfield()
     n00b_init_literal_handling();
 
     uint64_t *result = n00b_gc_array_value_alloc(uint64_t,
-                                                container_bitfield_words);
+                                                 container_bitfield_words);
     for (int i = 0; i < container_bitfield_words; i++) {
         result[i] = tuple_types[i];
     }
@@ -438,7 +435,7 @@ n00b_get_all_containers_bitfield()
     n00b_init_literal_handling();
 
     uint64_t *result = n00b_gc_array_value_alloc(uint64_t,
-                                                container_bitfield_words);
+                                                 container_bitfield_words);
     for (int i = 0; i < container_bitfield_words; i++) {
         result[i] = all_container_types[i];
     }

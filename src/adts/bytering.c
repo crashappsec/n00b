@@ -11,11 +11,11 @@
 void
 n00b_bytering_init(n00b_bytering_t *self, va_list args)
 {
-    int64_t     copy_len  = 0;
-    char       *p         = NULL;
-    int64_t     alloc_len = -1;
-    n00b_str_t *str       = NULL;
-    n00b_buf_t *buffer    = NULL;
+    int64_t        copy_len  = 0;
+    char          *p         = NULL;
+    int64_t        alloc_len = -1;
+    n00b_string_t *str       = NULL;
+    n00b_buf_t    *buffer    = NULL;
 
     n00b_karg_va_init(args);
     n00b_kw_int64("length", alloc_len);
@@ -29,8 +29,7 @@ n00b_bytering_init(n00b_bytering_t *self, va_list args)
     n00b_static_lock_init(self->internal_lock);
 
     if (str) {
-        str      = n00b_to_utf8(str);
-        copy_len = n00b_str_byte_len(str);
+        copy_len = n00b_string_byte_len(str);
         p        = str->data;
     }
     if (buffer) {
@@ -152,7 +151,7 @@ n00b_bytering_to_buffer(n00b_bytering_t *l)
     return result;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_bytering_to_utf8(n00b_bytering_t *l)
 {
     return n00b_buf_to_utf8_string(n00b_bytering_to_buffer(l));
@@ -590,11 +589,10 @@ n00b_bytering_write_buffer(n00b_bytering_t *r, n00b_buf_t *b)
 }
 
 void
-n00b_bytering_write_string(n00b_bytering_t *r, n00b_str_t *s)
+n00b_bytering_write_string(n00b_bytering_t *r, n00b_string_t *s)
 {
     n00b_lock_acquire(&r->internal_lock);
-    s = n00b_to_utf8(s);
-    n00b_bytering_write_raw(r, s->data, n00b_str_byte_len(s));
+    n00b_bytering_write_raw(r, s->data, n00b_string_byte_len(s));
     n00b_lock_release(&r->internal_lock);
 }
 
@@ -646,9 +644,9 @@ n00b_bytering_write(n00b_bytering_t *r, void *obj)
 }
 
 static n00b_obj_t
-n00b_bytering_literal(n00b_utf8_t          *su8,
+n00b_bytering_literal(n00b_string_t        *su8,
                       n00b_lit_syntax_t     st,
-                      n00b_utf8_t          *lu8,
+                      n00b_string_t        *lu8,
                       n00b_compile_error_t *err)
 {
     char       *s      = su8->data;
@@ -680,13 +678,13 @@ n00b_bytering_literal(n00b_utf8_t          *su8,
 }
 
 // For now, just convert to a buffer.
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_bytering_to_str(n00b_bytering_t *r)
 {
     return n00b_to_str(n00b_bytering_to_buffer(r), n00b_type_buffer());
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_bytering_repr(n00b_bytering_t *r)
 {
     return n00b_repr(n00b_bytering_to_buffer(r));
@@ -707,8 +705,7 @@ n00b_bytering_advance_ptr(n00b_bytering_t *r, char **ptrp)
 }
 
 const n00b_vtable_t n00b_bytering_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)n00b_bytering_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)n00b_bytering_repr,
         [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_bytering_to_str,

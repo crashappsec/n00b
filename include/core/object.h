@@ -6,7 +6,6 @@
 extern const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS];
 
 extern n00b_type_t        *n00b_type_resolve(n00b_type_t *);
-extern n00b_utf8_t        *n00b_new_utf8(char *);
 static inline n00b_type_t *n00b_type_internal();
 static inline n00b_type_t *n00b_type_void();
 static inline n00b_type_t *n00b_type_i64();
@@ -106,12 +105,6 @@ n00b_base_type(n00b_obj_t user_object)
     return n00b_get_my_type(user_object)->base_index;
 }
 
-static inline n00b_utf8_t *
-n00b_base_type_name(n00b_obj_t user_object)
-{
-    return n00b_new_utf8((char *)n00b_object_type_info(user_object)->name);
-}
-
 // The first 2 words are pointers, but the first one is static.
 #define N00B_HEADER_SCAN_CONST 0x02ULL
 
@@ -147,6 +140,14 @@ n00b_is_null(void *n)
     return (n == NULL) && !n00b_in_heap(n);
 }
 
+static inline bool
+n00b_is_renderable(n00b_obj_t user_object)
+{
+    n00b_vtable_t *vt = n00b_vtable(user_object);
+
+    return vt && vt->methods[N00B_BI_RENDER] != NULL;
+}
+
 extern void n00b_scan_header_only(uint64_t *, int);
 
 #if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
@@ -161,10 +162,10 @@ extern n00b_obj_t _n00b_new(n00b_heap_t *, n00b_type_t *, ...);
     _n00b_new(n00b_default_heap, tid, N00B_VA(__VA_ARGS__))
 #endif
 
-extern n00b_str_t  *n00b_repr_explicit(void *, n00b_type_t *);
-extern n00b_str_t  *n00b_repr(void *);
-extern n00b_utf8_t *n00b_object_repr_opt(void *);
-extern n00b_str_t  *n00b_to_str(void *, n00b_type_t *);
+extern n00b_string_t  *n00b_repr_explicit(void *, n00b_type_t *);
+extern n00b_string_t  *n00b_repr(void *);
+extern n00b_string_t *n00b_object_repr_opt(void *);
+extern n00b_string_t  *n00b_to_str(void *, n00b_type_t *);
 extern bool         n00b_can_coerce(n00b_type_t *, n00b_type_t *);
 extern n00b_obj_t   n00b_coerce(void *, n00b_type_t *, n00b_type_t *);
 extern n00b_obj_t   n00b_coerce_object(const n00b_obj_t, n00b_type_t *);
@@ -183,17 +184,19 @@ extern n00b_obj_t   n00b_index_get(n00b_obj_t, n00b_obj_t);
 extern void         n00b_index_set(n00b_obj_t, n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_slice_get(n00b_obj_t, int64_t, int64_t);
 extern void         n00b_slice_set(n00b_obj_t, int64_t, int64_t, n00b_obj_t);
-extern n00b_str_t  *n00b_value_obj_repr(n00b_obj_t);
-extern n00b_str_t  *n00b_value_obj_to_str(n00b_obj_t);
+extern n00b_string_t  *n00b_value_obj_repr(n00b_obj_t);
+extern n00b_string_t  *n00b_value_obj_to_str(n00b_obj_t);
 extern n00b_type_t *n00b_get_item_type(n00b_obj_t);
 extern void        *n00b_get_view(n00b_obj_t, int64_t *);
 extern n00b_obj_t   n00b_container_literal(n00b_type_t *,
                                            n00b_list_t *,
-                                           n00b_utf8_t *);
+                                           n00b_string_t *);
 extern void         n00b_finalize_allocation(void *);
 extern n00b_obj_t   n00b_shallow(n00b_obj_t);
 extern void        *n00b_autobox(void *);
+extern n00b_list_t *n00b_render(n00b_obj_t, int64_t, int64_t);
 
+#ifdef N00B_USE_INTERNAL_API
 extern const n00b_vtable_t n00b_i8_type;
 extern const n00b_vtable_t n00b_u8_type;
 extern const n00b_vtable_t n00b_i32_type;
@@ -202,11 +205,8 @@ extern const n00b_vtable_t n00b_i64_type;
 extern const n00b_vtable_t n00b_u64_type;
 extern const n00b_vtable_t n00b_bool_type;
 extern const n00b_vtable_t n00b_float_type;
-extern const n00b_vtable_t n00b_u8str_vtable;
-extern const n00b_vtable_t n00b_u32str_vtable;
 extern const n00b_vtable_t n00b_buffer_vtable;
 extern const n00b_vtable_t n00b_grid_vtable;
-extern const n00b_vtable_t n00b_renderable_vtable;
 extern const n00b_vtable_t n00b_flexarray_vtable;
 extern const n00b_vtable_t n00b_queue_vtable;
 extern const n00b_vtable_t n00b_ring_vtable;
@@ -216,7 +216,6 @@ extern const n00b_vtable_t n00b_dict_vtable;
 extern const n00b_vtable_t n00b_set_vtable;
 extern const n00b_vtable_t n00b_list_vtable;
 extern const n00b_vtable_t n00b_sha_vtable;
-extern const n00b_vtable_t n00b_render_style_vtable;
 extern const n00b_vtable_t n00b_exception_vtable;
 extern const n00b_vtable_t n00b_type_spec_vtable;
 extern const n00b_vtable_t n00b_tree_vtable;
@@ -249,3 +248,9 @@ extern const n00b_vtable_t n00b_stream_vtable;
 extern const n00b_vtable_t n00b_message_vtable;
 extern const n00b_vtable_t n00b_bytering_vtable;
 extern const n00b_vtable_t n00b_file_vtable;
+extern const n00b_vtable_t n00b_text_element_vtable;
+extern const n00b_vtable_t n00b_box_props_vtable;
+extern const n00b_vtable_t n00b_theme_vtable;
+extern const n00b_vtable_t n00b_string_vtable;
+extern const n00b_vtable_t n00b_table_vtable;
+#endif

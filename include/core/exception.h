@@ -132,8 +132,7 @@
 #define N00B_TRY_END           N00B_LTRY_END(default_label)
 
 #if defined(N00B_DEBUG) && defined(N00B_BACKTRACE_SUPPORTED)
-extern n00b_grid_t                        *n00b_get_c_backtrace(int);
-extern thread_local n00b_exception_stack_t __exception_stack;
+extern n00b_table_t *n00b_get_c_backtrace(int);
 
 #define n00b_trace() n00b_get_c_backtrace(1)
 #else
@@ -147,11 +146,11 @@ extern thread_local n00b_exception_stack_t __exception_stack;
         __FILE__,                                            \
         __LINE__)
 
-#define N00B_RAISE(s, ...)                                      \
-    n00b_exception_raise(                                       \
-        n00b_alloc_str_exception(s __VA_OPT__(, ) __VA_ARGS__), \
-        n00b_trace(),                                           \
-        __FILE__,                                               \
+#define N00B_RAISE(s, ...)                                         \
+    n00b_exception_raise(                                          \
+        n00b_alloc_string_exception(s __VA_OPT__(, ) __VA_ARGS__), \
+        n00b_trace(),                                              \
+        __FILE__,                                                  \
         __LINE__)
 
 #define N00B_RERAISE()                                   \
@@ -163,9 +162,9 @@ extern thread_local n00b_exception_stack_t __exception_stack;
 n00b_exception_t *_n00b_alloc_exception(const char *s, ...);
 #define n00b_alloc_exception(s, ...) _n00b_alloc_exception(s, N00B_VA(__VA_ARGS__))
 
-n00b_exception_t *_n00b_alloc_str_exception(n00b_utf8_t *s, ...);
-#define n00b_alloc_str_exception(s, ...) \
-    _n00b_alloc_str_exception(s, N00B_VA(__VA_ARGS__))
+n00b_exception_t *_n00b_alloc_string_exception(n00b_string_t *s, ...);
+#define n00b_alloc_string_exception(s, ...) \
+    _n00b_alloc_string_exception(s, N00B_VA(__VA_ARGS__))
 
 enum : int64_t {
     N00B_EXCEPTION_OK,
@@ -178,15 +177,16 @@ void                    n00b_exception_free_frame(n00b_exception_frame_t *,
                                                   n00b_exception_stack_t *);
 void                    n00b_exception_uncaught(n00b_exception_t *);
 void                    n00b_exception_raise(n00b_exception_t *,
-                                             n00b_grid_t *,
+                                             n00b_table_t *,
                                              char *,
                                              int) __attribute((__noreturn__));
-n00b_utf8_t            *n00b_repr_exception_stack_no_vm(n00b_utf8_t *);
+n00b_string_t          *n00b_repr_exception_stack_no_vm(n00b_string_t *);
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 n00b_exception_get_file(n00b_exception_t *exception)
 {
-    return n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(exception->file)));
+    return n00b_new(n00b_type_string(),
+                    n00b_kw("cstring", n00b_ka(exception->file)));
 }
 
 static inline uint64_t
@@ -195,7 +195,7 @@ n00b_exception_get_line(n00b_exception_t *exception)
     return exception->line;
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 n00b_exception_get_message(n00b_exception_t *exception)
 {
     return exception->msg;
@@ -203,49 +203,33 @@ n00b_exception_get_message(n00b_exception_t *exception)
 
 void n00b_exception_register_uncaught_handler(void (*)(n00b_exception_t *));
 
-#define N00B_RAISE_SYS()                                                         \
-    {                                                                            \
-        char buf[BUFSIZ];                                                        \
-        strerror_r(errno, buf, BUFSIZ);                                          \
-        N00B_RAISE(n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(buf))), \
-                   n00b_kw("error_code", n00b_ka(errno)));                       \
+#define N00B_RAISE_SYS()                                                      \
+    {                                                                         \
+        char buf[BUFSIZ];                                                     \
+        strerror_r(errno, buf, BUFSIZ);                                       \
+        N00B_RAISE(n00b_cstring(buf), n00b_kw("error_code", n00b_ka(errno))); \
     }
 
-extern thread_local n00b_exception_stack_t __exception_stack;
-
-#if 0
-static inline void
-n00b_raise_errcode(int code)
-{
-    char msg[2048] = {
-        0,
-    };
-
-    if (strerror_r(code, msg, 2048)) {}
-    N00B_RAISE(n00b_new(n00b_type_utf8(), n00b_kw("cstring", n00b_ka(msg))));
-}
-#else
-#define n00b_raise_errcode(code)                                \
-    {                                                           \
-        char msg[2048] = {                                      \
-            0,                                                  \
-        };                                                      \
-        if (strerror_r(code, msg, 2048)) {}                     \
-        N00B_RAISE(n00b_new(n00b_type_utf8(),                   \
-                            n00b_kw("cstring", n00b_ka(msg)))); \
+#define n00b_raise_errcode(code)            \
+    {                                       \
+        char msg[2048] = {                  \
+            0,                              \
+        };                                  \
+        if (strerror_r(code, msg, 2048)) {} \
+        N00B_RAISE(n00b_cstring(msg));      \
     }
-#endif
 
 #define n00b_raise_errno() n00b_raise_errcode(errno)
 
-#define n00b_unreachable()                                  \
-    {                                                       \
-        n00b_utf8_t *s = n00b_cstr_format(                  \
-            "Reached code that the developer "              \
-            "(wrongly) believed was unreachable, at {}:{}", \
-            n00b_new_utf8(__FILE__),                        \
-            n00b_box_i32(__LINE__));                        \
-        N00B_RAISE(s);                                      \
+#define n00b_unreachable()                                    \
+    {                                                         \
+        n00b_string_t *s = n00b_cformat(                      \
+            "Reached code that the developer "                \
+            "(wrongly) believed was unreachable, at «#»:«#»", \
+            n00b_cstring(__FILE__),                           \
+            (int64_t)__LINE__);                               \
+        N00B_RAISE(s);                                        \
     }
 
 extern void n00b_default_uncaught_handler(n00b_exception_t *exception);
+extern void n00b_print_exception(n00b_exception_t *, n00b_string_t *);

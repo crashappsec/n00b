@@ -32,7 +32,7 @@ typedef struct {
         section_vinfo section;
         field_vinfo   field;
     } info;
-    n00b_utf8_t *path;
+    n00b_string_t *path;
     bool         field;
     bool         checked;
 } spec_node_t;
@@ -48,19 +48,19 @@ typedef struct {
     bool         at_object_name;
 } validation_ctx;
 
-static n00b_utf8_t *
+static n00b_string_t *
 current_path(validation_ctx *ctx)
 {
     spec_node_t *s = ctx->cur;
 
     if (!s->path || !strlen(s->path->data)) {
-        return n00b_new_utf8("the configuration root");
+        return n00b_cstring("the configuration root");
     }
 
-    return n00b_cstr_format("section {}", s->path);
+    return n00b_cformat("section «#»", s->path);
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 loc_from_decl(spec_node_t *n)
 {
     if (n->field) {
@@ -71,7 +71,7 @@ loc_from_decl(spec_node_t *n)
     }
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 loc_from_attr(validation_ctx *ctx, n00b_attr_contents_t *attr)
 {
     n00b_zinstruction_t *ins = attr->lastset;
@@ -79,24 +79,22 @@ loc_from_attr(validation_ctx *ctx, n00b_attr_contents_t *attr)
 
     if (!ins) {
         n00b_assert(attr->is_set);
-        return n00b_new_utf8("Pre-execution");
+        return n00b_cstring("Pre-execution");
     }
 
     mi = n00b_list_get(ctx->vm->obj->module_contents, ins->module_id, NULL);
 
     if (mi->full_uri) {
-        return n00b_cstr_format("[b]{}:{:n}:[/]",
-                                mi->full_uri,
-                                n00b_box_i64(ins->line_no));
+        return n00b_cformat("«b»«#»:«#:i»:", mi->full_uri, ins->line_no);
     }
 
-    return n00b_cstr_format("[b]{}.{}:{:n}:[/]",
-                            mi->package,
-                            mi->name,
-                            n00b_box_i64(ins->line_no));
+    return n00b_cformat("«b»«#».«#»:«#:i»:",
+                        mi->package,
+                        mi->name,
+                        ins->line_no);
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 best_field_loc(validation_ctx *ctx, spec_node_t *n)
 {
     if (n->info.field.record->is_set) {
@@ -105,22 +103,22 @@ best_field_loc(validation_ctx *ctx, spec_node_t *n)
     return loc_from_decl(n);
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 spec_info_if_used(validation_ctx *ctx, spec_node_t *n)
 {
     if (n->info.field.record->is_set) {
-        return n00b_cstr_format("(field {} defined at: {})",
-                                n->info.field.field_spec->name,
-                                loc_from_decl(n));
+        return n00b_cformat("(field «#» defined at: «#»",
+                            n->info.field.field_spec->name,
+                            loc_from_decl(n));
     }
 
-    return n00b_new_utf8("");
+    return n00b_cached_empty_string();
 }
 
 static void
 _n00b_validation_error(validation_ctx      *ctx,
                        n00b_compile_error_t code,
-                       n00b_utf8_t         *loc,
+                       n00b_string_t         *loc,
                        ...)
 {
     va_list args;
@@ -139,13 +137,13 @@ _n00b_validation_error(validation_ctx      *ctx,
     _n00b_validation_error(ctx, code, N00B_VA(__VA_ARGS__))
 
 static spec_node_t *
-spec_node_alloc(validation_ctx *ctx, n00b_utf8_t *path)
+spec_node_alloc(validation_ctx *ctx, n00b_string_t *path)
 {
     spec_node_t   *res  = n00b_gc_alloc_mapped(spec_node_t, N00B_GC_SCAN_ALL);
     section_vinfo *info = &res->info.section;
 
-    info->contained_sections = n00b_dict(n00b_type_utf8(), n00b_type_ref());
-    info->contained_fields   = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    info->contained_sections = n00b_dict(n00b_type_string(), n00b_type_ref());
+    info->contained_fields   = n00b_dict(n00b_type_string(), n00b_type_ref());
     res->path                = path;
 
     hatrack_dict_put(ctx->section_cache, path, res);
@@ -155,15 +153,15 @@ spec_node_alloc(validation_ctx *ctx, n00b_utf8_t *path)
 
 static spec_node_t *
 init_section_node(validation_ctx *ctx,
-                  n00b_utf8_t    *path,
-                  n00b_utf8_t    *section,
+                  n00b_string_t    *path,
+                  n00b_string_t    *section,
                   n00b_list_t    *subitems)
 {
     // This sets up data structures from the section cache, but does not
     // populate any field information whatsoever.
 
     spec_node_t *sec_info;
-    n00b_utf8_t *full_path;
+    n00b_string_t *full_path;
     bool         alloced = false;
 
     if (path == NULL) {
@@ -199,7 +197,7 @@ init_section_node(validation_ctx *ctx,
     }
 
     int          n            = n00b_list_len(subitems);
-    n00b_utf8_t *next_section = n00b_list_get(subitems, 0, NULL);
+    n00b_string_t *next_section = n00b_list_get(subitems, 0, NULL);
     n00b_list_t *next_items   = NULL;
 
     if (n > 1) {
@@ -236,18 +234,18 @@ init_section_node(validation_ctx *ctx,
 }
 
 static inline void
-init_one_section(validation_ctx *ctx, n00b_utf8_t *path)
+init_one_section(validation_ctx *ctx, n00b_string_t *path)
 {
     if (!path) {
         ctx->section_tree = init_section_node(ctx,
                                               NULL,
-                                              n00b_new_utf8(""),
+                                              n00b_cached_empty_string(),
                                               NULL);
         return;
     }
 
-    n00b_list_t *parts = n00b_u8_map(n00b_str_split(path, n00b_new_utf8(".")));
-    n00b_utf8_t *next  = n00b_list_get(parts, 0, NULL);
+    n00b_list_t *parts = n00b_string_split(path, n00b_cached_period());
+    n00b_string_t *next  = n00b_list_get(parts, 0, NULL);
 
     parts = n00b_list_get_slice(parts, 1, n00b_list_len(parts));
 
@@ -271,14 +269,14 @@ spec_init_validation(validation_ctx *ctx, n00b_vm_t *runtime)
 
     ctx->attrs         = runtime->attrs;
     ctx->spec          = runtime->obj->attr_spec;
-    ctx->section_cache = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    ctx->section_cache = n00b_dict(n00b_type_string(), n00b_type_ref());
     ctx->cur           = ctx->spec->root_section;
     ctx->errors        = n00b_list(n00b_type_ref());
 
     init_one_section(ctx, NULL);
 
     uint64_t      n;
-    n00b_utf8_t **sections = hatrack_set_items_sort(runtime->all_sections, &n);
+    n00b_string_t **sections = hatrack_set_items_sort(runtime->all_sections, &n);
 
     for (unsigned int i = 0; i < n; i++) {
         init_one_section(ctx, sections[i]);
@@ -292,7 +290,7 @@ spec_init_validation(validation_ctx *ctx, n00b_vm_t *runtime)
 }
 
 static inline void
-mark_required_field(n00b_flags_t *flags, n00b_list_t *req, n00b_utf8_t *name)
+mark_required_field(n00b_flags_t *flags, n00b_list_t *req, n00b_string_t *name)
 {
     for (int i = 0; i < n00b_list_len(req); i++) {
         n00b_spec_field_t *fspec = n00b_list_get(req, i, NULL);
@@ -332,7 +330,7 @@ validate_field_contents(validation_ctx      *ctx,
     }
 
     for (unsigned int i = 0; i < num_fields; i++) {
-        n00b_utf8_t          *name   = fields[i].key;
+        n00b_string_t          *name   = fields[i].key;
         spec_node_t          *fnode  = fields[i].value;
         n00b_spec_field_t    *fspec  = fnode->info.field.field_spec;
         n00b_attr_contents_t *record = fnode->info.field.record;
@@ -363,7 +361,7 @@ validate_field_contents(validation_ctx      *ctx,
         }
 
         uint64_t      num_ex;
-        n00b_utf8_t **exclusions = hatrack_set_items(fspec->exclusions, &num_ex);
+        n00b_string_t **exclusions = hatrack_set_items(fspec->exclusions, &num_ex);
 
         for (unsigned int i = 0; i < num_ex; i++) {
             spec_node_t *n = hatrack_dict_get(fdict, exclusions[i], NULL);
@@ -496,7 +494,7 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     n00b_spec_section_t *secspec  = node->info.section.section_spec;
     n00b_flags_t        *reqflags = NULL;
     uint64_t             num_req;
-    n00b_utf8_t        **reqnames;
+    n00b_string_t        **reqnames;
 
     reqnames = hatrack_set_items(secspec->required_sections, &num_req);
 
@@ -508,7 +506,7 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     // 'required' list or the 'allow' list.
 
     for (unsigned int i = 0; i < num_subs; i++) {
-        n00b_utf8_t *name = subsecs[i].key;
+        n00b_string_t *name = subsecs[i].key;
         spec_node_t *sub  = subsecs[i].value;
         bool         ok   = false;
 

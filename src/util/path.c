@@ -2,18 +2,18 @@
 
 #include "n00b.h"
 
-n00b_utf8_t *
-n00b_get_current_directory()
+n00b_string_t *
+n00b_get_current_directory(void)
 {
     char buf[MAXPATHLEN + 1];
 
-    return n00b_new_utf8(getcwd(buf, MAXPATHLEN));
+    return n00b_cstring(getcwd(buf, MAXPATHLEN));
 }
 
 // This is private; it mutates the string, which we don't normally
 // want to support, and only do so because we know it's all private.
-static n00b_utf8_t *
-remove_extra_slashes(n00b_utf8_t *result)
+static n00b_string_t *
+remove_extra_slashes(n00b_string_t *result)
 {
     int i = result->codepoints;
 
@@ -25,21 +25,21 @@ remove_extra_slashes(n00b_utf8_t *result)
     return result;
 }
 
-n00b_utf8_t *
-n00b_get_user_dir(n00b_utf8_t *user)
+n00b_string_t *
+n00b_get_user_dir(n00b_string_t *user)
 {
-    n00b_utf8_t   *result;
+    n00b_string_t *result;
     struct passwd *pw;
 
     if (user == NULL) {
-        result = n00b_get_env(n00b_new_utf8("HOME"));
+        result = n00b_get_env(n00b_cstring("HOME"));
         if (!result) {
             pw = getpwent();
             if (pw == NULL) {
-                result = n00b_new_utf8("/");
+                result = n00b_cached_slash();
             }
             else {
-                result = n00b_new_utf8(pw->pw_dir);
+                result = n00b_cstring(pw->pw_dir);
             }
         }
     }
@@ -48,20 +48,20 @@ n00b_get_user_dir(n00b_utf8_t *user)
         if (pw == NULL) {
             result = user;
         }
-        result = n00b_new_utf8(pw->pw_dir);
+        result = n00b_cstring(pw->pw_dir);
     }
 
     return remove_extra_slashes(result);
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 internal_normalize_and_join(n00b_list_t *pieces)
 {
     int partlen = n00b_list_len(pieces);
     int nextout = 0;
 
     for (int i = 0; i < partlen; i++) {
-        n00b_utf8_t *s = n00b_to_utf8(n00b_list_get(pieces, i, NULL));
+        n00b_string_t *s = n00b_list_get(pieces, i, NULL);
 
         if (s->codepoints == 0) {
             continue;
@@ -90,54 +90,54 @@ internal_normalize_and_join(n00b_list_t *pieces)
     }
 
     if (nextout == 0) {
-        return n00b_get_slash_const();
+        return n00b_cached_slash();
     }
 
-    n00b_utf8_t *result = NULL;
+    n00b_string_t *result = NULL;
 
     for (int i = 0; i < nextout; i++) {
-        n00b_utf8_t *s = n00b_list_get(pieces, i, NULL);
+        n00b_string_t *s = n00b_list_get(pieces, i, NULL);
 
         if (!s->codepoints) {
             continue;
         }
 
         if (!result) {
-            result = n00b_cstr_format("/{}", s);
+            result = n00b_cformat("/«#»", s);
         }
         else {
-            result = n00b_cstr_format("{}/{}", result, s);
+            result = n00b_cformat("«#»/«#»", result, s);
         }
     }
 
-    return n00b_to_utf8(result);
+    return result;
 }
 
 static n00b_list_t *
-raw_path_tilde_expand(n00b_utf8_t *in)
+raw_path_tilde_expand(n00b_string_t *in)
 {
     if (!in || !in->codepoints) {
-        in = n00b_get_slash_const();
+        in = n00b_cached_slash();
     }
 
     if (in->data[0] != '~') {
-        return n00b_str_split(in, n00b_get_slash_const());
+        return n00b_string_split(in, n00b_cached_slash());
     }
 
-    n00b_list_t *parts = n00b_str_split(in, n00b_get_slash_const());
-    n00b_utf8_t *home  = n00b_to_utf8(n00b_list_get(parts, 0, NULL));
+    n00b_list_t   *parts = n00b_string_split(in, n00b_cached_slash());
+    n00b_string_t *home  = n00b_list_get(parts, 0, NULL);
 
-    if (n00b_str_codepoint_len(home) == 1) {
-        n00b_list_set(parts, 0, n00b_empty_string());
-        parts = n00b_list_plus(n00b_str_split(n00b_get_user_dir(NULL),
-                                              n00b_get_slash_const()),
+    if (n00b_string_codepoint_len(home) == 1) {
+        n00b_list_set(parts, 0, n00b_cached_empty_string());
+        parts = n00b_list_plus(n00b_string_split(n00b_get_user_dir(NULL),
+                                                 n00b_cached_slash()),
                                parts);
     }
     else {
         home->data++;
-        n00b_list_set(parts, 0, n00b_empty_string());
-        parts = n00b_list_plus(n00b_str_split(n00b_get_user_dir(home),
-                                              n00b_get_slash_const()),
+        n00b_list_set(parts, 0, n00b_cached_empty_string());
+        parts = n00b_list_plus(n00b_string_split(n00b_get_user_dir(home),
+                                                 n00b_cached_slash()),
                                parts);
         home->data--;
     }
@@ -145,14 +145,14 @@ raw_path_tilde_expand(n00b_utf8_t *in)
     return parts;
 }
 
-n00b_utf8_t *
-n00b_path_tilde_expand(n00b_utf8_t *in)
+n00b_string_t *
+n00b_path_tilde_expand(n00b_string_t *in)
 {
     return internal_normalize_and_join(raw_path_tilde_expand(in));
 }
 
-n00b_utf8_t *
-n00b_resolve_path(n00b_utf8_t *s)
+n00b_string_t *
+n00b_resolve_path(n00b_string_t *s)
 {
     n00b_list_t *parts;
 
@@ -165,31 +165,29 @@ n00b_resolve_path(n00b_utf8_t *s)
         return n00b_path_tilde_expand(s);
     case '/':
         return internal_normalize_and_join(
-            n00b_str_split(s, n00b_get_slash_const()));
+            n00b_string_split(s, n00b_cached_slash()));
     default:
-        parts = n00b_str_split(n00b_get_current_directory(),
-                               n00b_get_slash_const());
-        n00b_list_plus_eq(parts, n00b_str_split(s, n00b_get_slash_const()));
+        parts = n00b_string_split(n00b_get_current_directory(),
+                                  n00b_cached_slash());
+        n00b_list_plus_eq(parts, n00b_string_split(s, n00b_cached_slash()));
         return internal_normalize_and_join(parts);
     }
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_path_join(n00b_list_t *items)
 {
-    n00b_utf8_t *result;
-    n00b_utf8_t *tmp;
-    uint8_t     *p;
-    int          len   = 0; // Total length of output.
-    int          first = 0; // First array index we'll use.
-    int          last  = n00b_list_len(items);
-    int          tmplen;    // Length of individual strings.
+    n00b_string_t *result;
+    n00b_string_t *tmp;
+    uint8_t       *p;
+    int            len   = 0; // Total length of output.
+    int            first = 0; // First array index we'll use.
+    int            last  = n00b_list_len(items);
+    int            tmplen;    // Length of individual strings.
 
     for (int i = 0; i < last; i++) {
         tmp = n00b_list_get(items, i, NULL);
-        if (!n00b_str_is_u8(tmp)) {
-            N00B_CRAISE("Strings passed to n00b_path_join must be utf8 encoded.");
-        }
+        n00b_string_sanity_check(tmp);
 
         tmplen = strlen(tmp->data);
 
@@ -208,7 +206,7 @@ n00b_path_join(n00b_list_t *items)
         }
     }
 
-    result = n00b_new(n00b_type_utf8(), n00b_kw("length", n00b_ka(len)));
+    result = n00b_alloc_utf8_to_copy(len);
     p      = (uint8_t *)result->data;
 
     for (int i = first; i < last; i++) {
@@ -227,14 +225,13 @@ n00b_path_join(n00b_list_t *items)
         }
     }
 
-    result->byte_len = len;
-    n00b_internal_utf8_set_codepoint_count(result);
+    n00b_string_set_codepoint_count(result);
 
     return result;
 }
 
 n00b_file_kind
-n00b_get_file_kind(n00b_utf8_t *p)
+n00b_get_file_kind(n00b_string_t *p)
 {
     struct stat file_info;
     p = n00b_resolve_path(p);
@@ -273,31 +270,31 @@ n00b_get_file_kind(n00b_utf8_t *p)
 }
 
 typedef struct {
-    n00b_utf8_t *sc_proc;
-    n00b_utf8_t *sc_dev;
-    n00b_utf8_t *sc_cwd;
-    n00b_utf8_t *sc_up;
-    n00b_list_t *result;
-    n00b_utf8_t *resolved;
-    bool         recurse;
-    bool         yield_links;
-    bool         yield_dirs;
-    bool         follow_links;
-    bool         ignore_special;
-    bool         done_with_safety_checks;
-    bool         have_recursed;
+    n00b_string_t *sc_proc;
+    n00b_string_t *sc_dev;
+    n00b_string_t *sc_cwd;
+    n00b_string_t *sc_up;
+    n00b_list_t   *result;
+    n00b_string_t *resolved;
+    bool           recurse;
+    bool           yield_links;
+    bool           yield_dirs;
+    bool           follow_links;
+    bool           ignore_special;
+    bool           done_with_safety_checks;
+    bool           have_recursed;
 } n00b_walk_ctx;
 
-static n00b_utf8_t *
-add_slash_if_needed(n00b_utf8_t *s)
+static n00b_string_t *
+add_slash_if_needed(n00b_string_t *s)
 {
-    n00b_utf8_t *result;
+    n00b_string_t *result;
 
-    if (n00b_index(s, n00b_str_codepoint_len(s) - 1) == '/') {
+    if (n00b_string_index(s, n00b_string_codepoint_len(s) - 1) == '/') {
         result = s;
     }
     else {
-        result = n00b_cstr_format("{}/", s);
+        result = n00b_cformat("«#»/", s);
     }
 
     return result;
@@ -308,17 +305,17 @@ internal_path_walk(n00b_walk_ctx *ctx)
 {
     DIR           *dirobj;
     struct dirent *entry;
-    n00b_utf8_t   *saved;
+    n00b_string_t *saved;
     struct stat    file_info;
 
     if (!ctx->done_with_safety_checks) {
-        if (n00b_str_starts_with(ctx->resolved, ctx->sc_proc)) {
+        if (n00b_string_starts_with(ctx->resolved, ctx->sc_proc)) {
             return;
         }
-        if (n00b_str_starts_with(ctx->resolved, ctx->sc_dev)) {
+        if (n00b_string_starts_with(ctx->resolved, ctx->sc_dev)) {
             return;
         }
-        if (n00b_str_codepoint_len(ctx->resolved) != 1) {
+        if (n00b_string_codepoint_len(ctx->resolved) != 1) {
             ctx->done_with_safety_checks = true;
         }
     }
@@ -372,8 +369,8 @@ actual_directory:
                 continue;
             }
 
-            ctx->resolved = n00b_to_utf8(
-                n00b_str_concat(saved, n00b_new_utf8(entry->d_name)));
+            ctx->resolved = n00b_string_concat(saved,
+                                               n00b_cstring(entry->d_name));
 
             internal_path_walk(ctx);
         }
@@ -401,7 +398,7 @@ actual_directory:
                 ctx->resolved->data[n] = 0;
 
                 n00b_list_append(ctx->result,
-                                 n00b_resolve_path(n00b_new_utf8(buf)));
+                                 n00b_resolve_path(n00b_cstring(buf)));
             }
             else {
                 if (ctx->yield_links) {
@@ -431,7 +428,7 @@ actual_directory:
 
             ctx->resolved->data[n] = 0;
 
-            ctx->resolved = n00b_resolve_path(n00b_new_utf8(buf));
+            ctx->resolved = n00b_resolve_path(n00b_cstring(buf));
             if (ctx->yield_dirs && !ctx->yield_links) {
                 n00b_list_append(ctx->result, ctx->resolved);
             }
@@ -457,31 +454,31 @@ actual_directory:
 }
 
 #ifdef __linux__
-n00b_utf8_t *
-n00b_app_path()
+n00b_string_t *
+n00b_app_path(void)
 {
     char buf[PATH_MAX];
     char proc_path[PATH_MAX];
     snprintf(proc_path, PATH_MAX, "/proc/%d/exe", getpid());
     buf[readlink(proc_path, buf, PATH_MAX)] = 0;
 
-    return n00b_new_utf8(buf);
+    return n00b_cstring(buf);
 }
 #elif defined(__MACH__)
-n00b_utf8_t *
-n00b_app_path()
+n00b_string_t *
+n00b_app_path(void)
 {
     char buf[PROC_PIDPATHINFO_MAXSIZE];
     proc_pidpath(getpid(), buf, PROC_PIDPATHINFO_MAXSIZE);
 
-    return n00b_new_utf8(buf);
+    return n00b_cstring(buf);
 }
 #else
 #error "Unsupported platform"
 #endif
 
 n00b_list_t *
-_n00b_path_walk(n00b_utf8_t *dir, ...)
+_n00b_path_walk(n00b_string_t *dir, ...)
 {
     bool recurse        = true;
     bool yield_links    = false;
@@ -497,10 +494,10 @@ _n00b_path_walk(n00b_utf8_t *dir, ...)
     n00b_kw_bool("ignore_special", ignore_special);
 
     n00b_walk_ctx ctx = {
-        .sc_proc                 = n00b_new_utf8("/proc/"),
-        .sc_dev                  = n00b_new_utf8("/dev/"),
-        .sc_cwd                  = n00b_new_utf8("."),
-        .sc_up                   = n00b_new_utf8(".."),
+        .sc_proc                 = n00b_cstring("/proc/"),
+        .sc_dev                  = n00b_cstring("/dev/"),
+        .sc_cwd                  = n00b_cached_period(),
+        .sc_up                   = n00b_cstring(".."),
         .recurse                 = recurse,
         .yield_links             = yield_links,
         .yield_dirs              = yield_dirs,
@@ -508,7 +505,7 @@ _n00b_path_walk(n00b_utf8_t *dir, ...)
         .ignore_special          = ignore_special,
         .done_with_safety_checks = false,
         .have_recursed           = false,
-        .result                  = n00b_list(n00b_type_utf8()),
+        .result                  = n00b_list(n00b_type_string()),
         .resolved                = n00b_resolve_path(dir),
     };
 
@@ -517,29 +514,42 @@ _n00b_path_walk(n00b_utf8_t *dir, ...)
     return ctx.result;
 }
 
-n00b_utf8_t *
-n00b_path_trim_slashes(n00b_str_t *s)
+n00b_string_t *
+n00b_path_trim_trailing_slashes(n00b_string_t *s)
 {
-    if (!n00b_str_codepoint_len(s)) {
+    int b_len = n00b_string_byte_len(s);
+
+    if (!b_len) {
         return s;
     }
 
-    n00b_utf8_t *n     = n00b_to_utf8(s);
-    int          b_len = n00b_str_byte_len(n);
-
-    if (n->data[--b_len] != '/') {
-        return n;
+    if (s->data[--b_len] != '/') {
+        return s;
     }
 
-    if (n == s) {
-        n = n00b_str_copy(s);
-    }
+    s = n00b_string_copy_text(s);
 
     do {
-        n->data[b_len] = 0;
-        n->codepoints--;
-        n->byte_len--;
-    } while (b_len && n->data[--b_len] == '/');
+        s->data[b_len] = 0;
+        s->codepoints--;
+        s->u8_bytes--;
+    } while (b_len && s->data[--b_len] == '/');
 
-    return n;
+    return s;
+}
+
+void
+n00b_path_strip_slashes_both_ends(n00b_string_t *s)
+{
+    // Strips in place (it's internal).
+    while (s->u8_bytes && s->data[0] == '/') {
+        s->data++;
+        s->u8_bytes--;
+        s->codepoints--;
+    }
+
+    while (s->u8_bytes && s->data[s->u8_bytes - 1] == '/') {
+        s->data[--s->u8_bytes] = 0;
+        s->codepoints--;
+    }
 }

@@ -3,16 +3,14 @@
 static void
 populate_one_section(n00b_vmthread_t     *tstate,
                      n00b_spec_section_t *section,
-                     n00b_str_t          *path)
+                     n00b_string_t       *path)
 {
-    uint64_t           n;
-    n00b_utf8_t        *key;
+    uint64_t            n;
+    n00b_string_t      *key;
     n00b_spec_field_t  *f;
     n00b_spec_field_t **fields;
 
     n00b_vm_t *vm = tstate->vm;
-
-    path = n00b_to_utf8(path);
 
     if (!hatrack_set_add(vm->all_sections, path)) {
         return;
@@ -27,27 +25,27 @@ populate_one_section(n00b_vmthread_t     *tstate,
     for (uint64_t i = 0; i < n; i++) {
         f = fields[i];
 
-        if (!path || !n00b_str_byte_len(path)) {
+        if (!path || !n00b_string_byte_len(path)) {
             key = f->name;
         }
         else {
-            key = n00b_cstr_format("{}.{}", path, f->name);
+            key = n00b_cformat("«#».«#»", path, f->name);
         }
 
         if (f->default_provided) {
             n00b_vm_attr_set(tstate,
-                            key,
-                            f->default_value,
-                            f->tinfo.type,
-                            f->lock_on_write,
-                            false,
-                            true);
+                             key,
+                             f->default_value,
+                             f->tinfo.type,
+                             f->lock_on_write,
+                             false,
+                             true);
         }
     }
 }
 
 static void
-populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
+populate_defaults(n00b_vmthread_t *tstate, n00b_string_t *key)
 {
     n00b_vm_t *vm = tstate->vm;
 
@@ -56,7 +54,7 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
     }
 
     int   ix = -1;
-    char *p  = key->data + n00b_str_byte_len(key);
+    char *p  = key->data + n00b_string_byte_len(key);
 
     while (--p > key->data) {
         if (*p == '.') {
@@ -68,7 +66,7 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
     if (!vm->obj->root_populated) {
         populate_one_section(tstate,
                              vm->obj->attr_spec->root_section,
-                             n00b_empty_string());
+                             n00b_cached_empty_string());
         vm->obj->root_populated = true;
     }
     if (ix == -1) {
@@ -76,7 +74,7 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
     }
 
     // The slice will also always ensure a private copy (right now).
-    key = n00b_to_utf8(n00b_str_slice(key, 0, ix));
+    key = n00b_string_slice(key, 0, ix);
 
     if (n00b_set_contains(vm->all_sections, key)) {
         return;
@@ -84,15 +82,15 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
 
     p = key->data;
 
-    int                 start_codepoints = 0;
-    int                 n                = 0;
-    char               *last_start       = p;
-    char               *e                = p + n00b_str_byte_len(key);
-    n00b_utf8_t         *dummy            = n00b_utf8_repeat(' ', 1);
+    int                  start_codepoints = 0;
+    int                  n                = 0;
+    char                *last_start       = p;
+    char                *e                = p + n00b_string_byte_len(key);
+    n00b_string_t       *dummy            = n00b_cached_space();
     n00b_codepoint_t     cp;
     n00b_spec_section_t *section;
 
-    key->byte_len   = 0;
+    key->u8_bytes   = 0;
     key->codepoints = 0;
 
     while (p < e) {
@@ -111,9 +109,9 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
 
         // Set up the string we'll use to look up the section:
         dummy->data       = last_start;
-        dummy->byte_len   = p - last_start;
+        dummy->u8_bytes   = p - last_start;
         dummy->codepoints = key->codepoints - start_codepoints;
-        key->byte_len     = p - key->data;
+        key->u8_bytes     = p - key->data;
 
         // Can be null if it's an object; no worries.
         section = hatrack_dict_get(vm->obj->attr_spec->section_specs,
@@ -130,9 +128,9 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
     }
 
     dummy->data       = last_start;
-    dummy->byte_len   = p - last_start;
+    dummy->u8_bytes   = p - last_start;
     dummy->codepoints = key->codepoints - start_codepoints;
-    key->byte_len     = p - key->data;
+    key->u8_bytes     = p - key->data;
 
     section = hatrack_dict_get(vm->obj->attr_spec->section_specs,
                                dummy,
@@ -143,8 +141,8 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_str_t *key)
 
 void *
 n00b_vm_attr_get(n00b_vmthread_t *tstate,
-                n00b_str_t      *key,
-                bool           *found)
+                 n00b_string_t   *key,
+                 bool            *found)
 {
     populate_defaults(tstate, key);
 
@@ -162,8 +160,8 @@ n00b_vm_attr_get(n00b_vmthread_t *tstate,
     if (info == NULL || !info->is_set) {
         // Nim version uses N00bError stuff that doesn't exist in
         // n00b (yet?)
-        N00B_STATIC_ASCII_STR(errstr, "attribute does not exist: ");
-        n00b_utf8_t *msg = n00b_to_utf8(n00b_str_concat(errstr, key));
+        n00b_string_t *errstr = n00b_cstring("attribute does not exist: ");
+        n00b_string_t *msg    = n00b_string_concat(errstr, key);
         N00B_RAISE(msg);
     }
 
@@ -172,14 +170,14 @@ n00b_vm_attr_get(n00b_vmthread_t *tstate,
 
 void
 n00b_vm_attr_set(n00b_vmthread_t *tstate,
-                n00b_str_t      *key,
-                void           *value,
-                n00b_type_t     *type,
-                bool            lock,
-                bool            override,
-                bool            internal)
+                 n00b_string_t   *key,
+                 void            *value,
+                 n00b_type_t     *type,
+                 bool             lock,
+                 bool             override,
+                 bool             internal)
 {
-    n00b_vm_t *vm         = tstate->vm;
+    n00b_vm_t *vm        = tstate->vm;
     vm->obj->using_attrs = true;
 
     if (!internal) {
@@ -189,7 +187,7 @@ n00b_vm_attr_set(n00b_vmthread_t *tstate,
     // We will create a new entry on every write, just to avoid any race
     // conditions with multiple threads updating via reference.
 
-    bool                 found;
+    bool                  found;
     n00b_attr_contents_t *old_info = hatrack_dict_get(vm->attrs, key, &found);
     if (found) {
         // Nim code does this after allocating new_info and never settings it's
@@ -218,8 +216,8 @@ n00b_vm_attr_set(n00b_vmthread_t *tstate,
                 if (!n00b_eq(type, value, old_info->contents)) {
                     // Nim version uses N00bError stuff that doesn't exist in
                     // n00b (yet?)
-                    N00B_STATIC_ASCII_STR(errstr, "attribute is locked: ");
-                    n00b_utf8_t *msg = n00b_to_utf8(n00b_str_concat(errstr, key));
+                    n00b_string_t *errstr = n00b_cstring("attribute is locked: ");
+                    n00b_string_t *msg    = n00b_string_concat(errstr, key);
                     N00B_RAISE(msg);
                 }
                 // Set to same value; ignore it basically
@@ -235,8 +233,8 @@ n00b_vm_attr_set(n00b_vmthread_t *tstate,
 
     if (tstate->running) {
         new_info->lastset = n00b_list_get(tstate->current_module->instructions,
-                                         tstate->pc - 1,
-                                         NULL);
+                                          tstate->pc - 1,
+                                          NULL);
         /*
         if (n00b_list_len(tstate->module_lock_stack) > 0) {
             new_info->module_lock
@@ -257,20 +255,20 @@ n00b_vm_attr_set(n00b_vmthread_t *tstate,
 }
 
 void
-n00b_vm_attr_lock(n00b_vmthread_t *tstate, n00b_str_t *key, bool on_write)
+n00b_vm_attr_lock(n00b_vmthread_t *tstate, n00b_string_t *key, bool on_write)
 {
     n00b_vm_t *vm = tstate->vm;
 
     // We will create a new entry on every write, just to avoid any race
     // conditions with multiple threads updating via reference.
 
-    bool                 found;
+    bool                  found;
     n00b_attr_contents_t *old_info = hatrack_dict_get(vm->attrs, key, &found);
     if (found && old_info->locked) {
         // Nim version uses N00bError stuff that doesn't exist in
         // n00b (yet?)
-        N00B_STATIC_ASCII_STR(errstr, "attribute already locked: ");
-        n00b_utf8_t *msg = n00b_to_utf8(n00b_str_concat(errstr, key));
+        n00b_string_t *errstr = n00b_cstring("attribute already locked: ");
+        n00b_string_t *msg    = n00b_string_concat(errstr, key);
         N00B_RAISE(msg);
     }
 

@@ -70,7 +70,7 @@ n00b_flexarray_can_coerce_to(n00b_type_t *my_type, n00b_type_t *dst_type)
 
     // clang-format off
     if (base == (n00b_dt_kind_t)N00B_T_FLIST ||
-	base == (n00b_dt_kind_t)N00B_T_XLIST) {
+	base == (n00b_dt_kind_t)N00B_T_LIST) {
         // clang-format on
         n00b_type_t *my_item  = n00b_type_get_param(my_type, 0);
         n00b_type_t *dst_item = n00b_type_get_param(dst_type, 0);
@@ -151,11 +151,11 @@ n00b_flexarray_get(flexarray_t *list, int64_t index)
         index += len;
 
         if (index < 0) {
-            n00b_utf8_t *err = n00b_cstr_format(
+            n00b_string_t *err = n00b_cformat(
                 "Array index out of bounds "
-                "(ix = {}; size = {})",
-                n00b_box_i64(index),
-                n00b_box_i64(len));
+                "(ix = «#»; size = «#»)",
+                (int64_t)index,
+                (int64_t)len);
 
             N00B_RAISE(err);
         }
@@ -177,11 +177,11 @@ n00b_flexarray_get(flexarray_t *list, int64_t index)
         flex_view_t *view = flexarray_view(list);
         int64_t      len  = flexarray_view_len(view);
 
-        n00b_utf8_t *err = n00b_cstr_format(
+        n00b_string_t *err = n00b_cformat(
             "Array index out of bounds "
-            "(ix = {}; size = {})",
-            n00b_box_i64(index),
-            n00b_box_i64(len));
+            "(ix = «#»; size = «#»)",
+            (int64_t)index,
+            (int64_t)len);
 
         N00B_RAISE(err);
     }
@@ -194,10 +194,10 @@ n00b_flexarray_set(flexarray_t *list, int64_t ix, void *item)
         flex_view_t *view = flexarray_view(list);
         int64_t      len  = flexarray_view_len(view);
 
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Array index out of bounds (ix = {})",
-            n00b_box_i64(ix),
-            n00b_box_i64(len));
+        n00b_string_t *err = n00b_cformat(
+            "Array index out of bounds (ix = «#»)",
+            (int64_t)ix,
+            (int64_t)len);
         N00B_RAISE(err);
     }
 }
@@ -298,12 +298,12 @@ n00b_flexarray_set_slice(flexarray_t *list, int64_t start, int64_t end, flexarra
     atomic_store(&list->store, atomic_load(&tmp->store));
 }
 
-static n00b_str_t *
+static n00b_string_t *
 n00b_flexarray_repr(flexarray_t *list)
 {
     flex_view_t *view  = flexarray_view(list);
     int64_t      len   = flexarray_view_len(view);
-    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_utf32()));
+    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_string()));
 
     for (int i = 0; i < len; i++) {
         int   err  = 0;
@@ -312,21 +312,21 @@ n00b_flexarray_repr(flexarray_t *list)
             continue;
         }
 
-        n00b_str_t *s = n00b_repr(item);
+        n00b_string_t *s = n00b_repr(item);
         n00b_list_append(items, s);
     }
 
-    n00b_str_t *sep    = n00b_get_comma_const();
-    n00b_str_t *result = n00b_str_join(items, sep);
+    n00b_string_t *sep    = n00b_cached_comma();
+    n00b_string_t *result = n00b_string_join(items, sep);
 
-    result = n00b_str_concat(n00b_get_lbrak_const(),
-                             n00b_str_concat(result, n00b_get_rbrak_const()));
+    result = n00b_string_concat(n00b_cached_lbracket(),
+                                n00b_string_concat(result, n00b_cached_rbracket()));
 
     return result;
 }
 
 static flexarray_t *
-n00b_to_flexarray_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
+n00b_to_flexarray_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *litmod)
 {
     uint64_t     n      = n00b_list_len(items);
     flexarray_t *result = n00b_new(objtype, n00b_kw("length", n00b_ka(n)));
@@ -339,8 +339,7 @@ n00b_to_flexarray_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *lit
 }
 
 const n00b_vtable_t n00b_flexarray_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_flexarray_init,
         [N00B_BI_FINALIZER]     = (n00b_vtable_entry)flexarray_cleanup,
         [N00B_BI_TO_STR]        = (n00b_vtable_entry)n00b_flexarray_repr,
@@ -361,8 +360,7 @@ const n00b_vtable_t n00b_flexarray_vtable = {
 };
 
 const n00b_vtable_t n00b_queue_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_queue_init,
         [N00B_BI_FINALIZER]   = (n00b_vtable_entry)queue_cleanup,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
@@ -371,8 +369,7 @@ const n00b_vtable_t n00b_queue_vtable = {
 };
 
 const n00b_vtable_t n00b_ring_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_ring_init,
         [N00B_BI_FINALIZER]   = (n00b_vtable_entry)hatring_cleanup,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
@@ -381,8 +378,7 @@ const n00b_vtable_t n00b_ring_vtable = {
 };
 
 const n00b_vtable_t n00b_logring_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_logring_init,
         [N00B_BI_FINALIZER]   = (n00b_vtable_entry)logring_cleanup,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
@@ -391,8 +387,7 @@ const n00b_vtable_t n00b_logring_vtable = {
 };
 
 const n00b_vtable_t n00b_stack_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_stack_init,
         [N00B_BI_FINALIZER]   = (n00b_vtable_entry)hatstack_cleanup,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,

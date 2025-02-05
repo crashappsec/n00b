@@ -6,276 +6,213 @@ section_sort(n00b_spec_section_t **sp1, n00b_spec_section_t **sp2)
     return strcmp((*sp1)->name->data, (*sp2)->name->data);
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 format_field_opts(n00b_spec_field_t *field)
 {
-    n00b_list_t *opts = n00b_list(n00b_type_utf8());
+    n00b_list_t *opts = n00b_list(n00b_type_string());
     if (field->required) {
-        n00b_list_append(opts, n00b_new_utf8("required"));
+        n00b_list_append(opts, n00b_cstring("required"));
     }
     else {
-        n00b_list_append(opts, n00b_new_utf8("optional"));
+        n00b_list_append(opts, n00b_cstring("optional"));
     }
     if (field->user_def_ok) {
-        n00b_list_append(opts, n00b_new_utf8("user fields ok"));
+        n00b_list_append(opts, n00b_cstring("user fields ok"));
     }
     else {
-        n00b_list_append(opts, n00b_new_utf8("no user fields"));
+        n00b_list_append(opts, n00b_cstring("no user fields"));
     }
     if (field->lock_on_write) {
-        n00b_list_append(opts, n00b_new_utf8("write lock"));
+        n00b_list_append(opts, n00b_cstring("write lock"));
     }
     if (field->validate_range) {
-        n00b_list_append(opts, n00b_new_utf8("range"));
+        n00b_list_append(opts, n00b_cstring("range"));
     }
     else {
         if (field->validate_choice) {
-            n00b_list_append(opts, n00b_new_utf8("choice"));
+            n00b_list_append(opts, n00b_cstring("choice"));
         }
     }
     if (field->validator != NULL) {
-        n00b_list_append(opts, n00b_new_utf8("validator"));
+        n00b_list_append(opts, n00b_cstring("validator"));
     }
     if (field->hidden) {
-        n00b_list_append(opts, n00b_new_utf8("hide field"));
+        n00b_list_append(opts, n00b_cstring("hide field"));
     }
 
-    return n00b_to_utf8(n00b_str_join(opts, n00b_new_utf8(", ")));
+    return n00b_string_join(opts, n00b_cached_comma_padded());
 }
 
-n00b_grid_t *
-n00b_grid_repr_section(n00b_spec_section_t *section)
+n00b_table_t *
+n00b_table_repr_section(n00b_spec_section_t *section)
 {
-    n00b_list_t       *l;
-    n00b_utf8_t       *s;
-    n00b_renderable_t *r;
-    n00b_grid_t       *one;
-    n00b_grid_t       *result = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_rows",
-                                        n00b_ka(1),
-                                        "start_cols",
-                                        n00b_ka(1),
-                                        "container_tag",
-                                        n00b_ka(n00b_new_utf8("flow"))));
+    n00b_string_t *s;
+    n00b_table_t  *result = n00b_table("columns",
+                                      n00b_ka(1),
+                                      "style",
+                                      N00B_TABLE_SIMPLE);
 
     if (section->name) {
-        n00b_grid_add_row(result,
-                         n00b_cstr_format("[h2]Section[/] [h3]{}[/]",
+        n00b_table_add_cell(result,
+                            n00b_cformat("«em2»Section«/» «em3»«#»«/»",
 
                                          section->name));
     }
     else {
-        n00b_grid_add_row(result, n00b_cstr_format("[h2]Root Section"));
+        n00b_table_add_cell(result, n00b_cformat("«em2»Root Section"));
     }
 
     if (section->short_doc) {
-        n00b_grid_add_row(result, section->short_doc);
+        n00b_table_add_cell(result, section->short_doc);
     }
     else {
-        l = n00b_list(n00b_type_utf8());
-        n00b_list_append(l, n00b_cstr_format("[h1]No short doc provided"));
-        n00b_grid_add_row(result, l);
+        n00b_table_add_cell(result, n00b_cformat("«em1»No short doc provided"));
     }
     if (section->long_doc) {
-        l = n00b_list(n00b_type_utf8());
-        n00b_list_append(l, section->long_doc);
-        n00b_grid_add_row(result, l);
+        n00b_table_add_cell(result, section->long_doc);
     }
     else {
-        l = n00b_list(n00b_type_utf8());
-        n00b_list_append(l, n00b_cstr_format("[em]Overview not provided[/]"));
-        n00b_grid_add_row(result, l);
+        n00b_table_add_cell(result, n00b_cformat("«em»Overview not provided"));
     }
 
-    n00b_list_t *reqs   = n00b_set_to_xlist(section->required_sections);
-    n00b_list_t *allows = n00b_set_to_xlist(section->allowed_sections);
-    uint64_t    n      = n00b_list_len(reqs);
+    n00b_list_t *reqs   = n00b_set_to_list(section->required_sections);
+    n00b_list_t *allows = n00b_set_to_list(section->allowed_sections);
+    uint64_t     n      = n00b_list_len(reqs);
 
     if (!n) {
-        l = n00b_list(n00b_type_utf8());
-        n00b_list_append(l, n00b_cstr_format("[h1]No required subsections."));
-        n00b_grid_add_row(result, l);
+        n00b_table_add_cell(result,
+                            n00b_cformat("«em1»No required subsections."));
     }
     else {
-        one = n00b_new(n00b_type_grid(),
-                      n00b_kw("start_rows",
-                             n00b_ka(2),
-                             "start_cols",
-                             n00b_ka(n),
-                             "container_tag",
-                             n00b_ka(n00b_new_utf8("table"))));
-
-        s = n00b_new_utf8("Required Subsections");
-        r = n00b_to_str_renderable(s, n00b_new_utf8("h3"));
-
-        // tmp dummy row.
-        n00b_grid_add_row(one, n00b_list(n00b_type_utf8()));
-        n00b_grid_add_col_span(one, r, 0, 0, n);
-        n00b_grid_add_row(one, reqs);
-        n00b_grid_add_row(result, one);
+        n00b_table_add_cell(result,
+                            n00b_cformat("«em3»Required Subsections"));
+        n00b_table_add_cell(result,
+                            n00b_string_join(reqs, n00b_cached_comma_padded()));
     }
 
     n = n00b_list_len(allows);
 
     if (!n) {
-        l = n00b_list(n00b_type_utf8());
-        n00b_list_append(l, n00b_cstr_format("[i]No allowed subsections."));
-        n00b_grid_add_row(result, l);
+        n00b_table_add_cell(result, n00b_cformat("«i»No allowed subsections."));
     }
     else {
-        one = n00b_new(n00b_type_grid(),
-                      n00b_kw("start_rows",
-                             n00b_ka(2),
-                             "start_cols",
-                             n00b_ka(n),
-                             "container_tag",
-                             n00b_ka(n00b_new_utf8("table"))));
-
-        s = n00b_new_utf8("Allowed Subsections");
-        r = n00b_to_str_renderable(s, n00b_new_utf8("h3"));
-
-        n00b_grid_add_row(one, n00b_list(n00b_type_utf8()));
-        n00b_grid_add_col_span(one, r, 0, 0, n);
-        n00b_grid_add_row(one, allows);
-        n00b_grid_add_row(result, one);
+        n00b_table_add_cell(result,
+                            n00b_cformat("«em3»Allowed Subsections"));
+        n00b_table_add_cell(result,
+                            n00b_string_join(allows,
+                                             n00b_cached_comma_padded()));
     }
 
     n00b_spec_field_t **fields = (void *)hatrack_dict_values(section->fields,
-                                                            &n);
+                                                             &n);
 
     if (n == 0) {
-        l = n00b_list(n00b_type_grid());
-        n00b_list_append(l, n00b_callout(n00b_new_utf8("No field specs.")));
+        n00b_table_add_cell(result,
+                            n00b_call_out(n00b_cstring("No field specs.")));
 
-        n00b_grid_add_row(result, l);
         return result;
     }
 
-    one = n00b_new(n00b_type_grid(),
-                  n00b_kw("start_cols",
-                         n00b_ka(7),
-                         "start_rows",
-                         n00b_ka(2),
-                         "th_tag",
-                         n00b_ka(n00b_new_utf8("h2")),
-                         "stripe",
-                         n00b_ka(true),
-                         "container_tag",
-                         n00b_ka(n00b_new_utf8("table2"))));
-    s   = n00b_new_utf8("FIELD SPECIFICATIONS");
-    r   = n00b_to_str_renderable(s, n00b_new_utf8("h3"));
+    n00b_table_t *sub = n00b_table("columns",
+                                   n00b_ka(7),
+                                   "title",
+                                   n00b_cstring("FIELD SPECIFICATIONS"));
 
-    n00b_grid_add_row(one, n00b_list(n00b_type_utf8()));
-    n00b_grid_add_col_span(one, r, 0, 0, 7);
-
-    l = n00b_list(n00b_type_utf8());
-
-    n00b_list_append(l, n00b_rich_lit("[h2]Name"));
-    n00b_list_append(l, n00b_rich_lit("[h2]Short Doc"));
-    n00b_list_append(l, n00b_rich_lit("[h2]Long Doc"));
-    n00b_list_append(l, n00b_rich_lit("[h2]Type"));
-    n00b_list_append(l, n00b_rich_lit("[h2]Default"));
-    n00b_list_append(l, n00b_rich_lit("[h2]Options"));
-    n00b_list_append(l, n00b_rich_lit("[h2]Exclusions"));
-    n00b_grid_add_row(one, l);
+    n00b_table_add_cell(sub, n00b_cstring("Name"));
+    n00b_table_add_cell(sub, n00b_cstring("Short Doc"));
+    n00b_table_add_cell(sub, n00b_cstring("Long Doc"));
+    n00b_table_add_cell(sub, n00b_cstring("Type"));
+    n00b_table_add_cell(sub, n00b_cstring("Default"));
+    n00b_table_add_cell(sub, n00b_cstring("Options"));
+    n00b_table_add_cell(sub, n00b_cstring("Exclusions"));
 
     for (unsigned int i = 0; i < n; i++) {
-        l                       = n00b_list(n00b_type_utf8());
         n00b_spec_field_t *field = fields[i];
 
-        n00b_list_append(l, n00b_to_utf8(field->name));
+        n00b_table_add_cell(sub, field->name);
+
         if (field->short_doc && field->short_doc->codepoints) {
-            n00b_list_append(l, field->short_doc);
+            n00b_table_add_cell(sub, field->short_doc);
         }
         else {
-            n00b_list_append(l, n00b_new_utf8("None"));
+            n00b_table_add_cell(sub, n00b_crich("«em»None"));
         }
         if (field->long_doc && field->long_doc->codepoints) {
-            n00b_list_append(l, field->long_doc);
+            n00b_table_add_cell(sub, field->long_doc);
         }
         else {
-            n00b_list_append(l, n00b_new_utf8("None"));
+            n00b_table_add_cell(sub, n00b_crich("«em»None"));
         }
         if (field->have_type_pointer) {
-            n00b_list_append(l,
-                            n00b_cstr_format("-> {}",
-                                            field->tinfo.type_pointer));
+            s = n00b_cformat("-> «#»", field->tinfo.type_pointer);
+            n00b_table_add_cell(sub, s);
         }
         else {
-            n00b_list_append(l, n00b_cstr_format("{}", field->tinfo.type));
+            n00b_table_add_cell(sub, n00b_cformat("«#»", field->tinfo.type));
         }
         if (field->default_provided) {
-            n00b_list_append(l, n00b_cstr_format("{}", field->default_value));
+            n00b_table_add_cell(sub, n00b_cformat("«#»", field->default_value));
         }
         else {
-            n00b_list_append(l, n00b_new_utf8("None"));
+            n00b_table_add_cell(sub, n00b_crich("«em»None"));
         }
 
-        n00b_list_append(l, format_field_opts(field));
+        n00b_table_add_cell(sub, format_field_opts(field));
 
-        n00b_list_t *exclude = n00b_set_to_xlist(field->exclusions);
+        n00b_list_t *exclude = n00b_set_to_list(field->exclusions);
 
         if (!n00b_list_len(exclude)) {
-            n00b_list_append(l, n00b_new_utf8("None"));
+            n00b_table_add_cell(sub, n00b_crich("«em»None"));
         }
         else {
-            n00b_list_append(l, n00b_str_join(exclude, n00b_new_utf8(", ")));
+            s = n00b_string_join(exclude, n00b_cached_comma_padded());
+            n00b_table_add_cell(sub, s);
         }
-
-        n00b_grid_add_row(one, l);
     }
 
-    n00b_grid_add_row(result, one);
+    n00b_table_add_cell(result, sub);
 
     return result;
 }
 
-n00b_grid_t *
+n00b_table_t *
 n00b_repr_spec(n00b_spec_t *spec)
 {
     if (!spec || !spec->in_use) {
-        return n00b_callout(n00b_new_utf8("No specification provided."));
+        return n00b_call_out(n00b_cstring("No specification provided."));
     }
 
-    n00b_grid_t *result = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_rows",
-                                        n00b_ka(1),
-                                        "start_cols",
-                                        n00b_ka(1),
-                                        "container_tag",
-                                        n00b_ka(n00b_new_utf8("flow"))));
+    n00b_table_t         *result = n00b_table("columns",
+                                      n00b_ka(1),
+                                      "style",
+                                      N00B_TABLE_SIMPLE);
+    n00b_spec_section_t **secs;
+    uint64_t              n;
 
     if (spec->short_doc) {
-        n00b_grid_add_row(result, spec->short_doc);
+        n00b_table_add_cell(result, spec->short_doc);
     }
     else {
-        n00b_grid_add_row(result,
-                         n00b_to_str_renderable(
-                             n00b_new_utf8("Configuration Specification"),
-                             n00b_new_utf8("h2")));
+        n00b_table_add_cell(result, n00b_crich("«em2»Configuration Spec"));
     }
     if (spec->long_doc) {
-        n00b_grid_add_row(result, spec->long_doc);
+        n00b_table_add_cell(result, spec->long_doc);
     }
     else {
-        n00b_grid_add_row(result,
-                         n00b_cstr_format("[i]Overview not provided[/]"));
+        n00b_table_add_cell(result,
+                            n00b_crich("«i»Overview not provided"));
     }
 
-    n00b_grid_add_row(result, n00b_grid_repr_section(spec->root_section));
-
-    uint64_t             n;
-    n00b_spec_section_t **secs = (void *)hatrack_dict_values(spec->section_specs,
-                                                            &n);
+    secs = (void *)hatrack_dict_values(spec->section_specs, &n);
 
     qsort(secs, (size_t)n, sizeof(n00b_spec_section_t *), (void *)section_sort);
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_grid_add_row(result, n00b_grid_repr_section(secs[i]));
+        n00b_table_add_cell(result, n00b_table_repr_section(secs[i]));
     }
 
     if (spec->locked) {
-        n00b_grid_add_row(result, n00b_cstr_format("[em]This spec is locked."));
+        n00b_table_add_cell(result, n00b_crich("«em»This spec is locked."));
     }
 
     return result;
@@ -315,12 +252,12 @@ n00b_spec_section_t *
 n00b_new_spec_section(void)
 {
     n00b_spec_section_t *section = n00b_gc_alloc_mapped(n00b_spec_section_t,
-                                                      n00b_section_gc_bits);
+                                                        n00b_section_gc_bits);
 
-    section->fields            = n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                            n00b_type_ref()));
-    section->allowed_sections  = n00b_new(n00b_type_set(n00b_type_utf8()));
-    section->required_sections = n00b_new(n00b_type_set(n00b_type_utf8()));
+    section->fields            = n00b_new(n00b_type_dict(n00b_type_string(),
+                                              n00b_type_ref()));
+    section->allowed_sections  = n00b_new(n00b_type_set(n00b_type_string()));
+    section->required_sections = n00b_new(n00b_type_set(n00b_type_string()));
 
     return section;
 }
@@ -330,8 +267,8 @@ n00b_new_spec(void)
 {
     n00b_spec_t *result = n00b_gc_alloc_mapped(n00b_spec_t, n00b_spec_gc_bits);
 
-    result->section_specs           = n00b_new(n00b_type_dict(n00b_type_utf8(),
-                                                  n00b_type_ref()));
+    result->section_specs           = n00b_new(n00b_type_dict(n00b_type_string(),
+                                                    n00b_type_ref()));
     result->root_section            = n00b_new_spec_section();
     result->root_section->singleton = true;
 
@@ -342,7 +279,7 @@ n00b_attr_info_t *
 n00b_get_attr_info(n00b_spec_t *spec, n00b_list_t *fqn)
 {
     n00b_attr_info_t *result = n00b_gc_alloc_mapped(n00b_attr_info_t,
-                                                  n00b_attr_info_gc_bits);
+                                                    n00b_attr_info_gc_bits);
 
     if (!spec || !spec->root_section || !spec->in_use) {
         result->kind = n00b_attr_user_def_field;
@@ -351,14 +288,14 @@ n00b_get_attr_info(n00b_spec_t *spec, n00b_list_t *fqn)
 
     n00b_spec_section_t *cur_sec = spec->root_section;
     n00b_spec_section_t *next_sec;
-    int                 i = 0;
-    int                 n = n00b_list_len(fqn) - 1;
+    int                  i = 0;
+    int                  n = n00b_list_len(fqn) - 1;
 
     while (true) {
-        n00b_utf8_t       *cur_name = n00b_to_utf8(n00b_list_get(fqn, i, NULL));
+        n00b_string_t     *cur_name = n00b_list_get(fqn, i, NULL);
         n00b_spec_field_t *field    = hatrack_dict_get(cur_sec->fields,
-                                                   cur_name,
-                                                   NULL);
+                                                    cur_name,
+                                                    NULL);
         if (field != NULL) {
             if (i != n) {
                 result->err = n00b_attr_err_sec_under_field;

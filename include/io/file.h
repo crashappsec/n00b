@@ -14,13 +14,14 @@ typedef enum {
     n00b_fk_other,
 } n00b_file_kind_t;
 
-extern n00b_buf_t  *n00b_read_binary_file(n00b_str_t *, bool);
-extern n00b_utf8_t *n00b_read_utf8_file(n00b_str_t *, bool);
+extern n00b_buf_t    *n00b_read_binary_file(n00b_string_t *, bool);
+extern n00b_string_t *n00b_read_utf8_file(n00b_string_t *, bool);
 
 #define n00b_read_text_file(x, y) n00b_read_utf8_file(x, y)
 
 typedef struct {
-    n00b_utf8_t     *name;
+    n00b_string_t   *name;
+    uint64_t         noscan;
     struct stat      fd_info;
     n00b_file_kind_t kind;
 } n00b_file_data_t;

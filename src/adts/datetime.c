@@ -1,19 +1,19 @@
 #include "n00b.h"
 
 static inline bool
-us_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
+us_written_date(n00b_string_t *input, n00b_date_time_t *result)
 {
-    n00b_utf8_t *month_part = n00b_new_utf8("");
-    int          ix         = 0;
-    int          l          = n00b_str_byte_len(input);
-    int          day        = 0;
-    int          year       = 0;
-    int          daylen;
-    int          yearlen;
-    int          start_ix;
-    char        *s;
+    n00b_string_t *month_part = n00b_cached_empty_string();
+    int            ix         = 0;
+    int            l          = n00b_string_byte_len(input);
+    int            day        = 0;
+    int            year       = 0;
+    int            daylen;
+    int            yearlen;
+    int            start_ix;
+    char          *s;
 
-    if (!input || n00b_str_byte_len(input) == 0) {
+    if (!input || n00b_string_byte_len(input) == 0) {
         return false;
     }
 
@@ -34,7 +34,7 @@ us_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
         return false;
     }
 
-    month_part = n00b_to_utf8(n00b_str_lower(n00b_str_slice(input, 0, ix)));
+    month_part = n00b_string_lower(n00b_string_slice(input, 0, ix));
 
     while (ix < l) {
         if (*s == ' ') {
@@ -115,56 +115,56 @@ us_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
         day  = 0;
     }
 
-#define month_str_is(x) !strcmp(month_part->data, x)
+#define month_string_is(x) !strcmp(month_part->data, x)
     do {
-        if (month_str_is("jan") || month_str_is("january")) {
+        if (month_string_is("jan") || month_string_is("january")) {
             result->dt.tm_mon = 0;
             break;
         }
-        if (month_str_is("feb") || month_str_is("february")) {
+        if (month_string_is("feb") || month_string_is("february")) {
             result->dt.tm_mon = 1;
             break;
         }
-        if (month_str_is("mar") || month_str_is("march")) {
+        if (month_string_is("mar") || month_string_is("march")) {
             result->dt.tm_mon = 2;
             break;
         }
-        if (month_str_is("apr") || month_str_is("april")) {
+        if (month_string_is("apr") || month_string_is("april")) {
             result->dt.tm_mon = 3;
             break;
         }
-        if (month_str_is("may")) {
+        if (month_string_is("may")) {
             result->dt.tm_mon = 4;
             break;
         }
-        if (month_str_is("jun") || month_str_is("june")) {
+        if (month_string_is("jun") || month_string_is("june")) {
             result->dt.tm_mon = 5;
             break;
         }
-        if (month_str_is("jul") || month_str_is("july")) {
+        if (month_string_is("jul") || month_string_is("july")) {
             result->dt.tm_mon = 6;
             break;
         }
-        if (month_str_is("aug") || month_str_is("august")) {
+        if (month_string_is("aug") || month_string_is("august")) {
             result->dt.tm_mon = 7;
             break;
         }
         // clang-format off
-        if (month_str_is("sep") || month_str_is("sept") ||
-	    month_str_is("september")) {
+        if (month_string_is("sep") || month_string_is("sept") ||
+	    month_string_is("september")) {
             // clang-format on
             result->dt.tm_mon = 8;
             break;
         }
-        if (month_str_is("oct") || month_str_is("october")) {
+        if (month_string_is("oct") || month_string_is("october")) {
             result->dt.tm_mon = 9;
             break;
         }
-        if (month_str_is("nov") || month_str_is("november")) {
+        if (month_string_is("nov") || month_string_is("november")) {
             result->dt.tm_mon = 10;
             break;
         }
-        if (month_str_is("dec") || month_str_is("december")) {
+        if (month_string_is("dec") || month_string_is("december")) {
             result->dt.tm_mon = 11;
             break;
         }
@@ -210,12 +210,12 @@ us_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
 }
 
 static inline bool
-other_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
+other_written_date(n00b_string_t *input, n00b_date_time_t *result)
 {
-    int          l = n00b_str_byte_len(input);
-    char        *s = input->data;
-    char        *e = s + l;
-    n00b_utf8_t *day;
+    int            l = n00b_string_byte_len(input);
+    char          *s = input->data;
+    char          *e = s + l;
+    n00b_string_t *day;
 
     while (s < e) {
         char c = *s;
@@ -230,7 +230,7 @@ other_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
         return false;
     }
 
-    day = n00b_to_utf8(n00b_str_slice(input, 0, s - input->data));
+    day = n00b_string_slice(input, 0, s - input->data);
 
     while (s < e) {
         if (*s != ' ') {
@@ -256,9 +256,9 @@ other_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
     int mstart = month_part - input->data;
     int mend   = s - input->data;
 
-    n00b_utf8_t *mo           = n00b_to_utf8(n00b_str_slice(input, mstart, mend));
-    n00b_utf8_t *year         = n00b_to_utf8(n00b_str_slice(input, mend, l));
-    n00b_utf8_t *americanized = n00b_cstr_format("{} {}{}", mo, day, year);
+    n00b_string_t *mo           = n00b_string_slice(input, mstart, mend);
+    n00b_string_t *year         = n00b_string_slice(input, mend, l);
+    n00b_string_t *americanized = n00b_cformat("«#» «#»«#»", mo, day, year);
 
     return us_written_date(americanized, result);
 }
@@ -341,9 +341,9 @@ other_written_date(n00b_utf8_t *input, n00b_date_time_t *result)
     }
 
 static inline bool
-iso_date(n00b_utf8_t *input, n00b_date_time_t *result)
+iso_date(n00b_string_t *input, n00b_date_time_t *result)
 {
-    int   l             = n00b_str_byte_len(input);
+    int   l             = n00b_string_byte_len(input);
     char *s             = input->data;
     char *e             = s + l;
     int   m             = 0;
@@ -388,7 +388,7 @@ iso_date(n00b_utf8_t *input, n00b_date_time_t *result)
 }
 
 static bool
-to_native_date(n00b_utf8_t *i, n00b_date_time_t *r)
+to_native_date(n00b_string_t *i, n00b_date_time_t *r)
 {
     if (iso_date(i, r) || other_written_date(i, r) || us_written_date(i, r)) {
         return true;
@@ -412,12 +412,12 @@ to_native_date(n00b_utf8_t *i, n00b_date_time_t *r)
     }
 
 static bool
-to_native_time(n00b_utf8_t *input, n00b_date_time_t *result)
+to_native_time(n00b_string_t *input, n00b_date_time_t *result)
 {
     int   hr  = 0;
     int   min = 0;
     int   sec = 0;
-    int   l   = n00b_str_byte_len(input);
+    int   l   = n00b_string_byte_len(input);
     char *s   = input->data;
     char *e   = s + l;
     char  tmp;
@@ -621,20 +621,20 @@ to_native_time(n00b_utf8_t *input, n00b_date_time_t *result)
 }
 
 static bool
-to_native_date_and_or_time(n00b_utf8_t *input, n00b_date_time_t *result)
+to_native_date_and_or_time(n00b_string_t *input, n00b_date_time_t *result)
 {
-    int  ix           = n00b_str_find(input, n00b_new_utf8("T"));
+    int  ix           = n00b_string_find(input, n00b_cstring("T"));
     bool im_exhausted = false;
 
     if (ix == -1) {
-        ix = n00b_str_find(input, n00b_new_utf8("t"));
+        ix = n00b_string_find(input, n00b_cstring("t"));
     }
 
 try_a_slice:
     if (ix != -1) {
-        int          l    = n00b_str_codepoint_len(input);
-        n00b_utf8_t *date = n00b_to_utf8(n00b_str_slice(input, 0, ix));
-        n00b_utf8_t *time = n00b_to_utf8(n00b_str_slice(input, ix + 1, l));
+        int            l    = n00b_string_codepoint_len(input);
+        n00b_string_t *date = n00b_string_slice(input, 0, ix);
+        n00b_string_t *time = n00b_string_slice(input, ix + 1, l);
 
         if (iso_date(date, result) && to_native_time(time, result)) {
             return true;
@@ -652,12 +652,13 @@ try_a_slice:
     }
 
     // Otherwise, first look for the first colon after a space.
-    ix = n00b_str_find(input, n00b_new_utf8(":"));
+    ix = n00b_string_find(input, n00b_cached_colon());
+
+    n00b_string_require_u32(input);
 
     if (ix != -1) {
         int               last_space = -1;
-        n00b_utf32_t     *as_32      = n00b_to_utf32(input);
-        n00b_codepoint_t *cptr       = (n00b_codepoint_t *)as_32->data;
+        n00b_codepoint_t *cptr       = (n00b_codepoint_t *)input->u32_data;
 
         for (int i = 0; i < ix; i++) {
             if (*cptr++ == ' ') {
@@ -690,18 +691,18 @@ try_a_slice:
 static void
 datetime_init(n00b_date_time_t *self, va_list args)
 {
-    n00b_utf8_t *to_parse   = NULL;
-    int32_t      hr         = -1;
-    int32_t      min        = -1;
-    int32_t      sec        = -1;
-    int32_t      month      = -1;
-    int32_t      day        = -1;
-    int32_t      year       = YEAR_NOT_SET;
-    int32_t      offset_hr  = -100;
-    int32_t      offset_min = 0;
-    int32_t      offset_sec = 0;
-    int64_t      fracsec    = -1;
-    int64_t      timestamp  = -1;
+    n00b_string_t *to_parse   = NULL;
+    int32_t        hr         = -1;
+    int32_t        min        = -1;
+    int32_t        sec        = -1;
+    int32_t        month      = -1;
+    int32_t        day        = -1;
+    int32_t        year       = YEAR_NOT_SET;
+    int32_t        offset_hr  = -100;
+    int32_t        offset_min = 0;
+    int32_t        offset_sec = 0;
+    int64_t        fracsec    = -1;
+    int64_t        timestamp  = -1;
 
     n00b_karg_va_init(args);
     n00b_kw_ptr("to_parse", args);
@@ -743,7 +744,6 @@ datetime_init(n00b_date_time_t *self, va_list args)
     }
 
     if (to_parse != NULL) {
-        to_parse = n00b_to_utf8(to_parse);
         if (!to_native_date_and_or_time(to_parse, self)) {
             N00B_CRAISE("Invalid date-time literal.");
         }
@@ -826,7 +826,7 @@ datetime_init(n00b_date_time_t *self, va_list args)
 #define DT_HAVE_D    32
 #define DT_HAVE_OFF  64
 
-static n00b_str_t *
+static n00b_string_t *
 datetime_repr(n00b_date_time_t *self)
 {
     // TODO: this could use a lot more logic to make it more sane
@@ -856,16 +856,16 @@ datetime_repr(n00b_date_time_t *self)
     char buf[1024];
 
     if (!strftime(buf, 1024, fmt, &self->dt)) {
-        return n00b_new_utf8("<<invalid time>>");
+        return n00b_cstring("<<invalid time>>");
     }
 
-    return n00b_new_utf8(buf);
+    return n00b_cstring(buf);
 }
 
 static n00b_date_time_t *
-datetime_lit(n00b_utf8_t          *s,
+datetime_lit(n00b_string_t        *s,
              n00b_lit_syntax_t     st,
-             n00b_utf8_t          *mod,
+             n00b_string_t        *mod,
              n00b_compile_error_t *err)
 {
     n00b_date_time_t *result = n00b_new(n00b_type_datetime());
@@ -913,177 +913,54 @@ internal_error()
     N00B_CRAISE("Internal error (when calling strftime)");
 }
 
-static n00b_utf8_t *
-datetime_format(n00b_date_time_t *dt, n00b_fmt_spec_t *spec)
+#define N00B_MAX_DATETIME_OUTPUT 1024
+
+static n00b_string_t *
+datetime_format_base(n00b_date_time_t *dt,
+                     n00b_string_t    *fmt,
+                     char             *default_fmt)
 {
-    char fmt_str[13] = {'%', 0, 0};
-    char buf[1024];
+    char buf[N00B_MAX_DATETIME_OUTPUT];
 
-    switch (spec->type) {
-    case 0:
-        if (!strftime(buf, 1024, "%F %r %z", &dt->dt)) {
+    if (!fmt || !fmt->codepoints) {
+        if (!strftime(buf, 1024, default_fmt, &dt->dt)) {
             internal_error();
         }
 
-        return n00b_new_utf8(buf);
-    case 'A':
-    case 'B':
-    case 'C':
-    case 'D':
-    case 'F':
-    case 'G':
-    case 'H':
-    case 'I':
-    case 'M':
-    case 'R':
-    case 'S':
-    case 'T':
-    case 'U':
-    case 'V':
-    case 'W':
-    case 'X':
-    case 'Y':
-    case 'Z':
-    case 'a':
-    case 'b':
-    case 'c':
-    case 'd':
-    case 'e':
-    case 'g':
-    case 'j':
-    case 'k':
-    case 'l':
-    case 'm':
-    case 'n':
-    case 'p':
-    case 'r':
-    case 's':
-    case 't':
-    case 'u':
-    case 'v':
-    case 'w':
-    case 'x':
-    case 'y':
-    case 'z':
-    case '+':
-        fmt_str[1] = (char)spec->type;
-        if (!strftime(buf, 1024, fmt_str, &dt->dt)) {
-            internal_error();
-        }
-
-        return n00b_new_utf8(buf);
-
-    default:;
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Invalid format specifier for Datetime object, hex [em]{:x}",
-            spec->type);
-
-        N00B_RAISE(err);
+        return n00b_cstring(buf);
     }
+
+    if (!strftime(buf, N00B_MAX_DATETIME_OUTPUT, fmt->data, &dt->dt)) {
+        internal_error();
+    }
+
+    return n00b_cstring(buf);
 }
 
-static n00b_utf8_t *
-date_format(n00b_date_time_t *dt, n00b_fmt_spec_t *spec)
+#define N00B_MAX_DATETIME_OUTPUT 1024
+
+static n00b_string_t *
+datetime_format(n00b_date_time_t *dt, n00b_string_t *fmt)
 {
-    char fmt_str[3] = {'%', 0, 0};
-    char buf[1024];
-
-    switch (spec->type) {
-    case 0:
-        if (!strftime(buf, 1024, "%F", &dt->dt)) {
-            internal_error();
-        }
-
-        return n00b_new_utf8(buf);
-    case 'A':
-    case 'B':
-    case 'C':
-    case 'D':
-    case 'F':
-    case 'G':
-    case 'U':
-    case 'V':
-    case 'W':
-    case 'Y':
-    case 'a':
-    case 'b':
-    case 'd':
-    case 'e':
-    case 'g':
-    case 'j':
-    case 'm':
-    case 'n':
-    case 't':
-    case 'u':
-    case 'v':
-    case 'w':
-    case 'x':
-    case 'y':
-        fmt_str[1] = (char)spec->type;
-        if (!strftime(buf, 1024, fmt_str, &dt->dt)) {
-            internal_error();
-        }
-
-        return n00b_new_utf8(buf);
-
-    default:;
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Invalid format specifier for Date object, hex [em]{:x}",
-            spec->type);
-
-        N00B_RAISE(err);
-    }
+    return datetime_format_base(dt, fmt, "%F %r %z");
 }
 
-static n00b_utf8_t *
-time_format(n00b_date_time_t *dt, n00b_fmt_spec_t *spec)
+static n00b_string_t *
+date_format(n00b_date_time_t *dt, n00b_string_t *fmt)
 {
-    char fmt_str[3] = {'%', 0};
-    char buf[1024];
+    return datetime_format_base(dt, fmt, "%F");
+}
 
-    switch (spec->type) {
-    case 0:
-        if (!strftime(buf, 1024, "%r %z", &dt->dt)) {
-            internal_error();
-        }
-
-        return n00b_new_utf8(buf);
-    case 'H':
-    case 'I':
-    case 'M':
-    case 'R':
-    case 'S':
-    case 'T':
-    case 'X':
-    case 'Z':
-    case 'k':
-    case 'l':
-    case 'n':
-    case 'p':
-    case 'r':
-    case 's':
-    case 't':
-    case 'z':
-        fmt_str[1] = (char)spec->type;
-        if (!strftime(buf, 1024, fmt_str, &dt->dt)) {
-            internal_error();
-        }
-
-        return n00b_new_utf8(buf);
-
-    default:;
-        n00b_utf8_t *err = n00b_cstr_format(
-            "Invalid format specifier for Time object, hex [em]{:x}",
-            spec->type);
-
-        N00B_RAISE(err);
-    }
+static n00b_string_t *
+time_format(n00b_date_time_t *dt, n00b_string_t *fmt)
+{
+    return datetime_format_base(dt, fmt, "%r %z");
 }
 
 static n00b_date_time_t *
-date_lit(n00b_utf8_t          *s,
+date_lit(n00b_string_t        *s,
          n00b_lit_syntax_t     st,
-         n00b_utf8_t          *mod,
+         n00b_string_t        *mod,
          n00b_compile_error_t *err)
 {
     n00b_date_time_t *result = n00b_new(n00b_type_date());
@@ -1097,9 +974,9 @@ date_lit(n00b_utf8_t          *s,
 }
 
 static n00b_date_time_t *
-time_lit(n00b_utf8_t          *s,
+time_lit(n00b_string_t        *s,
          n00b_lit_syntax_t     st,
-         n00b_utf8_t          *mod,
+         n00b_string_t        *mod,
          n00b_compile_error_t *err)
 {
     n00b_date_time_t *result = n00b_new(n00b_type_time());
@@ -1113,8 +990,7 @@ time_lit(n00b_utf8_t          *s,
 }
 
 const n00b_vtable_t n00b_datetime_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)datetime_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)datetime_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)datetime_format,
@@ -1128,8 +1004,7 @@ const n00b_vtable_t n00b_datetime_vtable = {
 };
 
 const n00b_vtable_t n00b_date_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)datetime_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)datetime_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)date_format,
@@ -1143,8 +1018,7 @@ const n00b_vtable_t n00b_date_vtable = {
 };
 
 const n00b_vtable_t n00b_time_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)datetime_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)datetime_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)time_format,

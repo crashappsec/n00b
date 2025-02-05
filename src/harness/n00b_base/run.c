@@ -6,7 +6,7 @@ execute_test(n00b_test_kat *kat)
 {
     n00b_compile_ctx *ctx;
     n00b_gc_show_heap_stats_on();
-    n00b_printf("[h1]Processing module {}", kat->path);
+    n00b_printf("«em1»Processing module «#»", kat->path);
 
     ctx = n00b_compile_from_entry_point(kat->path);
 
@@ -14,25 +14,21 @@ execute_test(n00b_test_kat *kat)
         n00b_show_dev_compile_info(ctx);
     }
 
-    n00b_grid_t *err_output = n00b_format_errors(ctx);
+    n00b_table_t *errs = n00b_format_errors(ctx);
 
-    if (err_output != NULL) {
-        n00b_grid_t *err_grid = n00b_new(n00b_type_grid(),
-                                         n00b_kw("start_rows",
-                                                 n00b_ka(2),
-                                                 "start_cols",
-                                                 n00b_ka(1),
-                                                 "container_tag",
-                                                 n00b_ka(n00b_new_utf8("flow"))));
-        n00b_utf8_t *s        = n00b_new_utf8("Error Output");
-        n00b_grid_add_row(err_grid,
-                          n00b_to_str_renderable(s,
-                                                 n00b_new_utf8("h2")));
-        n00b_grid_add_row(err_grid, err_output);
-        n00b_print(err_grid);
+    if (errs != NULL) {
+        n00b_table_t *errs = n00b_table("columns",
+                                        n00b_ka(1),
+                                        "style",
+                                        n00b_ka(N00B_TABLE_SIMPLE));
+
+        n00b_table_add_cell(errs, n00b_cstring("«em2»Error Output"));
+        n00b_table_add_cell(errs, errs);
     }
 
-    n00b_printf("[atomic lime]info:[/] Done processing: {}", kat->path);
+    n00b_table_add_cell(errs,
+                        n00b_cformat("«green»info:«/» Done processing: «#»",
+                                     kat->path));
 
     if (n00b_got_fatal_compiler_error(ctx)) {
         if (kat->is_test) {
@@ -40,6 +36,8 @@ execute_test(n00b_test_kat *kat)
         }
         return n00b_tec_no_compile;
     }
+
+    n00b_print(errs);
 
     n00b_vm_t *vm = n00b_vm_new(ctx);
     n00b_generate_code(ctx, vm);
@@ -51,24 +49,24 @@ execute_test(n00b_test_kat *kat)
         n00b_show_dev_disasm(vm, m);
     }
 
-    n00b_printf("[h6]****STARTING PROGRAM EXECUTION*****[/]");
+    n00b_printf("«em6»****STARTING PROGRAM EXECUTION*****«/»");
     n00b_vmthread_t *thread = n00b_vmthread_new(vm);
     n00b_vmthread_run(thread);
-    n00b_printf("[h6]****PROGRAM EXECUTION FINISHED*****[/]\n");
+    n00b_printf("«em6»****PROGRAM EXECUTION FINISHED*****«/»\n");
 
     if (kat->save) {
-        n00b_printf("\n[h3]Saving VM state.");
+        n00b_printf("\n«em3»Saving VM state.");
         n00b_vm_save(vm);
-        n00b_printf("[h4]First run saved.");
+        n00b_printf("«em4»First run saved.");
 
         if (kat->second_entry != NULL) {
-            n00b_utf8_t *test_dir;
-            n00b_utf8_t *s;
+            n00b_string_t *test_dir;
+            n00b_string_t *s;
 
-            test_dir = n00b_get_env(n00b_new_utf8("N00B_TEST_DIR"));
+            test_dir = n00b_get_env(n00b_cstring("N00B_TEST_DIR"));
 
             if (test_dir == NULL) {
-                test_dir = n00b_cstr_format("{}/tests/", n00b_n00b_root());
+                test_dir = n00b_cformat("«#»/tests/", n00b_n00b_root());
             }
             else {
                 test_dir = n00b_resolve_path(test_dir);
@@ -77,14 +75,14 @@ execute_test(n00b_test_kat *kat)
             s = n00b_path_simple_join(test_dir, kat->second_entry);
             n00b_compile_ctx *rc_ctx;
             if (!n00b_incremental_module(vm, s, true, &rc_ctx)) {
-                n00b_printf("[h3]**Incremental module add failed.**");
+                n00b_printf("«em3»**Incremental module add failed.**");
             }
         }
 
-        n00b_printf("[h3]Re-running.");
+        n00b_printf("«em3»Re-running.");
         n00b_vmthread_t *thread = n00b_vmthread_new(vm);
         n00b_vmthread_run(thread);
-        n00b_printf("[h3]Finished re-running.");
+        n00b_printf("«em3»Finished re-running.");
     }
 
     // TODO: We need to mark unlocked types with sub-variables at some point,
@@ -124,12 +122,12 @@ monitor_test(n00b_test_kat *kat, int readfd, pid_t pid)
     switch (select(readfd + 1, &select_ctx, NULL, NULL, &timeout)) {
     case 0:
         kat->timeout = true;
-        n00b_print(n00b_callout(n00b_cstr_format("{} TIMED OUT.",
-                                                 kat->path)));
+        n00b_print(n00b_call_out(n00b_cformat("«#» TIMED OUT.",
+                                              kat->path)));
         wait4(pid, &status, WNOHANG | WUNTRACED, &kat->usage);
         break;
     case -1:
-        n00b_print(n00b_callout(n00b_cstr_format("{} CRASHED.", kat->path)));
+        n00b_print(n00b_call_out(n00b_cformat("«#» CRASHED.", kat->path)));
         kat->err_value = errno;
         break;
     default:
@@ -142,9 +140,9 @@ monitor_test(n00b_test_kat *kat, int readfd, pid_t pid)
     if (WIFEXITED(status)) {
         kat->exit_code = WEXITSTATUS(status);
 
-        n00b_printf("[h4]{}[/h4] exited with return code: [em]{}[/].",
+        n00b_printf("«em4»«#»«/h4» exited with return code: «em2»«#»«/».",
                     kat->path,
-                    n00b_box_u64(kat->exit_code));
+                    (int64_t)kat->exit_code);
 
         announce_test_end(kat);
         return;
@@ -214,7 +212,7 @@ n00b_run_other_test_files(void)
         return;
     }
 
-    n00b_print(n00b_callout(n00b_new_utf8("RUNNING TESTS LACKING TEST SPECS.")));
+    n00b_print(n00b_call_out(n00b_cstring("RUNNING TESTS LACKING TEST SPECS.")));
     for (int i = 0; i < n00b_test_total_items; i++) {
         n00b_test_kat *item = &n00b_test_info[i];
 
@@ -222,7 +220,7 @@ n00b_run_other_test_files(void)
             continue;
         }
 
-        n00b_printf("[h4]Running non-test case:[i] {}", item->path);
+        n00b_printf("«em4»Running non-test case:«i» «#»", item->path);
 
         int pipefds[2];
 
@@ -251,18 +249,18 @@ n00b_run_other_test_files(void)
 
         switch (select(pipefds[0] + 1, &select_ctx, NULL, NULL, &timeout)) {
         case 0:
-            n00b_print(n00b_callout(n00b_cstr_format("{} TIMED OUT.",
-                                                     item->path)));
+            n00b_print(n00b_call_out(n00b_cformat("«#» TIMED OUT.",
+                                                  item->path)));
             kill(pid, SIGKILL);
             continue;
         case -1:
-            n00b_print(n00b_callout(n00b_cstr_format("{} CRASHED.", item->path)));
+            n00b_print(n00b_call_out(n00b_cformat("«#» CRASHED.", item->path)));
             continue;
         default:
             waitpid(pid, &status, WNOHANG);
-            n00b_printf("[h4]{}[/h4] exited with return code: [em]{}[/].",
+            n00b_printf("«em4»«#»«/h4» exited with return code: «em2»«#»«/».",
                         item->path,
-                        n00b_box_u64(WEXITSTATUS(status)));
+                        (int64_t)WEXITSTATUS(status));
             continue;
         }
     }

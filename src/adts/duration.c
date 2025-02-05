@@ -85,15 +85,15 @@ n00b_program_clock(void)
 }
 
 static n00b_list_t *
-duration_atomize(n00b_utf8_t *s)
+duration_atomize(n00b_string_t *s)
 {
-    n00b_utf8_t *one;
-    n00b_list_t *result = n00b_list(n00b_type_utf8());
-    int          l      = n00b_str_byte_len(s);
-    char        *p      = s->data;
-    char        *end    = p + l;
-    int          start  = 0;
-    int          cur    = 0;
+    n00b_string_t *one;
+    n00b_list_t   *result = n00b_list(n00b_type_string());
+    int            l      = n00b_string_byte_len(s);
+    char          *p      = s->data;
+    char          *end    = p + l;
+    int            start  = 0;
+    int            cur    = 0;
 
     while (p < end) {
         while (p < end && isdigit(*p)) {
@@ -103,7 +103,7 @@ duration_atomize(n00b_utf8_t *s)
         if (start == cur) {
             return NULL;
         }
-        one = n00b_str_slice(s, start, cur);
+        one = n00b_string_slice(s, start, cur);
         n00b_list_append(result, one);
 
         while (p < end && (isspace(*p) || *p == ',')) {
@@ -121,7 +121,7 @@ duration_atomize(n00b_utf8_t *s)
             return NULL;
         }
 
-        one = n00b_str_slice(s, start, cur);
+        one = n00b_string_slice(s, start, cur);
         n00b_list_append(result, one);
 
         while (p < end && (isspace(*p) || *p == ',')) {
@@ -144,7 +144,7 @@ duration_atomize(n00b_utf8_t *s)
 #define N00B_MAX_UINT (~0ULL)
 
 static inline int64_t
-tv_sec_multiple(n00b_utf8_t *s)
+tv_sec_multiple(n00b_string_t *s)
 {
     // clang-format off
     switch (s->data[0]) {
@@ -203,7 +203,7 @@ tv_sec_multiple(n00b_utf8_t *s)
 }
 
 static inline int64_t
-tv_nano_multiple(n00b_utf8_t *s)
+tv_nano_multiple(n00b_string_t *s)
 {
     // For sub-seconds, we convert to nanoseconds.
     switch (s->data[0]) {
@@ -254,7 +254,7 @@ tv_nano_multiple(n00b_utf8_t *s)
 }
 
 static bool
-str_to_duration(n00b_utf8_t          *s,
+str_to_duration(n00b_string_t        *s,
                 struct timespec      *ts,
                 n00b_compile_error_t *err)
 {
@@ -265,14 +265,14 @@ str_to_duration(n00b_utf8_t          *s,
         return false;
     }
 
-    int          i   = 0;
-    int          n   = n00b_list_len(atoms);
-    __uint128_t  sec = 0;
-    __uint128_t  sub = 0;
-    __uint128_t  tmp;
-    int64_t      multiple;
-    bool         neg;
-    n00b_utf8_t *tmpstr;
+    int            i   = 0;
+    int            n   = n00b_list_len(atoms);
+    __uint128_t    sec = 0;
+    __uint128_t    sub = 0;
+    __uint128_t    tmp;
+    int64_t        multiple;
+    bool           neg;
+    n00b_string_t *tmpstr;
 
     while (i < n) {
         tmp = n00b_raw_int_parse(n00b_list_get(atoms, i++, NULL), err, &neg);
@@ -326,7 +326,7 @@ str_to_duration(n00b_utf8_t          *s,
 static void
 duration_init(struct timespec *ts, va_list args)
 {
-    n00b_utf8_t         *to_parse = NULL;
+    n00b_string_t       *to_parse = NULL;
     int64_t              sec      = -1;
     int64_t              nanosec  = -1;
     struct timeval      *tv       = NULL;
@@ -362,20 +362,20 @@ duration_init(struct timespec *ts, va_list args)
     return;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 repr_sec(int64_t n)
 {
-    n00b_list_t *l = n00b_list(n00b_type_utf8());
-    n00b_utf8_t *s;
-    int64_t      tmp;
+    n00b_list_t   *l = n00b_list(n00b_type_string());
+    n00b_string_t *s;
+    int64_t        tmp;
 
     if (n >= SEC_PER_YEAR) {
         tmp = n / SEC_PER_YEAR;
         if (tmp > 1) {
-            s = n00b_cstr_format("{} years", n00b_box_u64(tmp));
+            s = n00b_cformat("«#» years", tmp);
         }
         else {
-            s = n00b_new_utf8("1 year");
+            s = n00b_cstring("1 year");
         }
 
         n00b_list_append(l, s);
@@ -385,10 +385,10 @@ repr_sec(int64_t n)
     if (n >= SEC_PER_WEEK) {
         tmp = n / SEC_PER_WEEK;
         if (tmp > 1) {
-            s = n00b_cstr_format("{} weeks", n00b_box_u64(tmp));
+            s = n00b_cformat("«#» weeks", tmp);
         }
         else {
-            s = n00b_new_utf8("1 week");
+            s = n00b_cstring("1 week");
         }
 
         n00b_list_append(l, s);
@@ -398,10 +398,10 @@ repr_sec(int64_t n)
     if (n >= SEC_PER_DAY) {
         tmp = n / SEC_PER_DAY;
         if (tmp > 1) {
-            s = n00b_cstr_format("{} days", n00b_box_u64(tmp));
+            s = n00b_cformat("«#» days", tmp);
         }
         else {
-            s = n00b_new_utf8("1 day");
+            s = n00b_cstring("1 day");
         }
 
         n00b_list_append(l, s);
@@ -411,10 +411,10 @@ repr_sec(int64_t n)
     if (n >= SEC_PER_HR) {
         tmp = n / SEC_PER_HR;
         if (tmp > 1) {
-            s = n00b_cstr_format("{} hours", n00b_box_u64(tmp));
+            s = n00b_cformat("«#» hours", tmp);
         }
         else {
-            s = n00b_new_utf8("1 hour");
+            s = n00b_cstring("1 hour");
         }
 
         n00b_list_append(l, s);
@@ -424,10 +424,10 @@ repr_sec(int64_t n)
     if (n >= SEC_PER_MIN) {
         tmp = n / SEC_PER_MIN;
         if (tmp > 1) {
-            s = n00b_cstr_format("{} minutes", n00b_box_u64(tmp));
+            s = n00b_cformat("«#» minutes", tmp);
         }
         else {
-            s = n00b_new_utf8("1 minute");
+            s = n00b_cstring("1 minute");
         }
 
         n00b_list_append(l, s);
@@ -436,54 +436,54 @@ repr_sec(int64_t n)
 
     if (n) {
         if (n == 1) {
-            s = n00b_new_utf8("1 second");
+            s = n00b_cstring("1 second");
         }
         else {
-            s = n00b_cstr_format("{} seconds", n00b_box_u64(n));
+            s = n00b_cformat("«#» seconds", n);
         }
         n00b_list_append(l, s);
     }
 
-    return n00b_to_utf8(n00b_str_join(l, n00b_new_utf8(", ")));
+    return n00b_string_join(l, n00b_cached_comma_padded());
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 repr_ns(int64_t n)
 {
-    int ms = n / NS_PER_MS;
-    int ns = n - (ms * NS_PER_MS);
-    int us = ns / NS_PER_US;
+    int64_t ms = n / NS_PER_MS;
+    int64_t ns = n - (ms * NS_PER_MS);
+    int64_t us = ns / NS_PER_US;
 
     ns = ns - (us * NS_PER_US);
 
-    n00b_list_t *parts = n00b_list(n00b_type_utf8());
+    n00b_list_t *parts = n00b_list(n00b_type_string());
 
     if (ms) {
-        n00b_list_append(parts, n00b_cstr_format("{} msec", n00b_box_u64(ms)));
+        n00b_list_append(parts, n00b_cformat("«#:n» msec", ms));
     }
     if (us) {
-        n00b_list_append(parts, n00b_cstr_format("{} usec", n00b_box_u64(us)));
+        n00b_list_append(parts, n00b_cformat("«#:n» usec", us));
     }
     if (ns) {
-        n00b_list_append(parts, n00b_cstr_format("{} nsec", n00b_box_u64(ns)));
+        n00b_list_append(parts, n00b_cformat("«#:n» nsec", ms));
     }
 
-    return n00b_str_join(parts, n00b_new_utf8(", "));
+    return n00b_string_join(parts, n00b_cached_comma_padded());
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 duration_repr(n00b_duration_t *ts)
 {
     // TODO: Do better.
 
     if (!ts->tv_sec && !ts->tv_nsec) {
-        return n00b_new_utf8("0 seconds");
+        return n00b_cstring("0 seconds");
     }
 
     if (ts->tv_sec && ts->tv_nsec) {
-        return n00b_cstr_format("{} {}",
-                                repr_sec(ts->tv_sec),
-                                repr_ns(ts->tv_nsec));
+        return n00b_cformat("«#0» «#1»",
+                            repr_sec(ts->tv_sec),
+                            repr_ns(ts->tv_nsec));
     }
 
     if (ts->tv_sec) {
@@ -566,9 +566,9 @@ n00b_duration_add(n00b_duration_t *t1, n00b_duration_t *t2)
 }
 
 static n00b_duration_t *
-duration_lit(n00b_utf8_t          *s,
+duration_lit(n00b_string_t        *s,
              n00b_lit_syntax_t     st,
-             n00b_utf8_t          *mod,
+             n00b_string_t        *mod,
              n00b_compile_error_t *err)
 {
     n00b_duration_t *result = n00b_new(n00b_type_duration());
@@ -581,8 +581,7 @@ duration_lit(n00b_utf8_t          *s,
 }
 
 const n00b_vtable_t n00b_duration_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)duration_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)duration_repr,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)duration_lit,

@@ -1,7 +1,7 @@
 #include "n00b.h"
 
 static inline void
-set_v4(n00b_net_addr_t *obj, n00b_str_t *s, uint16_t port)
+set_v4(n00b_net_addr_t *obj, n00b_string_t *s, uint16_t port)
 {
     if (inet_pton(AF_INET, s->data, &obj->addr.v4.sin_addr) <= 0) {
         N00B_CRAISE("Invalid ip address");
@@ -13,7 +13,7 @@ set_v4(n00b_net_addr_t *obj, n00b_str_t *s, uint16_t port)
 }
 
 static inline void
-set_v6(n00b_net_addr_t *obj, n00b_str_t *s, uint16_t port)
+set_v6(n00b_net_addr_t *obj, n00b_string_t *s, uint16_t port)
 {
     if (inet_pton(AF_INET6, s->data, &obj->addr.v6.sin6_addr) <= 0) {
         N00B_CRAISE("Invalid ip address");
@@ -25,7 +25,7 @@ set_v6(n00b_net_addr_t *obj, n00b_str_t *s, uint16_t port)
 }
 
 static inline void
-set_unix(n00b_net_addr_t *obj, n00b_str_t *s)
+set_unix(n00b_net_addr_t *obj, n00b_string_t *s)
 {
     static int c = sizeof(struct sockaddr_un)
                  - sizeof(sa_family_t) - 1;
@@ -33,8 +33,7 @@ set_unix(n00b_net_addr_t *obj, n00b_str_t *s)
     if (!s) {
         N00B_CRAISE("Unix address instantiation requires a path");
     }
-    s       = n00b_to_utf8(s);
-    int len = n00b_min(n00b_str_byte_len(s), c);
+    int len = n00b_min(n00b_string_byte_len(s), c);
 
     memcpy(&obj->addr.unix.sun_path, s->data, len);
     obj->addr.unix.sun_family = AF_UNIX;
@@ -81,20 +80,20 @@ perform_inline_resolve(n00b_net_addr_t *obj)
                           0); // NI_NAMEREQD ?
 
     if (err) {
-        N00B_RAISE(n00b_new_utf8(gai_strerror(err)));
+        N00B_RAISE(n00b_cstring((char *)gai_strerror(err)));
     }
 
-    obj->resolved_name = n00b_new_utf8(host);
+    obj->resolved_name = n00b_cstring(host);
 
     if (strlen(service)) {
-        obj->service = n00b_new_utf8(service);
+        obj->service = n00b_cstring(service);
     }
 }
 
 static void
 ipaddr_init(n00b_net_addr_t *obj, va_list args)
 {
-    n00b_str_t      *address  = NULL;
+    n00b_string_t   *address  = NULL;
     int32_t          port     = -1;
     bool             ipv6     = false;
     bool             unix     = false;
@@ -149,7 +148,7 @@ ipaddr_init(n00b_net_addr_t *obj, va_list args)
     }
 }
 
-static inline n00b_str_t *
+static inline n00b_string_t *
 repr_inet(n00b_net_addr_t *obj)
 {
     char buf[INET6_ADDRSTRLEN + 1] = {
@@ -161,10 +160,10 @@ repr_inet(n00b_net_addr_t *obj)
     if (!inet_ntop(AF_INET, &(addr->sin_addr), buf, sz)) {
         n00b_raise_errno();
     }
-    return n00b_new_utf8(buf);
+    return n00b_cstring(buf);
 }
 
-static inline n00b_str_t *
+static inline n00b_string_t *
 repr_inet6(n00b_net_addr_t *obj)
 {
     char buf[INET6_ADDRSTRLEN + 1] = {
@@ -177,16 +176,16 @@ repr_inet6(n00b_net_addr_t *obj)
         n00b_raise_errno();
     }
 
-    return n00b_new_utf8(buf);
+    return n00b_cstring(buf);
 }
 
-static inline n00b_str_t *
+static inline n00b_string_t *
 repr_unix(n00b_net_addr_t *obj)
 {
-    return n00b_cstr_format("unix:{}", n00b_new_utf8(obj->addr.unix.sun_path));
+    return n00b_cformat("unix:«#»", n00b_cstring(obj->addr.unix.sun_path));
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_net_addr_repr(n00b_net_addr_t *obj)
 {
     switch (obj->family) {
@@ -201,13 +200,13 @@ n00b_net_addr_repr(n00b_net_addr_t *obj)
     }
 }
 
-static n00b_str_t *
+static n00b_string_t *
 ipaddr_repr(n00b_net_addr_t *obj)
 {
     if (obj->resolved_name) {
         int64_t port = n00b_get_net_addr_port(obj);
         if (port) {
-            return n00b_cstr_format("{}:{}", obj->resolved_name, port);
+            return n00b_cformat("«#»:«#»", obj->resolved_name, port);
         }
         return obj->resolved_name;
     }
@@ -215,7 +214,7 @@ ipaddr_repr(n00b_net_addr_t *obj)
     return n00b_net_addr_repr(obj);
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_net_addr_dns_name(n00b_net_addr_t *obj)
 {
     if (!obj->resolved_name) {
@@ -225,7 +224,7 @@ n00b_net_addr_dns_name(n00b_net_addr_t *obj)
     return obj->resolved_name;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_net_addr_service_name(n00b_net_addr_t *obj)
 {
     if (!obj->service) {
@@ -236,21 +235,21 @@ n00b_net_addr_service_name(n00b_net_addr_t *obj)
 }
 
 static inline n00b_net_addr_t *
-unix_lit(n00b_utf8_t *in)
+unix_lit(n00b_string_t *in)
 {
-    n00b_utf8_t *s = n00b_str_slice(in, 5, -1);
+    n00b_string_t *s = n00b_string_slice(in, 5, -1);
 
     return n00b_new(n00b_type_ip(),
-                    n00b_kw("unix", n00b_ka(true), "address", n00b_to_utf8(s)));
+                    n00b_kw("unix", n00b_ka(true), "address", s));
 }
 
 static n00b_net_addr_t *
-ipaddr_lit(n00b_utf8_t          *s_u8,
+ipaddr_lit(n00b_string_t        *s_u8,
            n00b_lit_syntax_t     st,
-           n00b_utf8_t          *litmod,
+           n00b_string_t        *litmod,
            n00b_compile_error_t *err)
 {
-    if (n00b_str_starts_with(s_u8, n00b_new_utf8("unix:"))) {
+    if (n00b_string_starts_with(s_u8, n00b_cstring("unix:"))) {
         return unix_lit(s_u8);
     }
 
@@ -270,8 +269,7 @@ ipaddr_lit(n00b_utf8_t          *s_u8,
 }
 
 const n00b_vtable_t n00b_ipaddr_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)ipaddr_init,
         [N00B_BI_TO_STR]       = (n00b_vtable_entry)ipaddr_repr,
         [N00B_BI_GC_MAP]       = (n00b_vtable_entry)N00B_GC_SCAN_NONE,

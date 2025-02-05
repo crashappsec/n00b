@@ -15,8 +15,8 @@ typedef union {
 // it barfs. Which results in double-setting the field...
 typedef struct {
     short int       family;
-    n00b_utf8_t    *resolved_name;
-    n00b_utf8_t    *service;
+    n00b_string_t    *resolved_name;
+    n00b_string_t    *service;
     n00b_sockaddr_t addr;
 } n00b_net_addr_t;
 
@@ -55,7 +55,7 @@ n00b_get_net_addr_port(n00b_net_addr_t *addr)
 }
 
 // Returns the raw address only, not the resolved address (if any).
-extern n00b_utf8_t *n00b_net_addr_repr(n00b_net_addr_t *);
+extern n00b_string_t *n00b_net_addr_repr(n00b_net_addr_t *);
 
-extern n00b_utf8_t *n00b_net_addr_dns_name(n00b_net_addr_t *);
-extern n00b_utf8_t *n00b_net_addr_service_name(n00b_net_addr_t *);
+extern n00b_string_t *n00b_net_addr_dns_name(n00b_net_addr_t *);
+extern n00b_string_t *n00b_net_addr_service_name(n00b_net_addr_t *);

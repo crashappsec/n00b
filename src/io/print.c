@@ -4,22 +4,19 @@ void
 _n00b_print(n00b_obj_t first, ...)
 {
     va_list           args;
-    n00b_obj_t        cur                 = first;
-    n00b_karg_info_t *_n00b_karg          = NULL;
-    n00b_stream_t    *stream              = NULL;
-    n00b_codepoint_t  sep                 = ' ';
-    n00b_codepoint_t  end                 = '\n';
-    bool              flush               = false;
-    bool              nocolor             = false;
-    int               numargs             = 1;
-    // This aren't allowed w/ nocolor.
-    bool              truncate            = true;
-    bool              wrap_simple_strings = true;
+    n00b_obj_t        cur        = first;
+    n00b_karg_info_t *_n00b_karg = NULL;
+    n00b_stream_t    *stream     = NULL;
+    n00b_codepoint_t  sep        = ' ';
+    n00b_codepoint_t  end        = '\n';
+    bool              flush      = false;
+    bool              nocolor    = false;
+    int               numargs    = 1;
 
     va_start(args, first);
 
     if (first == NULL) {
-        n00b_putc(n00b_stdout(), '\n');
+        n00b_write(n00b_stdout(), n00b_cached_newline());
         return;
     }
 
@@ -30,7 +27,7 @@ _n00b_print(n00b_obj_t first, ...)
         first  = va_arg(args, n00b_obj_t);
         cur    = first;
         if (!first) {
-            n00b_putc(stream, '\n');
+            n00b_write(n00b_stdout(), n00b_cached_newline());
             return;
         }
     }
@@ -58,50 +55,36 @@ _n00b_print(n00b_obj_t first, ...)
         n00b_kw_codepoint("sep", sep);
         n00b_kw_codepoint("end", end);
         n00b_kw_bool("flush", flush);
-
-        if (!n00b_kw_bool("no_color", nocolor)) {
-            n00b_kw_bool("truncate", truncate);
-        }
+        n00b_kw_bool("no_color", nocolor);
     }
 
     if (stream == NULL) {
         stream = n00b_stdout();
     }
 
-    int twidth = n00b_max(n00b_terminal_width(), N00B_MIN_RENDER_WIDTH);
+    n00b_string_t *s;
 
     for (int i = 0; i < numargs; i++) {
-        if (!n00b_type_is_string(n00b_get_my_type(cur))) {
-            cur = n00b_repr(cur);
-        }
         if (i && sep) {
-            n00b_putcp(stream, sep);
+            n00b_write(stream, n00b_string_from_codepoint(sep));
         }
-        if (numargs == 1 && wrap_simple_strings) {
-            n00b_list_t *lines = n00b_str_wrap(cur, twidth, 0);
-            cur                = n00b_str_join(lines, NULL);
-            n00b_write(stream, cur);
-            break;
-        }
-
-        if (nocolor && n00b_style_num_entries(cur)) {
-            cur = n00b_str_copy(cur);
-            n00b_alloc_styles(cur, 0);
-        }
-
-        if (truncate) {
-            cur = n00b_to_str(cur, n00b_get_my_type(cur));
-            n00b_ansi_render_to_width(cur, twidth, 0, stream);
+        if (n00b_type_is_string(n00b_get_my_type(cur))) {
+            s = cur;
         }
         else {
-            n00b_write(stream, cur);
+            s = n00b_to_string(cur);
+        }
+        if (nocolor && s->styling && s->styling->num_styles) {
+            s = n00b_string_reuse_text(s);
         }
 
+        n00b_write(stream, s);
         cur = va_arg(args, n00b_obj_t);
     }
 
     if (end) {
-        n00b_putcp(stream, end);
+        s = n00b_string_from_codepoint(end);
+        n00b_write(stream, s);
     }
 
 #if 0
@@ -184,20 +167,21 @@ _n00b_cprintf(char *fmt, int64_t num_params, ...)
                 break;
             case 's':
                 obj = va_arg(args, void *);
-                n00b_utf8_t *s;
+                n00b_string_t *s;
 
                 if (n00b_in_heap(obj)) {
                     if (n00b_type_is_string(n00b_get_my_type(obj))) {
-                        s = n00b_to_utf8(obj);
+                        s = obj;
                     }
                     else {
-                        s = n00b_to_utf8(n00b_repr(obj));
+                        s = n00b_cformat("«#»", obj);
                     }
                 }
                 else {
-                    s = n00b_repr(obj);
+                    s = n00b_cformat("«#»", obj);
                 }
-                start[arg_index] = s->data;
+
+                start[arg_index] = n00b_rich_to_ansi(s, NULL);
 
                 p++;
                 arg_index++;

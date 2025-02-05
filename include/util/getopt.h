@@ -216,10 +216,10 @@ typedef enum : int64_t {
 } n00b_gopt_node_type;
 
 typedef struct n00b_goption_t {
-    n00b_utf8_t            *name;
-    n00b_utf8_t            *normalized;
-    n00b_utf8_t            *short_doc;
-    n00b_utf8_t            *long_doc;
+    n00b_string_t          *name;
+    n00b_string_t          *normalized;
+    n00b_string_t          *short_doc;
+    n00b_string_t          *long_doc;
     n00b_list_t            *choices;
     n00b_nonterm_t         *my_nonterm;
     // Token id is the unique ID associated with the specific flag name.
@@ -245,11 +245,11 @@ typedef struct n00b_gopt_cspec {
     struct n00b_gopt_cspec *parent;
     n00b_nonterm_t         *name_nt;
     n00b_nonterm_t         *rule_nt;
-    n00b_utf8_t            *name;
+    n00b_string_t          *name;
     int64_t                 token_id;
     uint32_t                seq; // Used for tracking valid flags per rule.
-    n00b_utf8_t            *short_doc;
-    n00b_utf8_t            *long_doc;
+    n00b_string_t          *short_doc;
+    n00b_string_t          *long_doc;
     n00b_dict_t            *sub_commands;
     n00b_list_t            *aliases;
     n00b_dict_t            *owned_opts;
@@ -286,7 +286,7 @@ typedef struct n00b_gopt_ctx {
     n00b_nonterm_t *nt_1opt;
     n00b_nonterm_t *nt_badopt;
     n00b_nonterm_t *nt_badargs;
-    n00b_utf8_t    *command_name;
+    n00b_string_t  *command_name;
     int64_t         default_command;
     uint64_t        counter;
     // See the global flags array above.
@@ -297,11 +297,11 @@ typedef struct n00b_gopt_ctx {
 
 typedef struct {
     n00b_gopt_ctx *gctx;
-    n00b_utf8_t   *command_name;
-    n00b_utf8_t   *normalized_name;
+    n00b_string_t *command_name;
+    n00b_string_t *normalized_name;
     n00b_list_t   *words;
-    n00b_utf8_t   *word;
-    n00b_utf32_t  *raw_word;
+    n00b_string_t *word;
+    n00b_string_t *raw_word;
     int            num_words;
     int            word_id;
     int            cur_wordlen;
@@ -311,7 +311,7 @@ typedef struct {
 } n00b_gopt_lex_state;
 
 typedef struct {
-    n00b_utf8_t      *cmd;
+    n00b_string_t    *cmd;
     n00b_dict_t      *flags;
     n00b_dict_t      *args;
     n00b_list_t      *errors;
@@ -325,25 +325,27 @@ typedef struct {
     n00b_dict_t      *args;
     n00b_tree_node_t *intree;
     n00b_gopt_ctx    *gctx;
-    n00b_utf8_t      *path;
-    n00b_utf8_t      *deepest_path;
+    n00b_string_t    *path;
+    n00b_string_t    *deepest_path;
     n00b_list_t      *errors;
     n00b_parser_t    *parser;
     n00b_list_t      *cmd_stack;
 } n00b_gopt_extraction_ctx;
 
 typedef struct {
-    n00b_utf8_t    *cmd;
+    n00b_string_t  *cmd;
     n00b_goption_t *spec;
     n00b_obj_t      value;
     int             n; // Number of items stored.
 } n00b_rt_option_t;
 
-extern n00b_list_t *n00b_gopt_parse(n00b_gopt_ctx *, n00b_str_t *, n00b_list_t *);
+extern n00b_list_t *n00b_gopt_parse(n00b_gopt_ctx *,
+                                    n00b_string_t *,
+                                    n00b_list_t *);
 extern void         _n00b_gopt_command_add_rule(n00b_gopt_ctx *,
                                                 n00b_gopt_cspec *,
                                                 n00b_list_t *,
-                                                n00b_utf8_t *);
+                                                n00b_string_t *);
 #define n00b_gopt_command_add_rule(x, y, z) \
     _n00b_gopt_command_add_rule(x, y, z, NULL)
 
@@ -352,32 +354,34 @@ extern n00b_list_t *_n00b_gopt_rule(int64_t, ...);
 
 extern void _n00b_gopt_add_subcommand(n00b_gopt_ctx *,
                                       n00b_gopt_cspec *,
-                                      n00b_utf8_t *,
-                                      n00b_utf8_t *);
+                                      n00b_string_t *,
+                                      n00b_string_t *);
 #define n00b_gopt_add_subcommand(ctx, s, c) \
     _n00b_gopt_add_subcommand(ctx, s, c, NULL)
 
-extern n00b_grid_t *n00b_getopt_option_table(n00b_gopt_ctx *,
-                                             n00b_utf8_t *,
-                                             bool,
-                                             bool);
+extern n00b_table_t *n00b_getopt_option_table(n00b_gopt_ctx *,
+                                              n00b_string_t *,
+                                              bool,
+                                              bool);
 
-extern n00b_grid_t        *n00b_getopt_command_get_long_for_printing(n00b_gopt_ctx *,
-                                                                     n00b_utf8_t *);
-extern n00b_grid_t        *n00b_getopt_default_usage(n00b_gopt_ctx *,
-                                                     n00b_utf8_t *,
-                                                     n00b_gopt_result_t *);
-extern n00b_tuple_t       *n00b_getopt_raw_usage_info(n00b_gopt_ctx *, n00b_utf8_t *);
+extern n00b_table_t *n00b_getopt_command_get_long_for_printing(n00b_gopt_ctx *,
+                                                               n00b_string_t *);
+extern n00b_table_t *n00b_getopt_default_usage(n00b_gopt_ctx *,
+                                               n00b_string_t *,
+                                               n00b_gopt_result_t *);
+extern n00b_tuple_t *n00b_getopt_raw_usage_info(n00b_gopt_ctx *,
+                                                n00b_string_t *);
+
 extern n00b_gopt_result_t *n00b_run_getopt_raw(n00b_gopt_ctx *,
-                                               n00b_utf8_t *,
+                                               n00b_string_t *,
                                                n00b_list_t *);
 
 static inline void
 n00b_getopt_show_usage(n00b_gopt_ctx      *ctx,
-                       n00b_utf8_t        *cmd,
+                       n00b_string_t      *cmd,
                        n00b_gopt_result_t *res)
 {
-    n00b_print(n00b_getopt_default_usage(ctx, cmd, res));
+    n00b_eprint(n00b_getopt_default_usage(ctx, cmd, res));
 }
 
 static inline n00b_list_t *
@@ -410,17 +414,25 @@ n00b_gopt_get_errors(n00b_gopt_result_t *res)
     return res->errors;
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 n00b_gopt_get_command(n00b_gopt_result_t *res)
 {
+    if (!res) {
+        return NULL;
+    }
+
     return res->cmd;
 }
 
 static inline n00b_dict_t *
 n00b_gopt_get_flags(n00b_gopt_result_t *res)
 {
+    if (!res) {
+        return NULL;
+    }
+
     n00b_list_t *l      = n00b_dict_values(res->flags);
-    n00b_dict_t *result = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    n00b_dict_t *result = n00b_dict(n00b_type_string(), n00b_type_ref());
     int          n      = n00b_list_len(l);
 
     for (int i = 0; i < n; i++) {
@@ -432,13 +444,13 @@ n00b_gopt_get_flags(n00b_gopt_result_t *res)
 }
 
 static inline n00b_list_t *
-n00b_gopt_get_args(n00b_gopt_result_t *res, n00b_utf8_t *section)
+n00b_gopt_get_args(n00b_gopt_result_t *res, n00b_string_t *section)
 {
     return hatrack_dict_get(res->args, section, NULL);
 }
 
 #ifdef N00B_USE_INTERNAL_API
-void n00b_gopt_tokenize(n00b_gopt_ctx *, n00b_utf8_t *, n00b_list_t *);
+void n00b_gopt_tokenize(n00b_gopt_ctx *, n00b_string_t *, n00b_list_t *);
 void n00b_gopt_finalize(n00b_gopt_ctx *);
 
 static inline bool

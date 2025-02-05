@@ -2,9 +2,9 @@
 #include "n00b.h"
 
 n00b_stream_t *
-n00b_stream_string(n00b_str_t *s)
+n00b_stream_string(n00b_string_t *s)
 {
-    n00b_str_cookie_t *c      = n00b_gc_alloc_mapped(n00b_str_cookie_t,
+    n00b_string_cookie_t *c      = n00b_gc_alloc_mapped(n00b_string_cookie_t,
                                                 N00B_GC_SCAN_NONE);
     n00b_stream_t     *result = n00b_alloc_party(&n00b_strstream_impl,
                                              c,
@@ -25,10 +25,10 @@ n00b_strstream_read_fn(n00b_stream_t *stream, uint64_t ureq)
         req = -1;
     }
 
-    n00b_str_cookie_t *c = stream->cookie;
+    n00b_string_cookie_t *c = stream->cookie;
 
-    n00b_str_t *msg   = n00b_slice_get(c->s, c->position, c->position + req);
-    int         nread = n00b_str_codepoint_len(msg);
+    n00b_string_t *msg   = n00b_slice_get(c->s, c->position, c->position + req);
+    int            nread = n00b_string_codepoint_len(msg);
 
     if (!nread) {
         return false;
@@ -62,7 +62,7 @@ n00b_strstream_subscribe(n00b_stream_sub_t        *sub,
         return true;
     }
 
-    n00b_str_cookie_t *cookie = stream->cookie;
+    n00b_string_cookie_t *cookie = stream->cookie;
 
     if (!cookie->position) {
         n00b_read(stream, 0, NULL);
@@ -71,10 +71,10 @@ n00b_strstream_subscribe(n00b_stream_sub_t        *sub,
     return true;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_strstream_repr(n00b_stream_t *stream)
 {
-    return n00b_cstr_format("str stream (@{})", n00b_box_u64((int64_t)stream));
+    return n00b_cformat("str stream (@«#»)", (int64_t)stream);
 }
 
 n00b_io_impl_info_t n00b_strstream_impl = {

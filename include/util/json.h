@@ -9,5 +9,5 @@
 //
 // In all other cases, NULL is returned on error.
 
-extern void        *n00b_json_parse(n00b_str_t *, n00b_list_t **);
-extern n00b_utf8_t *n00b_to_json(n00b_obj_t);
+extern void        *n00b_json_parse(n00b_string_t *, n00b_list_t **);
+extern n00b_string_t *n00b_to_json(n00b_obj_t);

@@ -11,7 +11,7 @@
 #define N00B_MAX_UINT (~0ULL)
 
 static bool
-parse_size_lit(n00b_utf8_t *to_parse, n00b_size_t *result, bool *oflow)
+parse_size_lit(n00b_string_t *to_parse, n00b_size_t *result, bool *oflow)
 {
     __int128_t n_bytes = 0;
     __int128_t cur;
@@ -20,9 +20,9 @@ parse_size_lit(n00b_utf8_t *to_parse, n00b_size_t *result, bool *oflow)
         *oflow = false;
     }
 
-    to_parse = n00b_to_utf8(n00b_str_lower(to_parse));
+    to_parse = n00b_string_lower(to_parse);
 
-    int      l = n00b_str_byte_len(to_parse);
+    int      l = n00b_string_byte_len(to_parse);
     char    *p = to_parse->data;
     char    *e = p + l;
     char     c;
@@ -203,74 +203,71 @@ parse_size_lit(n00b_utf8_t *to_parse, n00b_size_t *result, bool *oflow)
 static void
 size_init(n00b_size_t *self, va_list args)
 {
-    n00b_utf8_t *to_parse = NULL;
-    bool        oflow    = false;
-    uint64_t    bytes    = 0;
+    n00b_string_t *to_parse = NULL;
+    bool           oflow    = false;
+    uint64_t       bytes    = 0;
 
     n00b_karg_va_init(args);
     n00b_kw_ptr("to_parse", to_parse);
     n00b_kw_uint64("bytes", bytes);
 
-    if (to_parse != NULL) {
-        to_parse = n00b_to_utf8(to_parse);
-
-        if (!parse_size_lit(to_parse, self, &oflow)) {
-            if (oflow) {
-                N00B_CRAISE("Size literal value is too large.");
-            }
-            else {
-                N00B_CRAISE("Invalid size literal.");
-            }
+    if (to_parse != NULL && !parse_size_lit(to_parse, self, &oflow)) {
+        if (oflow) {
+            N00B_CRAISE("Size literal value is too large.");
+        }
+        else {
+            N00B_CRAISE("Invalid size literal.");
         }
     }
+
     *self = bytes;
 }
 
-static n00b_str_t *
+static n00b_string_t *
 size_repr(n00b_size_t *self)
 {
     // We produce both power of 2 and power of 10, and then return
     // the shorter of the 2.
 
-    uint64_t    n   = *self;
-    n00b_utf8_t *p10 = n00b_new_utf8("");
-    n00b_utf8_t *p2;
-    uint64_t    tmp;
+    uint64_t       n   = *self;
+    n00b_string_t *p10 = n00b_cached_empty_string();
+    n00b_string_t *p2;
+    uint64_t       tmp;
 
     if (!n) {
-        return n00b_new_utf8("0 Bytes");
+        return n00b_cstring("0 Bytes");
     }
 
     if (n >= N00B_SZ_TB) {
         tmp = n / N00B_SZ_TB;
-        p10 = n00b_cstr_format("{} Tb ", n00b_box_u64(tmp));
+        p10 = n00b_cformat("«#» Tb ", tmp);
         tmp *= N00B_SZ_TB;
         n -= tmp;
     }
     if (n >= N00B_SZ_GB) {
         tmp = n / N00B_SZ_GB;
-        p10 = n00b_cstr_format("{}{} Gb ", p10, n00b_box_u64(tmp));
+        p10 = n00b_cformat("«#»«#» Gb ", p10, tmp);
         tmp *= N00B_SZ_GB;
         n -= tmp;
     }
     if (n >= N00B_SZ_MB) {
         tmp = n / N00B_SZ_MB;
-        p10 = n00b_cstr_format("{}{} Mb ", p10, n00b_box_u64(tmp));
+        p10 = n00b_cformat("«#»«#» Mb ", p10, tmp);
         tmp *= N00B_SZ_MB;
         n -= tmp;
     }
     if (n >= N00B_SZ_KB) {
         tmp = n / N00B_SZ_KB;
-        p10 = n00b_cstr_format("{}{} Kb ", p10, n00b_box_u64(tmp));
+        p10 = n00b_cformat("«#»«#» Kb ", p10, tmp);
         tmp *= N00B_SZ_KB;
         n -= tmp;
     }
 
     if (n != 0) {
-        p10 = n00b_cstr_format("{}{} Bytes", p10, n00b_box_u64(n));
+        p10 = n00b_cformat("«#»«#» Bytes", p10, n00b_box_u64(n));
     }
     else {
-        p10 = n00b_to_utf8(n00b_str_strip(p10));
+        p10 = n00b_string_strip(p10);
     }
 
     n = *self;
@@ -279,41 +276,41 @@ size_repr(n00b_size_t *self)
         return p10;
     }
 
-    p2 = n00b_new_utf8("");
+    p2 = n00b_cached_empty_string();
 
     if (n >= N00B_SZ_TI) {
         tmp = n / N00B_SZ_TI;
-        p2  = n00b_cstr_format("{} TiB ", n00b_box_u64(tmp));
+        p2  = n00b_cformat("«#» TiB ", tmp);
         tmp *= N00B_SZ_TI;
         n -= tmp;
     }
     if (n >= N00B_SZ_GI) {
         tmp = n / N00B_SZ_GI;
-        p2  = n00b_cstr_format("{}{} GiB ", p2, n00b_box_u64(tmp));
+        p2  = n00b_cformat("«#»«#» GiB ", p2, tmp);
         tmp *= N00B_SZ_GI;
         n -= tmp;
     }
     if (n >= N00B_SZ_MI) {
         tmp = n / N00B_SZ_MI;
-        p2  = n00b_cstr_format("{}{} MiB ", p2, n00b_box_u64(tmp));
+        p2  = n00b_cformat("«#»«#» MiB ", p2, tmp);
         tmp *= N00B_SZ_MI;
         n -= tmp;
     }
     if (n >= N00B_SZ_KI) {
         tmp = n / N00B_SZ_KI;
-        p2  = n00b_cstr_format("{}{} KiB ", p2, n00b_box_u64(tmp));
+        p2  = n00b_cformat("«#»«#» KiB ", p2, tmp);
         tmp *= N00B_SZ_KI;
         n -= tmp;
     }
 
     if (n != 0) {
-        p2 = n00b_cstr_format("{}{} Bytes", p2, n00b_box_u64(n));
+        p2 = n00b_cformat("«#»«#» Bytes", p2, n);
     }
     else {
-        p2 = n00b_to_utf8(n00b_str_strip(p2));
+        p2 = n00b_string_strip(p2);
     }
 
-    if (n00b_str_codepoint_len(p10) < n00b_str_codepoint_len(p2)) {
+    if (n00b_string_codepoint_len(p10) < n00b_string_codepoint_len(p2)) {
         return p10;
     }
 
@@ -321,13 +318,13 @@ size_repr(n00b_size_t *self)
 }
 
 static n00b_size_t *
-size_lit(n00b_utf8_t          *s,
+size_lit(n00b_string_t        *s,
          n00b_lit_syntax_t     st,
-         n00b_utf8_t          *mod,
+         n00b_string_t        *mod,
          n00b_compile_error_t *err)
 {
     n00b_size_t *result   = n00b_new(n00b_type_size());
-    bool        overflow = false;
+    bool         overflow = false;
 
     if (st == ST_Base10) {
         __uint128_t v;
@@ -435,8 +432,7 @@ size_coerce_to(n00b_size_t *self, n00b_type_t *target_type)
 }
 
 const n00b_vtable_t n00b_size_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)size_init,
         [N00B_BI_REPR]         = (n00b_vtable_entry)size_repr,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)size_lit,

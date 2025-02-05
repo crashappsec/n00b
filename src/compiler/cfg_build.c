@@ -132,7 +132,7 @@ n00b_cfg_exit_block(n00b_cfg_node_t  *parent,
 n00b_cfg_node_t *
 n00b_cfg_block_new_branch_node(n00b_cfg_node_t  *parent,
                                int               num_branches,
-                               n00b_utf8_t      *label,
+                               n00b_string_t    *label,
                                n00b_tree_node_t *treeloc)
 {
     n00b_cfg_node_t  *result  = n00b_new_cfg_node();
@@ -181,7 +181,7 @@ n00b_cfg_add_return(n00b_cfg_node_t  *parent,
 n00b_cfg_node_t *
 n00b_cfg_add_continue(n00b_cfg_node_t  *parent,
                       n00b_tree_node_t *treeloc,
-                      n00b_utf8_t      *label)
+                      n00b_string_t    *label)
 {
     // Loops are structured as:
     // pre-entry initialization def/use info
@@ -246,7 +246,7 @@ n00b_cfg_add_continue(n00b_cfg_node_t  *parent,
 n00b_cfg_node_t *
 n00b_cfg_add_break(n00b_cfg_node_t  *parent,
                    n00b_tree_node_t *treeloc,
-                   n00b_utf8_t      *label)
+                   n00b_string_t    *label)
 {
     n00b_cfg_node_t *result             = n00b_new_cfg_node();
     n00b_cfg_node_t *cur                = parent;
@@ -348,10 +348,10 @@ n00b_cfg_add_use(n00b_cfg_node_t  *parent,
     return result;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 du_format_node(n00b_cfg_node_t *n)
 {
-    n00b_utf8_t *result;
+    n00b_string_t *result;
 
     n00b_dict_t *liveness_info;
     n00b_list_t *sometimes_live;
@@ -373,13 +373,13 @@ du_format_node(n00b_cfg_node_t *n)
     }
 
     if (liveness_info == NULL) {
-        return n00b_new_utf8("-");
+        return n00b_cached_minus();
     }
 
     uint64_t             num_syms;
     hatrack_dict_item_t *info  = hatrack_dict_items_sort(liveness_info,
                                                         &num_syms);
-    n00b_list_t         *cells = n00b_new(n00b_type_list(n00b_type_utf8()));
+    n00b_list_t         *cells = n00b_new(n00b_type_list(n00b_type_string()));
 
     for (unsigned int i = 0; i < num_syms; i++) {
         n00b_symbol_t     *sym    = info[i].key;
@@ -390,20 +390,20 @@ du_format_node(n00b_cfg_node_t *n)
         }
         else {
             n00b_list_append(cells,
-                             n00b_str_concat(sym->name,
-                                             n00b_new_utf8(" (err)")));
+                             n00b_string_concat(sym->name,
+                                                n00b_cstring(" (err)")));
         }
     }
 
     if (num_syms == 0) {
-        result = n00b_new_utf8("-");
+        result = n00b_cached_minus();
     }
     else {
         if (num_syms) {
-            result = n00b_str_join(cells, n00b_new_utf8(", "));
+            result = n00b_string_join(cells, n00b_cached_comma_padded());
         }
         else {
-            result = n00b_rich_lit("[i](none)");
+            result = n00b_crich("«i»(none)");
         }
     }
 
@@ -416,7 +416,7 @@ du_format_node(n00b_cfg_node_t *n)
         return result;
     }
 
-    n00b_list_t *l2 = n00b_new(n00b_type_list(n00b_type_utf8()));
+    n00b_list_t *l2 = n00b_new(n00b_type_list(n00b_type_string()));
 
     for (int i = 0; i < num_sometimes; i++) {
         n00b_symbol_t *sym = n00b_list_get(sometimes_live, i, NULL);
@@ -424,18 +424,18 @@ du_format_node(n00b_cfg_node_t *n)
         n00b_list_append(l2, sym->name);
     }
 
-    return n00b_cstr_format("{}; st: {}",
-                            result,
-                            n00b_str_join(l2, n00b_new_utf8(", ")));
+    return n00b_cformat("«#»; st: «#»",
+                        result,
+                        n00b_string_join(l2, n00b_cached_comma_padded()));
 }
 
 static n00b_tree_node_t *
-n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
-                       n00b_tree_node_t *tree_parent,
-                       n00b_cfg_node_t  *cfg_parent,
-                       n00b_utf8_t      *label)
+n00b_cfg_build_repr(n00b_cfg_node_t  *node,
+                    n00b_tree_node_t *tree_parent,
+                    n00b_cfg_node_t  *cfg_parent,
+                    n00b_string_t    *label)
 {
-    n00b_utf8_t      *str = NULL;
+    n00b_string_t    *str = NULL;
     n00b_tree_node_t *result;
     n00b_cfg_node_t  *link;
     uint64_t          node_addr = (uint64_t)(void *)node;
@@ -449,58 +449,57 @@ n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
     case n00b_cfg_block_entrance:
         link      = node->contents.block_entrance.exit_node;
         link_addr = (uint64_t)(void *)link;
-        str       = n00b_cstr_format("@{:x}: [em]Enter[/] [i]({})",
-                               n00b_box_i64(node_addr),
-                               du_format_node(node));
+        str       = n00b_cformat("@«#:x»: «em»Enter«/» «i»(«#»)",
+                           node_addr,
+                           du_format_node(node));
         if (label == NULL) {
-            label = n00b_new_utf8("block");
+            label = n00b_cstring("block");
         }
-        result                 = n00b_new(n00b_type_tree(n00b_type_utf8()),
+        result                 = n00b_new(n00b_type_tree(n00b_type_string()),
                           n00b_kw("contents", label));
-        n00b_tree_node_t *sub1 = n00b_new(n00b_type_tree(n00b_type_utf8()),
+        n00b_tree_node_t *sub1 = n00b_new(n00b_type_tree(n00b_type_string()),
                                           n00b_kw("contents", n00b_ka(str)));
 
         n00b_tree_adopt_node(tree_parent, result);
         n00b_tree_adopt_node(result, sub1);
-        n00b_cfg_repr_internal(node->contents.flow.next_node, sub1, node, NULL);
+        n00b_cfg_build_repr(node->contents.flow.next_node, sub1, node, NULL);
 
-        n00b_cfg_repr_internal(node->contents.block_entrance.exit_node,
-                               result,
-                               NULL,
-                               NULL);
+        n00b_cfg_build_repr(node->contents.block_entrance.exit_node,
+                            result,
+                            NULL,
+                            NULL);
 
         return result;
     case n00b_cfg_node_branch:
         if (node->contents.branches.label != NULL) {
-            str = n00b_cstr_format("@{:x}: [em]branch[/] [h1]{}[/]",
-                                   n00b_box_i64(node_addr),
-                                   node->contents.branches.label);
+            str = n00b_cformat("@«#:x»: «em»branch«/» «i»«#»«/»",
+                               node_addr,
+                               node->contents.branches.label);
         }
         else {
-            str = n00b_cstr_format("@{:x}: [em]branch",
-                                   n00b_box_i64(node_addr));
+            str = n00b_cformat("@«#:x»: «em»branch", node_addr);
         }
 
-        result = n00b_new(n00b_type_tree(n00b_type_utf8()),
+        result = n00b_new(n00b_type_tree(n00b_type_string()),
                           n00b_kw("contents", str));
         n00b_tree_adopt_node(tree_parent, result);
 
-        for (int i = 0; i < node->contents.branches.num_branches; i++) {
-            n00b_utf8_t      *label = n00b_cstr_format("b{}", n00b_box_i64(i));
-            n00b_tree_node_t *sub   = n00b_new(n00b_type_tree(n00b_type_utf8()),
+        for (int64_t i = 0; i < node->contents.branches.num_branches; i++) {
+            n00b_string_t    *label = n00b_cformat("b«#»", i);
+            n00b_tree_node_t *sub   = n00b_new(n00b_type_tree(n00b_type_string()),
                                              n00b_kw("contents", n00b_ka(label)));
             n00b_cfg_node_t  *kid   = node->contents.branches.branch_targets[i];
 
             n00b_assert(kid != NULL);
 
             n00b_tree_adopt_node(result, sub);
-            n00b_cfg_repr_internal(kid, sub, node, NULL);
+            n00b_cfg_build_repr(kid, sub, node, NULL);
         }
 
-        n00b_cfg_repr_internal(node->contents.branches.exit_node,
-                               tree_parent,
-                               node,
-                               NULL);
+        n00b_cfg_build_repr(node->contents.branches.exit_node,
+                            tree_parent,
+                            node,
+                            NULL);
 
         return result;
 
@@ -511,40 +510,40 @@ n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
         n00b_cfg_node_t *nn = node->contents.block_exit.next_node;
 
         if (nn != NULL) {
-            str = n00b_cstr_format("@{:x}: [em]Exit[/] (next @{:x})  [i]({})",
-                                   n00b_box_i64(node_addr),
-                                   n00b_box_i64((uint64_t)(void *)nn),
-                                   du_format_node(node));
+            str = n00b_cformat("@«#:x»: «em»Exit«/» (next @«#:x»)  «i»(«#»)",
+                               (int64_t)node_addr,
+                               (int64_t)(void *)nn,
+                               du_format_node(node));
         }
         else {
-            str = n00b_cstr_format("@{:x}: [em]Exit[/]  [i]({})",
-                                   n00b_box_i64(node_addr),
-                                   du_format_node(node));
+            str = n00b_cformat("@«#:x»: «em»Exit«/»  «i»(«#»)",
+                               node_addr,
+                               du_format_node(node));
         }
         break;
     case n00b_cfg_use:
-        str = n00b_cstr_format("@{:x}: [em]USE[/] {} [i]({})",
-                               n00b_box_i64(node_addr),
-                               node->contents.flow.dst_symbol->name,
-                               du_format_node(node));
+        str = n00b_cformat("@«#:x»: [«em»USE«/» «#» «i»(«#»)",
+                           node_addr,
+                           node->contents.flow.dst_symbol->name,
+                           du_format_node(node));
         break;
     case n00b_cfg_def:
-        str = n00b_cstr_format("@{:x}: [em]DEF[/] {} [i]({})",
-                               n00b_box_i64(node_addr),
-                               node->contents.flow.dst_symbol->name,
-                               du_format_node(node));
+        str = n00b_cformat("@«#:x»: «em»DEF«/» «#» «i»(«#»)",
+                           node_addr,
+                           node->contents.flow.dst_symbol->name,
+                           du_format_node(node));
         break;
     case n00b_cfg_call:
-        str = n00b_cstr_format("@{:x}: [em]call[/] {}",
-                               n00b_box_i64(node_addr),
-                               node->contents.flow.dst_symbol->name);
+        str = n00b_cformat("@«#:x»: «em»call«/» «#»",
+                           node_addr,
+                           node->contents.flow.dst_symbol->name);
         break;
     case n00b_cfg_jump:
         link      = node->contents.jump.target;
         link_addr = (uint64_t)(void *)link;
-        str       = n00b_cstr_format("@{:x}: [em]jmp[/] {:x}",
-                               n00b_box_i64(node_addr),
-                               n00b_box_i64(link_addr));
+        str       = n00b_cformat("@«#:x»: «em»jmp«/» «#:x»",
+                           node_addr,
+                           link_addr);
         break;
     default:
         n00b_unreachable();
@@ -553,7 +552,7 @@ n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
     if (node->kind == n00b_cfg_block_entrance) {
     }
 
-    result = n00b_new(n00b_type_tree(n00b_type_utf8()),
+    result = n00b_new(n00b_type_tree(n00b_type_string()),
                       n00b_kw("contents", n00b_ka(str)));
 
     n00b_tree_adopt_node(tree_parent, result);
@@ -566,7 +565,7 @@ n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
         link = node->contents.flow.next_node;
 
         if (link) {
-            n00b_cfg_repr_internal(link, result->parent, node, NULL);
+            n00b_cfg_build_repr(link, result->parent, node, NULL);
         }
         break;
 
@@ -574,7 +573,7 @@ n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
         link = node->contents.flow.next_node;
 
         if (link) {
-            n00b_cfg_repr_internal(link, tree_parent, node, NULL);
+            n00b_cfg_build_repr(link, tree_parent, node, NULL);
         }
         break;
     }
@@ -582,13 +581,11 @@ n00b_cfg_repr_internal(n00b_cfg_node_t  *node,
     return result;
 }
 
-n00b_grid_t *
+n00b_table_t *
 n00b_cfg_repr(n00b_cfg_node_t *node)
 {
-    n00b_tree_node_t *root = n00b_new(
-        n00b_type_tree(n00b_type_utf8()),
-        n00b_kw("contents", n00b_ka(n00b_new_utf8("Root"))));
+    n00b_tree_node_t *root = n00b_tree(n00b_cstring("Root"));
 
-    n00b_cfg_repr_internal(node, root, NULL, NULL);
-    return n00b_grid_tree(root);
+    n00b_cfg_build_repr(node, root, NULL, NULL);
+    return n00b_tree_format(root, NULL, NULL, false);
 }

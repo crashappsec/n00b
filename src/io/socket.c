@@ -40,14 +40,14 @@ n00b_io_socket_open(int64_t fd, n00b_io_impl_info_t *impl)
     return result;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_socket_repr(n00b_stream_t *e)
 {
     n00b_ev2_cookie_t *cookie = e->cookie;
 
-    return n00b_cstr_format("socket on fd {}{}",
-                            cookie->id,
-                            n00b_get_fd_extras(e));
+    return n00b_cformat("socket on fd «#»«#»",
+                        cookie->id,
+                        n00b_get_fd_extras(e));
 }
 
 n00b_stream_t *

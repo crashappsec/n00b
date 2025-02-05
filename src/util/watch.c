@@ -4,9 +4,8 @@
 
 static n00b_watch_target n00b_watch_list[N00B_WATCH_SLOTS];
 static n00b_watch_log_t  n00b_watch_log[N00B_WATCH_LOG_SZ];
-static _Atomic int       next_log_id     = 0;
-static _Atomic int       max_target      = 0;
-static __thread bool     recursion_guard = false;
+static _Atomic int       next_log_id = 0;
+static _Atomic int       max_target  = 0;
 
 static void
 watch_init()
@@ -50,11 +49,11 @@ _n00b_watch_set(void             *ptr,
     }
 
     if (print) {
-        n00b_printf("[atomic lime]Added watchpoint[/] @{:x} {}:{} (value: {:x})",
-                    n00b_box_u64((uint64_t)ptr),
-                    n00b_new_utf8(file),
-                    n00b_box_u64(line),
-                    n00b_box_u64(iv));
+        n00b_printf("«em1»Added watchpoint«/» @«#:x» «#»:«#» (value: «#:x»)",
+                    (uint64_t)ptr,
+                    n00b_cstring(file),
+                    line,
+                    iv);
     }
 }
 
@@ -66,31 +65,31 @@ watch_print_log(int logid, int watchix)
 
     if (entry.logid != logid) {
         n00b_printf(
-            "[yellow]watch:{}:Warning:[/] log was dropped before it "
+            "«yellow»watch:«#»:Warning:«/» log was dropped before it "
             "was reported; watch log size is too small.",
             logid);
         return;
     }
 
     if (!entry.changed) {
-        n00b_printf("[atomic lime]{}:@{:x}: Unchanged[/] {}:{} (value: {:x})",
-                    n00b_box_u64(logid),
-                    n00b_box_u64((uint64_t)t.address),
-                    n00b_new_utf8(entry.file),
-                    n00b_box_u64(entry.line),
-                    n00b_box_u64(entry.seen_value));
+        n00b_printf("«em1»«#»:@«#:x»: Unchanged«/» «#»:«#» (value: «#:x»)",
+                    logid,
+                    (uint64_t)t.address,
+                    n00b_cstring(entry.file),
+                    entry.line,
+                    entry.seen_value);
         return;
     }
 
     // If you get a crash inside the GC, comment out the printf instead.
     // printf("%p vs %p\n", (void *)entry.start_value, (void *)entry.seen_value);
-    n00b_printf("[red]{}:@{:x}: Changed @{}:{} from [em]{:x}[/] to [em]{:x}",
-                n00b_box_u64(logid),
-                n00b_box_u64((uint64_t)t.address),
-                n00b_new_utf8(entry.file),
-                n00b_box_u64(entry.line),
-                n00b_box_u64(entry.start_value),
-                n00b_box_u64(entry.seen_value));
+    n00b_printf("«em2»«#»:@«#:x»: Changed @«#»:«#» from «em»«#:x»«/» to «em»«#:x»",
+                logid,
+                (uint64_t)t.address,
+                n00b_cstring(entry.file),
+                entry.line,
+                entry.start_value,
+                entry.seen_value);
     return;
 }
 
@@ -102,11 +101,12 @@ _n00b_watch_scan(char *file, int line)
     // a frequent place to look for watches, we want to prevent starting
     // one scan recursively if we already have one in progress.
 
-    if (recursion_guard) {
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+    if (tsi->watch_recursion_guard) {
         return;
     }
     else {
-        recursion_guard = true;
+        tsi->watch_recursion_guard = true;
     }
 
     int max = atomic_read(&max_target);
@@ -140,7 +140,7 @@ _n00b_watch_scan(char *file, int line)
         switch (changed ? t.write_action : t.read_action) {
         case n00b_wa_abort:
             watch_print_log(logid, i);
-            n00b_printf("[red]Aborting for debugging.");
+            n00b_printf("«red»Aborting for debugging.");
             abort();
         case n00b_wa_print:
             watch_print_log(logid, i);
@@ -154,7 +154,7 @@ _n00b_watch_scan(char *file, int line)
         }
     }
 
-    recursion_guard = false;
+    tsi->watch_recursion_guard = false;
 }
 
 #endif

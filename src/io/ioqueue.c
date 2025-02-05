@@ -21,6 +21,7 @@ n00b_run_one_io_callback(n00b_iocb_info_t *cb_info)
 static void *
 n00b_run_callbacks(void *ignored)
 {
+    n00b_set_system_thread();
     n00b_iocb_info_t *cb_info;
 
     n00b_duration_t sleeptime = {
@@ -155,8 +156,8 @@ n00b_write(n00b_stream_t *recipient, void *m)
 #endif
 }
 
-extern void         n00b_handle_one_delivery(n00b_stream_t *, void *);
-extern n00b_utf8_t *n00b_stream_repr(n00b_stream_t *);
+extern void           n00b_handle_one_delivery(n00b_stream_t *, void *);
+extern n00b_string_t *n00b_stream_repr(n00b_stream_t *);
 // The main queue is processed AFTER one I/O event loop, but in the
 // same thread. Callbacks, however, run on a different thread.
 void

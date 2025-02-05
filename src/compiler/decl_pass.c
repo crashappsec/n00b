@@ -106,7 +106,11 @@ n00b_fn_decl_gc_bits(uint64_t *bitmap, n00b_fn_decl_t *decl)
 n00b_fn_decl_t *
 n00b_new_fn_decl(void)
 {
-    return n00b_gc_alloc_mapped(n00b_fn_decl_t, n00b_fn_decl_gc_bits);
+    n00b_fn_decl_t *result = n00b_gc_alloc_mapped(n00b_fn_decl_t,
+                                                  n00b_fn_decl_gc_bits);
+
+    result->noscan = N00B_NOSCAN;
+    return result;
 }
 
 n00b_ffi_decl_t *
@@ -145,7 +149,7 @@ obj_type_check(n00b_pass1_ctx *ctx, const n00b_obj_t *obj, n00b_type_t *t2)
 static inline n00b_symbol_t *
 declare_sym(n00b_pass1_ctx   *ctx,
             n00b_scope_t     *scope,
-            n00b_utf8_t      *name,
+            n00b_string_t    *name,
             n00b_tree_node_t *node,
             n00b_symbol_kind  kind,
             bool             *success,
@@ -167,9 +171,9 @@ declare_sym(n00b_pass1_ctx   *ctx,
 }
 
 static void
-validate_str_enum_vals(n00b_pass1_ctx *ctx, n00b_list_t *items)
+validate_string_enum_vals(n00b_pass1_ctx *ctx, n00b_list_t *items)
 {
-    n00b_set_t *set = n00b_new(n00b_type_set(n00b_type_utf8()));
+    n00b_set_t *set = n00b_new(n00b_type_set(n00b_type_string()));
     int64_t     n   = n00b_list_len(items);
 
     for (int i = 0; i < n; i++) {
@@ -177,12 +181,12 @@ validate_str_enum_vals(n00b_pass1_ctx *ctx, n00b_list_t *items)
         n00b_pnode_t     *pnode = n00b_get_pnode(tnode);
 
         if (n00b_tree_get_number_children(tnode) == 0) {
-            pnode->value = (void *)n00b_new_utf8("error");
+            pnode->value = (void *)n00b_cstring("error");
             continue;
         }
 
         n00b_symbol_t *sym = pnode->extra_info;
-        n00b_utf8_t   *val = (n00b_utf8_t *)pnode->value;
+        n00b_string_t *val = (n00b_string_t *)pnode->value;
         sym->value         = val;
 
         if (!n00b_set_add(set, val)) {
@@ -349,7 +353,7 @@ handle_enum_decl(n00b_pass1_ctx *ctx)
     int               n      = n00b_list_len(items);
     bool              is_str = false;
     n00b_scope_t     *scope;
-    n00b_utf8_t      *varname;
+    n00b_string_t    *varname;
     n00b_type_t      *inferred_type;
 
     if (n00b_cur_node_type(ctx) == n00b_nt_global_enum) {
@@ -384,7 +388,7 @@ handle_enum_decl(n00b_pass1_ctx *ctx)
             pnode->value = n00b_node_simp_literal(n00b_tree_get_child(item, 0));
 
             if (!n00b_obj_is_int_type(pnode->value)) {
-                if (!obj_type_check(ctx, pnode->value, n00b_type_utf8())) {
+                if (!obj_type_check(ctx, pnode->value, n00b_type_string())) {
                     n00b_add_error(ctx->module_ctx,
                                    n00b_err_invalid_enum_lit_type,
                                    item);
@@ -396,7 +400,7 @@ handle_enum_decl(n00b_pass1_ctx *ctx)
                 else {
                     if (!is_str) {
                         n00b_add_error(ctx->module_ctx,
-                                       n00b_err_enum_str_int_mix,
+                                       n00b_err_enum_string_int_mix,
                                        item);
                         return;
                     }
@@ -405,7 +409,7 @@ handle_enum_decl(n00b_pass1_ctx *ctx)
             else {
                 if (is_str) {
                     n00b_add_error(ctx->module_ctx,
-                                   n00b_err_enum_str_int_mix,
+                                   n00b_err_enum_string_int_mix,
                                    item);
                     return;
                 }
@@ -440,8 +444,8 @@ handle_enum_decl(n00b_pass1_ctx *ctx)
     }
 
     if (is_str) {
-        validate_str_enum_vals(ctx, items);
-        n00b_merge_types(inferred_type, n00b_type_utf8(), NULL);
+        validate_string_enum_vals(ctx, items);
+        n00b_merge_types(inferred_type, n00b_type_string(), NULL);
     }
     else {
         n00b_type_t *ty = validate_int_enum_vals(ctx, items);
@@ -469,7 +473,7 @@ handle_var_decl(n00b_pass1_ctx *ctx)
     n00b_scope_t     *scope;
 
     for (int i = 0; i < n00b_list_len(quals); i++) {
-        n00b_utf8_t *qual = n00b_node_text(n00b_list_get(quals, i, NULL));
+        n00b_string_t *qual = n00b_node_text(n00b_list_get(quals, i, NULL));
         switch (qual->data[0]) {
         case 'g':
             is_global = true;
@@ -511,7 +515,7 @@ handle_var_decl(n00b_pass1_ctx *ctx)
 
         for (int j = 0; j < n00b_list_len(var_names); j++) {
             n00b_tree_node_t *name_node = n00b_list_get(var_names, j, NULL);
-            n00b_utf8_t      *name      = n00b_node_text(name_node);
+            n00b_string_t    *name      = n00b_node_text(name_node);
             n00b_symbol_t    *sym       = declare_sym(ctx,
                                              scope,
                                              name,
@@ -586,8 +590,8 @@ handle_param_block(n00b_pass1_ctx *ctx)
     n00b_pnode_t             *pnode     = n00b_get_pnode(root);
     n00b_tree_node_t         *name_node = n00b_tree_get_child(root, 0);
     n00b_pnode_t             *name_pn   = n00b_get_pnode(name_node);
-    n00b_utf8_t              *sym_name  = n00b_node_text(name_node);
-    n00b_utf8_t              *dot       = n00b_new_utf8(".");
+    n00b_string_t            *sym_name  = n00b_node_text(name_node);
+    n00b_string_t            *dot       = n00b_cached_period();
     int                       nkids     = n00b_tree_get_number_children(root);
     n00b_symbol_t            *sym;
     bool                      attr;
@@ -605,12 +609,11 @@ handle_param_block(n00b_pass1_ctx *ctx)
         int num_members = n00b_tree_get_number_children(name_node);
 
         for (int i = 1; i < num_members; i++) {
-            sym_name = n00b_str_concat(sym_name, dot);
-            sym_name = n00b_str_concat(sym_name,
-                                       n00b_node_text(
-                                           n00b_tree_get_child(name_node, i)));
+            sym_name = n00b_string_concat(sym_name, dot);
+            sym_name = n00b_string_concat(sym_name,
+                                          n00b_node_text(
+                                              n00b_tree_get_child(name_node, i)));
         }
-        sym_name = n00b_to_utf8(sym_name);
     }
     else {
         attr = false;
@@ -618,7 +621,7 @@ handle_param_block(n00b_pass1_ctx *ctx)
 
     for (int i = 1; i < nkids; i++) {
         n00b_tree_node_t *prop_node = n00b_tree_get_child(root, i);
-        n00b_utf8_t      *prop_name = n00b_node_text(prop_node);
+        n00b_string_t    *prop_name = n00b_node_text(prop_node);
         n00b_obj_t        lit       = n00b_tree_get_child(prop_node, 0);
 
         switch (prop_name->data[0]) {
@@ -704,9 +707,9 @@ one_section_prop(n00b_pass1_ctx      *ctx,
                  n00b_spec_section_t *section,
                  n00b_tree_node_t    *n)
 {
-    bool        *value;
-    n00b_obj_t   callback;
-    n00b_utf8_t *prop = n00b_node_text(n);
+    bool          *value;
+    n00b_obj_t     callback;
+    n00b_string_t *prop = n00b_node_text(n);
 
     switch (prop->data[0]) {
     case 'u': // user_def_ok
@@ -752,7 +755,7 @@ one_section_prop(n00b_pass1_ctx      *ctx,
         break;
     case 'r': // require
         for (int i = 0; i < n00b_tree_get_number_children(n); i++) {
-            n00b_utf8_t *name = n00b_node_text(n00b_tree_get_child(n, i));
+            n00b_string_t *name = n00b_node_text(n00b_tree_get_child(n, i));
             if (!n00b_set_add(section->required_sections, name)) {
                 n00b_add_warning(ctx->module_ctx,
                                  n00b_warn_dupe_require,
@@ -767,7 +770,7 @@ one_section_prop(n00b_pass1_ctx      *ctx,
         break;
     default: // allow
         for (int i = 0; i < n00b_tree_get_number_children(n); i++) {
-            n00b_utf8_t *name = n00b_node_text(n00b_tree_get_child(n, i));
+            n00b_string_t *name = n00b_node_text(n00b_tree_get_child(n, i));
             if (!n00b_set_add(section->allowed_sections, name)) {
                 n00b_add_warning(ctx->module_ctx,
                                  n00b_warn_dupe_allow,
@@ -788,13 +791,13 @@ one_field(n00b_pass1_ctx      *ctx,
           n00b_tree_node_t    *tnode)
 {
     n00b_spec_field_t *f        = n00b_new_spec_field();
-    n00b_utf8_t       *name     = n00b_node_text(n00b_tree_get_child(tnode, 0));
+    n00b_string_t     *name     = n00b_node_text(n00b_tree_get_child(tnode, 0));
     n00b_pnode_t      *pnode    = n00b_get_pnode(tnode);
     int                num_kids = n00b_tree_get_number_children(tnode);
     bool              *value;
     n00b_obj_t         callback;
 
-    f->exclusions       = n00b_new(n00b_type_set(n00b_type_utf8()));
+    f->exclusions       = n00b_new(n00b_type_set(n00b_type_string()));
     f->name             = name;
     f->declaration_node = tnode;
     f->location_string  = n00b_format_module_location(ctx->module_ctx,
@@ -811,7 +814,7 @@ one_field(n00b_pass1_ctx      *ctx,
 
     for (int i = 1; i < num_kids; i++) {
         n00b_tree_node_t *kid  = n00b_tree_get_child(tnode, i);
-        n00b_utf8_t      *prop = n00b_node_text(kid);
+        n00b_string_t    *prop = n00b_node_text(kid);
         switch (prop->data[0]) {
         case 'c': // choice:
                   // For now, we just stash the raw nodes, and
@@ -862,7 +865,7 @@ one_field(n00b_pass1_ctx      *ctx,
 
         case 'e': // exclusions
             for (int i = 0; i < n00b_tree_get_number_children(kid); i++) {
-                n00b_utf8_t *name = n00b_node_text(n00b_tree_get_child(kid, i));
+                n00b_string_t *name = n00b_node_text(n00b_tree_get_child(kid, i));
 
                 if (!n00b_set_add(f->exclusions, name)) {
                     n00b_add_warning(ctx->module_ctx,
@@ -950,7 +953,7 @@ handle_section_spec(n00b_pass1_ctx *ctx)
         }
     }
 
-    n00b_utf8_t *kind = n00b_node_text(n00b_tree_get_child(tnode, 0));
+    n00b_string_t *kind = n00b_node_text(n00b_tree_get_child(tnode, 0));
     switch (kind->data[0]) {
     case 's': // singleton
         section->singleton = 1;
@@ -1040,7 +1043,7 @@ extract_fn_sig_info(n00b_pass1_ctx   *ctx,
 {
     n00b_list_t     *decls     = n00b_apply_pattern_on_node(tree,
                                                     n00b_param_extraction);
-    n00b_dict_t     *type_ctx  = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    n00b_dict_t     *type_ctx  = n00b_dict(n00b_type_string(), n00b_type_ref());
     int              ndecls    = n00b_list_len(decls);
     int              nparams   = 0;
     int              cur_param = 0;
@@ -1163,7 +1166,7 @@ extract_fn_sig_info(n00b_pass1_ctx   *ctx,
 
     n00b_symbol_t *formal = declare_sym(ctx,
                                         info->formals,
-                                        n00b_new_utf8("$result"),
+                                        n00b_cstring("$result"),
                                         retnode,
                                         N00B_SK_FORMAL,
                                         NULL,
@@ -1181,7 +1184,7 @@ extract_fn_sig_info(n00b_pass1_ctx   *ctx,
 
     n00b_symbol_t *actual = declare_sym(ctx,
                                         info->fn_scope,
-                                        n00b_new_utf8("$result"),
+                                        n00b_cstring("$result"),
                                         ctx->cur_tnode,
                                         N00B_SK_VARIABLE,
                                         NULL,
@@ -1221,7 +1224,7 @@ handle_func_decl(n00b_pass1_ctx *ctx)
 {
     n00b_tree_node_t *tnode = n00b_cur_node(ctx);
     n00b_fn_decl_t   *decl  = n00b_new_fn_decl();
-    n00b_utf8_t      *name  = n00b_node_text(tnode->children[1]);
+    n00b_string_t    *name  = n00b_node_text(tnode->children[1]);
     n00b_list_t      *mods  = n00b_get_func_mods(tnode->children[0]);
     int               nmods = n00b_list_len(mods);
     n00b_symbol_t    *sym;
@@ -1269,8 +1272,8 @@ static void
 handle_extern_block(n00b_pass1_ctx *ctx)
 {
     n00b_ffi_decl_t  *info          = n00b_new_ffi_decl();
-    n00b_utf8_t      *external_name = n00b_node_text(n00b_get_match(ctx,
-                                                               n00b_first_kid_id));
+    n00b_string_t    *external_name = n00b_node_text(n00b_get_match(ctx,
+                                                                 n00b_first_kid_id));
     n00b_tree_node_t *ext_ret       = n00b_get_match(ctx, n00b_extern_return);
     n00b_tree_node_t *cur           = n00b_cur_node(ctx);
     n00b_tree_node_t *ext_pure      = n00b_get_match(ctx, n00b_find_pure);
@@ -1296,9 +1299,9 @@ handle_extern_block(n00b_pass1_ctx *ctx)
 
         if (kid->kind == n00b_nt_extern_dll) {
             if (info->dll_list == NULL) {
-                info->dll_list = n00b_list(n00b_type_utf8());
+                info->dll_list = n00b_list(n00b_type_string());
             }
-            n00b_utf8_t *s = n00b_node_text(cur->children[i]->children[0]);
+            n00b_string_t *s = n00b_node_text(cur->children[i]->children[0]);
             n00b_list_append(info->dll_list, s);
         }
     }
@@ -1367,7 +1370,7 @@ handle_extern_block(n00b_pass1_ctx *ctx)
 
         for (int i = 0; i < num_holds; i++) {
             n00b_tree_node_t *kid = n00b_tree_get_child(ext_holds, i);
-            n00b_utf8_t      *txt = n00b_node_text(kid);
+            n00b_string_t    *txt = n00b_node_text(kid);
 
             for (int j = 0; j < si->num_params; j++) {
                 n00b_fn_param_info_t *param = &si->param_info[j];
@@ -1400,7 +1403,7 @@ next_i:
 
         for (int i = 0; i < num_allocs; i++) {
             n00b_tree_node_t *kid = n00b_tree_get_child(ext_allocs, i);
-            n00b_utf8_t      *txt = n00b_node_text(kid);
+            n00b_string_t    *txt = n00b_node_text(kid);
 
             if (!strcmp(txt->data, "return")) {
                 if (got_ret) {
@@ -1471,14 +1474,14 @@ handle_use_stmt(n00b_pass1_ctx *ctx)
     n00b_tree_node_t *modnode = n00b_get_match(ctx, n00b_member_last);
     n00b_list_t      *prefix  = get_member_prefix(ctx->cur_tnode->children[0]);
     bool              status  = false;
-    n00b_utf8_t      *modname = n00b_node_text(modnode);
-    n00b_utf8_t      *package = NULL;
-    n00b_utf8_t      *uri     = NULL;
+    n00b_string_t    *modname = n00b_node_text(modnode);
+    n00b_string_t    *package = NULL;
+    n00b_string_t    *uri     = NULL;
     n00b_pnode_t     *pnode   = n00b_get_pnode(ctx->cur_tnode);
     n00b_module_t    *mi;
 
     if (n00b_list_len(prefix) != 0) {
-        package = n00b_node_list_join(prefix, n00b_utf32_repeat('.', 1), false);
+        package = n00b_node_list_join(prefix, n00b_cached_period(), false);
     }
 
     if (unode) {
@@ -1497,7 +1500,7 @@ handle_use_stmt(n00b_pass1_ctx *ctx)
 
     if (!mi) {
         if (package != NULL) {
-            modname = n00b_cstr_format("{}.{}", package, modname);
+            modname = n00b_cformat("«#».«#»", package, modname);
         }
 
         n00b_add_error(ctx->module_ctx,
@@ -1649,7 +1652,7 @@ n00b_module_decl_pass(n00b_compile_ctx *cctx, n00b_module_t *module_ctx)
     module_ctx->ct->attribute_scope = n00b_new_scope(NULL, N00B_SCOPE_ATTRIBUTES);
     module_ctx->ct->imports         = n00b_new_scope(NULL, N00B_SCOPE_IMPORTS);
 
-    module_ctx->parameters        = n00b_new(n00b_type_dict(n00b_type_utf8(),
+    module_ctx->parameters        = n00b_new(n00b_type_dict(n00b_type_string(),
                                                      n00b_type_ref()));
     module_ctx->fn_def_syms       = n00b_new(n00b_type_list(n00b_type_ref()));
     module_ctx->ct->callback_lits = n00b_new(n00b_type_list(n00b_type_ref()));

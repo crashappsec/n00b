@@ -102,18 +102,18 @@ get_bi_pitem(n00b_gopt_ctx *ctx, n00b_gopt_bi_ttype ix)
 #define ADD_BI(ctx, name)                                        \
     n00b_list_append(ctx->terminal_info,                         \
                      (void *)n00b_grammar_add_term(ctx->grammar, \
-                                                   n00b_new_utf8(name)))
+                                                   n00b_cstring(name)))
 
 static inline void
 setup_unknown_option(n00b_gopt_ctx *ctx)
 {
-    n00b_list_t  *base   = n00b_list(n00b_type_ref());
-    int64_t       termid = (int64_t)n00b_list_get(ctx->terminal_info,
+    n00b_list_t   *base   = n00b_list(n00b_type_ref());
+    int64_t        termid = (int64_t)n00b_list_get(ctx->terminal_info,
                                             N00B_GOTT_UNKNOWN_OPT,
                                             NULL);
-    n00b_pitem_t *pi     = n00b_pitem_terminal_from_int(ctx->grammar, termid);
-    n00b_utf8_t  *name   = n00b_new_utf8("$$unknown-option");
-    ctx->nt_badopt       = n00b_new(n00b_type_ruleset(), ctx->grammar, name);
+    n00b_pitem_t  *pi     = n00b_pitem_terminal_from_int(ctx->grammar, termid);
+    n00b_string_t *name   = n00b_cstring("$$unknown-option");
+    ctx->nt_badopt        = n00b_new(n00b_type_ruleset(), ctx->grammar, name);
 
     n00b_ruleset_set_user_data(ctx->nt_badopt, (void *)N00B_GTNT_BAD_OPTION);
 
@@ -146,7 +146,7 @@ static inline void
 setup_bad_args_rule(n00b_gopt_ctx *ctx)
 {
     n00b_pitem_t *pi_nt  = n00b_pitem_nonterm_raw(ctx->grammar,
-                                                 n00b_new_utf8("$$bad_args"));
+                                                 n00b_cstring("$$bad_args"));
     n00b_pitem_t *pi_any = n00b_new_pitem(N00B_P_ANY);
 
     ctx->nt_badargs                = n00b_pitem_get_ruleset(ctx->grammar, pi_nt);
@@ -182,10 +182,10 @@ n00b_gopt_init(n00b_gopt_ctx *ctx, va_list args)
 #else
     ctx->grammar = n00b_new(n00b_type_grammar());
 #endif
-    ctx->all_options     = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    ctx->all_options     = n00b_dict(n00b_type_string(), n00b_type_ref());
     ctx->primary_options = n00b_dict(n00b_type_i64(), n00b_type_ref());
     ctx->top_specs       = n00b_dict(n00b_type_i64(), n00b_type_ref());
-    ctx->sub_names       = n00b_dict(n00b_type_utf8(), n00b_type_i64());
+    ctx->sub_names       = n00b_dict(n00b_type_string(), n00b_type_i64());
     ctx->terminal_info   = n00b_list(n00b_type_ref());
 
     // Add in builtin token types.
@@ -211,30 +211,30 @@ n00b_gopt_init(n00b_gopt_ctx *ctx, va_list args)
 
     // Start rule.
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("Start"));
+                                 n00b_cstring("Start"));
     ctx->nt_start = n00b_pitem_get_ruleset(ctx->grammar, tmp);
     // The rule that matches one opt (but does not check their
     // positioning; that is done at the end of parsing).
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("Opt"));
+                                 n00b_cstring("Opt"));
     ctx->nt_1opt  = n00b_pitem_get_ruleset(ctx->grammar, tmp);
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("Opts"));
+                                 n00b_cstring("Opts"));
     ctx->nt_opts  = n00b_pitem_get_ruleset(ctx->grammar, tmp);
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("FlNT"));
+                                 n00b_cstring("FlNT"));
     ctx->nt_float = n00b_pitem_get_ruleset(ctx->grammar, tmp);
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("IntNT"));
+                                 n00b_cstring("IntNT"));
     ctx->nt_int   = n00b_pitem_get_ruleset(ctx->grammar, tmp);
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("BoolNT"));
+                                 n00b_cstring("BoolNT"));
     ctx->nt_bool  = n00b_pitem_get_ruleset(ctx->grammar, tmp);
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("WordNT"));
+                                 n00b_cstring("WordNT"));
     ctx->nt_word  = n00b_pitem_get_ruleset(ctx->grammar, tmp);
     tmp           = n00b_pitem_nonterm_raw(ctx->grammar,
-                                 n00b_new_utf8("EQ"));
+                                 n00b_cstring("EQ"));
     ctx->nt_eq    = n00b_pitem_get_ruleset(ctx->grammar, tmp);
 
     n00b_ruleset_set_user_data(ctx->nt_1opt, (void *)N00B_GTNT_OPT_JUNK_SOLO);
@@ -316,11 +316,11 @@ n00b_gopt_init(n00b_gopt_ctx *ctx, va_list args)
 void
 n00b_gcommand_init(n00b_gopt_cspec *cmd_spec, va_list args)
 {
-    n00b_utf8_t     *name             = NULL;
+    n00b_string_t   *name             = NULL;
     n00b_list_t     *aliases          = NULL;
     n00b_gopt_ctx   *context          = NULL;
-    n00b_utf8_t     *short_doc        = NULL;
-    n00b_utf8_t     *long_doc         = NULL;
+    n00b_string_t   *short_doc        = NULL;
+    n00b_string_t   *long_doc         = NULL;
     n00b_gopt_cspec *parent           = NULL;
     bool             bad_opt_passthru = false;
     bool             top_level        = false;
@@ -388,20 +388,20 @@ dupe_error:
     cmd_spec->aliases          = aliases;
     cmd_spec->bad_opt_passthru = bad_opt_passthru;
     cmd_spec->parent           = parent;
-    cmd_spec->owned_opts       = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    cmd_spec->owned_opts       = n00b_dict(n00b_type_string(), n00b_type_ref());
 
     // Add a non-terminal rule to the grammar for any rules associated
     // with our command, and one for any flags.
     if (top_level) {
-        name = n00b_new_utf8("$gopt");
+        name = n00b_cstring("$gopt");
     }
 
     // To support the same sub-command appearing multiple places in
     // the grammar we generate, add a rule counter to
     // the non-terminal name.
-    n00b_utf8_t *nt_name = n00b_cstr_format("{}_{}",
-                                            name,
-                                            context->counter++);
+    n00b_string_t *nt_name = n00b_cformat("«#»_«#»",
+                                          name,
+                                          context->counter++);
 
     // Add a map from the name to the token ID if needed.
     hatrack_dict_add(context->sub_names,
@@ -418,7 +418,7 @@ dupe_error:
     // the versions of the subcommand given.
 
     if (!top_level) {
-        nt_name           = n00b_cstr_format("{}_name", nt_name);
+        nt_name           = n00b_cformat("«#»_name", nt_name);
         cmd_spec->name_nt = n00b_new(n00b_type_ruleset(),
                                      context->grammar,
                                      nt_name);
@@ -453,8 +453,8 @@ dupe_error:
         int64_t id;
 
         for (int i = 0; i < n; i++) {
-            n00b_str_t *one = n00b_to_utf8(n00b_list_get(aliases, i, NULL));
-            id              = n00b_grammar_add_term(context->grammar, one);
+            n00b_string_t *one = n00b_list_get(aliases, i, NULL);
+            id                 = n00b_grammar_add_term(context->grammar, one);
             n00b_list_append(items,
                              n00b_pitem_terminal_from_int(context->grammar, id));
         }
@@ -630,17 +630,17 @@ _n00b_gopt_rule(int64_t start, ...)
     return result;
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
 {
     int n = n00b_list_len(items);
 
     if (!n) {
-        return n00b_new_utf8("");
+        return n00b_cached_empty_string();
     }
 
-    n00b_utf8_t *s               = n00b_new_utf8("");
-    bool         words_add_space = false;
+    n00b_string_t *s               = n00b_cached_empty_string();
+    bool           words_add_space = false;
 
     for (int i = 0; i < n; i++) {
         int64_t x = (int64_t)n00b_list_get(items, i, NULL);
@@ -648,28 +648,28 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
         switch (x) {
         case (int64_t)N00B_GOG_WORD:
             if (words_add_space) {
-                s = n00b_cstr_format("{} str", s);
+                s = n00b_cformat("«#» str", s);
             }
             else {
-                s = n00b_cstr_format("{}str", s);
+                s = n00b_cformat("«#»str", s);
             }
             words_add_space = true;
             break;
         case (int64_t)N00B_GOG_INT:
             if (words_add_space) {
-                s = n00b_cstr_format("{} int", s);
+                s = n00b_cformat("«#» int", s);
             }
             else {
-                s = n00b_cstr_format("{}int", s);
+                s = n00b_cformat("«#»int", s);
             }
             words_add_space = true;
             break;
         case (int64_t)N00B_GOG_FLOAT:
             if (words_add_space) {
-                s = n00b_cstr_format("{} float", s);
+                s = n00b_cformat("«#» float", s);
             }
             else {
-                s = n00b_cstr_format("{}float", s);
+                s = n00b_cformat("«#»float", s);
             }
             words_add_space = true;
             break;
@@ -680,18 +680,18 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
                 N00B_CRAISE("Invalid bool argument (bools disabled)");
             case N00B_GOPT_BOOL_NO_TF:
                 if (words_add_space) {
-                    s = n00b_cstr_format("{} [y|n]", s);
+                    s = n00b_cformat("«#» «y|n»", s);
                 }
                 else {
-                    s = n00b_cstr_format("{}[y|n]", s);
+                    s = n00b_cformat("«#»«y|n»", s);
                 }
                 break;
             default:
                 if (words_add_space) {
-                    s = n00b_cstr_format("{} [true|false]", s);
+                    s = n00b_cformat("«#» «true|false»", s);
                 }
                 else {
-                    s = n00b_cstr_format("{}[true|false]", s);
+                    s = n00b_cformat("«#»«true|false»", s);
                 }
             }
 
@@ -699,32 +699,32 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
             break;
         case (int64_t)N00B_GOG_RAW:
             if (words_add_space) {
-                return n00b_cstr_format("{} str*", s);
+                return n00b_cformat("«#» str*", s);
             }
         case (int64_t)N00B_GOG_LPAREN:
             if (words_add_space) {
-                s = n00b_cstr_format("{} (", s);
+                s = n00b_cformat("«#» (", s);
             }
             else {
-                s = n00b_cstr_format("{}(", s);
+                s = n00b_cformat("«#»(", s);
             }
 
             words_add_space = false;
             break;
         case (int64_t)N00B_GOG_RPAREN:
-            s               = n00b_cstr_format("{})", s);
+            s               = n00b_cformat("«#»)", s);
             words_add_space = true;
             break;
         case (int64_t)N00B_GOG_OPT:
-            s               = n00b_cstr_format("{}?", s);
+            s               = n00b_cformat("«#»?", s);
             words_add_space = true;
             break;
         case (int64_t)N00B_GOG_STAR:
-            s               = n00b_cstr_format("{}*", s);
+            s               = n00b_cformat("«#»*", s);
             words_add_space = true;
             break;
         case (int64_t)N00B_GOG_PLUS:
-            s               = n00b_cstr_format("{}+", s);
+            s               = n00b_cformat("«#»+", s);
             words_add_space = true;
             break;
         default:;
@@ -737,7 +737,7 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
                     "Token is not a primitive, and is not a "
                     "sub-command name that's been registed for this command.");
             }
-            return n00b_cstr_format("{} [em]{}[/]", sub->name, s);
+            return n00b_cformat("«#» «em»«#»«/»", sub->name, s);
         }
     }
 
@@ -748,7 +748,7 @@ void
 _n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
                             n00b_gopt_cspec *cmd,
                             n00b_list_t     *items,
-                            n00b_utf8_t     *doc)
+                            n00b_string_t   *doc)
 {
     // The only items allowed are the values in n00b_gopt_grammar_consts
     // and the specific token id for any command that is actually
@@ -826,9 +826,9 @@ needs_a_rule(n00b_gopt_cspec *cmd)
 static void
 add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
 {
-    n00b_utf8_t *helpstr = n00b_new_utf8("help");
+    n00b_string_t *helpstr = n00b_cstring("help");
 
-    if (n00b_str_eq(spec->name, helpstr)) {
+    if (n00b_string_eq(spec->name, helpstr)) {
         return;
     }
 
@@ -846,21 +846,21 @@ add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
                          helpstr,
                          "parent",
                          spec));
-        n00b_gopt_add_subcommand(gctx, spec, n00b_new_utf8("(STR)* help"));
+        n00b_gopt_add_subcommand(gctx, spec, n00b_cstring("(STR)* help"));
     }
 }
 
 static void
 add_gopt_auto_help(n00b_gopt_ctx *gctx)
 {
-    if (!n00b_dict_contains(gctx->all_options, n00b_new_utf8("help"))) {
+    if (!n00b_dict_contains(gctx->all_options, n00b_cstring("help"))) {
         n00b_new(n00b_type_gopt_option(),
                  n00b_kw("name",
-                         n00b_new_utf8("help"),
+                         n00b_cstring("help"),
                          "opt_type",
                          N00B_GOAT_BOOL_T_ALWAYS,
                          "short_doc",
-                         n00b_new_utf8("Output detailed help.")));
+                         n00b_cstring("Output detailed help.")));
     }
     n00b_list_t *subs = n00b_dict_values(gctx->top_specs);
 
@@ -1028,10 +1028,10 @@ add_word_rules(n00b_gopt_ctx *ctx, n00b_goption_t *option)
 void
 n00b_goption_init(n00b_goption_t *option, va_list args)
 {
-    n00b_utf8_t     *name           = NULL;
+    n00b_string_t   *name           = NULL;
     n00b_gopt_ctx   *context        = NULL;
-    n00b_utf8_t     *short_doc      = NULL;
-    n00b_utf8_t     *long_doc       = NULL;
+    n00b_string_t   *short_doc      = NULL;
+    n00b_string_t   *long_doc       = NULL;
     n00b_list_t     *choices        = NULL;
     n00b_gopt_cspec *linked_command = NULL;
     int64_t          key            = 0;
@@ -1065,8 +1065,8 @@ n00b_goption_init(n00b_goption_t *option, va_list args)
         N00B_CRAISE("getopt options must have the 'name' field set.");
     }
     // clang-format off
-    if (n00b_str_find(name, n00b_new_utf8("=")) != -1 ||
-	n00b_str_find(name, n00b_new_utf8(",")) != -1) {
+    if (n00b_string_find(name, n00b_cached_equals()) != -1 ||
+	n00b_string_find(name, n00b_cached_comma()) != -1) {
         N00B_CRAISE("Options may not contain '=' or ',' in the name.");
     }
     // clang-format on
@@ -1214,7 +1214,7 @@ check_link:
                 "the declared type of the current option.");
         }
     }
-    option->name           = n00b_to_utf8(name);
+    option->name           = name;
     option->short_doc      = short_doc;
     option->long_doc       = long_doc;
     option->linked_option  = linked_option;
@@ -1231,7 +1231,7 @@ check_link:
         option->normalized = option->name;
     }
     else {
-        option->normalized = n00b_to_utf8(n00b_str_lower(name));
+        option->normalized = n00b_string_lower(name);
     }
 
     option->token_id = n00b_grammar_add_term(context->grammar,
@@ -1249,11 +1249,9 @@ check_link:
                          option);
     }
 
-    uint64_t     rand    = n00b_rand16();
-    n00b_utf8_t *nt_name = n00b_cstr_format("opt_{}_{}",
-                                            option->name,
-                                            rand);
-    option->my_nonterm   = n00b_new(n00b_type_ruleset(),
+    uint64_t       rand    = n00b_rand16();
+    n00b_string_t *nt_name = n00b_cformat("opt_«#»_«#»", option->name, rand);
+    option->my_nonterm     = n00b_new(n00b_type_ruleset(),
                                   context->grammar,
                                   nt_name);
 
@@ -1305,14 +1303,13 @@ check_link:
 void
 _n00b_gopt_add_subcommand(n00b_gopt_ctx   *ctx,
                           n00b_gopt_cspec *command,
-                          n00b_utf8_t     *s,
-                          n00b_utf8_t     *doc)
+                          n00b_string_t   *s,
+                          n00b_string_t   *doc)
 {
     // Nesting check will get handled the next level down.
     n00b_list_t     *rule  = n00b_list(n00b_type_int());
-    n00b_list_t     *raw   = n00b_str_split(n00b_to_utf8(s),
-                                      n00b_new_utf8(" "));
-    n00b_list_t     *words = n00b_list(n00b_type_utf8());
+    n00b_list_t     *raw   = n00b_string_split(s, n00b_cached_space());
+    n00b_list_t     *words = n00b_list(n00b_type_string());
     int              n     = n00b_list_len(raw);
     n00b_codepoint_t cp;
     int64_t          l;
@@ -1320,23 +1317,23 @@ _n00b_gopt_add_subcommand(n00b_gopt_ctx   *ctx,
     int64_t          value;
 
     for (int i = 0; i < n; i++) {
-        n00b_str_t *w = n00b_list_get(raw, i, NULL);
-        w             = n00b_str_strip(w);
-        if (!n00b_str_codepoint_len(w)) {
+        n00b_string_t *w = n00b_list_get(raw, i, NULL);
+        w                = n00b_string_strip(w);
+        if (!n00b_string_codepoint_len(w)) {
             continue;
         }
 
-        w = n00b_to_utf8(n00b_str_lower(w));
+        w = n00b_string_lower(w);
 
         while (w->data[0] == '(') {
-            n00b_list_append(words, n00b_new_utf8("("));
-            l = n00b_str_codepoint_len(w);
+            n00b_list_append(words, n00b_cached_lparen());
+            l = n00b_string_codepoint_len(w);
 
             if (l == 1) {
                 break;
             }
 
-            w = n00b_to_utf8(n00b_str_slice(w, 1, l--));
+            w = n00b_string_slice(w, 1, l--);
         }
         if (!l) {
             continue;
@@ -1349,11 +1346,11 @@ _n00b_gopt_add_subcommand(n00b_gopt_ctx   *ctx,
         //
         // Heck, this should use the earley parser.
 
-        ix = n00b_str_find(w, n00b_new_utf8(")"));
+        ix = n00b_string_find(w, n00b_cached_rparen());
 
         if (ix > 0) {
-            n00b_list_append(words, n00b_to_utf8(n00b_str_slice(w, 0, ix)));
-            w = n00b_to_utf8(n00b_str_slice(w, ix, n00b_str_codepoint_len(w)));
+            n00b_list_append(words, n00b_string_slice(w, 0, ix));
+            w = n00b_string_slice(w, ix, n00b_string_codepoint_len(w));
         }
 
         n00b_list_append(words, w);
@@ -1362,44 +1359,44 @@ _n00b_gopt_add_subcommand(n00b_gopt_ctx   *ctx,
     n = n00b_list_len(words);
 
     for (int i = 0; i < n; i++) {
-        n00b_str_t *w = n00b_list_get(words, i, NULL);
+        n00b_string_t *w = n00b_list_get(words, i, NULL);
 
-        if (n00b_str_eq(w, n00b_new_utf8("("))) {
+        if (n00b_string_eq(w, n00b_cached_lparen())) {
             n00b_list_append(rule, (void *)N00B_GOG_LPAREN);
             continue;
         }
 
-        if (n00b_str_eq(w, n00b_new_utf8("arg"))) {
+        if (n00b_string_eq(w, n00b_cstring("arg"))) {
             n00b_list_append(rule, (void *)N00B_GOG_WORD);
             continue;
         }
 
-        if (n00b_str_eq(w, n00b_new_utf8("word"))) {
+        if (n00b_string_eq(w, n00b_cstring("word"))) {
             n00b_list_append(rule, (void *)N00B_GOG_WORD);
             continue;
         }
 
-        if (n00b_str_eq(w, n00b_new_utf8("str"))) {
+        if (n00b_string_eq(w, n00b_cstring("str"))) {
             n00b_list_append(rule, (void *)N00B_GOG_WORD);
             continue;
         }
 
-        if (n00b_str_eq(w, n00b_new_utf8("int"))) {
+        if (n00b_string_eq(w, n00b_cstring("int"))) {
             n00b_list_append(rule, (void *)N00B_GOG_INT);
             continue;
         }
 
-        if (n00b_str_eq(w, n00b_new_utf8("float"))) {
+        if (n00b_string_eq(w, n00b_cstring("float"))) {
             n00b_list_append(rule, (void *)N00B_GOG_FLOAT);
             continue;
         }
 
-        if (n00b_str_eq(w, n00b_new_utf8("bool"))) {
+        if (n00b_string_eq(w, n00b_cstring("bool"))) {
             n00b_list_append(rule, (void *)N00B_GOG_BOOL);
             continue;
         }
 
-        if (n00b_str_eq(w, n00b_new_utf8("raw"))) {
+        if (n00b_string_eq(w, n00b_cstring("raw"))) {
             n00b_list_append(rule, (void *)N00B_GOG_RAW);
             if (i + 1 != n) {
                 N00B_CRAISE("RAW must be the final argument.");
@@ -1409,7 +1406,7 @@ _n00b_gopt_add_subcommand(n00b_gopt_ctx   *ctx,
         if (w->data[0] == ')') {
             n00b_list_append(rule, (void *)N00B_GOG_RPAREN);
 
-            switch (n00b_str_codepoint_len(w)) {
+            switch (n00b_string_codepoint_len(w)) {
             case 1:
                 continue;
             case 2:
@@ -1445,7 +1442,7 @@ handle_group_modifier:
             if (l != 0) {
                 value = (int64_t)n00b_list_get(rule, l - 1, NULL);
                 if (value == N00B_GOG_RPAREN) {
-                    if (n00b_str_codepoint_len(w) != 1) {
+                    if (n00b_string_codepoint_len(w) != 1) {
                         goto mod_error;
                     }
                     cp = w->data[0];
@@ -1471,13 +1468,13 @@ handle_group_modifier:
             hatrack_dict_item_t *one = &values[j];
             n00b_gopt_cspec     *sub = one->value;
 
-            if (n00b_str_eq(w, sub->name)) {
+            if (n00b_string_eq(w, sub->name)) {
                 n00b_list_append(rule, one->key);
                 goto add_it;
             }
         }
 
-        n00b_utf8_t *msg = n00b_cstr_format("Unknown sub-command: [em]{}[/]", w);
+        n00b_string_t *msg = n00b_cformat("Unknown sub-command: «em»«#»«/»", w);
 
         N00B_RAISE(msg);
     }
@@ -1498,35 +1495,35 @@ run_auto_help(n00b_gopt_ctx *gopt, n00b_gopt_result_t *res)
     n00b_list_t *parts;
 
     if (res->cmd) {
-        parts = n00b_str_split(res->cmd, n00b_new_utf8("."));
+        parts = n00b_string_split(res->cmd, n00b_cached_period());
     }
     else {
-        parts = n00b_list(n00b_type_utf8());
+        parts = n00b_list(n00b_type_string());
     }
 
-    if (!n00b_list_contains(parts, n00b_new_utf8("help"))
-        && !n00b_dict_contains(res->flags, n00b_new_utf8("help"))) {
+    if (!n00b_list_contains(parts, n00b_cstring("help"))
+        && !n00b_dict_contains(res->flags, n00b_cstring("help"))) {
         return false;
     }
 
-    n00b_print(n00b_getopt_default_usage(gopt, res->cmd, res));
-    n00b_print(n00b_getopt_command_get_long_for_printing(gopt, res->cmd));
-    n00b_print(n00b_getopt_option_table(gopt, res->cmd, true, true));
+    n00b_eprint(n00b_getopt_default_usage(gopt, res->cmd, res));
+    n00b_eprint(n00b_getopt_command_get_long_for_printing(gopt, res->cmd));
+    n00b_eprint(n00b_getopt_option_table(gopt, res->cmd, true, true));
 
     return true;
 }
 
 // Will run getopt, but does not do any n00b attribute setting.
 n00b_gopt_result_t *
-n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
+n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_string_t *cmd, n00b_list_t *args)
 {
     if (!gopt->command_name) {
         if (cmd && n00b_len(cmd)) {
             gopt->command_name = cmd;
         }
         else {
-            n00b_list_t *parts = n00b_str_split(n00b_app_path(),
-                                                n00b_new_utf8("/"));
+            n00b_list_t *parts = n00b_string_split(n00b_app_path(),
+                                                   n00b_cached_slash());
 
             gopt->command_name = n00b_list_pop(parts);
             if (!gopt->command_name) {
@@ -1539,19 +1536,20 @@ n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
     int          num    = n00b_list_len(parses);
 
     if (num > 1) {
-        n00b_eprintf("[em]Warning:[/] ambiguous input ({} possible parses).",
+        n00b_eprintf("«em»Warning:«/» ambiguous input («#» possible parses).",
                      num);
     }
     if (num == 0) {
-        n00b_eprintf("[em]Error:[/] parsing failed.");
-        n00b_getopt_show_usage(gopt, n00b_new_utf8(""), NULL);
+        n00b_eprintf("«em»Error:«/» parsing failed.");
+        n00b_getopt_show_usage(gopt, n00b_cached_empty_string(), NULL);
         return NULL;
     }
 
     n00b_gopt_result_t *res = n00b_list_get(parses, 0, NULL);
     if (n00b_list_len(res->errors)) {
-        n00b_utf8_t *err = n00b_rich_lit("[red]error: [/] ");
-        err              = n00b_str_concat(err, n00b_list_get(res->errors, -1, NULL));
+        n00b_string_t *err = n00b_crich("«red»error: «/» ");
+        err                = n00b_string_concat(err,
+                                 n00b_list_get(res->errors, -1, NULL));
         n00b_eprint(err);
         n00b_getopt_show_usage(gopt, res->cmd, res);
         return NULL;
@@ -1565,24 +1563,21 @@ n00b_run_getopt_raw(n00b_gopt_ctx *gopt, n00b_utf8_t *cmd, n00b_list_t *args)
 }
 
 const n00b_vtable_t n00b_gopt_parser_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_gopt_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },
 };
 
 const n00b_vtable_t n00b_gopt_command_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_gcommand_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },
 };
 
 const n00b_vtable_t n00b_gopt_option_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_goption_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },

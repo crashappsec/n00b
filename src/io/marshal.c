@@ -110,8 +110,6 @@
 // - GC work
 // - Add marshal errors
 
-extern uint64_t n00b_end_guard;
-
 static inline uint64_t
 lsb_erase(uint64_t n)
 {
@@ -198,10 +196,10 @@ static char *
 copy_alloc_filename(n00b_pickle_ctx *ctx, char *fname)
 {
     return NULL;
-    n00b_utf8_t *as_n00b = hatrack_dict_get(ctx->file_cache, fname, NULL);
+    n00b_string_t *as_n00b = hatrack_dict_get(ctx->file_cache, fname, NULL);
 
     if (!as_n00b) {
-        as_n00b = n00b_new_utf8(fname);
+        as_n00b = n00b_cstring(fname);
         hatrack_dict_put(ctx->file_cache, fname, as_n00b);
     }
 
@@ -222,9 +220,10 @@ setup_new_header(n00b_pickle_ctx *ctx, n00b_marshaled_hdr *h, n00b_alloc_hdr *s)
     h->alloc_line = 0xeeee; // s->alloc_line;
 #endif
 
-    h->type        = (void *)translate_pointer(ctx, s->type);
-    h->n00b_obj    = s->n00b_obj;
-    h->cached_hash = s->cached_hash;
+    h->type           = (void *)translate_pointer(ctx, s->type);
+    h->n00b_obj       = s->n00b_obj;
+    h->cached_hash[0] = ((n00b_marshaled_hdr *)s)->cached_hash[0];
+    h->cached_hash[1] = ((n00b_marshaled_hdr *)s)->cached_hash[1];
 
     // Convert endianness on big endian machines; should not generate
     // any code at all most places.
@@ -619,18 +618,6 @@ n00b_pickle_xform(n00b_stream_t *e, void *thunk, void *obj)
 
     n00b_list_t *result = n00b_internal_pickle(ctx, obj);
 
-    if (result) {
-        for (int i = 0; i < n00b_list_len(result); i++) {
-            n00b_buf_t  *b = n00b_list_get(result, i, NULL);
-            n00b_utf8_t *s = n00b_heap_dump(b->data,
-                                            b->byte_len,
-                                            N00B_MARSHAL_RECORD_GUARD,
-                                            true);
-
-            //   cprintf("\nDebug: %s\n%s\n", obj, n00b_ansify(s, false, 0));
-        }
-    }
-
     n00b_lock_release(&ctx->lock);
 
     return result;
@@ -721,7 +708,6 @@ n00b_check_unpickle_readiness(n00b_unpickle_ctx *ctx)
 
             if (buf_end >= expected_end) {
                 // This extracts the same.
-                printf("SLICE.\n");
                 n00b_buf_t *result = n00b_slice_one_pickle(ctx,
                                                            expected_end);
                 return result;
@@ -731,16 +717,6 @@ n00b_check_unpickle_readiness(n00b_unpickle_ctx *ctx)
             return NULL;
         }
 
-        if (h->alloc_len < sizeof(n00b_alloc_hdr)) {
-            n00b_utf8_t *s = n00b_heap_dump(ctx->partial->data,
-                                            ctx->partial->byte_len,
-                                            N00B_MARSHAL_RECORD_GUARD,
-                                            true);
-
-            cprintf("\nBAD APPLE. %s\n", n00b_ansify(s, false, 0));
-
-            n00b_assert(h->n00b_marshal_end);
-        }
         ctx->part_cursor += h->alloc_len;
     }
 }
@@ -839,10 +815,6 @@ n00b_unmarshal_records(n00b_unpickle_ctx *ctx, n00b_alloc_hdr *end_record)
 #endif
         n00b_munge_user_data(ctx, hdr);
 
-#if defined(N00B_FULL_MEMCHECK)
-        uint64_t *loc = ((uint64_t *)(((char *)hdr) + hdr->alloc_len)) - 1;
-        *loc          = n00b_end_guard;
-#endif
         hdr = (void *)(((char *)hdr) + hdr->alloc_len);
     }
 }
@@ -1042,7 +1014,7 @@ n00b_new_pickler(n00b_stream_t *e)
 {
     n00b_stream_filter_t *res    = n00b_new_filter(n00b_pickle_xform,
                                                 NULL,
-                                                n00b_new_utf8("marshal"),
+                                                n00b_cstring("marshal"),
                                                 sizeof(n00b_pickle_ctx));
     n00b_pickle_ctx      *cookie = res->state;
 
@@ -1071,7 +1043,7 @@ n00b_new_unpickler(n00b_stream_t *e)
 {
     n00b_stream_filter_t *res    = n00b_new_filter(n00b_unpickle_xform,
                                                 NULL,
-                                                n00b_new_utf8("unmarshal"),
+                                                n00b_cstring("unmarshal"),
                                                 sizeof(n00b_unpickle_ctx));
     n00b_unpickle_ctx    *cookie = res->state;
 

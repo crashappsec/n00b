@@ -10,34 +10,26 @@
 
 #include "n00b.h"
 
-typedef struct {
-    n00b_marshaled_hdr h; // not an n00b_alloc_hdr to avoid warnings.
-    n00b_karg_info_t   ka;
-    n00b_one_karg_t    args[N00B_MAX_KEYWORD_SIZE];
-} static_karg_t;
-
-static thread_local static_karg_t kcache[N00B_MAX_KARGS_NESTING_DEPTH];
-static thread_local int           kargs_next_entry = 0;
-static thread_local bool          init_kargs       = false;
-
 const int kargs_cache_mod = N00B_MAX_KARGS_NESTING_DEPTH - 1;
 
 static n00b_karg_info_t *
 n00b_kargs_acquire()
 {
-    if (!init_kargs) {
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+
+    if (!tsi->init_kargs) {
         for (int i = 0; i < N00B_MAX_KARGS_NESTING_DEPTH; i++) {
-            static_karg_t *ska = &kcache[i];
-            ska->h.type        = n00b_type_kargs();
-            ska->h.n00b_obj    = true;
-            ska->ka.args       = ska->args;
+            n00b_static_karg_t *ska = &tsi->kcache[i];
+            ska->h.type             = n00b_type_kargs();
+            ska->h.n00b_obj         = true;
+            ska->ka.args            = ska->args;
         }
-        init_kargs = true;
+        tsi->init_kargs = true;
     }
 
-    kargs_next_entry &= kargs_cache_mod;
+    tsi->kargs_next_entry &= kargs_cache_mod;
 
-    n00b_karg_info_t *result = &kcache[kargs_next_entry++].ka;
+    n00b_karg_info_t *result = &tsi->kcache[tsi->kargs_next_entry++].ka;
 
     return result;
 }

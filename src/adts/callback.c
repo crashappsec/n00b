@@ -16,13 +16,7 @@ n00b_callback_info_init()
 
 {
     return n00b_gc_alloc_mapped(n00b_callback_info_t,
-                               N00B_GC_SCAN_ALL);
-    /*
-    result->target_symbol_name = n00b_to_utf8(symbol_name);
-    result->target_type        = type;
-
-    return result;
-    */
+                                N00B_GC_SCAN_ALL);
 }
 
 void
@@ -33,15 +27,14 @@ n00b_zcallback_gc_bits(uint64_t *bitmap, void *base)
     n00b_mark_raw_to_addr(bitmap, base, &cb->tid);
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 zcallback_repr(n00b_zcallback_t *cb)
 {
-    return n00b_cstr_format("func {}{}", cb->name, cb->tid);
+    return n00b_cformat("func «#»«#»", cb->name, cb->tid);
 }
 
 const n00b_vtable_t n00b_callback_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_GC_MAP]    = (n00b_vtable_entry)n00b_zcallback_gc_bits,
         [N00B_BI_REPR]      = (n00b_vtable_entry)zcallback_repr,
         [N00B_BI_FINALIZER] = NULL,

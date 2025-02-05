@@ -136,5 +136,5 @@ n00b_box_double(double val)
 }
 
 // in numbers.c
-extern bool n00b_parse_int64(n00b_utf8_t *, int64_t *);
-extern bool n00b_parse_double(n00b_utf8_t *, double *);
+extern bool n00b_parse_int64(n00b_string_t *, int64_t *);
+extern bool n00b_parse_double(n00b_string_t *, double *);

@@ -109,29 +109,25 @@ n00b_universe_forward(n00b_type_universe_t *u, n00b_type_t *t1, n00b_type_t *t2)
                   NULL);
 }
 
-n00b_grid_t *
+n00b_table_t *
 n00b_format_global_type_environment(n00b_type_universe_t *u)
 {
     uint64_t        len;
     hatrack_view_t *view;
-    n00b_grid_t    *grid  = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_cols",
-                                         n00b_ka(3),
-                                         "header_rows",
-                                         n00b_ka(1),
-                                         "stripe",
-                                         n00b_ka(true)));
-    n00b_list_t    *row   = n00b_new_table_row();
-    n00b_dict_t    *memos = n00b_dict(n00b_type_ref(),
-                                   n00b_type_utf8());
-    int64_t         n     = 0;
+    n00b_table_t   *tbl = n00b_table("columns",
+                                   n00b_ka(3),
+                                   "style",
+                                   n00b_ka(N00B_TABLE_ORNATE));
+
+    n00b_dict_t *memos = n00b_dict(n00b_type_ref(),
+                                   n00b_type_string());
+    int64_t      n     = 0;
 
     view = crown_view(&u->dict->crown_instance, &len, true);
 
-    n00b_list_append(row, n00b_new_utf8("Id"));
-    n00b_list_append(row, n00b_new_utf8("Value"));
-    n00b_list_append(row, n00b_new_utf8("Base Type"));
-    n00b_grid_add_row(grid, row);
+    n00b_table_add_cell(tbl, n00b_cstring("Id"));
+    n00b_table_add_cell(tbl, n00b_cstring("Value"));
+    n00b_table_add_cell(tbl, n00b_cstring("Base Type"));
 
     for (uint64_t i = 0; i < len; i++) {
         n00b_type_t *t = (n00b_type_t *)view[i].item;
@@ -141,58 +137,53 @@ n00b_format_global_type_environment(n00b_type_universe_t *u)
             continue;
         }
 
-        n00b_utf8_t *base_name;
+        n00b_string_t *base_name;
 
         switch (n00b_type_get_kind(t)) {
         case N00B_DT_KIND_nil:
-            base_name = n00b_new_utf8("nil");
+            base_name = n00b_cstring("nil");
             break;
         case N00B_DT_KIND_primitive:
-            base_name = n00b_new_utf8("primitive");
+            base_name = n00b_cstring("primitive");
             break;
         case N00B_DT_KIND_internal: // Internal primitives.
-            base_name = n00b_new_utf8("internal");
+            base_name = n00b_cstring("internal");
             break;
         case N00B_DT_KIND_type_var:
-            base_name = n00b_new_utf8("var");
+            base_name = n00b_cstring("var");
             break;
         case N00B_DT_KIND_list:
-            base_name = n00b_new_utf8("list");
+            base_name = n00b_cstring("list");
             break;
         case N00B_DT_KIND_dict:
-            base_name = n00b_new_utf8("dict");
+            base_name = n00b_cstring("dict");
             break;
         case N00B_DT_KIND_tuple:
-            base_name = n00b_new_utf8("tuple");
+            base_name = n00b_cstring("tuple");
             break;
         case N00B_DT_KIND_func:
-            base_name = n00b_new_utf8("func");
+            base_name = n00b_cstring("func");
             break;
         case N00B_DT_KIND_maybe:
-            base_name = n00b_new_utf8("maybe");
+            base_name = n00b_cstring("maybe");
             break;
         case N00B_DT_KIND_object:
-            base_name = n00b_new_utf8("object");
+            base_name = n00b_cstring("object");
             break;
         case N00B_DT_KIND_oneof:
-            base_name = n00b_new_utf8("oneof");
+            base_name = n00b_cstring("oneof");
             break;
         case N00B_DT_KIND_box:
-            base_name = n00b_new_utf8("box");
+            base_name = n00b_cstring("box");
             break;
         default:
             n00b_unreachable();
         }
 
-        row = n00b_new_table_row();
-        n00b_list_append(row, n00b_cstr_format("{:x}", n00b_box_i64(t->typeid)));
-        n00b_list_append(row,
-                         n00b_internal_type_repr(t, memos, &n));
-        n00b_list_append(row, base_name);
-        n00b_grid_add_row(grid, row);
+        n00b_table_add_cell(tbl, n00b_cformat("«#:x»", t->typeid));
+        n00b_table_add_cell(tbl, n00b_internal_type_repr(t, memos, &n));
+        n00b_table_add_cell(tbl, base_name);
     }
-    n00b_set_column_style(grid, 0, n00b_new_utf8("snap"));
-    n00b_set_column_style(grid, 1, n00b_new_utf8("snap"));
-    n00b_set_column_style(grid, 2, n00b_new_utf8("snap"));
-    return grid;
+
+    return tbl;
 }

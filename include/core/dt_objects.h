@@ -23,44 +23,16 @@ typedef enum {
 typedef void (*n00b_vtable_entry)(n00b_obj_t *, va_list);
 typedef void (*n00b_container_init)(n00b_obj_t *, void *, va_list);
 
-typedef struct {
-    uint64_t          num_entries;
-    n00b_vtable_entry methods[];
-} n00b_vtable_t;
-
-typedef struct {
-    alignas(8)
-        // clang-format off
-    // The base ID for the data type. For now, this is redundant while we
-    // don't have user-defined types, since we're caching data type info
-    // in a fixed array. But once we add user-defined types, they'll
-    // get their IDs from a hash function, and that won't work for
-    // everything.
-    const char         *name;
-    const uint64_t      typeid;
-    const n00b_vtable_t *vtable;
-    const uint32_t      hash_fn;
-    const uint32_t      alloc_len; // How much space to allocate.
-    const n00b_dt_kind_t dt_kind;
-    const bool          by_value : 1;
-    const bool          mutable : 1;
-    // clang-format on
-} n00b_dt_info_t;
-
-// A lot of these are placeholders; most are implemented in the
-// current Nim runtime, but some aren't. Particularly, the destructor
-// isn't even implemented here yet-- we are NOT yet recording freed
-// objects that need finalization. Once we get to objects with
-// non-persistent state, we will implement that, along with some
-// ability in the marshal / unmarshal code to control attempting to
-// recover such state.
-//
 // Note that in the long term, many of these things wouldn't be baked
 // into a static table, but because we are not implementing any of
 // them in n00b itself right now, this is just better overall.
 typedef enum {
     N00B_BI_CONSTRUCTOR = 0,
+    // Old and about to be removed.
+    N00B_BI_REPR,
     N00B_BI_TO_STR,
+    N00B_BI_TO_STRING,
+    N00B_BI_TO_LITERAL,
     N00B_BI_FORMAT,
     N00B_BI_FINALIZER,
     N00B_BI_COERCIBLE,    // Pass 2 types, return coerrced type, or type error.
@@ -101,8 +73,8 @@ typedef enum {
     N00B_BI_ITEM_TYPE,
     N00B_BI_VIEW, // Return a view on a container.
     N00B_BI_CONTAINER_LIT,
-    N00B_BI_REPR,
     N00B_BI_GC_MAP,
+    N00B_BI_RENDER,
     N00B_BI_NUM_FUNCS,
 } n00b_builtin_type_fn;
 
@@ -130,13 +102,12 @@ typedef enum : int64_t {
     N00B_T_UINT,
     N00B_T_F32,
     N00B_T_F64,
-    N00B_T_UTF8, // 15
+    N00B_T_STRING, // 15
+    N00B_T_TABLE,
     N00B_T_BUFFER,
-    N00B_T_UTF32,
-    N00B_T_GRID,
     N00B_T_LIST,
-    N00B_T_TUPLE, // 20
-    N00B_T_DICT,
+    N00B_T_TUPLE,
+    N00B_T_DICT, // 20
     N00B_T_SET,
     N00B_T_IPV4,
     N00B_T_DURATION,
@@ -151,9 +122,7 @@ typedef enum : int64_t {
     N00B_T_RING,
     N00B_T_LOGRING,
     N00B_T_STACK,
-    N00B_T_RENDERABLE,
     N00B_T_FLIST, // single-threaded list.
-    N00B_T_RENDER_STYLE,
     N00B_T_SHA,
     N00B_T_EXCEPTION,
     N00B_T_TREE,
@@ -190,7 +159,31 @@ typedef enum : int64_t {
     N00B_T_MESSAGE,
     N00B_T_BYTERING,
     N00B_T_FILE,
+    N00B_T_TEXT_ELEMENT,
+    N00B_T_BOX_PROPS,
+    N00B_T_THEME,
     N00B_NUM_BUILTIN_DTS,
 } n00b_builtin_t;
 
-#define N00B_T_XLIST N00B_T_LIST
+typedef struct {
+    n00b_vtable_entry methods[N00B_BI_NUM_FUNCS];
+} n00b_vtable_t;
+
+typedef struct {
+    alignas(8)
+        // clang-format off
+    // The base ID for the data type. For now, this is redundant while we
+    // don't have user-defined types, since we're caching data type info
+    // in a fixed array. But once we add user-defined types, they'll
+    // get their IDs from a hash function, and that won't work for
+    // everything.
+    const char         *name;
+    const uint64_t      typeid;
+    const n00b_vtable_t *vtable;
+    const uint32_t      hash_fn;
+    const uint32_t      alloc_len; // How much space to allocate.
+    const n00b_dt_kind_t dt_kind;
+    const bool          by_value : 1;
+    const bool          mutable : 1;
+    // clang-format on
+} n00b_dt_info_t;

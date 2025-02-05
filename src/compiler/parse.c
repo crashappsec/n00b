@@ -69,7 +69,7 @@ static inline n00b_token_t *_tok_cur(parse_ctx *);
 
 #define DEBUG_CUR(x)                                             \
     {                                                            \
-        n00b_utf8_t *prefix = n00b_new_utf8(x);                  \
+        n00b_string_t *prefix = n00b_cstring(x);                 \
         n00b_print(n00b_format_one_token(tok_cur(ctx), prefix)); \
     }
 
@@ -91,7 +91,7 @@ n00b_exit_to_checkpoint(parse_ctx  *ctx,
 #ifdef N00B_PARSE_DEBUG
     printf("Bailed @%s:%d (func = %s)\n", f, line, fn);
     n00b_print(n00b_format_one_token(tok_cur(ctx),
-                                     n00b_new_utf8("Current token: ")));
+                                     n00b_cstring("Current token: ")));
 #endif
     longjmp(ctx->jump_state->env, code);
 }
@@ -282,8 +282,8 @@ _tok_cur(parse_ctx *ctx)
         return ctx->cached_token;
     }
 
-    n00b_utf8_t *prefix = n00b_cstr_format("parse.c line {}: tok_cur(ctx) = ",
-                                           n00b_box_i32(line));
+    n00b_string_t *prefix = n00b_cformat("parse.c line «#»: tok_cur(ctx) = ",
+                                         (int64_t)line);
 
     n00b_print(n00b_format_one_token(ctx->cached_token, prefix));
 #endif
@@ -368,8 +368,6 @@ _raise_err_at_node(parse_ctx           *ctx,
 
 #define EOF_ERROR(ctx) \
     raise_err_at_node(ctx, current_parse_node(ctx), n00b_err_parse_eof, true)
-
-static n00b_utf8_t *repr_one_node(n00b_pnode_t *);
 
 static void
 parse_node_init(n00b_pnode_t *self, va_list args)
@@ -653,7 +651,7 @@ text_matches(parse_ctx *ctx, char *cstring)
 {
     // Will only be called for identifiers.
 
-    n00b_utf8_t *text = n00b_identifier_text(tok_cur(ctx));
+    n00b_string_t *text = n00b_identifier_text(tok_cur(ctx));
 
     return !strcmp(text->data, cstring);
 }
@@ -696,7 +694,7 @@ _start_node(parse_ctx *ctx, n00b_node_kind_t kind, bool consume_token)
 
 #ifdef N00B_PARSE_DEBUG
     printf("started node: ");
-    n00b_print(repr_one_node(child));
+    n00b_print(n00b_repr_one_n00b_node(child));
 #endif
 
     return result;
@@ -707,7 +705,7 @@ end_node(parse_ctx *ctx)
 {
 #ifdef N00B_PARSE_DEBUG
     printf("Leaving node: ");
-    n00b_print(repr_one_node(ctx->cur->contents));
+    n00b_print(n00b_repr_one_n00b_node(ctx->cur->contents));
 #endif
     ctx->cur = ctx->cur->parent;
 }
@@ -938,36 +936,36 @@ simple_lit(parse_ctx *ctx)
         err = n00b_parse_simple_lit(tok, &li->st, &li->litmod);
 
         switch (err) {
-            n00b_utf8_t *syntax_str;
+            n00b_string_t *syntax_str;
 
         case n00b_err_parse_no_lit_mod_match:
             switch (tok->kind) {
             case n00b_tt_int_lit:
-                syntax_str = n00b_new_utf8("integer");
+                syntax_str = n00b_cstring("integer");
                 break;
             case n00b_tt_hex_lit:
-                syntax_str = n00b_new_utf8("hex");
+                syntax_str = n00b_cstring("hex");
                 break;
             case n00b_tt_float_lit:
-                syntax_str = n00b_new_utf8("float");
+                syntax_str = n00b_cstring("float");
                 break;
             case n00b_tt_true:
             case n00b_tt_false:
-                syntax_str = n00b_new_utf8("boolean");
+                syntax_str = n00b_cstring("boolean");
                 break;
             case n00b_tt_string_lit:
-                syntax_str = n00b_new_utf8("string");
+                syntax_str = n00b_cstring("string");
                 break;
             case n00b_tt_char_lit:
-                syntax_str = n00b_new_utf8("character");
+                syntax_str = n00b_cstring("character");
                 break;
 
             default:
                 n00b_unreachable();
             }
 
-            if (!n00b_str_codepoint_len(li->litmod)) {
-                li->litmod = n00b_new_utf8("<none>");
+            if (!n00b_string_codepoint_len(li->litmod)) {
+                li->litmod = n00b_cstring("<none>");
             }
             n00b_error_from_token(ctx->module_ctx, err, tok, li->litmod, syntax_str);
             break;
@@ -985,7 +983,7 @@ static void
 string_lit(parse_ctx *ctx)
 {
     if (match(ctx, n00b_tt_string_lit) != n00b_tt_string_lit) {
-        add_parse_error(ctx, n00b_err_parse_need_str_lit);
+        add_parse_error(ctx, n00b_err_parse_need_string_lit);
     }
     else {
         n00b_token_t *tok = tok_cur(ctx);
@@ -1044,7 +1042,7 @@ param_items(parse_ctx *ctx)
         default:
             add_parse_error(ctx,
                             n00b_err_parse_expected_token,
-                            n00b_new_utf8("identifier"));
+                            n00b_cstring("identifier"));
             line_skip_recover(ctx);
             continue;
         }
@@ -1354,7 +1352,7 @@ extern_block(parse_ctx *ctx)
                     if (got_local) {
                         add_parse_error(ctx,
                                         n00b_err_parse_extern_dup,
-                                        n00b_new_utf8("local"));
+                                        n00b_cstring("local"));
                     }
                     got_local = true;
                     extern_local(ctx);
@@ -1368,7 +1366,7 @@ extern_block(parse_ctx *ctx)
                     if (got_box) {
                         add_parse_error(ctx,
                                         n00b_err_parse_extern_dup,
-                                        n00b_new_utf8("box_values"));
+                                        n00b_cstring("box_values"));
                     }
                     got_box = true;
 
@@ -1380,7 +1378,7 @@ extern_block(parse_ctx *ctx)
                     if (got_pure) {
                         add_parse_error(ctx,
                                         n00b_err_parse_extern_dup,
-                                        n00b_new_utf8("pure"));
+                                        n00b_cstring("pure"));
                     }
                     got_pure = true;
 
@@ -1391,7 +1389,7 @@ extern_block(parse_ctx *ctx)
                     if (got_holds) {
                         add_parse_error(ctx,
                                         n00b_err_parse_extern_dup,
-                                        n00b_new_utf8("holds"));
+                                        n00b_cstring("holds"));
                     }
                     got_holds = true;
 
@@ -1402,7 +1400,7 @@ extern_block(parse_ctx *ctx)
                     if (got_allocs) {
                         add_parse_error(ctx,
                                         n00b_err_parse_extern_dup,
-                                        n00b_new_utf8("allocs"));
+                                        n00b_cstring("allocs"));
                     }
                     got_allocs = true;
 
@@ -2909,7 +2907,7 @@ field_structure_check(parse_ctx *ctx)
 
     for (int i = 1; i < ctx->cur->num_kids; i++) {
         n00b_tree_node_t *kid = ctx->cur->children[i];
-        n00b_utf8_t      *s   = n00b_node_text(kid);
+        n00b_string_t    *s   = n00b_node_text(kid);
 
         switch (s->data[0]) {
         case 't':
@@ -3117,7 +3115,7 @@ invalid_sec_part:
 }
 
 static void
-object_spec(parse_ctx *ctx, n00b_utf8_t *txt)
+object_spec(parse_ctx *ctx, n00b_string_t *txt)
 {
     volatile int safety_check = 0;
 
@@ -3185,7 +3183,7 @@ object_spec(parse_ctx *ctx, n00b_utf8_t *txt)
 static void
 confspec_block(parse_ctx *ctx)
 {
-    n00b_utf8_t *txt;
+    n00b_string_t *txt;
 
     start_node(ctx, n00b_nt_config_spec, true);
     opt_one_newline(ctx);
@@ -3370,7 +3368,7 @@ access_expr(parse_ctx *ctx)
     if (tok_kind(ctx) != n00b_tt_identifier) {
         add_parse_error(ctx,
                         n00b_err_parse_expected_token,
-                        n00b_new_utf8("identifier"));
+                        n00b_cstring("identifier"));
         line_skip_recover(ctx);
         return;
     }
@@ -4439,48 +4437,48 @@ module(parse_ctx *ctx)
     }
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_node_type_name(n00b_node_kind_t n)
 {
     node_type_info_t *info = (node_type_info_t *)&node_type_info[n];
-    return n00b_new_utf8(info->name);
+    return n00b_cstring(info->name);
 }
 
-static n00b_utf8_t *
-repr_one_node(n00b_pnode_t *one)
+n00b_string_t *
+n00b_repr_one_n00b_node(n00b_pnode_t *one)
 {
     node_type_info_t *info = (node_type_info_t *)&node_type_info[one->kind];
-    n00b_utf8_t      *name = n00b_new_utf8(info->name);
-    n00b_utf8_t      *xtra;
-    n00b_utf8_t      *doc;
-    char             *fmt = "[h1]{}[/][h2]{}[/][h3]{}[/] ";
+    n00b_string_t    *name = n00b_cstring(info->name);
+    n00b_string_t    *xtra;
+    n00b_string_t    *doc;
+    char             *fmt = "«em1»«#»«/»«em2»«#»«/»«em3»«#»«/» ";
 
     if (info->show_contents && one->token != NULL) {
-        n00b_utf8_t *token_text = n00b_token_raw_content(one->token);
-        xtra                    = n00b_in_parens(token_text);
+        n00b_string_t *token_text = n00b_token_raw_content(one->token);
+        xtra                      = n00b_cformat("(«#»)", token_text);
     }
     else {
-        xtra = n00b_empty_string();
+        xtra = n00b_cached_empty_string();
     }
 
     if (info->takes_docs) {
         if (one->short_doc == NULL) {
-            doc = n00b_new_utf8("no docs");
+            doc = n00b_cstring("no docs");
         }
         else {
             if (one->long_doc == NULL) {
-                doc = n00b_new_utf8("short doc");
+                doc = n00b_cstring("short doc");
             }
             else {
-                doc = n00b_new_utf8("full docs");
+                doc = n00b_cstring("full docs");
             }
         }
     }
     else {
-        doc = n00b_empty_string();
+        doc = n00b_cached_empty_string();
     }
 
-    n00b_utf8_t *result = n00b_cstr_format(fmt, name, xtra, doc);
+    n00b_string_t *result = n00b_cformat(fmt, name, xtra, doc);
 
     if (one->type != NULL) {
         n00b_type_t *t = n00b_type_resolve(one->type);
@@ -4489,7 +4487,7 @@ repr_one_node(n00b_pnode_t *one)
             t = n00b_type_unbox(t);
         }
 
-        result = n00b_str_concat(result, n00b_cstr_format("[h3]{}[/] ", t));
+        result = n00b_string_concat(result, n00b_cformat("«em3»«#»«/» ", t));
     }
 
     return result;
@@ -4498,14 +4496,7 @@ repr_one_node(n00b_pnode_t *one)
 void
 n00b_print_parse_node(n00b_tree_node_t *n)
 {
-    n00b_print(n00b_grid_tree(n, n00b_kw("converter", n00b_ka(repr_one_node))));
-}
-
-n00b_grid_t *
-n00b_format_ptree(n00b_module_t *ctx)
-{
-    return n00b_grid_tree(ctx->ct->parse_tree,
-                          n00b_kw("converter", n00b_ka(repr_one_node)));
+    n00b_print(n00b_tree_format(n, n00b_repr_one_n00b_node, NULL, false));
 }
 
 static inline void
@@ -4598,8 +4589,7 @@ n00b_parse_type(n00b_module_t *module_ctx)
     return true;
 }
 const n00b_vtable_t n00b_parse_node_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)parse_node_init,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)n00b_pnode_set_gc_bits,
         [N00B_BI_FINALIZER]   = NULL,

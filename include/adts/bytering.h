@@ -12,7 +12,7 @@ typedef struct {
 extern n00b_bytering_t *n00b_bytering_copy(n00b_bytering_t *);
 extern int64_t          n00b_bytering_len(n00b_bytering_t *);
 extern n00b_buf_t      *n00b_bytering_to_buffer(n00b_bytering_t *);
-extern n00b_utf8_t     *n00b_bytering_to_utf8(n00b_bytering_t *);
+extern n00b_string_t     *n00b_bytering_to_utf8(n00b_bytering_t *);
 extern void             n00b_bytering_resize(n00b_bytering_t *, int64_t);
 extern int8_t           n00b_bytering_get_index(n00b_bytering_t *, int64_t);
 extern void             n00b_bytering_set_index(n00b_bytering_t *,
@@ -49,7 +49,7 @@ extern void             n00b_bytering_write_bytering(n00b_bytering_t *,
 extern void             n00b_bytering_advance_ptr(n00b_bytering_t *r, char **ptrp);
 
 static inline n00b_bytering_t *
-n00b_str_to_bytering(n00b_str_t *s)
+n00b_string_to_bytering(n00b_string_t *s)
 {
     return n00b_new(n00b_type_bytering(), n00b_kw("string", s));
 }

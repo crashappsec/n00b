@@ -7,8 +7,8 @@ typedef enum {
     n00b_err_lex_stray_cr,
     n00b_err_lex_eof_in_comment,
     n00b_err_lex_invalid_char,
-    n00b_err_lex_eof_in_str_lit,
-    n00b_err_lex_nl_in_str_lit,
+    n00b_err_lex_eof_in_string_lit,
+    n00b_err_lex_nl_in_string_lit,
     n00b_err_lex_eof_in_char_lit,
     n00b_err_lex_nl_in_char_lit,
     n00b_err_lex_extra_in_char_lit,
@@ -55,7 +55,7 @@ typedef enum {
     n00b_err_parse_empty_enum,
     n00b_err_parse_enum_item,
     n00b_err_parse_need_simple_lit,
-    n00b_err_parse_need_str_lit,
+    n00b_err_parse_need_string_lit,
     n00b_err_parse_need_bool_lit,
     n00b_err_parse_formal_expect_id,
     n00b_err_parse_bad_extern_field,
@@ -86,7 +86,7 @@ typedef enum {
     n00b_err_invalid_redeclaration,
     n00b_err_omit_string_enum_value,
     n00b_err_invalid_enum_lit_type,
-    n00b_err_enum_str_int_mix,
+    n00b_err_enum_string_int_mix,
     n00b_err_dupe_enum,
     n00b_err_unk_primitive_type,
     n00b_err_unk_param_type,
@@ -239,9 +239,9 @@ typedef struct {
     // .. $n, and the formatter will assume the right number of array
     // elements are there based on the values it sees.
 
-    n00b_utf8_t        *loc;
-    n00b_str_t         *long_info;
+    n00b_string_t        *loc;
+    n00b_string_t         *long_info;
     int32_t            num_args;
     n00b_err_severity_t severity;
-    n00b_str_t         *msg_parameters[];
+    n00b_string_t         *msg_parameters[];
 } n00b_compile_error;

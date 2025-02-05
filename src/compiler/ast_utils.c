@@ -276,8 +276,8 @@ n00b_node_to_callback(n00b_module_t    *ctx,
         return NULL;
     }
 
-    n00b_utf8_t *name = n00b_node_text(n00b_tree_get_child(n, 0));
-    n00b_type_t *type = NULL;
+    n00b_string_t *name = n00b_node_text(n00b_tree_get_child(n, 0));
+    n00b_type_t   *type = NULL;
 
     if (n->num_kids > 1) {
         type = n00b_node_to_type(ctx, n00b_tree_get_child(n, 1), NULL);
@@ -302,14 +302,14 @@ n00b_node_to_type(n00b_module_t    *ctx,
                   n00b_dict_t      *type_ctx)
 {
     if (type_ctx == NULL) {
-        type_ctx = n00b_new(n00b_type_dict(n00b_type_utf8(), n00b_type_ref()));
+        type_ctx = n00b_new(n00b_type_dict(n00b_type_string(), n00b_type_ref()));
     }
 
-    n00b_pnode_t *pnode = n00b_get_pnode(n);
-    n00b_utf8_t  *varname;
-    n00b_type_t  *t;
-    bool          found;
-    int           numkids;
+    n00b_pnode_t  *pnode = n00b_get_pnode(n);
+    n00b_string_t *varname;
+    n00b_type_t   *t;
+    bool           found;
+    int            numkids;
 
     switch (pnode->kind) {
     case n00b_nt_lit_tspec:
@@ -331,7 +331,7 @@ n00b_node_to_type(n00b_module_t    *ctx,
             }
         }
 
-        n00b_add_error(ctx, n00b_err_unk_primitive_type, n);
+        n00b_add_error(ctx, n00b_err_unk_primitive_type, n, varname);
         return n00b_new_typevar();
 
     case n00b_nt_lit_tspec_parameterized_type:
@@ -401,7 +401,7 @@ n00b_node_to_type(n00b_module_t    *ctx,
                                                    type_ctx));
             }
 
-            return n00b_type_tuple_from_xlist(subitems);
+            return n00b_type_tuple_from_list(subitems);
         }
         n00b_add_error(ctx, n00b_err_unk_param_type, n);
         return n00b_new_typevar();

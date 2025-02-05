@@ -108,23 +108,19 @@ md_text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size, void *extra)
                                                 N00B_GC_SCAN_ALL);
 
     node->node_type   = convert_text_kind(type);
-    node->detail.text = n00b_new(n00b_type_utf8(),
-                                 n00b_kw("length",
-                                         n00b_ka(size),
-                                         "cstring",
-                                         n00b_ka(text)));
+    node->detail.text = n00b_utf8(text, size);
 
     n00b_tree_add_node(ctx->cur, node);
 
     return 0;
 }
 
-static inline n00b_utf8_t *
-md_node_type_to_name(n00b_md_node_kind_t kind)
+static inline n00b_string_t *
+md_node_type_to_name(n00b_md_node_t *n)
 {
     char *s = NULL;
 
-    switch (kind) {
+    switch (n->node_type) {
     case N00B_MD_BLOCK_BODY:
         s = "body";
         break;
@@ -144,7 +140,29 @@ md_node_type_to_name(n00b_md_node_kind_t kind)
         s = "hr";
         break;
     case N00B_MD_BLOCK_H:
-        s = "h";
+        switch (n->detail.h.level) {
+        case 1:
+            s = "h1";
+            break;
+        case 2:
+            s = "h2";
+            break;
+        case 3:
+            s = "h3";
+            break;
+        case 4:
+            s = "h4";
+            break;
+        case 5:
+            s = "h5";
+            break;
+        case 6:
+            s = "h6";
+            break;
+        default:
+            s = "h?";
+            break;
+        }
         break;
     case N00B_MD_BLOCK_CODE:
         s = "code_block";
@@ -238,16 +256,15 @@ md_node_type_to_name(n00b_md_node_kind_t kind)
         break;
     }
 
-    return n00b_new_utf8(s);
+    return n00b_cstring(s);
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_repr_md_node(n00b_md_node_t *node)
 {
-    n00b_utf8_t *ret = n00b_cstr_format("[atomic lime]{}[/] ({})",
-                                        md_node_type_to_name(node->node_type),
-                                        node->node_type);
-    n00b_utf8_t *extra;
+    n00b_string_t *ret = n00b_cformat("«green»«#»«/»",
+                                      md_node_type_to_name(node));
+    n00b_string_t *extra;
 
     switch (node->node_type) {
     case N00B_MD_TEXT_NORMAL:
@@ -258,17 +275,17 @@ n00b_repr_md_node(n00b_md_node_t *node)
     case N00B_MD_TEXT_CODE:
     case N00B_MD_TEXT_HTML:
     case N00B_MD_TEXT_LATEX:
-        extra = n00b_cstr_format(" - [em]{}[/]", node->detail.text);
+        extra = n00b_cformat(" - «em»«#»«/»", node->detail.text);
         break;
     default:
         return ret;
     }
 
-    return n00b_str_concat(ret, extra);
+    return n00b_string_concat(ret, extra);
 }
 
 n00b_tree_node_t *
-n00b_parse_markdown(n00b_str_t *s)
+n00b_parse_markdown(n00b_string_t *s)
 {
     MD_PARSER parser = {
         0,
@@ -282,7 +299,8 @@ n00b_parse_markdown(n00b_str_t *s)
         NULL,
     };
 
-    n00b_md_node_t   *r = n00b_gc_alloc_mapped(n00b_md_node_t, N00B_GC_SCAN_ALL);
+    n00b_md_node_t   *r = n00b_gc_alloc_mapped(n00b_md_node_t,
+                                             N00B_GC_SCAN_ALL);
     n00b_tree_node_t *t = n00b_new_tree_node(n00b_type_ref(), r);
     r->node_type        = N00B_MD_DOCUMENT;
 
@@ -290,73 +308,67 @@ n00b_parse_markdown(n00b_str_t *s)
         .cur = t,
     };
 
-    s = n00b_to_utf8(s);
-    md_parse(s->data, n00b_str_codepoint_len(s), &parser, (void *)&build_ctx);
+    md_parse(s->data, n00b_string_codepoint_len(s), &parser, (void *)&build_ctx);
 
     return t;
 }
 
-n00b_grid_t *
+n00b_table_t *
 n00b_repr_md_parse(n00b_tree_node_t *t)
 {
-    return n00b_grid_tree_new(t, n00b_kw("callback", n00b_repr_md_node));
+    return n00b_tree_format(t, n00b_repr_md_node, NULL, false);
 }
 
 typedef struct {
     n00b_tree_node_t *cur_node;
     n00b_list_t      *entities;
-    n00b_utf8_t      *str;
-    n00b_grid_t      *table;
+    n00b_string_t    *str;
+    n00b_table_t     *table;
     int               row_count;
     bool              keep_soft_newlines;
-} md_grid_ctx;
+} md_table_ctx;
 
 static inline void
-md_newline(md_grid_ctx *ctx)
+md_newline(md_table_ctx *ctx)
 {
     if (ctx->str) {
-        n00b_utf8_t       *style = n00b_new_utf8("text");
-        n00b_renderable_t *r     = n00b_to_str_renderable(ctx->str, style);
-
-        n00b_enforce_container_style(r, style, false);
-        n00b_list_append(ctx->entities, r);
+        n00b_list_append(ctx->entities, n00b_cformat("«p»«#»«/»", ctx->str));
         ctx->str = NULL;
     }
 }
 
 static inline void
-md_add_string(md_grid_ctx *ctx, n00b_utf8_t *s)
+md_add_string(md_table_ctx *ctx, n00b_string_t *s)
 {
     if (!ctx->str) {
         ctx->str = s;
     }
     else {
-        ctx->str = n00b_str_concat(ctx->str, s);
+        ctx->str = n00b_string_concat(ctx->str, s);
     }
 }
 
-static void md_node_to_grid(md_grid_ctx *);
+static void md_node_to_table(md_table_ctx *);
 
 static inline void
-process_kids(md_grid_ctx *ctx)
+process_kids(md_table_ctx *ctx)
 {
     n00b_tree_node_t *saved_node = ctx->cur_node;
 
     for (int i = 0; i < saved_node->num_kids; i++) {
         ctx->cur_node = saved_node->children[i];
-        md_node_to_grid(ctx);
+        md_node_to_table(ctx);
     }
 
     ctx->cur_node = saved_node;
 }
 
 static void
-md_block_merge_and_style(md_grid_ctx *ctx, char *s, n00b_list_t *saved)
+md_block_merge(md_table_ctx *ctx, bool block, n00b_list_t *saved)
 {
-    n00b_utf8_t       *style = s ? n00b_new_utf8(s) : NULL;
-    n00b_renderable_t *r;
-    n00b_grid_t       *g;
-    int                l;
+    n00b_table_t  *t;
+    n00b_string_t *s;
+    int            l;
 
     md_newline(ctx);
 
@@ -365,51 +377,58 @@ md_block_merge_and_style(md_grid_ctx *ctx, char *s, n00b_list_t *saved)
         ctx->entities = saved;
         return;
     case 1:
-        r = n00b_list_get(ctx->entities, 0, NULL);
-
-        if (n00b_type_is_string(n00b_get_my_type(r->raw_item))) {
-            n00b_enforce_container_style(r, style, true);
+        s = n00b_list_get(ctx->entities, 0, NULL);
+        if (block) {
+            n00b_list_append(saved, n00b_call_out(s));
         }
-
-        n00b_list_append(saved, r);
+        else {
+            n00b_list_append(saved, s);
+        }
         ctx->entities = saved;
         return;
     default:
+
         l = n00b_list_len(ctx->entities);
-        g = n00b_new(n00b_type_grid(),
-                     n00b_kw("start_rows",
-                             n00b_ka(l),
-                             "start_cols",
-                             n00b_ka(1),
-                             "container_tag",
-                             n00b_new_utf8("flow")));
+        t = n00b_table("columns", 1, "style", N00B_TABLE_FLOW);
 
         for (int i = 0; i < l; i++) {
-            n00b_renderable_t *item = n00b_list_get(ctx->entities, i, NULL);
-
-            if (n00b_type_is_string(n00b_get_my_type(item->raw_item))) {
-                n00b_enforce_container_style(item, style, true);
-            }
-
-            n00b_grid_set_cell_contents(g, i, 0, item);
+            n00b_table_add_cell(t, n00b_list_get(ctx->entities, i, NULL));
         }
 
-        n00b_enforce_container_style(g, style, true);
+        n00b_list_append(saved, t);
 
         ctx->entities = saved;
-        n00b_list_append(ctx->entities, g);
         return;
     }
 }
+static void
+md_header_merge(md_table_ctx *ctx, char *tag, n00b_list_t *saved)
+{
+    n00b_list_t   *styled = n00b_list(n00b_type_ref());
+    n00b_string_t *t      = n00b_cstring(tag);
+
+    int l = n00b_list_len(ctx->entities);
+
+    for (int i = 0; i < l; i++) {
+        void *item = n00b_list_get(ctx->entities, i, NULL);
+        if (n00b_type_is_string(n00b_get_my_type(item))) {
+            n00b_string_style_by_tag(item, t);
+        }
+        else {
+            n00b_list_append(styled, item);
+        }
+    }
+    md_block_merge(ctx, false, styled);
+}
 
 static void
-md_node_to_grid(md_grid_ctx *ctx)
+md_node_to_table(md_table_ctx *ctx)
 {
     n00b_md_node_t *n = n00b_tree_get_contents(ctx->cur_node);
     n00b_list_t    *saved_entities;
-    n00b_utf8_t    *saved_str;
-    n00b_grid_t    *saved_table;
-    int             saved_row_count;
+    n00b_string_t  *saved_str;
+    n00b_table_t   *saved_table;
+    int             l;
 
     switch (n->node_type) {
     case N00B_MD_SPAN_EM:
@@ -436,7 +455,7 @@ md_node_to_grid(md_grid_ctx *ctx)
         // fallthrough
     case N00B_MD_TEXT_BR:
         if (!ctx->str) {
-            ctx->str = n00b_new_utf8("");
+            ctx->str = n00b_cached_empty_string();
         }
         md_newline(ctx);
         return;
@@ -448,16 +467,14 @@ md_node_to_grid(md_grid_ctx *ctx)
     case N00B_MD_TEXT_ENTITY:
     case N00B_MD_TEXT_HTML:
     case N00B_MD_TEXT_LATEX:
-        md_add_string(ctx, n00b_cstr_format("[i]{}[/]", n->detail.text));
+        md_add_string(ctx, n00b_cformat("«i»«#»«/»", n->detail.text));
         return;
     case N00B_MD_TEXT_CODE:
-        md_add_string(ctx, n00b_cstr_format("[code]{}[/]", n->detail.text));
+        md_add_string(ctx, n00b_cformat("«code»«#»«/»", n->detail.text));
         return;
     case N00B_MD_BLOCK_TABLE:
-        saved_table     = ctx->table;
-        saved_row_count = ctx->row_count;
-        ctx->table      = NULL;
-        ctx->row_count  = 0;
+        saved_table = ctx->table;
+        ctx->table  = NULL;
         break;
     default:
         saved_entities = ctx->entities;
@@ -469,10 +486,10 @@ md_node_to_grid(md_grid_ctx *ctx)
 
     switch (n->node_type) {
     case N00B_MD_SPAN_EM:
-        n00b_str_apply_style(ctx->str, N00B_STY_ITALIC, false);
+        ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("em"));
 finish_span:
         if (saved_str && ctx->str) {
-            ctx->str = n00b_str_concat(saved_str, ctx->str);
+            ctx->str = n00b_string_concat(saved_str, ctx->str);
         }
         else {
             if (!ctx->str) {
@@ -482,13 +499,14 @@ finish_span:
 
         return;
     case N00B_MD_SPAN_STRONG:
-        n00b_str_apply_style(ctx->str, N00B_STY_BOLD, false);
+        ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("b"));
         goto finish_span;
     case N00B_MD_SPAN_U:
-        n00b_str_apply_style(ctx->str, N00B_STY_UL, false);
+        ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("u"));
         goto finish_span;
     case N00B_MD_SPAN_STRIKETHRU:
-        n00b_str_apply_style(ctx->str, N00B_STY_ST, false);
+        ctx->str = n00b_string_style_by_tag(ctx->str,
+                                            n00b_cstring("strikethrough"));
         goto finish_span;
     case N00B_MD_SPAN_A_SELF:
     case N00B_MD_SPAN_A_CODELINK:
@@ -496,81 +514,69 @@ finish_span:
     case N00B_MD_SPAN_CODE:
     case N00B_MD_SPAN_LATEX:
     case N00B_MD_SPAN_LATEX_DISPLAY:
-        n00b_str_apply_style(ctx->str,
-                             n00b_lookup_text_style(n00b_new_utf8("code")),
-                             false);
+        n00b_string_style_by_tag(ctx->str, n00b_cstring("code"));
         goto finish_span;
     case N00B_MD_SPAN_A:
         if (n->detail.a.href.size) {
-            n00b_str_apply_style(ctx->str,
-                                 n00b_lookup_text_style(n00b_new_utf8("link")),
-                                 false);
-            ctx->str = n00b_cstr_format(
-                "{} [i]({})[/]",
-                ctx->str,
-                n00b_cstring((char *)n->detail.a.href.text,
-                             n->detail.a.href.size));
+            ctx->str = n00b_cformat("«#» «i»(«#»)«/»",
+                                    ctx->str,
+                                    n00b_utf8((char *)n->detail.a.href.text,
+                                              n->detail.a.href.size));
         }
         goto finish_span;
     case N00B_MD_SPAN_IMG:
         if (n->detail.img.title.size) {
-            ctx->str = n00b_cstr_format(
-                "{}image [em]\"{}\"[/] @[link]{}[/]] ",
-                n00b_new_utf8("["),
-                n00b_cstring((char *)n->detail.img.title.text,
-                             n->detail.img.title.size),
-                n00b_cstring((char *)n->detail.img.src.text,
-                             n->detail.img.src.size));
+            ctx->str = n00b_cformat(
+                "[image «em2»\"«#»\"«/» @«em3»«#»«/»]",
+                n00b_utf8((char *)n->detail.img.title.text,
+                          n->detail.img.title.size),
+                n00b_utf8((char *)n->detail.img.src.text,
+                          n->detail.img.src.size));
         }
         else {
-            ctx->str = n00b_cstr_format(
-                "{}image @[link]{}[/]]",
-                n00b_new_utf8("["),
-                n00b_cstring((char *)n->detail.img.src.text,
-                             n->detail.img.src.size));
+            ctx->str = n00b_cformat(
+                "[image @«em3»«#»«/»]",
+                n00b_utf8((char *)n->detail.img.src.text,
+                          n->detail.img.src.size));
         }
         goto finish_span;
     case N00B_MD_SPAN_WIKI_LINK:
-        ctx->str = n00b_cstr_format("[link]{}[/] [i]({})[/]",
-                                    ctx->str,
-                                    n00b_cstring((char *)n->detail.img.src.text,
-                                                 n->detail.img.src.size));
+        ctx->str = n00b_cformat("«em3»«#»«/» «i»(«#»)«/»",
+                                ctx->str,
+                                n00b_utf8((char *)n->detail.img.src.text,
+                                          n->detail.img.src.size));
         goto finish_span;
     case N00B_MD_BLOCK_HR:
         // Right now, don't have a hard rule primitive.
     case N00B_MD_BLOCK_BODY:
     case N00B_MD_BLOCK_HTML:
     case N00B_MD_BLOCK_P:
-        md_block_merge_and_style(ctx, "text", saved_entities);
+        md_block_merge(ctx, false, saved_entities);
         break;
     case N00B_MD_BLOCK_TD:
-        md_block_merge_and_style(ctx, "td", saved_entities);
+        md_block_merge(ctx, false, saved_entities);
         break;
     case N00B_MD_BLOCK_CODE:
-        md_block_merge_and_style(ctx, "code", saved_entities);
+        md_block_merge(ctx, true, saved_entities);
         return;
     case N00B_MD_BLOCK_QUOTE:
-        md_block_merge_and_style(ctx, "callout_cell", saved_entities);
+        md_block_merge(ctx, true, saved_entities);
         return;
     case N00B_MD_BLOCK_UL:
         md_newline(ctx);
         n00b_list_append(saved_entities,
-                         n00b_new(n00b_type_renderable(),
-                                  n00b_kw("obj",
-                                          n00b_unordered_list(ctx->entities))));
-        ;
+                         n00b_unordered_list(ctx->entities, NULL));
 finish_block:
         ctx->entities = saved_entities;
         return;
     case N00B_MD_BLOCK_OL:
         md_newline(ctx);
         n00b_list_append(saved_entities,
-                         n00b_new(n00b_type_renderable(),
-                                  n00b_kw("obj",
-                                          n00b_ordered_list(ctx->entities))));
+                         n00b_ordered_list(ctx->entities, NULL));
+
         goto finish_block;
     case N00B_MD_BLOCK_LI:
-        md_block_merge_and_style(ctx, "li", saved_entities);
+        md_block_merge(ctx, false, saved_entities);
         return;
     case N00B_MD_BLOCK_H:
         md_newline(ctx);
@@ -595,34 +601,31 @@ finish_block:
             s = "h6";
             break;
         default:
-            s = "flow";
+            s = "p";
             break;
         }
 
-        md_block_merge_and_style(ctx, s, saved_entities);
+        md_header_merge(ctx, s, saved_entities);
         return;
     case N00B_MD_BLOCK_TR:
         md_newline(ctx);
 
         if (!ctx->table) {
-            ctx->table = n00b_new(n00b_type_grid(),
-                                  n00b_kw("start_rows",
-                                          n00b_ka(1),
-                                          "start_cols",
-                                          n00b_list_len(ctx->entities),
-                                          "stripe",
-                                          n00b_ka(true)));
+            ctx->table = n00b_table("style", N00B_TABLE_SIMPLE);
         }
 
-        n00b_grid_add_row(ctx->table, ctx->entities);
-        n00b_set_row_style(ctx->table, ctx->row_count++, n00b_new_utf8("tr"));
+        l = n00b_list_len(ctx->entities);
+
+        for (int i = 0; i < l; i++) {
+            n00b_table_add_cell(ctx->table,
+                                n00b_list_get(ctx->entities, i, NULL));
+        }
         ctx->entities = saved_entities;
         return;
 
     case N00B_MD_BLOCK_TABLE:
         n00b_list_append(ctx->entities, ctx->table);
-        ctx->row_count = saved_row_count;
-        ctx->table     = saved_table;
+        ctx->table = saved_table;
         return;
 
     case N00B_MD_BLOCK_THEAD:
@@ -631,17 +634,15 @@ finish_block:
 
     case N00B_MD_BLOCK_TH:
         if (!ctx->table) {
-            ctx->table = n00b_new(n00b_type_grid(),
-                                  n00b_kw("start_rows",
-                                          n00b_ka(1),
-                                          "start_cols",
-                                          n00b_list_len(ctx->entities),
-                                          "stripe",
-                                          n00b_ka(true)));
+            ctx->table = n00b_table();
         }
 
-        n00b_grid_add_row(ctx->table, ctx->entities);
-        n00b_set_row_style(ctx->table, ctx->row_count++, n00b_new_utf8("th"));
+        l = n00b_list_len(ctx->entities);
+
+        for (int i = 0; i < l; i++) {
+            n00b_table_add_cell(ctx->table,
+                                n00b_list_get(ctx->entities, i, NULL));
+        }
         ctx->entities = saved_entities;
         return;
 
@@ -661,10 +662,10 @@ finish_block:
     }
 }
 
-n00b_grid_t *
-n00b_markdown_to_grid(n00b_str_t *s, bool keep_soft_newlines)
+n00b_table_t *
+n00b_markdown_to_table(n00b_string_t *s, bool keep_soft_newlines)
 {
-    md_grid_ctx ctx = {
+    md_table_ctx ctx = {
         .cur_node           = n00b_parse_markdown(s),
         .entities           = n00b_list(n00b_type_ref()),
         .keep_soft_newlines = keep_soft_newlines,
@@ -672,7 +673,17 @@ n00b_markdown_to_grid(n00b_str_t *s, bool keep_soft_newlines)
         .table              = NULL,
     };
 
-    md_node_to_grid(&ctx);
+    md_node_to_table(&ctx);
 
     return n00b_list_get(ctx.entities, 0, NULL);
+    /*
+    n00b_table_t *t = n00b_list_get(ctx.entities, 0, NULL);
+
+    n00b_string_t *tmp = n00b_to_string(t);
+
+    printf("markdown:\n%s\n", n00b_rich_to_ansi(tmp, NULL));
+    n00b_eprint(n00b_repr_md_parse(ctx.cur_node));
+
+    return t;
+    */
 }

@@ -3,7 +3,7 @@
 #include "n00b.h"
 
 extern n00b_set_t  *n00b_set_shallow_copy(n00b_set_t *);
-extern n00b_list_t *n00b_set_to_xlist(n00b_set_t *);
+extern n00b_list_t *n00b_set_to_list(n00b_set_t *);
 
 #define n00b_set_contains    hatrack_set_contains
 #define n00b_set_put         hatrack_set_put

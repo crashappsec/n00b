@@ -1,59 +1,39 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-n00b_grid_t *
+n00b_table_t *
 n00b_get_module_summary_info(n00b_compile_ctx *ctx)
 {
-    int          n      = n00b_list_len(ctx->module_ordering);
-    n00b_grid_t *result = n00b_new(n00b_type_grid(),
-                                   n00b_kw("start_cols",
-                                           n00b_ka(4),
-                                           "header_rows",
-                                           n00b_ka(1),
-                                           "container_tag",
-                                           n00b_ka(n00b_new_utf8("table2")),
-                                           "stripe",
-                                           n00b_ka(true)));
-    n00b_utf8_t *snap   = n00b_new_utf8("snap");
-    n00b_list_t *row    = n00b_new_table_row();
+    int           n   = n00b_list_len(ctx->module_ordering);
+    n00b_table_t *tbl = n00b_table("columns", n00b_ka(4));
 
-    n00b_list_append(row, n00b_new_utf8("Module"));
-    n00b_list_append(row, n00b_new_utf8("Path"));
-    n00b_list_append(row, n00b_new_utf8("Hash"));
-    n00b_list_append(row, n00b_new_utf8("Obj module index"));
-    n00b_grid_add_row(result, row);
+    n00b_table_add_cell(tbl, n00b_cstring("Module"));
+    n00b_table_add_cell(tbl, n00b_cstring("Path"));
+    n00b_table_add_cell(tbl, n00b_cstring("Hash"));
+    n00b_table_add_cell(tbl, n00b_cstring("Obj module index"));
 
     for (int i = 0; i < n; i++) {
         n00b_module_t *f = n00b_list_get(ctx->module_ordering, i, NULL);
 
-        n00b_utf8_t *spec;
-
-        row = n00b_new_table_row();
+        n00b_string_t *spec;
 
         if (f->package == NULL) {
             spec = f->name;
         }
         else {
-            spec = n00b_cstr_format("{}.{}", f->package, f->name);
+            spec = n00b_cformat("«#».«#»", f->package, f->name);
         }
 
-        n00b_utf8_t *hash = n00b_cstr_format("{:x}", n00b_box_u64(f->modref));
-        n00b_utf8_t *mod  = n00b_cstr_format("{}",
-                                            n00b_box_u64(f->module_id));
+        n00b_string_t *hash = n00b_cformat("«#:x»", (int64_t)f->modref);
+        n00b_string_t *mod  = n00b_cformat("«#»", (int64_t)f->module_id);
 
-        n00b_list_append(row, spec);
-        n00b_list_append(row, f->path);
-        n00b_list_append(row, hash);
-        n00b_list_append(row, mod);
-        n00b_grid_add_row(result, row);
+        n00b_table_add_cell(tbl, spec);
+        n00b_table_add_cell(tbl, f->path);
+        n00b_table_add_cell(tbl, hash);
+        n00b_table_add_cell(tbl, mod);
     }
 
-    n00b_set_column_style(result, 0, snap);
-    n00b_set_column_style(result, 1, snap);
-    n00b_set_column_style(result, 2, snap);
-    n00b_set_column_style(result, 3, snap);
-
-    return result;
+    return tbl;
 }
 
 void
@@ -67,22 +47,22 @@ n00b_new_module_compile_ctx()
 {
     n00b_module_t *res = n00b_gc_alloc_mapped(n00b_module_t,
                                               N00B_GC_SCAN_ALL);
+    res->noscan        = N00B_NOSCAN;
     // n00b_module_ctx_gc_bits);
 
-    res->ct = n00b_gc_alloc_mapped(n00b_ct_module_info_t, N00B_GC_SCAN_ALL);
+    res->ct         = n00b_gc_alloc_mapped(n00b_ct_module_info_t,
+                                   N00B_GC_SCAN_ALL);
+    res->ct->noscan = N00B_NOSCAN;
 
     return res;
 }
 
 static inline uint64_t
-module_key(n00b_utf8_t *package, n00b_utf8_t *module)
+module_key(n00b_string_t *package, n00b_string_t *module)
 {
     if (!package) {
-        package = n00b_new_utf8("");
+        package = n00b_cached_empty_string();
     }
-
-    package = n00b_to_utf8(package);
-    module  = n00b_to_utf8(module);
 
     n00b_sha_t sha;
     n00b_sha_init(&sha, NULL);
@@ -99,17 +79,11 @@ module_key(n00b_utf8_t *package, n00b_utf8_t *module)
 // fext can also be null, in which case we take in the default values.
 static n00b_module_t *
 one_lookup_try(n00b_compile_ctx *ctx,
-               n00b_str_t       *path,
-               n00b_str_t       *module,
-               n00b_str_t       *package,
+               n00b_string_t    *path,
+               n00b_string_t    *module,
+               n00b_string_t    *package,
                n00b_list_t      *fext)
 {
-    if (package) {
-        package = n00b_to_utf8(package);
-    }
-
-    module = n00b_to_utf8(module);
-
     // First check the cache.
     uint64_t       key    = module_key(package, module);
     n00b_module_t *result = hatrack_dict_get(ctx->module_cache,
@@ -124,30 +98,30 @@ one_lookup_try(n00b_compile_ctx *ctx,
         fext = n00b_get_allowed_file_extensions();
     }
 
-    n00b_list_t *l = n00b_list(n00b_type_utf8());
+    n00b_list_t *l = n00b_list(n00b_type_string());
 
     n00b_list_append(l, path);
 
-    if (package && n00b_str_byte_len(package)) {
+    if (package && n00b_string_byte_len(package)) {
         // For the package lookup, we need to replace dots in the package
         // name with slashes.
-        n00b_utf8_t *s = n00b_to_utf8(n00b_str_replace(package,
-                                                       n00b_new_utf8("."),
-                                                       n00b_new_utf8("/")));
+        n00b_string_t *s = n00b_string_replace(package,
+                                               n00b_cached_period(),
+                                               n00b_cached_slash());
         n00b_list_append(l, s);
     }
     n00b_list_append(l, module);
 
-    n00b_utf8_t *base    = n00b_path_join(l);
-    int          num_ext = n00b_list_len(fext);
-    n00b_utf8_t *contents;
+    n00b_string_t *base    = n00b_path_join(l);
+    int            num_ext = n00b_list_len(fext);
+    n00b_string_t *contents;
 
-    n00b_utf8_t *attempt = NULL;
+    n00b_string_t *attempt = NULL;
 
     for (int i = 0; i < num_ext; i++) {
-        attempt = n00b_cstr_format("{}.{}",
-                                   base,
-                                   n00b_list_get(fext, i, NULL));
+        attempt = n00b_cformat("«#».«#»",
+                               base,
+                               n00b_list_get(fext, i, NULL));
 
         if (n00b_path_is_url(attempt)) {
             n00b_basic_http_response_t *r = n00b_http_get(attempt);
@@ -177,7 +151,7 @@ one_lookup_try(n00b_compile_ctx *ctx,
 
     n00b_buf_t    *b = n00b_new(n00b_type_buffer(),
                              n00b_kw("length",
-                                     n00b_ka(n00b_str_byte_len(contents)),
+                                     n00b_ka(n00b_string_byte_len(contents)),
                                      "ptr",
                                      n00b_ka(contents->data)));
     n00b_stream_t *s = n00b_instream_buffer(b);
@@ -192,63 +166,65 @@ one_lookup_try(n00b_compile_ctx *ctx,
 }
 
 static inline void
-adjust_it(n00b_str_t **pathp,
-          n00b_str_t **pkgp,
-          n00b_utf8_t *path_string,
-          n00b_utf8_t *matched_system_path,
-          int          matched_len,
-          int          path_len)
+adjust_it(n00b_string_t **pathp,
+          n00b_string_t **pkgp,
+          n00b_string_t  *path_string,
+          n00b_string_t  *matched_system_path,
+          int             matched_len,
+          int             path_len)
 {
-    path_string = n00b_str_slice(path_string, matched_len, path_len);
-    path_string = n00b_to_utf8(path_string);
+    path_string = n00b_string_slice(path_string, matched_len, path_len);
 
     if (path_string->data[0] == '/') {
         path_string->data = path_string->data + 1;
-        path_string->byte_len--;
+        path_string->u8_bytes--;
+        path_string->codepoints--;
     }
 
-    n00b_utf8_t *new_prefix = n00b_str_replace(path_string,
-                                               n00b_new_utf8("/"),
-                                               n00b_new_utf8("."));
+    n00b_string_t *new_prefix = n00b_string_replace(path_string,
+                                                    n00b_cached_slash(),
+                                                    n00b_cached_period());
 
     *pathp = matched_system_path;
 
-    if (*pkgp == NULL || (*pkgp)->byte_len == 0) {
+    if (*pkgp == NULL || (*pkgp)->u8_bytes == 0) {
         *pkgp = new_prefix;
     }
     else {
-        n00b_utf8_t *package = n00b_str_replace(*pkgp,
-                                                n00b_new_utf8("/"),
-                                                n00b_new_utf8("."));
-        if (!package->byte_len) {
+        n00b_string_t *package = n00b_string_replace(*pkgp,
+                                                     n00b_cached_slash(),
+                                                     n00b_cached_period());
+        if (!package->u8_bytes) {
             *pkgp = new_prefix;
         }
         else {
-            *pkgp = n00b_cstr_format("{}.{}", new_prefix, package);
+            *pkgp = n00b_cformat("«#»/«#»", new_prefix, package);
         }
     }
 }
 
 static void
-adjust_path_and_package(n00b_str_t **pathp, n00b_str_t **pkgp)
+adjust_path_and_package(n00b_string_t **pathp, n00b_string_t **pkgp)
 {
-    n00b_utf8_t *path    = n00b_to_utf8(*pathp);
-    int          pathlen = n00b_str_byte_len(path);
-    int          otherlen;
+    n00b_string_t *path    = *pathp;
+    int            pathlen = n00b_string_byte_len(path);
+    int            otherlen;
 
     n00b_list_t *sp = n00b_get_module_search_path();
 
     for (int i = 0; i < n00b_list_len(sp); i++) {
-        n00b_utf8_t *possible = n00b_to_utf8(n00b_list_get(sp, i, NULL));
+        n00b_string_t *possible = n00b_list_get(sp, i, NULL);
 
-        possible = n00b_path_trim_slashes(possible);
+        possible = n00b_path_trim_trailing_slashes(possible);
 
-        if (n00b_str_starts_with(path, possible)) {
-            otherlen = n00b_str_byte_len(possible);
+        if (n00b_string_starts_with(path, possible)) {
+            otherlen = n00b_string_byte_len(possible);
 
             if (pathlen == otherlen) {
-                if (*pkgp && n00b_str_byte_len(*pkgp)) {
-                    *pkgp = n00b_str_replace(*pkgp, n00b_new_utf8("/"), n00b_new_utf8("."));
+                if (*pkgp && n00b_string_byte_len(*pkgp)) {
+                    *pkgp = n00b_string_replace(*pkgp,
+                                                n00b_cached_slash(),
+                                                n00b_cached_period());
                 }
                 break;
             }
@@ -276,11 +252,11 @@ adjust_path_and_package(n00b_str_t **pathp, n00b_str_t **pkgp)
 // system extensions get searched.
 n00b_module_t *
 n00b_find_module(n00b_compile_ctx *ctx,
-                 n00b_str_t       *path,
-                 n00b_str_t       *module,
-                 n00b_str_t       *package,
-                 n00b_str_t       *relative_package,
-                 n00b_str_t       *relative_path,
+                 n00b_string_t    *path,
+                 n00b_string_t    *module,
+                 n00b_string_t    *package,
+                 n00b_string_t    *relative_package,
+                 n00b_string_t    *relative_path,
                  n00b_list_t      *fext)
 {
     n00b_module_t *result;
@@ -289,7 +265,7 @@ n00b_find_module(n00b_compile_ctx *ctx,
     // fully qualified.
     if (path != NULL) {
         // clang-format off
-	if (!n00b_str_starts_with(path, n00b_new_utf8("/")) &&
+	if (!n00b_string_starts_with(path, n00b_cached_slash()) &&
 	    !n00b_path_is_url(path)) {
             // clang-format on
 
@@ -328,7 +304,7 @@ n00b_find_module(n00b_compile_ctx *ctx,
     int          n  = n00b_list_len(sp);
 
     for (int i = 0; i < n; i++) {
-        n00b_utf8_t *one = n00b_list_get(sp, i, NULL);
+        n00b_string_t *one = n00b_list_get(sp, i, NULL);
 
         result = one_lookup_try(ctx, one, module, package, fext);
 
@@ -350,9 +326,9 @@ n00b_add_module_to_worklist(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 static n00b_module_t *
 postprocess_module(n00b_compile_ctx *cctx,
                    n00b_module_t    *fctx,
-                   n00b_utf8_t      *path,
+                   n00b_string_t    *path,
                    bool              http_err,
-                   n00b_utf8_t      *errmsg)
+                   n00b_string_t    *errmsg)
 {
     if (!fctx) {
         n00b_module_t *result = n00b_new_module_compile_ctx();
@@ -363,7 +339,7 @@ postprocess_module(n00b_compile_ctx *cctx,
         hatrack_dict_put(cctx->module_cache, NULL, result);
 
         if (!errmsg) {
-            errmsg = n00b_new_utf8("Internal error");
+            errmsg = n00b_cstring("Internal error");
         }
         n00b_module_load_error(result,
                                n00b_err_open_module,
@@ -380,40 +356,35 @@ postprocess_module(n00b_compile_ctx *cctx,
     return fctx;
 }
 
-n00b_utf8_t *
-n00b_package_from_path_prefix(n00b_utf8_t *path, n00b_utf8_t **path_loc)
+n00b_string_t *
+n00b_package_from_path_prefix(n00b_string_t *path, n00b_string_t **path_loc)
 {
-    n00b_list_t *paths = n00b_get_module_search_path();
-    n00b_utf8_t *one;
+    n00b_list_t   *paths = n00b_get_module_search_path();
+    n00b_string_t *one;
 
     int n = n00b_list_len(paths);
 
     for (int i = 0; i < n; i++) {
-        one = n00b_to_utf8(n00b_list_get(paths, i, NULL));
+        one = n00b_list_get(paths, i, NULL);
 
-        if (n00b_str_ends_with(one, n00b_new_utf8("/"))) {
-            one = n00b_str_copy(one);
-            while (one->byte_len && one->data[one->byte_len - 1] == '/') {
-                one->data[--one->byte_len] = 0;
+        if (n00b_string_ends_with(one, n00b_cached_slash())) {
+            one = n00b_string_copy(one);
+            while (one->u8_bytes && one->data[one->u8_bytes - 1] == '/') {
+                one->data[--one->u8_bytes] = 0;
                 one->codepoints--;
             }
         }
 
-        if (n00b_str_starts_with(path, one)) {
+        if (n00b_string_starts_with(path, one)) {
             *path_loc = one;
 
-            int          ix = n00b_str_byte_len(one);
-            n00b_utf8_t *s  = n00b_str_slice(path,
-                                            ix,
-                                            n00b_str_codepoint_len(path));
-            s               = n00b_path_trim_slashes(s);
-            if (s->byte_len && s->data[0] == '/') {
-                s->data++;
-                s->codepoints--;
-                s->byte_len--;
-            }
+            int            ix = n00b_string_byte_len(one);
+            n00b_string_t *s  = n00b_string_slice(path,
+                                                 ix,
+                                                 n00b_string_codepoint_len(path));
+            n00b_path_strip_slashes_both_ends(s);
 
-            for (int j = 0; j < s->byte_len; j++) {
+            for (int j = 0; j < s->u8_bytes; j++) {
                 if (s->data[j] == '/') {
                     s->data[j] = '.';
                 }
@@ -428,16 +399,16 @@ n00b_package_from_path_prefix(n00b_utf8_t *path, n00b_utf8_t **path_loc)
 
 static inline n00b_module_t *
 ctx_init_from_web_uri(n00b_compile_ctx *ctx,
-                      n00b_utf8_t      *inpath,
+                      n00b_string_t    *inpath,
                       bool              has_ext,
                       bool              https)
 {
     n00b_module_t *result;
-    n00b_utf8_t   *module;
-    n00b_utf8_t   *package;
-    n00b_utf8_t   *path;
+    n00b_string_t *module;
+    n00b_string_t *package;
+    n00b_string_t *path;
 
-    if (n00b_str_codepoint_len(inpath) <= 8) {
+    if (n00b_string_codepoint_len(inpath) <= 8) {
         goto malformed;
     }
 
@@ -460,12 +431,12 @@ ctx_init_from_web_uri(n00b_compile_ctx *ctx,
     }
 
     if (has_ext) {
-        int n  = n00b_str_rfind(inpath, n00b_new_utf8("/")) + 1;
-        module = n00b_to_utf8(n00b_str_slice(inpath, n, -1));
-        inpath = n00b_to_utf8(n00b_str_slice(inpath, 0, n - 1));
+        int n  = n00b_string_rfind(inpath, n00b_cached_slash()) + 1;
+        module = n00b_string_slice(inpath, n, -1);
+        inpath = n00b_string_slice(inpath, 0, n - 1);
     }
     else {
-        module = n00b_new_utf8(N00B_PACKAGE_INIT_MODULE);
+        module = n00b_cstring(N00B_PACKAGE_INIT_MODULE);
     }
 
     package = n00b_package_from_path_prefix(inpath, &path);
@@ -487,28 +458,29 @@ malformed:
 }
 
 static n00b_module_t *
-ctx_init_from_local_file(n00b_compile_ctx *ctx, n00b_str_t *inpath)
+ctx_init_from_local_file(n00b_compile_ctx *ctx, n00b_string_t *inpath)
 {
-    n00b_utf8_t *module;
-    n00b_utf8_t *package;
-    n00b_utf8_t *path = NULL;
+    n00b_string_t *module;
+    n00b_string_t *package;
+    n00b_string_t *path = NULL;
 
-    inpath    = n00b_path_trim_slashes(n00b_resolve_path(inpath));
-    int64_t n = n00b_str_rfind(inpath, n00b_new_utf8("/"));
+    inpath = n00b_resolve_path(inpath);
+    n00b_path_strip_slashes_both_ends(inpath);
+    int64_t n = n00b_string_rfind(inpath, n00b_cached_slash());
 
     if (n == -1) {
         module  = inpath;
-        path    = n00b_new_utf8("");
-        package = n00b_new_utf8("");
+        path    = n00b_cached_empty_string();
+        package = n00b_cached_empty_string();
     }
     else {
         int l;
-        l       = n00b_str_codepoint_len(inpath);
-        module  = n00b_to_utf8(n00b_str_slice(inpath, n + 1, l));
-        inpath  = n00b_to_utf8(n00b_str_slice(inpath, 0, n));
-        l       = n00b_str_codepoint_len(module);
-        n       = n00b_str_rfind(module, n00b_new_utf8("."));
-        module  = n00b_to_utf8(n00b_str_slice(module, 0, n));
+        l       = n00b_string_codepoint_len(inpath);
+        module  = n00b_string_slice(inpath, n + 1, l);
+        inpath  = n00b_string_slice(inpath, 0, n);
+        l       = n00b_string_codepoint_len(module);
+        n       = n00b_string_rfind(module, n00b_cached_period());
+        module  = n00b_string_slice(module, 0, n);
         package = n00b_package_from_path_prefix(inpath, &path);
 
         if (!package) {
@@ -516,21 +488,27 @@ ctx_init_from_local_file(n00b_compile_ctx *ctx, n00b_str_t *inpath)
         }
     }
 
-    n00b_module_t *result = n00b_find_module(ctx, path, module, package, NULL, NULL, NULL);
+    n00b_module_t *result = n00b_find_module(ctx,
+                                             path,
+                                             module,
+                                             package,
+                                             NULL,
+                                             NULL,
+                                             NULL);
 
     return result;
 }
 
 static n00b_module_t *
-ctx_init_from_module_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
+ctx_init_from_module_spec(n00b_compile_ctx *ctx, n00b_string_t *path)
 {
-    n00b_utf8_t *package = NULL;
-    n00b_utf8_t *module;
-    int64_t      n = n00b_str_rfind(path, n00b_new_utf8("."));
+    n00b_string_t *package = NULL;
+    n00b_string_t *module;
+    int64_t        n = n00b_string_rfind(path, n00b_cached_period());
 
     if (n != -1) {
-        package = n00b_to_utf8(n00b_str_slice(path, 0, n));
-        module  = n00b_to_utf8(n00b_str_slice(path, n + 1, -1));
+        package = n00b_string_slice(path, 0, n);
+        module  = n00b_string_slice(path, n + 1, -1);
     }
     else {
         module = path;
@@ -540,13 +518,13 @@ ctx_init_from_module_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
 }
 
 static n00b_module_t *
-ctx_init_from_package_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
+ctx_init_from_package_spec(n00b_compile_ctx *ctx, n00b_string_t *path)
 {
-    path                = n00b_resolve_path(path);
-    char        *p      = &path->data[n00b_str_byte_len(path) - 1];
-    n00b_utf8_t *module = n00b_new_utf8(N00B_PACKAGE_INIT_MODULE);
-    char        *end_slash;
-    n00b_utf8_t *package;
+    path                  = n00b_resolve_path(path);
+    char          *p      = &path->data[n00b_string_byte_len(path) - 1];
+    n00b_string_t *module = n00b_cstring(N00B_PACKAGE_INIT_MODULE);
+    char          *end_slash;
+    n00b_string_t *package;
 
     // Avoid trailing slashes, including consecutive ones.
     while (p > path->data && *p == '/') {
@@ -566,14 +544,14 @@ ctx_init_from_package_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
     // which case the whole thing is expected to be the package spec.
     if (*p != '/') {
         *end_slash = 0;
-        package    = n00b_new_utf8(path->data);
+        package    = n00b_cstring(path->data);
         *end_slash = '/';
-        path       = n00b_new_utf8("");
+        path       = n00b_cached_empty_string();
     }
     else {
-        package = n00b_new_utf8(p + 1);
+        package = n00b_cstring(p + 1);
         *p      = 0;
-        path    = n00b_new_utf8(path->data);
+        path    = n00b_cstring_copy(path->data);
         *p      = '/';
     }
 
@@ -581,13 +559,13 @@ ctx_init_from_package_spec(n00b_compile_ctx *ctx, n00b_str_t *path)
 }
 
 static inline bool
-has_n00b_extension(n00b_utf8_t *s)
+has_n00b_extension(n00b_string_t *s)
 {
     n00b_list_t *exts = n00b_get_allowed_file_extensions();
 
     for (int i = 0; i < n00b_list_len(exts); i++) {
-        n00b_utf8_t *ext = n00b_to_utf8(n00b_list_get(exts, i, NULL));
-        if (n00b_str_ends_with(s, n00b_cstr_format(".{}", ext))) {
+        n00b_string_t *ext = n00b_list_get(exts, i, NULL);
+        if (n00b_string_ends_with(s, n00b_cformat(".«#»", ext))) {
             return true;
         }
     }
@@ -596,7 +574,7 @@ has_n00b_extension(n00b_utf8_t *s)
 }
 
 n00b_module_t *
-n00b_init_module_from_loc(n00b_compile_ctx *ctx, n00b_str_t *path)
+n00b_init_module_from_loc(n00b_compile_ctx *ctx, n00b_string_t *path)
 {
     // This function is meant for handling a module spec at the
     // command-line, not something via a 'use' statement.
@@ -636,15 +614,14 @@ n00b_init_module_from_loc(n00b_compile_ctx *ctx, n00b_str_t *path)
     //    relative to that path. Otherwise, we put the package in the
     //    top-level.  In either case, we ensure there is a __init
     //    file.
-    path                         = n00b_to_utf8(path);
     n00b_module_t *result        = NULL;
     bool           has_extension = has_n00b_extension(path);
 
-    if (n00b_str_starts_with(path, n00b_new_utf8("http:"))) {
+    if (n00b_string_starts_with(path, n00b_cstring("http:"))) {
         result = ctx_init_from_web_uri(ctx, path, has_extension, false);
     }
 
-    if (!result && n00b_str_starts_with(path, n00b_new_utf8("https:"))) {
+    if (!result && n00b_string_starts_with(path, n00b_cstring("https:"))) {
         result = ctx_init_from_web_uri(ctx, path, has_extension, true);
     }
 
@@ -652,7 +629,7 @@ n00b_init_module_from_loc(n00b_compile_ctx *ctx, n00b_str_t *path)
         result = ctx_init_from_local_file(ctx, path);
     }
 
-    if (!result && n00b_str_find(path, n00b_new_utf8("/")) == -1) {
+    if (!result && n00b_string_find(path, n00b_cached_slash()) == -1) {
         result = ctx_init_from_module_spec(ctx, path);
     }
 
@@ -663,20 +640,20 @@ n00b_init_module_from_loc(n00b_compile_ctx *ctx, n00b_str_t *path)
     return postprocess_module(ctx, result, path, false, NULL);
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_format_module_location(n00b_module_t *ctx, n00b_token_t *tok)
 {
     if (!ctx->full_uri) {
-        ctx->full_uri = n00b_cstr_format("{}.{}",
-                                         ctx->package,
-                                         ctx->name);
+        ctx->full_uri = n00b_cformat("«#».«#»",
+                                     ctx->package,
+                                     ctx->name);
     }
 
     if (!tok) {
-        return n00b_cstr_format("[b]{}[/]", ctx->full_uri);
+        return n00b_cformat("«b»«#»", ctx->full_uri);
     }
-    return n00b_cstr_format("[b]{}:{:n}:{:n}:[/]",
-                            ctx->full_uri,
-                            n00b_box_i64(tok->line_no),
-                            n00b_box_i64(tok->line_offset + 1));
+    return n00b_cformat("«b»«#»:«#:n»:«#:n»:",
+                        ctx->full_uri,
+                        (int64_t)tok->line_no,
+                        (int64_t)tok->line_offset + 1);
 }

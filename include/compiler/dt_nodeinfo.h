@@ -12,7 +12,7 @@
 // statements always look for an enclosing loop.
 
 typedef struct {
-    n00b_utf8_t *label;
+    n00b_string_t *label;
     n00b_list_t *awaiting_patches;
     int         entry_ip;
     int         exit_ip;
@@ -25,8 +25,8 @@ typedef struct {
     // variables, so they don't ever get renamed. That's why `label`
     // lives inside of branch_info, but the rest of this is in the
     // loop info.
-    n00b_utf8_t        *label_ix;
-    n00b_utf8_t        *label_last;
+    n00b_string_t        *label_ix;
+    n00b_string_t        *label_last;
     n00b_tree_node_t   *prelude;
     n00b_tree_node_t   *test;
     n00b_tree_node_t   *body;
@@ -54,7 +54,7 @@ typedef struct n00b_jump_info_t {
 #ifdef N00B_USE_INTERNAL_API
 typedef struct {
     n00b_scope_t     *module_scope; // For callback resolution.
-    n00b_utf8_t      *name;
+    n00b_string_t      *name;
     n00b_type_t      *sig;
     n00b_tree_node_t *loc;
     n00b_symbol_t    *resolution;

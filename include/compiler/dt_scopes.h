@@ -47,7 +47,7 @@ typedef struct {
     // Information we throw away after compilation.
     n00b_tree_node_t *type_decl_node;
     n00b_tree_node_t *value_node;
-    void            *cfg_kill_node;
+    void             *cfg_kill_node;
     n00b_tree_node_t *declaration_node;
     n00b_list_t      *sym_defs;
     n00b_list_t      *sym_uses;
@@ -59,10 +59,11 @@ typedef struct n00b_symbol_t {
     // structures in this file.
     n00b_ct_sym_info_t   *ct; // Compile-time symbol info.
     struct n00b_symbol_t *linked_symbol;
-    n00b_utf8_t          *name;
-    n00b_utf8_t          *loc;
+    n00b_string_t          *name;
+    n00b_string_t          *loc;
     n00b_type_t          *type;
     n00b_obj_t            value;
+    uint64_t              noscan;
     n00b_symbol_kind      kind;
 
     // For constant value types, this is an absolute byte offset
@@ -90,18 +91,19 @@ typedef struct n00b_symbol_t {
 } n00b_symbol_t;
 
 typedef struct {
-    n00b_utf8_t   *short_doc;
-    n00b_utf8_t   *long_doc;
+    n00b_string_t   *short_doc;
+    n00b_string_t   *long_doc;
     n00b_symbol_t *linked_symbol;
     n00b_obj_t     callback;
     n00b_obj_t     validator;
     n00b_obj_t     default_value;
-    unsigned int  param_index;
-    unsigned int  have_default : 1;
+    unsigned int   param_index;
+    unsigned int   have_default : 1;
 } n00b_module_param_info_t;
 
 typedef struct n00b_scope_t {
     struct n00b_scope_t *parent;
     n00b_dict_t         *symbols;
+    uint64_t             noscan;
     enum n00b_scope_kind kind;
 } n00b_scope_t;

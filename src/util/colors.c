@@ -10,13 +10,13 @@ get_color_table()
 {
     if (color_table == NULL) {
         n00b_gc_register_root(&color_table, 1);
-        color_table = n00b_dict(n00b_type_utf8(), n00b_type_int());
+        color_table = n00b_dict(n00b_type_string(), n00b_type_int());
 
         n00b_color_info_t *p = (n00b_color_info_t *)n00b_color_data;
 
         while (p->name != NULL) {
             hatrack_dict_put(color_table,
-                             n00b_new_utf8(p->name),
+                             n00b_cstring(p->name),
                              (void *)(int64_t)p->rgb);
             p++;
         }
@@ -35,7 +35,7 @@ get_color_table()
 }
 
 n00b_color_t
-n00b_lookup_color(n00b_utf8_t *name)
+n00b_lookup_color(n00b_string_t *name)
 {
     bool         found  = false;
     n00b_color_t result = (n00b_color_t)(int64_t)hatrack_dict_get(

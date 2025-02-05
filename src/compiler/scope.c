@@ -26,6 +26,7 @@ n00b_new_symbol()
     n00b_symbol_t *result = n00b_gc_alloc_mapped(n00b_symbol_t, n00b_sym_gc_bits);
     result->ct            = n00b_gc_alloc_mapped(n00b_ct_sym_info_t,
                                       N00B_GC_SCAN_ALL);
+    result->noscan        = N00B_NOSCAN;
 
     return result;
 }
@@ -41,13 +42,14 @@ n00b_new_scope(n00b_scope_t *parent, n00b_scope_kind kind)
 {
     n00b_scope_t *result = n00b_gc_alloc_mapped(n00b_scope_t, n00b_scope_gc_bits);
     result->parent       = parent;
-    result->symbols      = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    result->symbols      = n00b_dict(n00b_type_string(), n00b_type_ref());
     result->kind         = kind;
+    result->noscan       = N00B_NOSCAN;
 
     return result;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_sym_get_best_ref_loc(n00b_symbol_t *sym)
 {
     if (sym->loc) {
@@ -99,8 +101,8 @@ n00b_shadow_check(n00b_module_t *ctx,
             n00b_add_error(ctx,
                            n00b_err_decl_mask,
                            sym->ct->declaration_node,
-                           n00b_new_utf8("global"),
-                           n00b_new_utf8("module"),
+                           n00b_cstring("global"),
+                           n00b_cstring("module"),
                            n00b_node_get_loc_str(in_module->ct->declaration_node));
             return;
         }
@@ -117,8 +119,8 @@ n00b_shadow_check(n00b_module_t *ctx,
             n00b_add_error(ctx,
                            n00b_err_decl_mask,
                            sym->ct->declaration_node,
-                           n00b_new_utf8("module"),
-                           n00b_new_utf8("global"),
+                           n00b_cstring("module"),
+                           n00b_cstring("global"),
                            n00b_node_get_loc_str(in_global->ct->declaration_node));
             return;
         }
@@ -142,7 +144,7 @@ n00b_shadow_check(n00b_module_t *ctx,
 n00b_symbol_t *
 n00b_declare_symbol(n00b_module_t    *ctx,
                     n00b_scope_t     *scope,
-                    n00b_utf8_t      *name,
+                    n00b_string_t    *name,
                     n00b_tree_node_t *node,
                     n00b_symbol_kind  kind,
                     bool             *success,
@@ -194,7 +196,7 @@ n00b_declare_symbol(n00b_module_t    *ctx,
 n00b_symbol_t *
 n00b_add_inferred_symbol(n00b_module_t    *ctx,
                          n00b_scope_t     *scope,
-                         n00b_utf8_t      *name,
+                         n00b_string_t    *name,
                          n00b_tree_node_t *node)
 {
     n00b_symbol_t *entry = n00b_new_symbol();
@@ -225,7 +227,7 @@ n00b_add_inferred_symbol(n00b_module_t    *ctx,
 n00b_symbol_t *
 n00b_add_or_replace_symbol(n00b_module_t    *ctx,
                            n00b_scope_t     *scope,
-                           n00b_utf8_t      *name,
+                           n00b_string_t    *name,
                            n00b_tree_node_t *node)
 {
     n00b_symbol_t *entry = n00b_new_symbol();
@@ -243,7 +245,7 @@ n00b_add_or_replace_symbol(n00b_module_t    *ctx,
 // There's also a "n00b_symbol_lookup" below. We should resolve
 // these names by deleting this and rewriting any call sites (TODO).
 n00b_symbol_t *
-n00b_lookup_symbol(n00b_scope_t *scope, n00b_utf8_t *name)
+n00b_lookup_symbol(n00b_scope_t *scope, n00b_string_t *name)
 {
     return hatrack_dict_get(scope->symbols, name, NULL);
 }
@@ -275,7 +277,7 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        n00b_err_redecl_neq_generics,
                        new_sym->ct->declaration_node,
                        new_sym->name,
-                       n00b_new_utf8("a less generic / more concrete"),
+                       n00b_cstring("a less generic / more concrete"),
                        n00b_value_obj_repr(t2),
                        n00b_value_obj_repr(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
@@ -285,7 +287,7 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        n00b_err_redecl_neq_generics,
                        new_sym->ct->declaration_node,
                        new_sym->name,
-                       n00b_new_utf8("a more generic / less concrete"),
+                       n00b_cstring("a more generic / less concrete"),
                        n00b_value_obj_repr(t2),
                        n00b_value_obj_repr(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
@@ -295,7 +297,7 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        n00b_err_redecl_neq_generics,
                        new_sym->ct->declaration_node,
                        new_sym->name,
-                       n00b_new_utf8("a type with different generic parts"),
+                       n00b_cstring("a type with different generic parts"),
                        n00b_value_obj_repr(t2),
                        n00b_value_obj_repr(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
@@ -305,7 +307,7 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        n00b_err_redecl_neq_generics,
                        new_sym->ct->declaration_node,
                        new_sym->name,
-                       n00b_new_utf8("a completely incompatible"),
+                       n00b_cstring("a completely incompatible"),
                        n00b_value_obj_repr(t2),
                        n00b_value_obj_repr(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
@@ -380,11 +382,11 @@ n00b_merge_symbols(n00b_module_t *ctx1,
     }
 
 n00b_symbol_t *
-n00b_symbol_lookup(n00b_scope_t *local_scope,
-                   n00b_scope_t *module_scope,
-                   n00b_scope_t *global_scope,
-                   n00b_scope_t *attr_scope,
-                   n00b_utf8_t  *name)
+n00b_symbol_lookup(n00b_scope_t  *local_scope,
+                   n00b_scope_t  *module_scope,
+                   n00b_scope_t  *global_scope,
+                   n00b_scope_t  *attr_scope,
+                   n00b_string_t *name)
 {
     n00b_symbol_t *result = NULL;
 
@@ -396,26 +398,17 @@ n00b_symbol_lookup(n00b_scope_t *local_scope,
     return NULL;
 }
 
-n00b_grid_t *
+n00b_table_t *
 n00b_format_scope(n00b_scope_t *scope)
 {
     uint64_t              len = 0;
     hatrack_dict_value_t *values;
-    n00b_grid_t          *grid       = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_cols",
-                                         n00b_ka(6),
-                                         "header_rows",
-                                         n00b_ka(1),
-                                         "stripe",
-                                         n00b_ka(true)));
-    n00b_list_t          *row        = n00b_new_table_row();
-    n00b_utf8_t          *decl_const = n00b_new_utf8("declared");
-    n00b_utf8_t          *inf_const  = n00b_new_utf8("inferred");
+    n00b_table_t         *tbl;
+    n00b_string_t        *decl_const = n00b_cstring("declared");
+    n00b_string_t        *inf_const  = n00b_cstring("inferred");
     n00b_dict_t          *memos      = n00b_dict(n00b_type_typespec(),
-                                   n00b_type_utf8());
+                                   n00b_type_string());
     int64_t               nexttid    = 0;
-    n00b_utf8_t          *snap       = n00b_new_utf8("snap");
-    n00b_utf8_t          *full_snap  = n00b_new_utf8("full_snap");
 
     if (scope != NULL) {
         values = hatrack_dict_values_sort(scope->symbols,
@@ -423,132 +416,132 @@ n00b_format_scope(n00b_scope_t *scope)
     }
 
     if (len == 0) {
-        grid = n00b_new(n00b_type_grid(), n00b_kw("start_cols", n00b_ka(1)));
-        n00b_list_append(row, n00b_new_utf8("Scope is empty"));
-        n00b_grid_add_row(grid, row);
-        n00b_set_column_style(grid, 0, full_snap);
-        return grid;
+        return n00b_call_out(n00b_cstring("Scope is empty"));
     }
 
-    n00b_list_append(row, n00b_new_utf8("Name"));
-    n00b_list_append(row, n00b_new_utf8("Kind"));
-    n00b_list_append(row, n00b_new_utf8("Type"));
-    n00b_list_append(row, n00b_new_utf8("Offset"));
-    n00b_list_append(row, n00b_new_utf8("Defs"));
-    n00b_list_append(row, n00b_new_utf8("Uses"));
-    n00b_grid_add_row(grid, row);
+    tbl = n00b_table("columns", n00b_ka(6));
+
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_flex(tbl, 1);
+    n00b_table_next_column_flex(tbl, 1);
+
+    n00b_table_add_cell(tbl, n00b_cstring("Name"));
+    n00b_table_add_cell(tbl, n00b_cstring("Kind"));
+    n00b_table_add_cell(tbl, n00b_cstring("Type"));
+    n00b_table_add_cell(tbl, n00b_cstring("Offset"));
+    n00b_table_add_cell(tbl, n00b_cstring("Defs"));
+    n00b_table_add_cell(tbl, n00b_cstring("Uses"));
 
     for (uint64_t i = 0; i < len; i++) {
-        n00b_utf8_t   *kind;
-        n00b_symbol_t *entry = values[i];
+        n00b_symbol_t    *entry = values[i];
+        n00b_string_t    *kind;
+        char             *cs;
+        n00b_tree_node_t *t;
+        n00b_type_t      *symtype;
+        n00b_string_t    *def_text;
+        n00b_string_t    *use_text;
 
         kind = inf_const;
 
-        if (n00b_type_is_declared(entry) || entry->kind == N00B_SK_EXTERN_FUNC) {
+        if (n00b_type_is_declared(entry)
+            || entry->kind == N00B_SK_EXTERN_FUNC) {
             kind = decl_const;
         }
-        row = n00b_new_table_row();
 
-        n00b_list_append(row, entry->name);
+        n00b_table_add_cell(tbl, entry->name);
 
         if (entry->kind == N00B_SK_VARIABLE) {
             if (entry->flags & N00B_F_DECLARED_CONST) {
-                n00b_list_append(row, n00b_new_utf8("const"));
+                n00b_table_add_cell(tbl, n00b_cstring("const"));
             }
             else {
                 if (entry->flags & N00B_F_USER_IMMUTIBLE) {
-                    n00b_list_append(row, n00b_new_utf8("loop var"));
+                    n00b_table_add_cell(tbl, n00b_cstring("loop var"));
                 }
                 else {
-                    n00b_list_append(row,
-                                     n00b_new_utf8(
-                                         n00b_symbol_kind_names[entry->kind]));
+                    cs = n00b_symbol_kind_names[entry->kind];
+                    n00b_table_add_cell(tbl, n00b_cstring(cs));
                 }
             }
         }
         else {
-            n00b_list_append(row,
-                             n00b_new_utf8(n00b_symbol_kind_names[entry->kind]));
+            cs = n00b_symbol_kind_names[entry->kind];
+            n00b_table_add_cell(tbl, n00b_cstring(cs));
         }
 
-        n00b_type_t *symtype = n00b_get_sym_type(entry);
-        symtype              = n00b_type_resolve(symtype);
+        symtype = n00b_type_resolve(n00b_get_sym_type(entry));
 
         if (n00b_type_is_box(symtype)) {
             symtype = n00b_type_unbox(symtype);
         }
 
-        n00b_list_append(row,
-                         n00b_cstr_format("[em]{} [/][i]({})",
-                                          n00b_internal_type_repr(symtype,
-                                                                  memos,
-                                                                  &nexttid),
-                                          kind));
-        n00b_list_append(row,
-                         n00b_cstr_format("{:x}",
-                                          n00b_box_u64(entry->static_offset)));
+        n00b_table_add_cell(tbl,
+                            n00b_cformat("«em»«#» «/»«i»(«#»)",
+                                         n00b_internal_type_repr(symtype,
+                                                                 memos,
+                                                                 &nexttid),
+                                         kind));
+        n00b_table_add_cell(tbl,
+                            n00b_cformat("«#:x»",
+                                         entry->static_offset));
 
-        int          n = n00b_list_len(entry->ct->sym_defs);
-        n00b_utf8_t *def_text;
+        int n = n00b_list_len(entry->ct->sym_defs);
 
         if (n == 0) {
-            def_text = n00b_cstr_format("[gray]none[/]");
+            def_text = n00b_crich("«gray»none");
         }
         else {
-            n00b_list_t *defs = n00b_new(n00b_type_list(n00b_type_utf8()));
+            n00b_list_t *defs = n00b_list(n00b_type_string());
+
             for (int i = 0; i < n; i++) {
-                n00b_tree_node_t *t = n00b_list_get(entry->ct->sym_defs, i, NULL);
+                t = n00b_list_get(entry->ct->sym_defs, i, NULL);
                 if (t == NULL) {
-                    n00b_list_append(defs, n00b_new_utf8("??"));
+                    n00b_list_append(defs, n00b_cstring("??"));
                     continue;
                 }
                 n00b_list_append(defs, n00b_node_get_loc_str(t));
             }
-            def_text = n00b_str_join(defs, n00b_new_utf8(", "));
+            def_text = n00b_string_join(defs, n00b_cached_comma_padded());
         }
 
         if (n00b_sym_is_declared_const(entry)) {
             if (entry->value == NULL) {
-                def_text = n00b_str_concat(n00b_cstr_format("[i]value:[red] not set[/]\n"),
-                                           def_text);
+                def_text = n00b_cformat("«i»value:«red» not set«/»\n«#»",
+                                        def_text);
             }
             else {
-                def_text = n00b_str_concat(n00b_cstr_format("[i]value:[jazzberry] {}[/]\n",
-                                                            n00b_value_obj_repr(entry->value)),
-                                           def_text);
+                def_text = n00b_cformat("«i»value:«em» «#»«/»\n«#»",
+                                        n00b_value_obj_repr(entry->value),
+                                        def_text);
             }
         }
 
-        n00b_list_append(row, def_text);
+        n00b_table_add_cell(tbl, def_text);
 
         n = n00b_list_len(entry->ct->sym_uses);
-        n00b_utf8_t *use_text;
 
         if (n == 0) {
-            use_text = n00b_cstr_format("[gray]none[/]");
+            use_text = n00b_crich("«gray»none");
         }
         else {
-            n00b_list_t *uses = n00b_new(n00b_type_list(n00b_type_utf8()));
+            n00b_list_t *uses = n00b_list(n00b_type_string());
             for (int i = 0; i < n; i++) {
-                n00b_tree_node_t *t = n00b_list_get(entry->ct->sym_uses, i, NULL);
+                t = n00b_list_get(entry->ct->sym_uses, i, NULL);
                 if (t == NULL) {
-                    n00b_list_append(uses, n00b_new_utf8("??"));
+                    n00b_list_append(uses, n00b_cstring("??"));
                     continue;
                 }
                 n00b_list_append(uses, n00b_node_get_loc_str(t));
             }
-            use_text = n00b_str_join(uses, n00b_new_utf8(", "));
+            use_text = n00b_string_join(uses, n00b_cached_comma_padded());
         }
-        n00b_list_append(row, use_text);
-        n00b_grid_add_row(grid, row);
+        n00b_table_add_cell(tbl, use_text);
     }
 
-    n00b_set_column_style(grid, 0, snap);
-    n00b_set_column_style(grid, 1, snap);
-    n00b_set_column_style(grid, 2, snap);
-    n00b_set_column_style(grid, 3, snap);
-
-    return grid;
+    return tbl;
 }
 
 n00b_scope_t *

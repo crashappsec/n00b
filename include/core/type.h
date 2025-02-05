@@ -36,23 +36,23 @@ extern n00b_type_t *n00b_type_box(n00b_type_t *);
 extern n00b_type_t *n00b_type_dict(n00b_type_t *, n00b_type_t *);
 
 extern n00b_type_t     *n00b_type_tuple(int64_t, ...);
-extern n00b_type_t     *n00b_type_tuple_from_xlist(n00b_list_t *);
+extern n00b_type_t     *n00b_type_tuple_from_list(n00b_list_t *);
 extern n00b_type_t     *n00b_type_fn(n00b_type_t *, n00b_list_t *, bool);
 extern n00b_type_t     *n00b_type_fn_va(n00b_type_t *, int64_t, ...);
 extern n00b_type_t     *n00b_type_varargs_fn(n00b_type_t *, int64_t, ...);
 extern n00b_type_t     *n00b_get_promotion_type(n00b_type_t *,
                                                 n00b_type_t *,
                                                 int *);
-extern n00b_type_t     *n00b_new_typevar();
-extern void             n00b_initialize_global_types();
+extern n00b_type_t     *n00b_new_typevar(void);
+extern void             n00b_initialize_global_types(void);
 extern n00b_type_hash_t n00b_calculate_type_hash(n00b_type_t *node);
-extern uint64_t        *n00b_get_list_bitfield();
-extern uint64_t        *n00b_get_dict_bitfield();
-extern uint64_t        *n00b_get_set_bitfield();
-extern uint64_t        *n00b_get_tuple_bitfield();
-extern uint64_t        *n00b_get_all_containers_bitfield();
-extern uint64_t        *n00b_get_no_containers_bitfield();
-extern int              n00b_get_num_bitfield_words();
+extern uint64_t        *n00b_get_list_bitfield(void);
+extern uint64_t        *n00b_get_dict_bitfield(void);
+extern uint64_t        *n00b_get_set_bitfield(void);
+extern uint64_t        *n00b_get_tuple_bitfield(void);
+extern uint64_t        *n00b_get_all_containers_bitfield(void);
+extern uint64_t        *n00b_get_no_containers_bitfield(void);
+extern int              n00b_get_num_bitfield_words(void);
 extern bool             n00b_partial_inference(n00b_type_t *);
 extern bool             n00b_list_syntax_possible(n00b_type_t *);
 extern bool             n00b_dict_syntax_possible(n00b_type_t *);
@@ -230,6 +230,36 @@ n00b_type_is_file(n00b_type_t *t)
 }
 
 static inline bool
+n00b_type_is_text_element(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_TEXT_ELEMENT;
+}
+
+static inline bool
+n00b_type_is_theme(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_THEME;
+}
+
+static inline bool
+n00b_type_is_box_props(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_BOX_PROPS;
+}
+
+static inline bool
 n00b_type_is_message(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {
@@ -343,357 +373,356 @@ n00b_type_is_error(n00b_type_t *t)
 }
 
 static inline n00b_type_t *
-n00b_type_error()
+n00b_type_error(void)
 {
     return n00b_bi_types[N00B_T_ERROR];
 }
 
 static inline n00b_type_t *
-n00b_type_void()
+n00b_type_void(void)
 {
     return n00b_bi_types[N00B_T_VOID];
 }
 
 static inline n00b_type_t *
-n00b_type_nil()
+n00b_type_nil(void)
 {
     return n00b_bi_types[N00B_T_NIL];
 }
 
 static inline n00b_type_t *
-n00b_type_bool()
+n00b_type_bool(void)
 {
     return n00b_bi_types[N00B_T_BOOL];
 }
 
 static inline n00b_type_t *
-n00b_type_i8()
+n00b_type_i8(void)
 {
     return n00b_bi_types[N00B_T_I8];
 }
 
 static inline n00b_type_t *
-n00b_type_u8()
+n00b_type_u8(void)
 {
     return n00b_bi_types[N00B_T_BYTE];
 }
 
 static inline n00b_type_t *
-n00b_type_byte()
+n00b_type_byte(void)
 {
     return n00b_bi_types[N00B_T_BYTE];
 }
 
 static inline n00b_type_t *
-n00b_type_i32()
+n00b_type_i32(void)
 {
     return n00b_bi_types[N00B_T_I32];
 }
 
 static inline n00b_type_t *
-n00b_type_u32()
+n00b_type_u32(void)
 {
     return n00b_bi_types[N00B_T_CHAR];
 }
 
 static inline n00b_type_t *
-n00b_type_char()
+n00b_type_char(void)
 {
     return n00b_bi_types[N00B_T_CHAR];
 }
 
 static inline n00b_type_t *
-n00b_type_i64()
+n00b_type_i64(void)
 {
     return n00b_bi_types[N00B_T_INT];
 }
 
 static inline n00b_type_t *
-n00b_type_int()
+n00b_type_int(void)
 {
     return n00b_bi_types[N00B_T_INT];
 }
 
 static inline n00b_type_t *
-n00b_type_u64()
+n00b_type_u64(void)
 {
     return n00b_bi_types[N00B_T_UINT];
 }
 
 static inline n00b_type_t *
-n00b_type_uint()
+n00b_type_uint(void)
 {
     return n00b_bi_types[N00B_T_UINT];
 }
 
 static inline n00b_type_t *
-n00b_type_f32()
+n00b_type_f32(void)
 {
     return n00b_bi_types[N00B_T_F32];
 }
 
 static inline n00b_type_t *
-n00b_type_f64()
+n00b_type_f64(void)
 {
     return n00b_bi_types[N00B_T_F64];
 }
 
 static inline n00b_type_t *
-n00b_type_float()
+n00b_type_float(void)
 {
     return n00b_bi_types[N00B_T_F64];
 }
 
 static inline n00b_type_t *
-n00b_type_utf8()
-{
-    return n00b_bi_types[N00B_T_UTF8];
-}
-
-static inline n00b_type_t *
-n00b_type_buffer()
+n00b_type_buffer(void)
 {
     return n00b_bi_types[N00B_T_BUFFER];
 }
 
 static inline n00b_type_t *
-n00b_type_utf32()
-{
-    return n00b_bi_types[N00B_T_UTF32];
-}
-
-static inline n00b_type_t *
-n00b_type_grid()
-{
-    return n00b_bi_types[N00B_T_GRID];
-}
-
-static inline n00b_type_t *
-n00b_type_typespec()
+n00b_type_typespec(void)
 {
     return n00b_bi_types[N00B_T_TYPESPEC];
 }
 
 static inline n00b_type_t *
-n00b_type_ip()
+n00b_type_ip(void)
 {
     return n00b_bi_types[N00B_T_IPV4];
 }
 
 static inline n00b_type_t *
-n00b_type_ipv4()
+n00b_type_ipv4(void)
 {
     return n00b_bi_types[N00B_T_IPV4];
 }
 
 static inline n00b_type_t *
-n00b_type_net_addr()
+n00b_type_net_addr(void)
 {
     return n00b_bi_types[N00B_T_IPV4];
 }
 
 static inline n00b_type_t *
-n00b_type_duration()
+n00b_type_duration(void)
 {
     return n00b_bi_types[N00B_T_DURATION];
 }
 
 static inline n00b_type_t *
-n00b_type_size()
+n00b_type_size(void)
 {
     return n00b_bi_types[N00B_T_SIZE];
 }
 
 static inline n00b_type_t *
-n00b_type_datetime()
+n00b_type_datetime(void)
 {
     return n00b_bi_types[N00B_T_DATETIME];
 }
 
 static inline n00b_type_t *
-n00b_type_date()
+n00b_type_date(void)
 {
     return n00b_bi_types[N00B_T_DATE];
 }
 
 static inline n00b_type_t *
-n00b_type_time()
+n00b_type_time(void)
 {
     return n00b_bi_types[N00B_T_TIME];
 }
 
 static inline n00b_type_t *
-n00b_type_url()
+n00b_type_url(void)
 {
     return n00b_bi_types[N00B_T_URL];
 }
 
 static inline n00b_type_t *
-n00b_type_flags()
+n00b_type_flags(void)
 {
     return n00b_bi_types[N00B_T_FLAGS];
 }
 
 static inline n00b_type_t *
-n00b_type_callback()
+n00b_type_callback(void)
 {
     return n00b_bi_types[N00B_T_CALLBACK];
 }
-
 static inline n00b_type_t *
-n00b_type_renderable()
-{
-    return n00b_bi_types[N00B_T_RENDERABLE];
-}
-
-static inline n00b_type_t *
-n00b_type_render_style()
-{
-    return n00b_bi_types[N00B_T_RENDER_STYLE];
-}
-
-static inline n00b_type_t *
-n00b_type_hash()
+n00b_type_hash(void)
 {
     return n00b_bi_types[N00B_T_SHA];
 }
 
 static inline n00b_type_t *
-n00b_type_exception()
+n00b_type_exception(void)
 {
     return n00b_bi_types[N00B_T_EXCEPTION];
 }
 
 static inline n00b_type_t *
-n00b_type_logring()
+n00b_type_logring(void)
 {
     return n00b_bi_types[N00B_T_LOGRING];
 }
 
 static inline n00b_type_t *
-n00b_type_mixed()
+n00b_type_mixed(void)
 {
     return n00b_bi_types[N00B_T_GENERIC];
 }
 
 static inline n00b_type_t *
-n00b_type_ref()
+n00b_type_ref(void)
 {
     return n00b_bi_types[N00B_T_REF];
 }
 
 static inline n00b_type_t *
-n00b_type_true_ref()
+n00b_type_true_ref(void)
 {
     return n00b_bi_types[N00B_T_TRUE_REF];
 }
 
 static inline n00b_type_t *
-n00b_type_internal()
+n00b_type_internal(void)
 {
     return n00b_bi_types[N00B_T_INTERNAL];
 }
 
 static inline n00b_type_t *
-n00b_type_kargs()
+n00b_type_kargs(void)
 {
     return n00b_bi_types[N00B_T_KEYWORD];
 }
 
 static inline n00b_type_t *
-n00b_type_parse_node()
+n00b_type_parse_node(void)
 {
     return n00b_bi_types[N00B_T_PARSE_NODE];
 }
 
 static inline n00b_type_t *
-n00b_type_bit()
+n00b_type_bit(void)
 {
     return n00b_bi_types[N00B_T_BIT];
 }
 
 static inline n00b_type_t *
-n00b_type_http()
+n00b_type_http(void)
 {
     return n00b_bi_types[N00B_T_HTTP];
 }
 
 static inline n00b_type_t *
-n00b_type_parser()
+n00b_type_parser(void)
 {
     return n00b_bi_types[N00B_T_PARSER];
 }
 
 static inline n00b_type_t *
-n00b_type_grammar()
+n00b_type_grammar(void)
 {
     return n00b_bi_types[N00B_T_GRAMMAR];
 }
 
 static inline n00b_type_t *
-n00b_type_terminal()
+n00b_type_terminal(void)
 {
     return n00b_bi_types[N00B_T_TERMINAL];
 }
 
 static inline n00b_type_t *
-n00b_type_ruleset()
+n00b_type_ruleset(void)
 {
     return n00b_bi_types[N00B_T_RULESET];
 }
 
 static inline n00b_type_t *
-n00b_type_gopt_parser()
+n00b_type_gopt_parser(void)
 {
     return n00b_bi_types[N00B_T_GOPT_PARSER];
 }
 
 static inline n00b_type_t *
-n00b_type_gopt_command()
+n00b_type_gopt_command(void)
 {
     return n00b_bi_types[N00B_T_GOPT_COMMAND];
 }
 
 static inline n00b_type_t *
-n00b_type_gopt_option()
+n00b_type_gopt_option(void)
 {
     return n00b_bi_types[N00B_T_GOPT_OPTION];
 }
 
 static inline n00b_type_t *
-n00b_type_lock()
+n00b_type_lock(void)
 {
     return n00b_bi_types[N00B_T_LOCK];
 }
 
 static inline n00b_type_t *
-n00b_type_condition()
+n00b_type_condition(void)
 {
     return n00b_bi_types[N00B_T_CONDITION];
 }
 
 static inline n00b_type_t *
-n00b_type_stream()
+n00b_type_stream(void)
 {
     return n00b_bi_types[N00B_T_STREAM];
 }
 
 static inline n00b_type_t *
-n00b_type_message()
+n00b_type_message(void)
 {
     return n00b_bi_types[N00B_T_MESSAGE];
 }
 
 static inline n00b_type_t *
-n00b_type_bytering()
+n00b_type_bytering(void)
 {
     return n00b_bi_types[N00B_T_BYTERING];
 }
 
 static inline n00b_type_t *
-n00b_type_file()
+n00b_type_file(void)
 {
     return n00b_bi_types[N00B_T_FILE];
+}
+
+static inline n00b_type_t *
+n00b_type_text_element(void)
+{
+    return n00b_bi_types[N00B_T_TEXT_ELEMENT];
+}
+
+static inline n00b_type_t *
+n00b_type_box_props(void)
+{
+    return n00b_bi_types[N00B_T_BOX_PROPS];
+}
+
+static inline n00b_type_t *
+n00b_type_theme(void)
+{
+    return n00b_bi_types[N00B_T_THEME];
+}
+
+static inline n00b_type_t *
+n00b_type_string(void)
+{
+    return n00b_bi_types[N00B_T_STRING];
+}
+
+static inline n00b_type_t *
+n00b_type_table(void)
+{
+    return n00b_bi_types[N00B_T_TABLE];
 }
 
 static inline n00b_type_t *
@@ -949,7 +978,17 @@ n00b_type_is_string(n00b_type_t *t)
     }
 
     t = n00b_type_resolve(t);
-    return t->typeid == N00B_T_UTF8 || t->typeid == N00B_T_UTF32;
+    return t->typeid == N00B_T_STRING;
+}
+
+static inline bool
+n00b_type_is_table(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_TABLE;
 }
 
 static inline bool
@@ -995,21 +1034,7 @@ n00b_type_is_time(n00b_type_t *t)
 static inline bool
 n00b_type_is_renderable(n00b_type_t *t)
 {
-    if (!n00b_ensure_type(t)) {
-        return false;
-    }
-    t = n00b_type_resolve(t);
-    return t->typeid == N00B_T_RENDERABLE;
-}
-
-static inline bool
-n00b_type_is_grid(n00b_type_t *t)
-{
-    if (!n00b_ensure_type(t)) {
-        return false;
-    }
-    t = n00b_type_resolve(t);
-    return t->typeid == N00B_T_GRID;
+    return false;
 }
 
 static inline bool
@@ -1089,11 +1114,21 @@ n00b_type_requires_gc_scan(n00b_type_t *t)
     return true;
 }
 
+static inline n00b_string_t *
+n00b_base_type_name(n00b_obj_t user_object)
+{
+    return n00b_new(n00b_type_string(),
+                    (char *)n00b_object_type_info(user_object)->name,
+                    true,
+                    0);
+}
+
 void n00b_set_next_typevar_fn(n00b_next_typevar_fn);
 
 #ifdef N00B_USE_INTERNAL_API
-extern n00b_grid_t *n00b_format_global_type_environment(n00b_type_universe_t *);
-extern void         n00b_clean_environment();
+extern n00b_table_t             *
+n00b_format_global_type_environment(n00b_type_universe_t *);
+extern void n00b_clean_environment(void);
 
 #ifdef N00B_TYPE_LOG
 extern void type_log_on();

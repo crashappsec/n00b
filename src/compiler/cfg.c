@@ -130,7 +130,7 @@ cfg_copy_du_info(cfg_ctx         *ctx,
 
     hatrack_dict_item_t *view = hatrack_dict_items_sort(node->liveness_info,
                                                         &n);
-    n00b_dict_t         *d    = n00b_dict(n00b_type_utf8(), n00b_type_int());
+    n00b_dict_t         *d    = n00b_dict(n00b_type_string(), n00b_type_int());
 
     for (uint64_t i = 0; i < n; i++) {
         n00b_symbol_t *sym = view[i].key;
@@ -159,13 +159,13 @@ cfg_copy_du_info(cfg_ctx         *ctx,
     }
 }
 
-static n00b_utf8_t *result_text = NULL;
+static n00b_string_t *result_text = NULL;
 
 static void
 check_for_fn_exit_errors(n00b_module_t *file, n00b_fn_decl_t *fn_decl)
 {
     if (result_text == NULL) {
-        result_text = n00b_new_utf8("$result");
+        result_text = n00b_cstring("$result");
         n00b_gc_register_root(&result_text, 1);
     }
 
@@ -326,7 +326,7 @@ cfg_merge_aux_entries_to_top(cfg_ctx *ctx, n00b_cfg_node_t *node)
         return;
     }
 
-    n00b_set_t *sometimes = n00b_new(n00b_type_utf8());
+    n00b_set_t *sometimes = n00b_set(n00b_type_string());
 
     if (exit->sometimes_live != NULL) {
         int n = n00b_list_len(exit->sometimes_live);
@@ -382,7 +382,7 @@ cfg_merge_aux_entries_to_top(cfg_ctx *ctx, n00b_cfg_node_t *node)
 
     exit->sometimes_live = n00b_list(n00b_type_ref());
 
-    n00b_list_t *not_unique = n00b_set_to_xlist(sometimes);
+    n00b_list_t *not_unique = n00b_set_to_list(sometimes);
 
     for (int i = 0; i < n00b_list_len(not_unique); i++) {
         void *item = n00b_list_get(not_unique, i, NULL);
@@ -496,7 +496,7 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
     node->liveness_info  = merged;
     node->sometimes_live = n00b_list(n00b_type_ref());
 
-    n00b_list_t *not_unique = n00b_set_to_xlist(sometimes);
+    n00b_list_t *not_unique = n00b_set_to_list(sometimes);
 
     for (int i = 0; i < n00b_list_len(not_unique); i++) {
         void *item = n00b_list_get(not_unique, i, NULL);

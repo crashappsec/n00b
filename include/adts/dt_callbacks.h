@@ -2,7 +2,7 @@
 #include "n00b.h"
 
 typedef struct {
-    n00b_utf8_t      *target_symbol_name;
+    n00b_string_t      *target_symbol_name;
     n00b_type_t      *target_type;
     n00b_tree_node_t *decl_loc;
     n00b_funcinfo_t   binding;

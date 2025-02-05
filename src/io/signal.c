@@ -76,87 +76,87 @@ n00b_io_get_signal_event(int signal)
     return n00b_io_signal_open(signal, &n00b_signal_impl);
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_get_signal_name(int64_t signal)
 {
     switch (signal) {
     case SIGHUP:
-        return n00b_new_utf8("SIGHUP");
+        return n00b_cstring("SIGHUP");
     case SIGINT:
-        return n00b_new_utf8("SIGINT");
+        return n00b_cstring("SIGINT");
     case SIGQUIT:
-        return n00b_new_utf8("SIGQUIT");
+        return n00b_cstring("SIGQUIT");
     case SIGILL:
-        return n00b_new_utf8("SIGILL");
+        return n00b_cstring("SIGILL");
     case SIGTRAP:
-        return n00b_new_utf8("SIGTRAP");
+        return n00b_cstring("SIGTRAP");
     case SIGABRT:
-        return n00b_new_utf8("SIGABRT");
+        return n00b_cstring("SIGABRT");
     case SIGEMT:
-        return n00b_new_utf8("SIGEMT");
+        return n00b_cstring("SIGEMT");
     case SIGFPE:
-        return n00b_new_utf8("SIGFPE");
+        return n00b_cstring("SIGFPE");
     case SIGKILL:
-        return n00b_new_utf8("SIGKILL");
+        return n00b_cstring("SIGKILL");
     case SIGBUS:
-        return n00b_new_utf8("SIGBUS");
+        return n00b_cstring("SIGBUS");
     case SIGSEGV:
-        return n00b_new_utf8("SIGSEGV");
+        return n00b_cstring("SIGSEGV");
     case SIGSYS:
-        return n00b_new_utf8("SIGSYS");
+        return n00b_cstring("SIGSYS");
     case SIGPIPE:
-        return n00b_new_utf8("SIGPIPE");
+        return n00b_cstring("SIGPIPE");
     case SIGALRM:
-        return n00b_new_utf8("SIGALRM");
+        return n00b_cstring("SIGALRM");
     case SIGTERM:
-        return n00b_new_utf8("SIGTERM");
+        return n00b_cstring("SIGTERM");
     case SIGURG:
-        return n00b_new_utf8("SIGURG");
+        return n00b_cstring("SIGURG");
     case SIGSTOP:
-        return n00b_new_utf8("SIGSTOP");
+        return n00b_cstring("SIGSTOP");
     case SIGTSTP:
-        return n00b_new_utf8("SIGTSTP");
+        return n00b_cstring("SIGTSTP");
     case SIGCONT:
-        return n00b_new_utf8("SIGCONT");
+        return n00b_cstring("SIGCONT");
     case SIGCHLD:
-        return n00b_new_utf8("SIGCHLD");
+        return n00b_cstring("SIGCHLD");
     case SIGTTIN:
-        return n00b_new_utf8("SIGTTIN");
+        return n00b_cstring("SIGTTIN");
     case SIGTTOU:
-        return n00b_new_utf8("SIGTTOU");
+        return n00b_cstring("SIGTTOU");
     case SIGIO:
-        return n00b_new_utf8("SIGIO");
+        return n00b_cstring("SIGIO");
     case SIGXCPU:
-        return n00b_new_utf8("SIGXCPU");
+        return n00b_cstring("SIGXCPU");
     case SIGXFSZ:
-        return n00b_new_utf8("SIGXFSZ");
+        return n00b_cstring("SIGXFSZ");
     case SIGVTALRM:
-        return n00b_new_utf8("SIGVTALRM");
+        return n00b_cstring("SIGVTALRM");
     case SIGPROF:
-        return n00b_new_utf8("SIGPROF");
+        return n00b_cstring("SIGPROF");
     case SIGWINCH:
-        return n00b_new_utf8("SIGWINCH");
+        return n00b_cstring("SIGWINCH");
     case SIGINFO:
-        return n00b_new_utf8("SIGINFO");
+        return n00b_cstring("SIGINFO");
     case SIGUSR1:
-        return n00b_new_utf8("SIGUSR1");
+        return n00b_cstring("SIGUSR1");
     case SIGUSR2:
-        return n00b_new_utf8("SIGUSR2");
+        return n00b_cstring("SIGUSR2");
     default:
         N00B_CRAISE("Unknown signal");
     }
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_signal_repr(n00b_stream_t *e)
 {
     n00b_ev2_cookie_t *cookie = e->cookie;
 
-    return n00b_cstr_format("{}signal {} ({}){}",
-                            n00b_new_utf8("["),
-                            cookie->id,
-                            n00b_get_signal_name(cookie->id),
-                            n00b_new_utf8("]"));
+    return n00b_cformat("«#»signal «#» («#»)«#»",
+                        n00b_cached_lbracket(),
+                        cookie->id,
+                        n00b_get_signal_name(cookie->id),
+                        n00b_cached_rbracket());
 }
 
 n00b_stream_sub_t *
@@ -171,10 +171,10 @@ _n00b_io_register_signal_handler(int                 signal,
     n00b_stream_t *ev = n00b_io_get_signal_event(signal);
     n00b_stream_t *cb = n00b_callback_open(fn, a);
     n00b_io_set_repr(cb,
-                     n00b_cstr_format("{}{} handler{}",
-                                      n00b_new_utf8("["),
-                                      n00b_get_signal_name(signal),
-                                      n00b_new_utf8("]")));
+                     n00b_cformat("«#»«#» handler«#»",
+                                  n00b_cached_lbracket(),
+                                  n00b_get_signal_name(signal),
+                                  n00b_cached_rbracket()));
     return n00b_io_subscribe_to_reads(ev, cb, a);
 }
 

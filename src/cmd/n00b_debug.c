@@ -10,7 +10,7 @@ static n00b_stream_t *n00b_debug_listener = NULL;
 static n00b_stream_t *n00b_debug_stdin    = NULL;
 
 static inline void
-setup_log_file(n00b_utf8_t *fname)
+setup_log_file(n00b_string_t *fname)
 {
     if (!fname) {
         return;
@@ -24,7 +24,7 @@ setup_log_file(n00b_utf8_t *fname)
     }
 
     if (fd < 0) {
-        n00b_printf("[red]WARNING:[/] Could not open debug file [em]{}[/].",
+        n00b_printf("«red»WARNING:«/» Could not open debug file «em»«#»«/».",
                     fname);
         return;
     }
@@ -49,29 +49,30 @@ process_debug_msg(n00b_stream_t *conn, void *raw, void *aux)
     }
 }
 
-static n00b_utf8_t *ctrl_c = NULL;
-static n00b_utf8_t *q_key  = NULL;
+static n00b_string_t *ctrl_c = NULL;
+static n00b_string_t *q_key  = NULL;
 
 static void
 logger_handle_stdin(n00b_stream_t *p1, void *m, void *aux)
 {
-    n00b_utf8_t *s = n00b_buf_to_utf8_string((n00b_buf_t *)m);
+    n00b_buf_t    *b = m;
+    n00b_string_t *s = n00b_utf8(b->data, b->byte_len);
 
-    n00b_printf("[h2] On stdin: {}", s);
+    n00b_printf("«em2» On stdin: «#»", s);
 
     if (!ctrl_c) {
         n00b_gc_register_root(&ctrl_c, 1);
-        ctrl_c = n00b_new_utf8("\x03");
-        q_key  = n00b_new_utf8("q");
+        ctrl_c = n00b_cstring("\x03");
+        q_key  = n00b_cstring("q");
     }
 
-    if (n00b_str_starts_with(s, ctrl_c)) {
-        n00b_printf("[em]Shutting down[/] due to [em]Ctrl-C[/].");
+    if (n00b_string_starts_with(s, ctrl_c)) {
+        n00b_printf("«em»Shutting down«/» due to «em»Ctrl-C«/».");
         n00b_exit(0);
     }
 
-    if (n00b_str_starts_with(s, q_key)) {
-        n00b_printf("[em]Shutting down[/] ([em]Q[/] pressed).");
+    if (n00b_string_starts_with(s, q_key)) {
+        n00b_printf("«em»Shutting down«/» («em»Q«/» pressed).");
         n00b_exit(0);
     }
 }
@@ -81,8 +82,8 @@ connection_closer(n00b_stream_t *ignore, void *conn, void *unused)
 {
     n00b_stream_t     *c      = conn;
     n00b_ev2_cookie_t *cookie = c->cookie;
-    n00b_utf8_t       *cmsg   = n00b_cstr_format(
-        "[atomic lime]Connection from {} [em]CLOSED.[/]\n",
+    n00b_string_t     *cmsg   = n00b_cformat(
+        "«green»Connection from «#» «em2»CLOSED.«/»\n",
         cookie->aux);
 
     n00b_write(n00b_debug_output, cmsg);
@@ -92,8 +93,8 @@ static void
 log_accept(n00b_stream_t *conn)
 {
     n00b_ev2_cookie_t *cookie = conn->cookie;
-    n00b_utf8_t       *cmsg   = n00b_cstr_format("[h6]Connection from [i]{}[/]",
-                                         cookie->aux);
+    n00b_string_t     *cmsg   = n00b_cformat("«em6»Connection from «i»«#»",
+                                       cookie->aux);
     n00b_print(cmsg);
 
     n00b_io_subscribe_to_close(conn,
@@ -104,7 +105,7 @@ log_accept(n00b_stream_t *conn)
 static void
 exit_gracefully(n00b_stream_t *e, int64_t signal, void *aux)
 {
-    n00b_printf("[em]Shutting down[/] due to signal: [em]{}",
+    n00b_printf("«em»Shutting down«/» due to signal: «em»«#»",
                 n00b_get_signal_name(signal));
     n00b_exit(-1);
 }
@@ -123,15 +124,17 @@ main(int argc, char *argv[], char *envp[])
     n00b_terminal_app_setup();
     n00b_disable_debug_server();
 
-    n00b_debug_callout("Congrats, you have a n00b debug logging server.");
+    n00b_eprintf("«#»",
+                 n00b_call_out(n00b_cstring("Congrats, you now have a n00b  "
+                                            "debug logging server.")));
 
-    n00b_utf8_t *addr      = n00b_get_env(n00b_new_utf8("N00B_DEBUG_ADDRESS"));
-    n00b_utf8_t *str_port  = n00b_get_env(n00b_new_utf8("N00B_DEBUG_PORT"));
-    n00b_utf8_t *debug_log = n00b_get_env(n00b_new_utf8("N00B_DEBUG_LOG_FILE"));
-    uint16_t     int_port  = N00B_DEFAULT_DEBUG_PORT;
+    n00b_string_t *addr      = n00b_get_env(n00b_cstring("N00B_DEBUG_ADDRESS"));
+    n00b_string_t *str_port  = n00b_get_env(n00b_cstring("N00B_DEBUG_PORT"));
+    n00b_string_t *debug_log = n00b_get_env(n00b_cstring("N00B_DEBUG_LOG_FILE"));
+    uint16_t       int_port  = N00B_DEFAULT_DEBUG_PORT;
 
     if (!addr) {
-        addr = n00b_new_utf8("0.0.0.0");
+        addr = n00b_cstring("0.0.0.0");
     }
 
     if (str_port) {
@@ -149,7 +152,7 @@ main(int argc, char *argv[], char *envp[])
 
     setup_log_file(debug_log);
     n00b_debug_cb = n00b_callback_open(process_debug_msg, NULL);
-    n00b_io_set_repr(n00b_debug_cb, n00b_new_utf8("msg processor cb"));
+    n00b_io_set_repr(n00b_debug_cb, n00b_cstring("msg processor cb"));
 
     n00b_debug_output = n00b_fd_open(fileno(stderr));
     n00b_debug_stdin  = n00b_fd_open(fileno(stdin));
@@ -161,7 +164,9 @@ main(int argc, char *argv[], char *envp[])
 
     // TODO: setup IO and signals and so-on.
 
-    n00b_printf("[h1]Binding to address:[/] [em]{}:{}[/]", addr, int_port);
+    n00b_printf("«em1»Binding to address:«/» «em»«#»:«#»«/»",
+                addr,
+                (int64_t)int_port);
 
     n00b_net_addr_t *ip = n00b_new(n00b_type_ip(),
                                    n00b_kw("address",

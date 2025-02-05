@@ -5,6 +5,8 @@ n00b_list_init(n00b_list_t *list, va_list args)
 {
     int64_t length = 16;
 
+    list->noscan = N00B_NOSCAN;
+
     n00b_karg_va_init(args);
     n00b_kw_int64("length", length);
 
@@ -377,18 +379,18 @@ n00b_list(n00b_type_t *x)
     return n00b_new(n00b_type_list(x));
 }
 
-static n00b_str_t *
+static n00b_string_t *
 n00b_list_repr(n00b_list_t *list)
 {
     read_start(list);
 
     int64_t      len   = n00b_list_len(list);
-    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_utf32()));
+    n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_string()));
 
     for (int i = 0; i < len; i++) {
-        bool        err  = false;
-        void       *item = n00b_list_get_base(list, i, &err);
-        n00b_str_t *s;
+        bool           err  = false;
+        void          *item = n00b_list_get_base(list, i, &err);
+        n00b_string_t *s;
 
         if (err) {
             continue;
@@ -399,11 +401,11 @@ n00b_list_repr(n00b_list_t *list)
         n00b_list_append(items, s);
     }
 
-    n00b_str_t *sep    = n00b_get_comma_const();
-    n00b_str_t *result = n00b_str_join(items, sep);
+    n00b_string_t *sep    = n00b_cached_comma();
+    n00b_string_t *result = n00b_string_join(items, sep);
 
-    result = n00b_str_concat(n00b_get_lbrak_const(),
-                             n00b_str_concat(result, n00b_get_rbrak_const()));
+    result = n00b_string_concat(n00b_cached_lbracket(),
+                                n00b_string_concat(result, n00b_cached_rbracket()));
 
     read_end(list);
 
@@ -515,11 +517,11 @@ n00b_list_safe_get(n00b_list_t *list, int64_t ix)
     n00b_obj_t result = n00b_list_get_base(list, ix, &err);
 
     if (err) {
-        n00b_utf8_t *msg = n00b_cstr_format(
+        n00b_string_t *msg = n00b_cformat(
             "Array index out of bounds "
-            "(ix = {}; size = {})",
-            n00b_box_i64(ix),
-            n00b_box_i64(n00b_list_len(list)));
+            "(ix = «#»; size = «#»)",
+            ix,
+            n00b_list_len(list));
 
         read_end(list);
         N00B_RAISE(msg);
@@ -887,13 +889,45 @@ n00b_list_reverse(n00b_list_t *l)
 }
 
 static n00b_list_t *
-n00b_to_list_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
+n00b_to_list_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *litmod)
 {
     n00b_mem_ptr p = {.v = items};
     p.alloc -= 1;
 
     p.alloc->type = objtype;
     return items;
+}
+
+n00b_list_t *
+_n00b_to_list(n00b_type_t *t, int nargs, ...)
+{
+    n00b_list_t *result = n00b_list(t);
+
+    va_list args;
+
+    va_start(args, nargs);
+
+    for (int i = 0; i < nargs; i++) {
+        n00b_list_append(result, va_arg(args, void *));
+    }
+
+    return result;
+}
+
+n00b_list_t *
+_n00b_c_map(char *s, ...)
+{
+    n00b_list_t *result = n00b_list(n00b_type_string());
+    va_list      args;
+
+    va_start(args, s);
+
+    while (s != NULL) {
+        n00b_list_append(result, n00b_cstring(s));
+        s = va_arg(args, char *);
+    }
+
+    return result;
 }
 
 extern bool n00b_flexarray_can_coerce_to(n00b_type_t *, n00b_type_t *);
@@ -905,8 +939,7 @@ n00b_list_set_gc_bits(uint64_t *bitfield, void *alloc)
 }
 
 const n00b_vtable_t n00b_list_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_list_init,
         [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)n00b_flexarray_can_coerce_to,
         [N00B_BI_COERCE]        = (n00b_vtable_entry)n00b_list_coerce_to,

@@ -75,7 +75,7 @@ setup_exit_obj(n00b_proc_t *ctx)
     n00b_stream_t *result   = n00b_pid_monitor(ctx->pid, l);
     n00b_stream_t *callback = n00b_callback_open((void *)proc_exited, ctx);
 
-    n00b_io_set_repr(callback, n00b_new_utf8("exit (wait4 return)"));
+    n00b_io_set_repr(callback, n00b_cstring("exit (wait4 return)"));
     n00b_io_subscribe(result, callback, NULL, n00b_io_sk_read);
 
     return result;
@@ -125,14 +125,22 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
         ctx->cap_in = n00b_buffer_empty();
         buf         = n00b_outstream_buffer(ctx->cap_in, true);
         n00b_io_subscribe_to_reads(n00b_stdin(), buf, NULL);
-        n00b_io_set_repr(buf, n00b_cstr_format("{}{} stdin cap{}", n00b_new_utf8("["), ctx->cmd, n00b_new_utf8("]")));
+        n00b_io_set_repr(buf,
+                         n00b_cformat("«#»«#» stdin cap«#»",
+                                      n00b_cached_lbracket(),
+                                      ctx->cmd,
+                                      n00b_cached_rbracket()));
     }
 
     if (ctx->flags & N00B_PROC_STDOUT_CAP) {
         ctx->cap_out = n00b_buffer_empty();
         buf          = n00b_outstream_buffer(ctx->cap_out, true);
         n00b_io_subscribe_to_reads(ctx->subproc_stdout, buf, NULL);
-        n00b_io_set_repr(buf, n00b_cstr_format("{}{} stdout cap{}", n00b_new_utf8("["), ctx->cmd, n00b_new_utf8("]")));
+        n00b_io_set_repr(buf,
+                         n00b_cformat("«#»«#» stdout cap«#»",
+                                      n00b_cached_lbracket(),
+                                      ctx->cmd,
+                                      n00b_cached_rbracket()));
 
         if (ctx->flags & N00B_PROC_MERGE_OUTPUT) {
             n00b_io_subscribe_to_reads(ctx->subproc_stderr, buf, NULL);
@@ -144,7 +152,11 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
         ctx->cap_err = n00b_buffer_empty();
         buf          = n00b_outstream_buffer(ctx->cap_err, true);
         n00b_io_subscribe_to_reads(ctx->subproc_stderr, buf, NULL);
-        n00b_io_set_repr(buf, n00b_cstr_format("{}{} stderr cap{}", n00b_new_utf8("["), ctx->cmd, n00b_new_utf8("]")));
+        n00b_io_set_repr(buf,
+                         n00b_cformat("«#»«#» stderr cap«#»",
+                                      n00b_cached_lbracket(),
+                                      ctx->cmd,
+                                      n00b_cached_rbracket()));
     }
 
     n00b_release_party(ctx->subproc_stderr);
@@ -191,7 +203,7 @@ close_write_side(bool proxy, int filedes[2])
 static void
 try_execve(n00b_proc_t *ctx, char *argv[], char *envp[])
 {
-    char *cmd = n00b_to_cstr(ctx->cmd);
+    char *cmd = n00b_string_to_cstr(ctx->cmd);
 
     execve(cmd, argv, envp);
 
@@ -247,26 +259,26 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
         if (proxy_in) {
             ctx->subproc_stdin = n00b_fd_open(stdin_pipe[1]);
             n00b_io_set_repr(ctx->subproc_stdin,
-                             n00b_cstr_format("{}{} stdin{}",
-                                              n00b_new_utf8("["),
-                                              ctx->cmd,
-                                              n00b_new_utf8("]")));
+                             n00b_cformat("«#»«#» stdin«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
         }
         if (proxy_out) {
             ctx->subproc_stdout = n00b_fd_open(stdout_pipe[0]);
             n00b_io_set_repr(ctx->subproc_stdout,
-                             n00b_cstr_format("{}{} stdout{}",
-                                              n00b_new_utf8("["),
-                                              ctx->cmd,
-                                              n00b_new_utf8("]")));
+                             n00b_cformat("«#»«#» stdout«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
         }
         if (proxy_err) {
             ctx->subproc_stderr = n00b_fd_open(stderr_pipe[0]);
             n00b_io_set_repr(ctx->subproc_stderr,
-                             n00b_cstr_format("{}{} stderr{}",
-                                              n00b_new_utf8("["),
-                                              ctx->cmd,
-                                              n00b_new_utf8("]")));
+                             n00b_cformat("«#»«#» stderr«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
         }
         post_spawn_subscription_setup(ctx);
 
@@ -327,10 +339,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         ctx->subproc_stdin  = ctx->subproc_stdout;
 
         n00b_io_set_repr(ctx->subproc_stdin,
-                         n00b_cstr_format("{}{} pty{}",
-                                          n00b_new_utf8("["),
-                                          ctx->cmd,
-                                          n00b_new_utf8("]")));
+                         n00b_cformat("«#»«#» pty«#»",
+                                      n00b_cached_lbracket(),
+                                      ctx->cmd,
+                                      n00b_cached_rbracket()));
 
         close_read_side(proxy_in, stdin_pipe);
         post_spawn_subscription_setup(ctx);
@@ -418,10 +430,10 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 // TODO: Do a proc_init
 
 n00b_proc_t *
-_n00b_run_process(n00b_utf8_t *cmd,
-                  n00b_list_t *argv,
-                  bool         proxy,
-                  bool         capture,
+_n00b_run_process(n00b_string_t *cmd,
+                  n00b_list_t   *argv,
+                  bool           proxy,
+                  bool           capture,
                   ...)
 {
     n00b_list_t     *env          = NULL;

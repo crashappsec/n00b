@@ -84,8 +84,8 @@ n00b_terminal_app_setup(void)
     n00b_termcap_apply_app_defaults(&tc);
     n00b_termcap_set(&tc);
 
-    n00b_merge_ansi(n00b_stdout(), 0, 0, false);
-    n00b_merge_ansi(n00b_stderr(), 0, 0, false);
+    n00b_colorterm_enable(n00b_stdout(), 0, 0, true, NULL);
+    n00b_colorterm_enable(n00b_stderr(), 0, 0, true, NULL);
 
     //    n00b_terminal_raw_mode();
 }

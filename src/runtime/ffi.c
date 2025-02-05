@@ -112,7 +112,7 @@ ffi_init()
 {
     if (n00b_symbol_cache == NULL) {
         n00b_push_heap(n00b_internal_heap);
-        n00b_symbol_cache = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+        n00b_symbol_cache = n00b_dict(n00b_type_string(), n00b_type_ref());
         n00b_pop_heap();
     }
 }
@@ -141,18 +141,18 @@ n00b_ffi_arg_type_map(uint8_t ix)
 }
 
 void
-n00b_add_static_function(n00b_utf8_t *name, void *symbol)
+n00b_add_static_function(n00b_string_t *name, void *symbol)
 {
     ffi_init();
 
     n00b_push_heap(n00b_internal_heap);
-    name = n00b_str_copy(name);
+    name = n00b_string_copy(name);
     n00b_pop_heap();
     hatrack_dict_put(n00b_symbol_cache, name, symbol);
 }
 
 void *
-n00b_ffi_find_symbol(n00b_utf8_t *name, n00b_list_t *opt_libs)
+n00b_ffi_find_symbol(n00b_string_t *name, n00b_list_t *opt_libs)
 {
     ffi_init();
 
@@ -172,7 +172,7 @@ n00b_ffi_find_symbol(n00b_utf8_t *name, n00b_list_t *opt_libs)
         int n = n00b_list_len(opt_libs);
 
         for (int i = 0; i < n; i++) {
-            n00b_utf8_t *s = n00b_list_get(opt_libs, i, NULL);
+            n00b_string_t *s = n00b_list_get(opt_libs, i, NULL);
             if (dlopen(s->data, RTLD_NOW | RTLD_GLOBAL) != NULL) {
                 ptr = dlsym(RTLD_DEFAULT, name->data);
                 if (ptr != NULL) {

@@ -118,13 +118,13 @@ n00b_io_listener(n00b_net_addr_t *addr,
     return result;
 }
 
-static n00b_utf8_t *
+static n00b_string_t *
 n00b_io_listener_repr(n00b_stream_t *listener)
 {
     n00b_ev2_cookie_t *cookie = listener->cookie;
     n00b_listener_aux *aux    = cookie->aux;
 
-    return n00b_cstr_format("{}", aux->addr);
+    return n00b_cformat("«#»", aux->addr);
 }
 
 n00b_io_impl_info_t n00b_listener_impl = {

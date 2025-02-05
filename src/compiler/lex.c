@@ -101,10 +101,10 @@ n00b_token_set_gc_bits(uint64_t *bitfield, void *alloc)
     *bitfield = 0x3f;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_token_type_to_string(n00b_token_kind_t tk)
 {
-    return n00b_new_utf8(tt_info[tk].tt_name);
+    return n00b_cstring(tt_info[tk].tt_name);
 }
 
 typedef struct {
@@ -181,8 +181,10 @@ at_new_line(lex_state_t *state)
 static inline void
 output_token(lex_state_t *state, n00b_token_kind_t kind)
 {
-    n00b_token_t *tok = n00b_gc_alloc_mapped(n00b_token_t, n00b_token_set_gc_bits);
+    n00b_token_t *tok = n00b_gc_alloc_mapped(n00b_token_t,
+                                             n00b_token_set_gc_bits);
     tok->kind         = kind;
+    tok->noscan       = N00B_NOSCAN;
     tok->module       = state->ctx;
     tok->start_ptr    = state->start;
     tok->end_ptr      = state->pos;
@@ -253,26 +255,15 @@ handle_lit_mod(lex_state_t *state, n00b_lit_syntax_t syntax)
 
     size_t n = (size_t)(state->pos - lm_start);
 
-    tok->literal_modifier = n00b_to_utf8(
-        n00b_new(n00b_type_utf32(),
-                 n00b_kw("length",
-                         n00b_ka(n),
-                         "codepoints",
-                         n00b_ka(lm_start))));
-    state->start = state->pos;
+    tok->literal_modifier = n00b_utf32(lm_start, n);
+    state->start          = state->pos;
 }
 
 static inline void
 capture_lit_text(n00b_token_t *tok)
 {
-    int64_t       diff = tok->end_ptr - tok->start_ptr - 2 * tok->adjustment;
-    n00b_utf32_t *u32  = n00b_new(n00b_type_utf32(),
-                                 n00b_kw("length",
-                                         n00b_ka(diff),
-                                         "codepoints",
-                                         tok->start_ptr + tok->adjustment));
-
-    tok->text = n00b_to_utf8(u32);
+    int64_t diff = tok->end_ptr - tok->start_ptr - 2 * tok->adjustment;
+    tok->text    = n00b_utf32(tok->start_ptr + tok->adjustment, diff);
 }
 
 static inline void
@@ -281,6 +272,7 @@ fill_lex_error(lex_state_t *state, n00b_compile_error_t code)
 {
     n00b_token_t *tok = n00b_gc_alloc_mapped(n00b_token_t, n00b_token_set_gc_bits);
     tok->kind         = n00b_tt_error;
+    tok->noscan       = N00B_NOSCAN;
     tok->module       = state->ctx;
     tok->start_ptr    = state->start;
     tok->end_ptr      = state->pos;
@@ -392,12 +384,7 @@ scan_int_or_float_literal(lex_state_t *state)
         break;
     }
 
-    n00b_utf32_t *u32 = n00b_new(n00b_type_utf32(),
-                                 n00b_kw("length",
-                                         n00b_ka(ix),
-                                         "codepoints",
-                                         n00b_ka(start)));
-    n00b_utf8_t  *u8  = n00b_to_utf8(u32);
+    n00b_string_t *u8 = n00b_utf32(start, ix);
 
     if (float_ix) {
         char  *endp  = NULL;
@@ -429,7 +416,7 @@ scan_int_or_float_literal(lex_state_t *state)
 
     __int128_t val  = 0;
     int        i    = 0;
-    size_t     slen = n00b_str_byte_len(u8);
+    size_t     slen = n00b_string_byte_len(u8);
     char      *p    = (char *)u8->data;
 
     for (; i < (int64_t)slen; i++) {
@@ -534,7 +521,7 @@ scan_tristring(lex_state_t *state)
     while (true) {
         switch (next(state)) {
         case 0:
-            LEX_ERROR(n00b_err_lex_eof_in_str_lit);
+            LEX_ERROR(n00b_err_lex_eof_in_string_lit);
         case '\n':
             at_new_line(state);
             break;
@@ -586,10 +573,10 @@ scan_string_literal(lex_state_t *state)
 
         switch (c) {
         case 0:
-            LEX_ERROR(n00b_err_lex_eof_in_str_lit);
+            LEX_ERROR(n00b_err_lex_eof_in_string_lit);
         case '\n':
         case '\r':
-            LEX_ERROR(n00b_err_lex_nl_in_str_lit);
+            LEX_ERROR(n00b_err_lex_nl_in_string_lit);
         case '\\':
             // Skip absolutely anything that comes next,
             // including a newline.
@@ -670,9 +657,7 @@ static n00b_dict_t *keywords = NULL;
 static inline void
 add_keyword(char *keyword, n00b_token_kind_t kind)
 {
-    n00b_utf8_t *s = n00b_new(n00b_type_utf8(),
-                              n00b_kw("cstring", n00b_ka(keyword)));
-    hatrack_dict_add(keywords, s, (void *)(int64_t)kind);
+    hatrack_dict_add(keywords, n00b_cstring(keyword), (void *)(int64_t)kind);
 }
 
 static inline void
@@ -682,7 +667,7 @@ init_keywords()
         return;
     }
 
-    keywords = n00b_new(n00b_type_dict(n00b_type_utf32(), n00b_type_i64()));
+    keywords = n00b_new(n00b_type_dict(n00b_type_string(), n00b_type_i64()));
 
     add_keyword("True", n00b_tt_true);
     add_keyword("true", n00b_tt_true);
@@ -748,16 +733,9 @@ scan_id_or_keyword(lex_state_t *state)
         return;
     }
 
-    n00b_utf32_t *as_u32 = n00b_new(
-        n00b_type_utf32(),
-        n00b_kw("codepoints",
-                n00b_ka(state->start),
-                "length",
-                n00b_ka(length)));
-
     n00b_token_kind_t r = (n00b_token_kind_t)(int64_t)hatrack_dict_get(
         keywords,
-        n00b_to_utf8(as_u32),
+        n00b_utf32(state->start, length),
         &found);
 
     if (!found) {
@@ -771,15 +749,9 @@ scan_id_or_keyword(lex_state_t *state)
         LITERAL_TOK(r, 0, ST_Bool);
         return;
     case n00b_tt_float_lit: {
-        n00b_utf32_t *u32 = n00b_new(
-            n00b_type_utf32(),
-            n00b_kw("length",
-                    n00b_ka((int64_t)(state->pos - state->start)),
-                    "codepoints",
-                    n00b_ka(state->start)));
-
-        n00b_utf8_t *u8    = n00b_to_utf8(u32);
-        double       value = strtod((char *)u8->data, NULL);
+        n00b_string_t *s     = n00b_utf32(state->start,
+                                      (state->pos - state->start));
+        double         value = strtod((char *)s->data, NULL);
 
         LITERAL_TOK(r, 0, ST_Float);
         state->last_token->literal_value = ((n00b_box_t)value).v;
@@ -1137,20 +1109,19 @@ n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
         if (n00b_buffer_len((n00b_buf_t *)raw) == 0) {
             return false;
         }
-        ctx->source = n00b_to_utf32(n00b_buf_to_utf8_string((n00b_buf_t *)raw));
-    }
-    else {
-        ctx->source = n00b_to_utf32(raw);
+        ctx->source = n00b_buf_to_utf8_string((n00b_buf_t *)raw);
     }
 
-    n00b_utf32_t *utf32 = ctx->source;
+    n00b_string_t *utf32 = ctx->source;
 
-    int len             = n00b_str_codepoint_len(utf32);
+    n00b_string_require_u32(utf32);
+
+    int len             = n00b_string_codepoint_len(utf32);
     ctx->ct->tokens     = n00b_new(n00b_type_list(n00b_type_ref()));
-    lex_info.start      = (n00b_codepoint_t *)utf32->data;
-    lex_info.pos        = (n00b_codepoint_t *)utf32->data;
-    lex_info.line_start = (n00b_codepoint_t *)utf32->data;
-    lex_info.end        = &((n00b_codepoint_t *)(utf32->data))[len];
+    lex_info.start      = (n00b_codepoint_t *)utf32->u32_data;
+    lex_info.pos        = (n00b_codepoint_t *)utf32->u32_data;
+    lex_info.line_start = (n00b_codepoint_t *)utf32->u32_data;
+    lex_info.end        = &((n00b_codepoint_t *)(utf32->u32_data))[len];
 
     bool error = false;
 
@@ -1171,94 +1142,65 @@ n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
     return !error;
 }
 
-n00b_utf8_t *
-n00b_format_one_token(n00b_token_t *tok, n00b_str_t *prefix)
+n00b_string_t *
+n00b_format_one_token(n00b_token_t *tok, n00b_string_t *prefix)
 {
-    int32_t       info_ix = (int)tok->kind;
-    int32_t      *num     = n00b_box_i32(tok->token_id);
-    n00b_utf8_t  *name    = n00b_new_utf8(tt_info[info_ix].tt_name);
-    int32_t      *line    = n00b_box_i32(tok->line_no);
-    int32_t      *offset  = n00b_box_i32(tok->line_offset);
-    n00b_utf32_t *val;
+    int32_t        info_ix = (int)tok->kind;
+    n00b_string_t *val     = n00b_utf32(tok->start_ptr,
+                                    tok->end_ptr - tok->start_ptr);
 
-    val = n00b_new(n00b_type_utf32(),
-                   n00b_kw("length",
-                           n00b_ka((int64_t)(tok->end_ptr - tok->start_ptr)),
-                           "codepoints",
-                           n00b_ka(tok->start_ptr)));
-
-    return n00b_cstr_format("{}#{} {} ({}:{}) {}",
-                            prefix,
-                            num,
-                            name,
-                            line,
-                            offset,
-                            val);
+    return n00b_cformat("«#»#«#» «#» («#»:«#») «#»",
+                        prefix,
+                        (int64_t)tok->token_id,
+                        tt_info[info_ix].tt_name,
+                        (int64_t)tok->line_no,
+                        (int64_t)tok->line_offset,
+                        val);
 }
 
 // Start out with any focus on color or other highlighting; just get
 // them into a default table for now aimed at debugging, and we'll add
 // a facility for styling later.
-n00b_grid_t *
+n00b_table_t *
 n00b_format_tokens(n00b_module_t *ctx)
 {
-    n00b_grid_t *grid = n00b_new(n00b_type_grid(),
-                                 n00b_kw("start_cols",
-                                         n00b_ka(5),
-                                         "header_rows",
-                                         n00b_ka(1),
-                                         "container_tag",
-                                         n00b_ka(n00b_new_utf8("table2")),
-                                         "stripe",
-                                         n00b_ka(true)));
+    n00b_table_t *tbl = n00b_table("columns", n00b_ka(5));
+    int64_t       len = n00b_list_len(ctx->ct->tokens);
 
-    n00b_list_t *row  = n00b_new_table_row();
-    int64_t      len  = n00b_list_len(ctx->ct->tokens);
-    n00b_utf8_t *snap = n00b_new_utf8("snap");
-    n00b_utf8_t *flex = n00b_new_utf8("flex");
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_fit(tbl);
+    n00b_table_next_column_flex(tbl, 1);
 
-    n00b_list_append(row, n00b_new_utf8("Seq #"));
-    n00b_list_append(row, n00b_new_utf8("Type"));
-    n00b_list_append(row, n00b_new_utf8("Line #"));
-    n00b_list_append(row, n00b_new_utf8("Column #"));
-    n00b_list_append(row, n00b_new_utf8("Value"));
-    n00b_grid_add_row(grid, row);
+    n00b_table_add_cell(tbl, n00b_cstring("Seq #"));
+    n00b_table_add_cell(tbl, n00b_cstring("Type"));
+    n00b_table_add_cell(tbl, n00b_cstring("Line #"));
+    n00b_table_add_cell(tbl, n00b_cstring("Column #"));
+    n00b_table_add_cell(tbl, n00b_cstring("Value"));
 
     for (int64_t i = 0; i < len; i++) {
         n00b_token_t *tok     = n00b_list_get(ctx->ct->tokens, i, NULL);
         int           info_ix = (int)tok->kind;
 
-        row = n00b_new_table_row();
-        n00b_list_append(row, n00b_str_from_int(i + 1));
-        n00b_list_append(row, n00b_new_utf8(tt_info[info_ix].tt_name));
-        n00b_list_append(row, n00b_str_from_int(tok->line_no));
-        n00b_list_append(row, n00b_str_from_int(tok->line_offset));
+        n00b_table_add_cell(tbl, n00b_string_from_int(i + 1));
+        n00b_table_add_cell(tbl, n00b_cstring(tt_info[info_ix].tt_name));
+        n00b_table_add_cell(tbl, n00b_string_from_int(tok->line_no));
+        n00b_table_add_cell(tbl, n00b_string_from_int(tok->line_offset));
 
         if (tt_info[info_ix].show_contents) {
-            n00b_list_append(
-                row,
-                n00b_new(n00b_type_utf32(),
-                         n00b_kw("length",
-                                 n00b_ka((int64_t)(tok->end_ptr - tok->start_ptr)),
-                                 "codepoints",
-                                 n00b_ka(tok->start_ptr))));
+            int n = tok->end_ptr - tok->start_ptr;
+            n00b_table_add_cell(tbl, n00b_utf32(tok->start_ptr, n));
         }
         else {
-            n00b_list_append(row, n00b_rich_lit(" "));
+            n00b_table_add_cell(tbl, n00b_cached_empty_string());
         }
-
-        n00b_grid_add_row(grid, row);
     }
 
-    n00b_set_column_style(grid, 0, snap);
-    n00b_set_column_style(grid, 1, snap);
-    n00b_set_column_style(grid, 2, snap);
-    n00b_set_column_style(grid, 3, snap);
-    n00b_set_column_style(grid, 4, flex);
-    return grid;
+    return tbl;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_token_raw_content(n00b_token_t *tok)
 {
     if (!tok) {
@@ -1270,7 +1212,7 @@ n00b_token_raw_content(n00b_token_t *tok)
     }
 
     if (!strcmp(tok->text->data, "result")) {
-        return n00b_new_utf8("$result");
+        return n00b_cstring("$result");
     }
 
     return tok->text;

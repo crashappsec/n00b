@@ -31,27 +31,7 @@ typedef struct {
     n00b_gc_root_info_t   *root_entry;
 } n00b_pickle_ctx;
 
-// This needs to stay in sync w/ n00b_alloc_hdr
-typedef struct n00b_marshaled_hdr {
-    uint64_t     empty_guard;
-    n00b_type_t *type;
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-    char *alloc_file;
-#endif
-    uint32_t alloc_len;
-
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-    int16_t alloc_line;
-#endif
-
-    uint32_t    n00b_marshal_end : 1;
-    uint32_t    n00b_ptr_scan    : 1;
-    uint32_t    n00b_obj         : 1;
-    uint32_t    n00b_finalize    : 1;
-    uint32_t    n00b_moved       : 1;
-    __uint128_t cached_hash;
-    alignas(N00B_FORCED_ALIGNMENT) uint64_t data[0];
-} n00b_marshaled_hdr;
+typedef struct n00b_alloc_record_t n00b_marshaled_hdr;
 
 // When we're on the unmarshaling side, we buffer until we see the end
 // of a 'message'. For each sent message, we allocate a new memory

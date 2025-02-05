@@ -9,4 +9,4 @@ $output:
 Hello, world!
 """
 
-print("[h2]Hello,[/] [h5]world!"'r)
+print("«h2»Hello, «h5»world!"'r)

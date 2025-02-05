@@ -1,48 +1,44 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-#undef N00B_STATIC_ASCII_STR
-#define N00B_STATIC_ASCII_STR(var, contents) \
-    n00b_utf8_t *var = n00b_new_utf8(contents)
-
-#define FORMAT_NOT_IN_FN()                       \
-    s = n00b_str_format(n00b_fmt_mod,            \
-                        n00b_box_u64(frameno++), \
-                        modname,                 \
-                        n00b_box_u64(lineno))
+#define FORMAT_NOT_IN_FN()        \
+    s = n00b_format(n00b_fmt_mod, \
+                    frameno++,    \
+                    modname,      \
+                    (int64_t)lineno)
 #define FORMAT_IN_FN()                                             \
     fnname = tstate->frame_stack[num_frames].targetfunc->funcname; \
-    s      = n00b_str_format(n00b_fmt_fn,                          \
-                        n00b_box_u64(frameno++),              \
-                        fnname,                               \
-                        modname,                              \
-                        n00b_box_u64(lineno))
+    s      = n00b_format(n00b_fmt_fn,                              \
+                    frameno++,                                \
+                    fnname,                                   \
+                    modname,                                  \
+                    (int64_t)lineno)
 #define OUTPUT_FRAME() \
     n00b_ansi_render(s, f);
 
 static inline n00b_list_t *
 format_one_frame(n00b_vmthread_t *tstate, int n)
 {
-    n00b_list_t     *l = n00b_list(n00b_type_utf8());
-    uint64_t        *pc;
-    uint64_t        *line;
+    n00b_list_t     *l = n00b_list(n00b_type_string());
+    uint64_t         pc;
+    uint64_t         line;
     n00b_zfn_info_t *f;
-    n00b_utf8_t     *modname;
-    n00b_utf8_t     *fname;
+    n00b_string_t   *modname;
+    n00b_string_t   *fname;
 
     if (n == tstate->num_frames) {
         n00b_module_t       *m = tstate->current_module;
         n00b_zinstruction_t *i = n00b_list_get(m->instructions, tstate->pc, NULL);
 
-        pc      = n00b_box_u64(tstate->pc);
+        pc      = tstate->pc;
         modname = m->name;
-        line    = n00b_box_u64(i->line_no);
+        line    = i->line_no;
     }
     else {
         n00b_vmframe_t *frame = &tstate->frame_stack[n];
         modname               = frame->call_module->name;
-        pc                    = n00b_box_u64(frame->pc);
-        line                  = n00b_box_u64(frame->calllineno);
+        pc                    = frame->pc;
+        line                  = frame->calllineno;
     }
 
     if (n == 0) {
@@ -53,123 +49,45 @@ format_one_frame(n00b_vmthread_t *tstate, int n)
     }
 
     if (n == 1) {
-        fname = n00b_new_utf8("(start of execution)");
+        fname = n00b_cstring("(start of execution)");
     }
     else {
-        fname = f ? f->funcname : n00b_new_utf8("(module toplevel)");
+        fname = f ? f->funcname : n00b_cstring("(module toplevel)");
     }
 
-    n00b_list_append(l, n00b_cstr_format("{:18x}", pc));
-    n00b_list_append(l, n00b_cstr_format("{}:{}", modname, line));
+    n00b_list_append(l, n00b_cformat("«#:p»", pc));
+    n00b_list_append(l, n00b_cformat("«#»:«#»", modname, line));
     n00b_list_append(l, fname);
 
     return l;
 }
 
-#if defined(N00B_DEBUG)
-extern int16_t *n00b_calculate_col_widths(n00b_grid_t *, int16_t, int16_t *);
-#endif
-
-n00b_grid_t *
+n00b_table_t *
 n00b_get_backtrace(n00b_vmthread_t *tstate)
 {
     if (!tstate->running) {
-        return n00b_callout(n00b_new_utf8("N00b is not running!"));
+        return n00b_call_out(n00b_cstring("N00b is not running!"));
     }
 
-    int          nframes = tstate->num_frames;
-    n00b_list_t *hdr     = n00b_list(n00b_type_utf8());
-    n00b_grid_t *bt      = n00b_new(n00b_type_grid(),
-                               n00b_kw("start_cols",
-                                       n00b_ka(3),
-                                       "start_rows",
-                                       n00b_ka(nframes + 1),
-                                       "header_rows",
-                                       n00b_ka(1),
-                                       "container_tag",
-                                       n00b_ka(n00b_new_utf8("table2")),
-                                       "stripe",
-                                       n00b_ka(true)));
+    n00b_table_t *result = n00b_table("columns", n00b_ka(3));
 
-    n00b_list_append(hdr, n00b_new_utf8("PC"));
-    n00b_list_append(hdr, n00b_new_utf8("Location"));
-    n00b_list_append(hdr, n00b_new_utf8("Function"));
-    n00b_grid_add_row(bt, hdr);
+    int nframes = tstate->num_frames;
+
+    n00b_table_add_cell(result, n00b_cstring("PC"));
+    n00b_table_add_cell(result, n00b_cstring("Location"));
+    n00b_table_add_cell(result, n00b_cstring("Function"));
 
     while (nframes > 0) {
-        n00b_grid_add_row(bt, format_one_frame(tstate, nframes--));
+        n00b_table_add_row(result, format_one_frame(tstate, nframes--));
     }
 
-    // Snap columns to calculate a stand-alone with. If we have a C
-    // backtrace, we will then resize columns to make both tables
-    // the same width.
-
-    n00b_snap_column(bt, 0);
-    n00b_snap_column(bt, 1);
-    n00b_snap_column(bt, 2);
-
-    return bt;
+    return result;
 }
 
 static void
 n00b_vm_exception(n00b_vmthread_t *tstate, n00b_exception_t *exc)
 {
-    n00b_stream_t *f      = n00b_stderr();
-    n00b_grid_t   *bt     = n00b_get_backtrace(tstate);
-    n00b_utf8_t   *to_out = n00b_rich_lit("[h2]Fatal Exception:[/] ");
-
-    to_out = n00b_str_concat(to_out, n00b_exception_get_message(exc));
-    to_out = n00b_str_concat(to_out, n00b_rich_lit("\n[h6]N00b Trace:[/]"));
-
-#if defined(N00B_DEBUG) && defined(N00B_BACKTRACE_SUPPORTED)
-    int16_t  tmp;
-    int16_t *widths1 = n00b_calculate_col_widths(exc->c_trace,
-                                                 N00B_GRID_TERMINAL_DIM,
-                                                 &tmp);
-    int16_t *widths2 = n00b_calculate_col_widths(bt,
-                                                 N00B_GRID_TERMINAL_DIM,
-                                                 &tmp);
-
-    for (int i = 0; i < 3; i++) {
-        int w = n00b_max(widths1[i], widths2[i]);
-
-        n00b_render_style_t *s = n00b_new(n00b_type_render_style(),
-                                          n00b_kw("min_size",
-                                                  n00b_ka(w),
-                                                  "max_size",
-                                                  n00b_ka(w),
-                                                  "left_pad",
-                                                  n00b_ka(1),
-                                                  "right_pad",
-                                                  n00b_ka(1)));
-        n00b_set_column_props(bt, i, s);
-        n00b_set_column_props(exc->c_trace, i, s);
-    }
-#endif
-    n00b_print(n00b_kw("stream", n00b_ka(f), "sep", n00b_ka('\n')), 2, to_out, bt);
-
-#ifdef N00B_DEV
-    n00b_write(tstate->vm->run_state->print_stream,
-               n00b_exception_get_message(exc));
-
-    n00b_putc(tstate->vm->run_state->print_stream, '\n');
-#endif
-
-    // This is currently just a stub that prints an rudimentary error
-    // message and a stack trace. The caller handles how to
-    // proceed. This will need to be changed later when a better error
-    // handling framework is in place.
-
-#if defined(N00B_DEBUG) && defined(N00B_BACKTRACE_SUPPORTED)
-    if (!exc->c_trace) {
-        n00b_printf("[h6]No C stack trace available.");
-    }
-    else {
-        n00b_printf("[h6]C stack trace:");
-        n00b_print(n00b_kw("stream", n00b_ka(f)), 1, exc->c_trace);
-    }
-#endif
-
+    n00b_print_exception(exc, n00b_crich("«em2»Fatal Exception:«/» "));
     // The caller will know what to do on exception.
 }
 
@@ -232,7 +150,7 @@ n00b_value_iszero(n00b_obj_t value)
 
 #if 0 // Will return soon
 
-static n00b_str_t *
+static n00b_string_t *
 get_param_name(n00b_zparam_info_t *p, n00b_module_t *)
 {
     if (p->attr != NULL && n00b_len(p->attr) > 0) {
@@ -251,15 +169,14 @@ get_param_value(n00b_vmthread_t *tstate, n00b_zparam_info_t *p)
         return &p->default_value;
     }
 
-    n00b_str_t *name = get_param_name(p, tstate->current_module);
+    n00b_string_t *name = get_param_name(p, tstate->current_module);
 
-    N00B_STATIC_ASCII_STR(errstr, "parameter not set: ");
-    n00b_utf8_t *msg = n00b_str_concat(errstr, name);
-    N00B_STATIC_ASCII_STR(module_prefix, " (in module ");
-    msg = n00b_str_concat(msg, module_prefix);
-    msg = n00b_str_concat(msg, tstate->current_module->modname);
-    N00B_STATIC_ASCII_STR(module_suffix, ")");
-    msg = n00b_str_concat(msg, module_suffix);
+    errstr = n00b_cstring("parameter not set: ");
+    n00b_string_t *msg = n00b_string_concat(errstr, name);
+    module_prefix = n00b_cstring("parameter not set: ");
+    msg = n00b_string_concat(msg, module_prefix);
+    msg = n00b_string_concat(msg, tstate->current_module->modname);
+    msg = n00b_string_concat(msg, n00b_cached_rparen());
     N00B_RAISE(msg);
 }
 #endif
@@ -779,8 +696,7 @@ n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
 		n < 63 &&
 		((1 << n) & ffiinfo->str_convert)) {
 
-		n00b_utf8_t *s = (n00b_utf8_t *)tstate->sp[i].rvalue;
-		s             = n00b_to_utf8(s);
+		n00b_string_t *s = (n00b_string_t *)tstate->sp[i].rvalue;
 		args[n]       = &s->data;
             }
             // clang-format on
@@ -810,7 +726,7 @@ n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
 
     if (ffiinfo->str_convert & (1UL << 63)) {
         char *s    = (char *)tstate->r0;
-        tstate->r0 = n00b_new_utf8(s);
+        tstate->r0 = n00b_cstring(s);
     }
 
     if (dynamic_type != NULL) {
@@ -826,6 +742,7 @@ n00b_vm_foreign_z_call(n00b_vmthread_t *tstate, n00b_zinstruction_t *i, int64_t 
 {
     // TODO foreign_z_call
 }
+
 n00b_zcallback_t *
 n00b_new_zcallback()
 {
@@ -914,8 +831,8 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
 #ifdef N00B_VM_DEBUG
             static bool  debug_on = (bool)(N00B_VM_DEBUG_DEFAULT);
             static char *debug_fmt_str =
-                "[i]> {} (PC@{:x}; SP@{:x}; "
-                "FP@{:x}; a = {}; i = {}; m = {})";
+                "\n«i»> «#» (PC@«#:p»; SP@«#:p»; "
+                "FP@«#:p»; a = «#»; i = «#»; m = «#»)";
 
             if (debug_on && i->op != N00B_ZNop) {
                 int num_stack_items = &tstate->stack[N00B_STACK_SIZE] - tstate->sp;
@@ -944,16 +861,15 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                     }
                 }
                 printf("\n");
-                n00b_print(
-                    n00b_cstr_format(
-                        debug_fmt_str,
-                        n00b_fmt_instr_name(i),
-                        n00b_box_u64(tstate->pc * 16),
-                        n00b_box_u64((uint64_t)(void *)tstate->sp),
-                        n00b_box_u64((uint64_t)(void *)tstate->fp),
-                        n00b_box_i64((int64_t)i->arg),
-                        n00b_box_i64((int64_t)i->immediate),
-                        n00b_box_u64((uint64_t)tstate->current_module->module_id)));
+                n00b_printf(
+                    debug_fmt_str,
+                    n00b_fmt_instr_name(i),
+                    (int64_t)tstate->pc * 16,
+                    (uint64_t)(void *)tstate->sp,
+                    (uint64_t)(void *)tstate->fp,
+                    (int64_t)i->arg,
+                    (int64_t)i->immediate,
+                    (uint64_t)tstate->current_module->module_id);
             }
 
 #endif
@@ -1227,10 +1143,10 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             case N00B_ZLoadFromAttr:
                 STACK_REQUIRE_VALUES(1);
                 do {
-                    bool         found = true;
-                    n00b_utf8_t *key   = tstate->sp->vptr;
-                    n00b_obj_t   val;
-                    uint64_t     flag = i->immediate;
+                    bool           found = true;
+                    n00b_string_t *key   = tstate->sp->vptr;
+                    n00b_obj_t     val;
+                    uint64_t       flag = i->immediate;
 
                     if (flag) {
                         val = n00b_vm_attr_get(tstate, key, &found);
@@ -1287,7 +1203,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             case N00B_ZLockOnWrite:
                 STACK_REQUIRE_VALUES(1);
                 do {
-                    n00b_utf8_t *key = tstate->sp->vptr;
+                    n00b_string_t *key = tstate->sp->vptr;
                     n00b_vm_attr_lock(tstate, key, true);
                 } while (0);
                 break;
@@ -1532,7 +1448,12 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 // This is not threadsafe. It's just for early days.
             case N00B_ZPrint:
                 STACK_REQUIRE_VALUES(1);
-                n00b_print(tstate->sp->rvalue);
+                // n00b_print(tstate->sp->rvalue, NULL);
+                // The debug stream for testing. This should go away soon;
+                // tee off stuff instead.
+                n00b_write_blocking(n00b_stdout(), tstate->sp->rvalue, NULL);
+                n00b_write_blocking(n00b_stdout(), n00b_cached_newline(), NULL);
+
                 n00b_write(tstate->vm->run_state->print_stream,
                            tstate->sp->rvalue);
                 n00b_putc(tstate->vm->run_state->print_stream, '\n');
@@ -1641,21 +1562,13 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
     return tstate->error ? -1 : 0;
 }
 
-static thread_local n00b_vmthread_t *thread_runtime = NULL;
-
-n00b_vmthread_t *
-n00b_thread_runtime_acquire()
-{
-    return thread_runtime;
-}
-
 int
 n00b_vmthread_run(n00b_vmthread_t *tstate)
 {
     n00b_assert(!tstate->running);
     tstate->running = true;
 
-    thread_runtime = tstate;
+    n00b_get_tsi_ptr()->thread_runtime = tstate;
 
     n00b_zinstruction_t *i = n00b_list_get(tstate->current_module->instructions,
                                            tstate->pc,

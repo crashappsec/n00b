@@ -13,7 +13,7 @@
 #define NUM_ASSERTION_STRS 4
 #endif
 
-static n00b_utf8_t *n00b_assert_strs[NUM_ASSERTION_STRS];
+static n00b_string_t *n00b_assert_strs[NUM_ASSERTION_STRS];
 
 int
 n00b_show_assert_failure(char *expr, char *func, char *file, int line)
@@ -42,11 +42,11 @@ n00b_assertion_init(void)
 {
     n00b_gc_register_root(&n00b_assert_strs[0], NUM_ASSERTION_STRS);
 
-    n00b_assert_strs[IX_FAIL] = n00b_rich_lit("[h4]ASSERTION FAILED:[/] ");
-    n00b_assert_strs[IX_FUNC] = n00b_rich_lit("[h1]Function:[/] ");
-    n00b_assert_strs[IX_LOC]  = n00b_rich_lit("[h1]Location:[/] ");
+    n00b_assert_strs[IX_FAIL] = n00b_crich("«em4»ASSERTION FAILED:«/» ");
+    n00b_assert_strs[IX_FUNC] = n00b_crich("«em1»Function:«/» ");
+    n00b_assert_strs[IX_LOC]  = n00b_crich("«em1»Location:«/» ");
 #ifdef N00B_BACKTRACE_SUPPORTED
-    n00b_assert_strs[IX_BT] = n00b_rich_lit("\n[h4]Backtrace:[/]\n");
+    n00b_assert_strs[IX_BT] = n00b_crich("\n«em4»Backtrace:«/»\n");
 #endif
 }
 #endif

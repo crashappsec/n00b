@@ -10,10 +10,10 @@ typedef struct {
 } search_ctx_t;
 
 #ifdef N00B_N00B_DEBUG_PATTERNS
-#define tpat_debug(ctx, txt) n00b_print(n00b_cstr_format( \
-    "{:x} : [em]{}[/]",                                   \
-    n00b_box_u64((uint64_t)ctx->pattern_cur),             \
-    n00b_new_utf8(txt),                                   \
+#define tpat_debug(ctx, txt) n00b_print(n00b_cformat( \
+    "«#:x» : «em»«#»[/]",                             \
+    (uint64_t)ctx->pattern_cur,                       \
+    n00b_cstring(txt),                               \
     0))
 #else
 #define tpat_debug(ctx, txt)
@@ -44,79 +44,79 @@ n00b_tree_node_t *
 n00b_pat_repr(n00b_tpat_node_t   *pat,
               n00b_pattern_fmt_fn content_formatter)
 {
-    n00b_utf8_t *op       = NULL;
-    n00b_utf8_t *contents = (*content_formatter)(pat->contents);
-    n00b_utf8_t *capture;
+    n00b_string_t *op       = NULL;
+    n00b_string_t *contents = (*content_formatter)(pat->contents);
+    n00b_string_t *capture;
 
     if (pat->walk) {
-        op = n00b_new_utf8(">>>");
+        op = n00b_cstring(">>>");
     }
     else {
         if (pat->min == 1 && pat->max == 1) {
             if (pat->ignore_kids) {
-                op = n00b_new_utf8(".");
+                op = n00b_cached_period();
             }
             else {
-                op = n00b_new_utf8("...");
+                op = n00b_cstring("...");
             }
         }
         if (pat->min == 0 && pat->max == 1) {
             if (pat->ignore_kids) {
-                op = n00b_new_utf8("?");
+                op = n00b_cached_question();
             }
             else {
-                op = n00b_new_utf8("???");
+                op = n00b_cstring("???");
             }
         }
         if (pat->min == 0 && pat->max == 0x7fff) {
             if (pat->ignore_kids) {
-                op = n00b_new_utf8("*");
+                op = n00b_cached_star();
             }
             else {
-                op = n00b_new_utf8("***");
+                op = n00b_cstring("***");
             }
         }
         if (pat->min == 0 && pat->max == 0x7fff) {
             if (pat->ignore_kids) {
-                op = n00b_new_utf8("*");
+                op = n00b_cached_star();
             }
             else {
-                op = n00b_new_utf8("***");
+                op = n00b_cstring("***");
             }
         }
         if (pat->min == 1 && pat->max == 0x7fff) {
             if (pat->ignore_kids) {
-                op = n00b_new_utf8("+");
+                op = n00b_cached_plus();
             }
             else {
-                op = n00b_new_utf8("+++");
+                op = n00b_cstring("+++");
             }
         }
     }
     if (op == NULL) {
         if (pat->ignore_kids) {
-            op = n00b_cstr_format("{}:{}", pat->min, pat->max);
+            op = n00b_cformat("«#»:«#»", pat->min, pat->max);
         }
         else {
-            op = n00b_cstr_format("{}:::{}", pat->min, pat->max);
+            op = n00b_cformat("«#»:::«#»", pat->min, pat->max);
         }
     }
 
     if (pat->capture) {
-        capture = n00b_new_utf8(" !");
+        capture = n00b_cstring(" !");
     }
     else {
-        capture = n00b_new_utf8(" ");
+        capture = n00b_cached_space();
     }
 
-    n00b_utf8_t *txt = n00b_cstr_format("{:x} [em]{}{}[/] :",
-                                        n00b_box_u64((uint64_t)pat),
-                                        op,
-                                        capture);
+    n00b_string_t *txt = n00b_cformat("«#:x» «em»«#»«#»«/» :",
+                                      (uint64_t)pat,
+                                      op,
+                                      capture);
 
-    txt = n00b_str_concat(txt, contents);
+    txt = n00b_string_concat(txt, contents);
 
-    n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_utf8()),
+    n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_string()),
                                         n00b_kw("contents", n00b_ka(txt)));
 
     for (unsigned int i = 0; i < pat->num_kids; i++) {
@@ -284,7 +284,7 @@ n00b_tree_match(n00b_tree_node_t *tree,
     bool result = full_match(search_state, pat->contents);
 
     if (match_loc != NULL) {
-        *match_loc = n00b_set_to_xlist(search_state->captures);
+        *match_loc = n00b_set_to_list(search_state->captures);
     }
 
     if (result) {

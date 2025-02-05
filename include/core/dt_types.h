@@ -17,7 +17,7 @@ typedef struct {
 
 typedef struct n00b_type_t {
     tv_options_t    options; // Type-specific info.
-    n00b_utf8_t     *name;
+    n00b_string_t     *name;
     n00b_list_t     *items;
     n00b_builtin_t   base_index;
     uint64_t        flags;
@@ -70,5 +70,5 @@ typedef struct n00b_type_universe_t {
 } n00b_type_universe_t;
 
 #ifdef N00B_USE_INTERNAL_API
-n00b_str_t *n00b_internal_type_repr(n00b_type_t *, n00b_dict_t *, int64_t *);
+n00b_string_t *n00b_internal_type_repr(n00b_type_t *, n00b_dict_t *, int64_t *);
 #endif

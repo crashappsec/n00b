@@ -1,6 +1,6 @@
-#include "n00b.h"
+#define N00B_USE_INTERNAL_API
 
-extern hatrack_hash_t n00b_custom_string_hash(n00b_str_t *s);
+#include "n00b.h"
 
 static void
 n00b_set_init(n00b_set_t *set, va_list args)
@@ -17,8 +17,7 @@ n00b_set_init(n00b_set_t *set, va_list args)
     case N00B_T_REF:
         hash_fn = HATRACK_DICT_KEY_TYPE_OBJ_PTR;
         break;
-    case N00B_T_UTF8:
-    case N00B_T_UTF32:
+    case N00B_T_STRING:
         custom_hash = (hatrack_hash_func_t)n00b_custom_string_hash;
         break;
     default:
@@ -36,7 +35,7 @@ n00b_set_init(n00b_set_t *set, va_list args)
     }
     else {
         hatrack_set_init(set, hash_fn);
-        hatrack_set_set_hash_offset(set, N00B_STR_HASH_KEY_POINTER_OFFSET);
+        hatrack_set_set_hash_offset(set, N00B_string_HASH_KEY_POINTER_OFFSET);
         hatrack_set_set_cache_offset(set, N00B_HASH_CACHE_OBJ_OFFSET);
     }
 }
@@ -61,7 +60,7 @@ n00b_set_shallow_copy(n00b_set_t *s)
 }
 
 n00b_list_t *
-n00b_set_to_xlist(n00b_set_t *s)
+n00b_set_to_list(n00b_set_t *s)
 {
     if (s == NULL) {
         return NULL;
@@ -80,7 +79,7 @@ n00b_set_to_xlist(n00b_set_t *s)
 }
 
 static n00b_set_t *
-to_set_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_utf8_t *litmod)
+to_set_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *litmod)
 {
     n00b_set_t *result = n00b_new(objtype);
     int         n      = n00b_list_len(items);
@@ -102,8 +101,7 @@ n00b_set_set_gc_bits(uint64_t *bitfield, void *alloc)
 }
 
 const n00b_vtable_t n00b_set_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_set_init,
         [N00B_BI_FINALIZER]     = (n00b_vtable_entry)hatrack_set_cleanup,
         [N00B_BI_SHALLOW_COPY]  = (n00b_vtable_entry)n00b_set_shallow_copy,

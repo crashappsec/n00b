@@ -38,7 +38,7 @@ n00b_in_io_thread(void)
 }
 
 static void
-n00b_io_impl_register(n00b_utf8_t *name, n00b_io_impl_info_t *info)
+n00b_io_impl_register(n00b_string_t *name, n00b_io_impl_info_t *info)
 {
     info->name = name;
 
@@ -47,7 +47,7 @@ n00b_io_impl_register(n00b_utf8_t *name, n00b_io_impl_info_t *info)
     }
 
     //    n00b_push_heap(n00b_internal_heap);
-    n00b_utf8_t *s = n00b_str_copy(name);
+    n00b_string_t *s = n00b_string_copy(name);
     //    n00b_pop_heap();
 
     if (!hatrack_dict_add(impls, s, info)) {
@@ -129,10 +129,10 @@ n00b_stream_init(n00b_stream_t *event, va_list args)
     n00b_initialize_event(event, impl, perms, et, cookie);
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_stream_repr(n00b_stream_t *e)
 {
-    n00b_utf8_t *name;
+    n00b_string_t *name;
 
     if (e->repr) {
         return e->repr;
@@ -149,47 +149,47 @@ n00b_stream_repr(n00b_stream_t *e)
         };
 
         snprintf(buf, 1023, "%llu (%s)", id, e->impl->name->data);
-        name = n00b_new_utf8(buf);
+        name = n00b_cstring(buf);
     }
 
     char read  = e->closed_for_read ? '-' : '+';
     char write = e->closed_for_write ? '-' : '+';
-    return n00b_cstr_format("{} {}r {}w\n",
-                            name,
-                            n00b_utf8_repeat(read, 1),
-                            n00b_utf8_repeat(write, 1));
+    return n00b_cformat("«#» «#»r «#»w\n",
+                        name,
+                        n00b_string_from_codepoint(read),
+                        n00b_string_from_codepoint(write));
 }
 
-static inline n00b_utf8_t *
+static inline n00b_string_t *
 build_filter_list(n00b_list_t *from)
 {
     if (!from || !n00b_list_len(from)) {
-        return n00b_rich_lit("[i]None.");
+        return n00b_crich("«i»None.");
     }
-    n00b_list_t *l = n00b_list(n00b_type_utf8());
+    n00b_list_t *l = n00b_list(n00b_type_string());
     int          n = n00b_list_len(from);
     for (int i = 0; i < n; i++) {
         n00b_stream_filter_t *f = n00b_list_get(from, i, NULL);
-        n00b_list_append(l, n00b_to_utf8(f->name));
+        n00b_list_append(l, f->name);
     }
 
-    return n00b_str_join(l, n00b_new_utf8(", "));
+    return n00b_string_join(l, n00b_cached_comma_padded());
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_stream_filter_repr(n00b_stream_t *e)
 {
-    n00b_utf8_t *result;
+    n00b_string_t *result;
 
-    result = n00b_rich_lit("[h3]Read filters: ");
-    result = n00b_str_concat(result, build_filter_list(e->read_filters));
-    result = n00b_str_concat(result, n00b_rich_lit("\n[h3]Write filters: "));
-    result = n00b_str_concat(result, build_filter_list(e->write_filters));
+    result = n00b_crich("«em3»Read filters: ");
+    result = n00b_string_concat(result, build_filter_list(e->read_filters));
+    result = n00b_string_concat(result, n00b_crich("\n«em3»Write filters: "));
+    result = n00b_string_concat(result, build_filter_list(e->write_filters));
 
     return result;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 one_subscription_repr(n00b_stream_t *s, n00b_io_subscription_kind k)
 {
     n00b_dict_t *d = n00b_stream_get_subscriptions(s, k);
@@ -198,7 +198,7 @@ one_subscription_repr(n00b_stream_t *s, n00b_io_subscription_kind k)
         return NULL;
     }
     n00b_list_t *subs = n00b_dict_keys(d);
-    n00b_list_t *l    = n00b_list(n00b_type_utf8());
+    n00b_list_t *l    = n00b_list(n00b_type_string());
     int          n    = n00b_list_len(subs);
 
     if (!n) {
@@ -208,7 +208,8 @@ one_subscription_repr(n00b_stream_t *s, n00b_io_subscription_kind k)
     for (int i = 0; i < n; i++) {
         n00b_stream_t *sink = n00b_list_get(subs, i, NULL);
         n00b_list_append(l,
-                         n00b_str_concat(n00b_new_utf8("\n"), n00b_stream_repr(sink)));
+                         n00b_string_concat(n00b_cached_newline(),
+                                            n00b_stream_repr(sink)));
     }
 
     char *cname;
@@ -231,16 +232,16 @@ one_subscription_repr(n00b_stream_t *s, n00b_io_subscription_kind k)
         break;
     }
 
-    return n00b_cstr_format("[h6]{} subscriptions:[/]\n{}\n",
-                            n00b_new_utf8(cname),
-                            n00b_str_join(l, n00b_new_utf8("\n  ")));
+    return n00b_cformat("«em6»«#» subscriptions:«#»\n«#»\n",
+                        n00b_cstring(cname),
+                        n00b_string_join(l, n00b_cstring("\n  ")));
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_stream_subs_repr(n00b_stream_t *e)
 {
-    n00b_utf8_t *r = NULL;
-    n00b_utf8_t *t;
+    n00b_string_t *r = NULL;
+    n00b_string_t *t;
 
     for (int i = n00b_io_sk_read; i <= n00b_io_sk_close; i++) {
         t = one_subscription_repr(e, i);
@@ -249,27 +250,29 @@ n00b_stream_subs_repr(n00b_stream_t *e)
         }
         else {
             if (t) {
-                r = n00b_str_concat(r, t);
+                r = n00b_string_concat(r, t);
             }
         }
     }
 
     if (!r) {
-        return n00b_rich_lit("[h6]No subscriptions.\n");
+        return n00b_crich("«em6»No subscriptions.\n");
     }
 
     return r;
 }
 
-n00b_utf8_t *
+n00b_string_t *
 n00b_stream_full_repr(n00b_stream_t *s)
 {
-    n00b_utf8_t *result = n00b_stream_repr(s);
-    result              = n00b_str_concat(result, n00b_new_utf8("\n"));
-    result              = n00b_str_concat(result, n00b_stream_subs_repr(s));
-    result              = n00b_str_concat(result, n00b_stream_filter_repr(s));
-    result              = n00b_str_concat(result,
-                             n00b_rich_lit("\n[h5]--------------------[/]\n"));
+    n00b_string_t *result = n00b_stream_repr(s);
+    result                = n00b_string_concat(result, n00b_cached_newline());
+    result                = n00b_string_concat(result,
+                                n00b_stream_subs_repr(s));
+    result                = n00b_string_concat(result,
+                                n00b_stream_filter_repr(s));
+    result                = n00b_string_concat(result,
+                                n00b_crich("\n«em5»--------------------«/»\n"));
 
     return result;
 }
@@ -668,11 +671,11 @@ n00b_io_enqueue_fd_write(n00b_stream_t *party, void *msg)
     n00b_ev2_cookie_t *cookie = party->cookie;
 
     if (n00b_type_is_string(t)) {
-        n00b_utf8_t *s = n00b_to_utf8(msg);
-        n00b_buf_t  *b = n00b_buffer_empty();
-        b->data        = s->data;
-        b->byte_len    = s->byte_len;
-        msg            = b;
+        n00b_string_t *s = msg;
+        n00b_buf_t    *b = n00b_buffer_empty();
+        b->data          = s->data;
+        b->byte_len      = s->u8_bytes;
+        msg              = b;
     }
 
     if (cookie->backlog && n00b_list_len(cookie->backlog) != 0) {
@@ -769,9 +772,9 @@ setup_libevent(void)
                             n00b_free_compat);
 
     if (!n00b_system_event_base) {
-        n00b_push_heap(n00b_internal_heap);
+        //        n00b_push_heap(n00b_internal_heap);
         n00b_system_event_base = n00b_new_base();
-        n00b_pop_heap();
+        //        n00b_pop_heap();
     }
 
     event_set_log_callback(n00b_dislikes_libevent);
@@ -784,7 +787,7 @@ setup_libevent(void)
 }
 
 n00b_stream_t *
-n00b_open_event(n00b_utf8_t *type, void *info)
+n00b_open_event(n00b_string_t *type, void *info)
 {
     n00b_io_impl_info_t *impl = hatrack_dict_get(impls,
                                                  type,
@@ -1088,14 +1091,8 @@ n00b_handle_read_operation(n00b_stream_t *party, void *buf)
 
     n00b_list_append(wl, buf);
 
-    //    if (!n00b_in_heap(buf)) {
-    //  buf = n00b_box_u64((uint64_t)buf);
-    //    }
-
     if (!party->read_subs || party->closed_for_read) {
         n00b_release_party(party);
-        // N00B_CRAISE("Cannot read from this stream.\n");
-        // cprintf("Undelivered message for %s: %s\n", party, buf);
         return NULL;
     }
 
@@ -1104,8 +1101,6 @@ n00b_handle_read_operation(n00b_stream_t *party, void *buf)
     if (!n) {
         return wl;
     }
-
-    // cprintf("Read op on stream: %s\n", n00b_stream_full_repr(party));
 
     for (int i = 0; i < n; i++) {
         n00b_stream_filter_t *filter = n00b_list_get(party->read_filters,
@@ -1468,7 +1463,7 @@ n00b_stream_read_all(n00b_stream_t *stream)
         return b;
     }
 
-    n00b_str_t *s = item;
+    n00b_string_t *s = item;
 
     for (int i = 1; i < n; i++) {
         item = n00b_list_get(ctx->msgs, i, NULL);
@@ -1482,7 +1477,7 @@ n00b_stream_read_all(n00b_stream_t *stream)
             return ctx->msgs;
         }
 
-        s = n00b_str_concat(s, item);
+        s = n00b_string_concat(s, item);
     }
 
     return s;
@@ -1512,8 +1507,6 @@ n00b_io_loop_drain(void)
         n00b_io_loop_once();
         n00b_process_queue();
     }
-    release_event_loop();
-    n00b_release_event_base(n00b_system_event_base);
 
     n00b_duration_t *now = n00b_now();
     n00b_duration_t *end = n00b_duration_add(now, to_add);
@@ -1522,17 +1515,18 @@ n00b_io_loop_drain(void)
         n00b_io_loop_once();
         n00b_process_queue();
     }
+    release_event_loop();
+    n00b_release_event_base(n00b_system_event_base);
 }
 
 #if defined(N00B_DEBUG)
-extern int16_t *n00b_calculate_col_widths(n00b_grid_t *, int16_t, int16_t *);
+extern int16_t *n00b_calculate_col_widths(n00b_table_t *, int16_t, int16_t *);
 #endif
 
 static void *
 run_io_loop(void *ignore)
 {
-    n00b_exception_t *exc;
-    bool              do_thread_exit = false;
+    bool do_thread_exit = false;
 
     N00B_TRY
     {
@@ -1551,35 +1545,14 @@ run_io_loop(void *ignore)
     }
     N00B_EXCEPT
     {
-        exc = N00B_X_CUR();
 #if defined(N00B_DEBUG) && defined(N00B_BACKTRACE_SUPPORTED)
-        int16_t  tmp;
-        int16_t *widths = n00b_calculate_col_widths(exc->c_trace,
-                                                    N00B_GRID_TERMINAL_DIM,
-                                                    &tmp);
 
-        for (int i = 0; i < 3; i++) {
-            int w = widths[i];
+        n00b_default_uncaught_handler(N00B_X_CUR());
 
-            n00b_render_style_t *s = n00b_new(n00b_type_render_style(),
-                                              n00b_kw("min_size",
-                                                      n00b_ka(w),
-                                                      "max_size",
-                                                      n00b_ka(w),
-                                                      "left_pad",
-                                                      n00b_ka(1),
-                                                      "right_pad",
-                                                      n00b_ka(1)));
+        while (event_base_loopbreak(n00b_system_event_base->event_ctx))
+            ;
 
-            n00b_set_column_props(exc->c_trace, i, s);
-
-            n00b_default_uncaught_handler(exc);
-
-            while (event_base_loopbreak(n00b_system_event_base->event_ctx))
-                ;
-
-            release_event_loop();
-        }
+        release_event_loop();
 #endif
         N00B_JUMP_TO_FINALLY();
     }
@@ -1612,8 +1585,8 @@ n00b_internal_io_setup(void)
 {
     n00b_static_lock_init(event_loop_lock);
 
-    n00b_push_heap(n00b_internal_heap);
-    impls = n00b_dict(n00b_type_utf8(), n00b_type_ref());
+    //    n00b_push_heap(n00b_internal_heap);
+    impls = n00b_dict(n00b_type_string(), n00b_type_ref());
     setup_libevent();
     n00b_system_event_base->system = true;
 
@@ -1637,18 +1610,18 @@ n00b_internal_io_setup(void)
     n00b_system_event_base->io_topic_ns_cache = n00b_dict(n00b_type_int(),
                                                           n00b_type_ref());
 
-    n00b_io_impl_register(n00b_new_utf8("file"), &n00b_fileio_impl);
-    n00b_io_impl_register(n00b_new_utf8("socket"), &n00b_socket_impl);
-    n00b_io_impl_register(n00b_new_utf8("listener"), &n00b_listener_impl);
-    n00b_io_impl_register(n00b_new_utf8("signal"), &n00b_signal_impl);
-    n00b_io_impl_register(n00b_new_utf8("timer"), &n00b_timer_impl);
-    n00b_io_impl_register(n00b_new_utf8("exitinfo"), &n00b_exitinfo_impl);
-    n00b_io_impl_register(n00b_new_utf8("condition"), &n00b_condition_impl);
-    n00b_io_impl_register(n00b_new_utf8("callback"), &n00b_callback_impl);
-    n00b_io_impl_register(n00b_new_utf8("topic"), &n00b_topic_impl);
-    n00b_io_impl_register(n00b_new_utf8("subproxy"), &n00b_subproxy_impl);
-    n00b_io_impl_register(n00b_new_utf8("buffer"), &n00b_bufferio_impl);
-    n00b_io_impl_register(n00b_new_utf8("string"), &n00b_strstream_impl);
+    n00b_io_impl_register(n00b_cstring("file"), &n00b_fileio_impl);
+    n00b_io_impl_register(n00b_cstring("socket"), &n00b_socket_impl);
+    n00b_io_impl_register(n00b_cstring("listener"), &n00b_listener_impl);
+    n00b_io_impl_register(n00b_cstring("signal"), &n00b_signal_impl);
+    n00b_io_impl_register(n00b_cstring("timer"), &n00b_timer_impl);
+    n00b_io_impl_register(n00b_cstring("exitinfo"), &n00b_exitinfo_impl);
+    n00b_io_impl_register(n00b_cstring("condition"), &n00b_condition_impl);
+    n00b_io_impl_register(n00b_cstring("callback"), &n00b_callback_impl);
+    n00b_io_impl_register(n00b_cstring("topic"), &n00b_topic_impl);
+    n00b_io_impl_register(n00b_cstring("subproxy"), &n00b_subproxy_impl);
+    n00b_io_impl_register(n00b_cstring("buffer"), &n00b_bufferio_impl);
+    n00b_io_impl_register(n00b_cstring("string"), &n00b_strstream_impl);
 
     struct timeval tv = {
         .tv_sec  = 0,
@@ -1664,17 +1637,17 @@ n00b_internal_io_setup(void)
     n00b_event_add(loop_timeout, &tv);
 
     n00b_stream_t *sio = n00b_stdout();
-    n00b_io_set_repr(sio, n00b_new_utf8("[stdout]"));
+    n00b_io_set_repr(sio, n00b_cstring("[stdout]"));
     // n00b_merge_ansi(sio, 0, 0, false);
     sio = n00b_stderr();
     //  n00b_merge_ansi(sio, 0, 0, false);
-    n00b_io_set_repr(sio, n00b_new_utf8("[stderr]"));
+    n00b_io_set_repr(sio, n00b_cstring("[stderr]"));
     sio = n00b_stdin();
-    n00b_io_set_repr(sio, n00b_new_utf8("[stdin]"));
+    n00b_io_set_repr(sio, n00b_cstring("[stdin]"));
 
     n00b_io_thread = n00b_thread_self();
     n00b_ioqueue_setup();
-    n00b_pop_heap();
+    //    n00b_pop_heap();
 }
 
 bool
@@ -1692,9 +1665,9 @@ n00b_wait_for_io_shutdown(void)
 void
 n00b_io_begin_shutdown(void)
 {
-    n00b_push_heap(n00b_internal_heap);
+    //    n00b_push_heap(n00b_internal_heap);
     exit_notifier = n00b_new_notifier();
-    n00b_pop_heap();
+    //    n00b_pop_heap();
 }
 
 void
@@ -1711,6 +1684,7 @@ static bool is_running = false;
 static void *
 launch_once(void *ignore)
 {
+    n00b_set_system_thread();
     if (is_running) {
         n00b_static_c_backtrace();
         return NULL;
@@ -1747,13 +1721,13 @@ n00b_ignore_uncaught_io_errors(void)
 
 void
 n00b_post_error_internal(n00b_stream_t *e,
-                         n00b_utf8_t   *msg,
+                         n00b_string_t *msg,
                          void          *context,
-                         n00b_grid_t   *backtrace,
+                         n00b_table_t  *backtrace,
                          char          *filename,
                          int            line)
 {
-    n00b_exception_t *err = n00b_alloc_str_exception(msg);
+    n00b_exception_t *err = n00b_alloc_string_exception(msg);
 
     err->file    = filename;
     err->line    = line;
@@ -1769,8 +1743,7 @@ n00b_post_error_internal(n00b_stream_t *e,
 }
 
 const n00b_vtable_t n00b_stream_vtable = {
-    .num_entries = N00B_BI_NUM_FUNCS,
-    .methods     = {
+    .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_stream_init,
         [N00B_BI_TO_STR]      = (n00b_vtable_entry)n00b_stream_repr,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,

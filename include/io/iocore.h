@@ -1,9 +1,6 @@
 #pragma once
 #include "n00b.h"
 
-// Think of events more like they're Unix devices with filtering,
-// multi-readers and so on.
-//
 // With low-level event object types, you can currently subscribe to
 // one of 5 channels:
 //
@@ -281,7 +278,7 @@ struct n00b_stream_t {
     n00b_dict_t         *write_subs;
     n00b_dict_t         *error_subs;
     n00b_dict_t         *close_subs;
-    n00b_utf8_t         *repr;
+    n00b_string_t       *repr;
     n00b_lock_t          lock;
     struct timeval      *read_start_time;
     n00b_io_event_type   etype;
@@ -324,9 +321,9 @@ typedef struct n00b_bio_cookie_t {
 } n00b_bio_cookie_t;
 
 typedef struct {
-    n00b_str_t *s;
-    int         position;
-} n00b_str_cookie_t;
+    n00b_string_t *s;
+    int            position;
+} n00b_string_cookie_t;
 
 typedef void (*n00b_accept_cb)(n00b_stream_t *);
 
@@ -368,11 +365,11 @@ typedef bool (*n00b_io_eof_fn)(n00b_stream_t *);
 // Returns a list of messages.
 typedef n00b_list_t *(*n00b_filter_fn)(n00b_stream_t *, void *, void *);
 typedef void (*n00b_io_callback_fn)(n00b_stream_t *, void *, void *);
-typedef n00b_utf8_t *(*n00b_io_repr_fn)(n00b_stream_t *);
+typedef n00b_string_t *(*n00b_io_repr_fn)(n00b_stream_t *);
 typedef bool (*n00b_callback_filter)(void *, n00b_stream_t *);
 
 struct n00b_io_impl_info_t {
-    n00b_utf8_t           *name;
+    n00b_string_t         *name;
     void                  *cookie;
     n00b_io_register_fn    open_impl;
     n00b_io_subscribe_fn   subscribe_impl;
@@ -391,7 +388,7 @@ typedef struct n00b_stream_filter_t {
     int            cookie_size;
     n00b_filter_fn xform_fn;
     n00b_filter_fn flush_fn;
-    n00b_utf8_t   *name; // Mainly for debugging.
+    n00b_string_t *name; // Mainly for debugging.
 } n00b_stream_filter_t;
 
 typedef n00b_stream_filter_t *(*n00b_filter_create_fn)(n00b_stream_t *);
@@ -410,7 +407,7 @@ typedef struct {
 } n00b_iocb_info_t;
 
 typedef struct n00b_topic_cookie_t {
-    n00b_utf8_t          *name;
+    n00b_string_t        *name;
     n00b_stream_filter_t *socket_write_filter;
     n00b_stream_filter_t *socket_read_filter;
     n00b_stream_filter_t *file_write_filter;
@@ -418,12 +415,12 @@ typedef struct n00b_topic_cookie_t {
 } n00b_topic_cookie_t;
 
 typedef struct n00b_message_t {
-    n00b_utf8_t *topic;
-    void        *payload;
+    n00b_string_t *topic;
+    void          *payload;
 } n00b_message_t;
 
 extern bool               n00b_io_run_base(n00b_stream_base_t *, int);
-extern n00b_stream_t     *n00b_open_event(n00b_utf8_t *, void *);
+extern n00b_stream_t     *n00b_open_event(n00b_string_t *, void *);
 extern n00b_stream_sub_t *n00b_io_subscribe(n00b_stream_t *,
                                             n00b_stream_t *,
                                             n00b_duration_t *,
@@ -435,14 +432,16 @@ extern bool               n00b_at_eof(n00b_stream_t *);
 extern void               n00b_write_blocking(n00b_stream_t *,
                                               void *,
                                               n00b_duration_t *);
-extern void              *n00b_read(n00b_stream_t *, uint64_t, n00b_duration_t *);
+extern void              *n00b_read(n00b_stream_t *,
+                                    uint64_t,
+                                    n00b_duration_t *);
 // Init w/o launching a thread in an IO loop.
 extern void               n00b_io_init(void);
 extern void               n00b_launch_io_loop(void);
 extern void               n00b_io_loop_once(void);
 extern n00b_stream_t     *n00b_fd_open(int);
 extern void               n00b_io_close(n00b_stream_t *);
-extern n00b_utf8_t       *n00b_io_fd_repr(n00b_stream_t *);
+extern n00b_string_t     *n00b_io_fd_repr(n00b_stream_t *);
 extern n00b_stream_t     *n00b_pid_monitor(int64_t, void *);
 extern n00b_stream_t     *n00b_callback_open(n00b_io_callback_fn, void *);
 extern n00b_stream_t     *n00b_condition_open(n00b_condition_t *, void *);
@@ -458,12 +457,12 @@ extern n00b_stream_t     *n00b_io_listener(n00b_net_addr_t *,
 extern bool               n00b_wait_for_io_shutdown(void);
 extern void               n00b_io_begin_shutdown(void);
 extern n00b_stream_t     *n00b_connect(n00b_net_addr_t *);
-extern n00b_stream_t     *n00b_get_topic(n00b_utf8_t *, n00b_utf8_t *);
+extern n00b_stream_t     *n00b_get_topic(n00b_string_t *, n00b_string_t *);
 extern bool               n00b_topic_unsubscribe(n00b_stream_t *,
                                                  n00b_stream_t *);
 extern void               n00b_topic_post(void *, void *);
 extern n00b_stream_t     *n00b_new_subscription_proxy(void);
-extern n00b_utf8_t       *n00b_get_signal_name(int64_t);
+extern n00b_string_t     *n00b_get_signal_name(int64_t);
 extern n00b_stream_t     *n00b_buffer_stream_open(n00b_buf_t *,
                                                   n00b_io_permission_t);
 extern n00b_stream_t     *n00b_stdin(void);
@@ -504,7 +503,7 @@ n00b_is_tty(n00b_stream_t *party)
 }
 
 static inline void
-n00b_io_set_repr(n00b_stream_t *event, n00b_utf8_t *repr)
+n00b_io_set_repr(n00b_stream_t *event, n00b_string_t *repr)
 {
     event->repr = repr;
 }
@@ -597,7 +596,7 @@ n00b_topic_subscribe(n00b_stream_t *topic_obj, n00b_stream_t *subscriber)
 static inline void
 n00b_putcp(n00b_stream_t *stream, n00b_codepoint_t cp)
 {
-    n00b_utf8_t *s = n00b_utf8_repeat(cp, 1);
+    n00b_string_t *s = n00b_string_repeat(cp, 1);
     n00b_write(stream, s);
 }
 
@@ -653,10 +652,10 @@ n00b_iostream_buffer(n00b_buf_t *b)
     return n00b_buffer_stream_open(b, n00b_io_perm_rw);
 }
 
-extern n00b_stream_t *n00b_stream_string(n00b_str_t *s);
-extern n00b_stream_t *n00b_instream_file(n00b_str_t *);
-extern n00b_stream_t *n00b_outstream_file(n00b_str_t *, bool, bool);
-extern n00b_stream_t *n00b_iostream_file(n00b_str_t *, bool);
+extern n00b_stream_t *n00b_stream_string(n00b_string_t *s);
+extern n00b_stream_t *n00b_instream_file(n00b_string_t *);
+extern n00b_stream_t *n00b_outstream_file(n00b_string_t *, bool, bool);
+extern n00b_stream_t *n00b_iostream_file(n00b_string_t *, bool);
 extern void           n00b_ignore_uncaught_io_errors(void);
 extern void          *n00b_stream_read_all(n00b_stream_t *);
 extern void           _n00b_print(n00b_obj_t, ...);
@@ -664,16 +663,16 @@ extern void           _n00b_print(n00b_obj_t, ...);
 #define n00b_print(s, ...) _n00b_print(s, N00B_VA(__VA_ARGS__))
 #define n00b_eprint(...)   _n00b_print(n00b_stderr(), N00B_VA(__VA_ARGS__))
 
-#define n00b_printf(fmt, ...)                                    \
-    {                                                            \
-        n00b_utf8_t *__str = n00b_cstr_format(fmt, __VA_ARGS__); \
-        _n00b_print(__str, NULL);                                \
+#define n00b_printf(fmt, ...)                                  \
+    {                                                          \
+        n00b_string_t *__str = n00b_cformat(fmt, __VA_ARGS__); \
+        _n00b_print(__str, NULL);                              \
     }
 
-#define n00b_eprintf(fmt, ...)                                   \
-    {                                                            \
-        n00b_utf8_t *__str = n00b_cstr_format(fmt, __VA_ARGS__); \
-        _n00b_print(n00b_stderr(), __str, NULL);                 \
+#define n00b_eprintf(fmt, ...)                                 \
+    {                                                          \
+        n00b_string_t *__str = n00b_cformat(fmt, __VA_ARGS__); \
+        _n00b_print(n00b_stderr(), __str, NULL);               \
     }
 
 #ifdef N00B_DEBUG
@@ -739,7 +738,7 @@ extern bool                n00b_post_to_subscribers(n00b_stream_t *,
 extern void                n00b_purge_subscription_list_on_boundary(n00b_dict_t *);
 extern void                n00b_ev2_r(evutil_socket_t, short, void *);
 extern void                n00b_ev2_w(evutil_socket_t, short, void *);
-extern n00b_utf8_t        *n00b_get_fd_extras(n00b_stream_t *);
+extern n00b_string_t      *n00b_get_fd_extras(n00b_stream_t *);
 extern n00b_stream_base_t *get_n00b_system_event_base(void);
 extern n00b_list_t        *n00b_handle_read_operation(n00b_stream_t *, void *);
 extern void                n00b_initialize_event(n00b_stream_t *,
@@ -753,7 +752,7 @@ extern void                n00b_ioqueue_dont_block_callbacks(void);
 extern void                n00b_ioqueue_enqueue_callback(n00b_iocb_info_t *);
 extern void                n00b_ioqueue_dont_block_callbacks(void);
 extern void                n00b_ioqueue_launch_callback_thread(void);
-extern n00b_utf8_t        *n00b_stream_full_repr(n00b_stream_t *);
+extern n00b_string_t      *n00b_stream_full_repr(n00b_stream_t *);
 extern void                n00b_internal_io_setup(void);
 
 static inline n00b_stream_base_t *
@@ -905,9 +904,9 @@ n00b_get_io_callback_exit_notifier(n00b_stream_t *s)
 
 extern void
 n00b_post_error_internal(n00b_stream_t *e,
-                         n00b_utf8_t   *msg,
+                         n00b_string_t *msg,
                          void          *context,
-                         n00b_grid_t   *backtrace,
+                         n00b_table_t  *backtrace,
                          char          *filename,
                          int            line);
 
@@ -918,7 +917,7 @@ n00b_post_error_internal(n00b_stream_t *e,
                                                        __FILE__, \
                                                        __LINE__)
 
-#define n00b_post_cerror(x, m) n00b_post_error(x, n00b_new_utf8(m))
+#define n00b_post_cerror(x, m) n00b_post_error(x, n00b_cstring(m))
 
 #define n00b_post_error_ctx(x, c, m) n00b_post_error_internal(x,            \
                                                               m,            \
@@ -928,15 +927,15 @@ n00b_post_error_internal(n00b_stream_t *e,
                                                               __LINE__)
 
 #define n00b_post_cerror_ctx(x, c, m) \
-    n00b_post_error_ctx(x, c, n00b_new_utf8(m))
+    n00b_post_error_ctx(x, c, n00b_cstring(m))
 
-#define n00b_post_errcode(event, code)               \
-    {                                                \
-        char msg[2048] = {                           \
-            0,                                       \
-        };                                           \
-        strerror_r(code, msg, 2048);                 \
-        n00b_post_cerror(event, n00b_new_utf8(msg)); \
+#define n00b_post_errcode(event, code) \
+    {                                  \
+        char msg[2048] = {             \
+            0,                         \
+        };                             \
+        strerror_r(code, msg, 2048);   \
+        n00b_post_cerror(event, msg);  \
     }
 
 #define n00b_post_errno(event) n00b_post_errcode(event, errno)
@@ -945,7 +944,7 @@ n00b_post_error_internal(n00b_stream_t *e,
 #define N00B_IODB
 #ifdef N00B_IODB
 #define n00b_iodb(x, y) \
-    printf("%s: %s\n", x, n00b_to_utf8(n00b_repr(y))->data)
+    printf("%s: %s\n", x, n00b_to_string((n00b_repr(y))->data));
 
 #define n00b_iodb_hex(x, y)                                                    \
     {                                                                          \
@@ -955,7 +954,7 @@ n00b_post_error_internal(n00b_stream_t *e,
             printf("%s:\n%s\n", x, n00b_hex_dump(b->data, b->byte_len)->data); \
         }                                                                      \
         else {                                                                 \
-            n00b_str_t *s = y;                                                 \
+            n00b_string_t *s = y;                                                 \
             printf("%s:\n%s\n", x, n00b_hex_dump(s->data, s->byte_len)->data); \
         }                                                                      \
     }
