@@ -58,7 +58,7 @@ register_error(mc_state_t *state)
         fprintf(stderr,
                 "Memcheck found a problem on heap %lld (%s)"
                 "(%s; %s:%d; %d allocs this cycle)\n",
-                state->heap->heap_id,
+                (long long int)state->heap->heap_id,
                 state->heap->name,
                 state->heap->name,
                 state->heap->file,
@@ -198,7 +198,8 @@ scan_for_next:
             continue;
         }
 
-        if (h->alloc_len < 0 || h->alloc_len % 8) {
+	
+        if (h->alloc_len < 0 ||	h->alloc_len % 8) {
             mc_err(state,
                    "Invalid alloc length for allocation at %p (%ld)",
                    h,
@@ -279,7 +280,7 @@ n00b_run_memcheck(n00b_heap_t *h)
         fprintf(stderr,
                 "Completed memcheck on heap %lld (%s; %s:%d) "
                 "-- %d total errors\n",
-                h->heap_id,
+                (long long int)h->heap_id,
                 h->name,
                 h->file,
                 h->line,

@@ -88,7 +88,7 @@ _n00b_string_style_ranges(n00b_string_t       *s,
     n00b_list_t   *info     = n00b_list(n00b_type_ref());
 
     va_list vargs;
-    va_start(vargs, end_ix);
+    va_start(vargs, end);
 
     n00b_assert(style);
 

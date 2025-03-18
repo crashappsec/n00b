@@ -92,8 +92,6 @@ n00b_get_signal_name(int64_t signal)
         return n00b_cstring("SIGTRAP");
     case SIGABRT:
         return n00b_cstring("SIGABRT");
-    case SIGEMT:
-        return n00b_cstring("SIGEMT");
     case SIGFPE:
         return n00b_cstring("SIGFPE");
     case SIGKILL:
@@ -136,12 +134,16 @@ n00b_get_signal_name(int64_t signal)
         return n00b_cstring("SIGPROF");
     case SIGWINCH:
         return n00b_cstring("SIGWINCH");
-    case SIGINFO:
-        return n00b_cstring("SIGINFO");
     case SIGUSR1:
         return n00b_cstring("SIGUSR1");
     case SIGUSR2:
         return n00b_cstring("SIGUSR2");
+#if !defined(__linux__)	
+    case SIGEMT:
+        return n00b_cstring("SIGEMT");
+    case SIGINFO:
+        return n00b_cstring("SIGINFO");
+#endif	
     default:
         N00B_CRAISE("Unknown signal");
     }

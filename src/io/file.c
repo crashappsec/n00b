@@ -212,6 +212,12 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
         flags |= O_NOCTTY;
     }
 
+    // This ifdef is because on some linux distros, libevent is
+    // complaining about O_NONBLOCK even on stderr where it shouldn't
+    // be.
+#if defined(__linux__)
+    flags |= O_NONBLOCK;
+#endif
     if (!enable_blocking_io) {
         flags |= O_NONBLOCK;
     }
@@ -222,11 +228,12 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
 
     int sl_flags = 0;
 
+#if !defined(__linux__)
     if (shared_lock) {
         flags |= O_SHLOCK;
         sl_flags++;
     }
-
+#endif
     if (exclusive_lock) {
         if (shared_lock) {
             N00B_CRAISE("Cannot select both locking styles");
@@ -240,19 +247,24 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
 
     sl_flags = 0;
 
+#if !defined(__linux__)
     if (open_symlink_not_target) {
         flags |= O_SYMLINK;
         sl_flags++;
     }
+#endif
+
     if (!allow_symlinked_targets) {
         flags |= O_NOFOLLOW;
         sl_flags++;
     }
 
+#if !defined(__linux__)
     if (!follow_symlinks_in_path) {
         flags |= O_NOFOLLOW_ANY;
         sl_flags++;
     }
+#endif
 
     if (sl_flags > 1) {
         N00B_CRAISE("Conflicting symbolic linking policies provided.");

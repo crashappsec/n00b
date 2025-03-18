@@ -217,7 +217,8 @@ main(int argc, char **argv, char **envp)
         n00b_compile(ctx, true);
         break;
     case N00B_CMD_REPL:
-        n00b_eprintf("«em2»Interactive mode is not implemented yet.");
+        tmp_testing();
+        // n00b_eprintf("«em2»Interactive mode is not implemented yet.");
         ctx->exit_code = N00B_NOT_DONE;
     }
 

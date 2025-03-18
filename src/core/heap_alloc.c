@@ -272,7 +272,7 @@ n00b_realloc_wrap(void  *p,
     n00b_alloc_hdr *hdr = n00b_object_header(p);
     n00b_assert(hdr->guard == n00b_gc_guard);
 
-    if (len <= hdr->alloc_len) {
+    if (((int32_t)len) <= hdr->alloc_len) {
         return p;
     }
 

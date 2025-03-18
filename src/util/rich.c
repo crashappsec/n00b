@@ -626,7 +626,7 @@ try_numeric_formatting(rich_ctrl_t *info, void *obj, char *start, char *end)
         repr = n00b_fmt_hex((uint64_t)obj, true);
         break;
     case 'f':;
-        struct {
+      union {
             double d;
             void  *v;
         } convert;
@@ -972,6 +972,7 @@ extract_style_info(char *p, char *end, n00b_text_element_t **tp)
         if (!strncmp(p, "lower", n)) {
             return RICH_LOWER;
         }
+	break;
     case 6:
         if (!strncmp(p, "italic", n)) {
             return RICH_I;

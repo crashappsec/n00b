@@ -701,6 +701,7 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
             if (words_add_space) {
                 return n00b_cformat("«#» str*", s);
             }
+	    break;
         case (int64_t)N00B_GOG_LPAREN:
             if (words_add_space) {
                 s = n00b_cformat("«#» (", s);
@@ -850,7 +851,7 @@ add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
     }
 }
 
-static void
+/*static*/ void
 add_gopt_auto_help(n00b_gopt_ctx *gctx)
 {
     if (!n00b_dict_contains(gctx->all_options, n00b_cstring("help"))) {
@@ -1205,6 +1206,7 @@ check_link:
             default:
                 break;
             }
+	    break;
         default:
             n00b_unreachable();
         }
@@ -1243,11 +1245,11 @@ check_link:
         N00B_CRAISE("Cannot add option that has already been added.");
     }
 
-    if (!link) {
-        hatrack_dict_put(context->primary_options,
-                         (void *)key,
-                         option);
-    }
+    /* if (!link) { */
+    /*     hatrack_dict_put(context->primary_options, */
+    /*                      (void *)key, */
+    /*                      option); */
+    /* } */
 
     uint64_t       rand    = n00b_rand16();
     n00b_string_t *nt_name = n00b_cformat("opt_«#»_«#»", option->name, rand);

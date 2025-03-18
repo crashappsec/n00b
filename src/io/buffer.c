@@ -89,7 +89,8 @@ n00b_buf_subscribe(n00b_stream_sub_t *sub, n00b_io_subscription_kind perms)
 {
     n00b_stream_t *stream = sub->source;
 
-    if (perms != n00b_io_perm_r && n00b_len(stream->read_subs) == 1) {
+    if (perms != (n00b_io_subscription_kind)n00b_io_perm_r
+	&& n00b_len(stream->read_subs) == 1) {
         n00b_bio_cookie_t *cookie = stream->cookie;
         if (!cookie->read_position) {
             n00b_buf_read_fn(stream, n00b_buffer_len(cookie->b));

@@ -251,7 +251,8 @@ n00b_restart_debugging(void)
     n00b_io_set_repr(n00b_debug_proxy, n00b_cstring("[debug proxy]"));
 }
 
-void static n00b_launch_debugging(void)
+static void
+n00b_launch_debugging(void)
 {
     n00b_push_heap(n00b_internal_heap);
     n00b_gc_register_root(&n00b_debug_namespace, 1);

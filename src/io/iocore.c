@@ -148,7 +148,10 @@ n00b_stream_repr(n00b_stream_t *e)
             0,
         };
 
-        snprintf(buf, 1023, "%llu (%s)", id, e->impl->name->data);
+        snprintf(buf, 1023, "%llu (%s)",
+		 (long long int)id,
+		 e->impl->name->data);
+	
         name = n00b_cstring(buf);
     }
 

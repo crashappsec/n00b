@@ -15,7 +15,12 @@ extern void n00b_assertion_init(void);
                                    (char *)__FUNCTION__, \
                                    (char *)__FILE__,     \
                                    __LINE__))))
+
 #else
 #define n00b_assert(x)
 #define n00b_assertion_init()
+#endif
+
+#if defined(__linux__)
+#pragma GCC diagnostic ignored "-Wunused-value"
 #endif

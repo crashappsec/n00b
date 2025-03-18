@@ -24,7 +24,6 @@ n00b_heap_t        *n00b_all_heaps     = NULL;
 n00b_heap_t        *n00b_cur_heap_page = NULL;
 static n00b_heap_t *long_term_pins     = NULL;
 n00b_heap_t        *n00b_to_space      = NULL;
-n00b_heap_t        *__n00b_current_from_space;
 uint64_t            n00b_page_bytes;
 uint64_t            n00b_page_modulus;
 uint64_t            n00b_modulus_mask;
@@ -216,7 +215,10 @@ n00b_debug_print_heap(n00b_heap_t *p)
         fprintf(stderr, "'%s' ", p->name);
     }
 
-    fprintf(stderr, "(#%lld; %s:%d)", p->heap_id, p->file, p->line);
+    fprintf(stderr, "(#%lld; %s:%d)",
+	    (long long int)p->heap_id,
+	    p->file,
+	    p->line);
 
     if (p->released) {
         fprintf(stderr, " (released)\n");
@@ -238,8 +240,8 @@ n00b_debug_print_heap(n00b_heap_t *p)
     fprintf(stderr,
             "\nCollects: %d\nMemory used: %lld b; Free: %lld b\n",
             p->num_collects,
-            used,
-            free);
+            (long long int)used,
+            (long long int)free);
     fprintf(stderr,
             "Allocs: Since collect: %d; Inherited: %d; Lifetime: %d\n",
             p->alloc_count,

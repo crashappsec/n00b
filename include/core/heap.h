@@ -25,7 +25,7 @@ typedef struct n00b_alloc_record_t {
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     char *alloc_file;
 #endif
-    uint32_t alloc_len;
+    int32_t alloc_len;
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     int16_t alloc_line;
@@ -67,7 +67,7 @@ struct n00b_alloc_hdr {
     char *alloc_file;
 #endif
 
-    uint32_t alloc_len;
+    int32_t alloc_len;
     // This is going to move to the VTABLE for objects, and perhaps
     // non-object types will get a few bits to index into a static
     // table.

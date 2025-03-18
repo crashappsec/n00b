@@ -96,7 +96,7 @@ n00b_init_self_tsi(void)
 
 #if defined(N00B_FLOG_DEBUG)
     char fname[1024];
-    snprintf(fname, 1024, "/tmp/flog.%llu", tsi->thread_id);
+    snprintf(fname, 1024, "/tmp/flog.%llu", (long long int)tsi->thread_id);
     tsi->flog_file = fopen(fname, "w");
 #endif
 

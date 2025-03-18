@@ -135,13 +135,13 @@ _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
     switch (pthread_rwlock_trywrlock(&l->lock)) {
     case EDEADLK:
     case EBUSY:
-        if (l->thread == pthread_self()) {
+      if (l->thread == (void *)(int64_t)pthread_self()) {
             l->level++;
             return true;
         }
         return false;
     case 0:
-        l->thread = pthread_self();
+      l->thread = (void *)(int64_t)pthread_self();
         n00b_assert(!l->level);
         add_lock_record(l, f, ln);
         return true;
@@ -170,7 +170,7 @@ _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
             n00b_gts_resume();
             add_lock_record(l, f, ln);
         }
-        l->thread = pthread_self();
+        l->thread = (void *)(int64_t)pthread_self();
         n00b_assert(!l->level);
         add_lock_record(l, f, ln);
     }
@@ -189,7 +189,7 @@ n00b_rw_lock_release(n00b_rw_lock_t *l)
         return;
     }
 
-    if (l->level && l->thread == pthread_self()) {
+    if (l->level && l->thread == (void *)(int64_t)pthread_self()) {
         l->level--;
         return;
     }

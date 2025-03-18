@@ -243,7 +243,10 @@ n00b_new_notifier(void)
 
     pipe(result->pipe);
     int flags = fcntl(result->pipe[1], F_GETFL);
+
+#if !defined(__linux__)
     fcntl(result->pipe[1], F_SETNOSIGPIPE, 1);
+#endif    
     fcntl(result->pipe[1], F_SETFL, flags | O_NONBLOCK);
 
     return result;

@@ -65,9 +65,11 @@ endif
 
 if using_osx
     dead_strip = '-dead_strip'
+    #    do_dead_strip = true
+    do_dead_strip = false
 else
     dead_strip = '--gc-sections'
-dead_strip
+    do_dead_strip = false
 endif
 
 if get_option('forkless_tests').enabled()
@@ -177,7 +179,16 @@ if get_option('dev_mode') == true
 
 endif
 
-exe_link_args = link_args + ['-flto', '-w', '-Wl', dead_strip]
+exe_link_args = link_args + ['-flto', '-w']
+
+if do_dead_strip
+    exe_link_args = exe_link_args + [dead_strip]
+endif
+
+if using_osx
+    exe_link_args = exe_link_args + ['-Wl']
+endif
+
 exe_c_args = c_args + ['-flto', '-DHATRACK_REFERENCE_ALGORITHMS']
 n00b_c_args = c_args
 

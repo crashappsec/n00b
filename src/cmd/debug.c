@@ -39,7 +39,7 @@ n00b_show_any_debug_info(n00b_cmdline_ctx *ctx)
 static void
 n00b_show_module_debug_info(n00b_cmdline_ctx *ctx, n00b_module_t *m, bool entry)
 {
-    if (!n00b_show_any_debug_info) {
+  if (!n00b_show_any_debug_info(ctx)) {
         return;
     }
 
