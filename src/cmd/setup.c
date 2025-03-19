@@ -159,7 +159,6 @@ n00b_basic_setup(int argc, char **argv, char **envp)
 {
     sigset_t saved_set, cur_set;
 
-    n00b_init(argc, argv, envp);
     n00b_terminal_app_setup();
 
     n00b_io_register_signal_handler(SIGTERM, (void *)exit_gracefully);

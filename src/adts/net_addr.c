@@ -35,9 +35,9 @@ set_unix(n00b_net_addr_t *obj, n00b_string_t *s)
     }
     int len = n00b_min(n00b_string_byte_len(s), c);
 
-    memcpy(&obj->addr.unix.sun_path, s->data, len);
-    obj->addr.unix.sun_family = AF_UNIX;
-    obj->family               = AF_UNIX;
+    memcpy(&obj->addr.sa_unix.sun_path, s->data, len);
+    obj->addr.sa_unix.sun_family = AF_UNIX;
+    obj->family                  = AF_UNIX;
 }
 
 static inline void
@@ -54,7 +54,7 @@ setup_from_sockaddr(n00b_net_addr_t *obj, struct sockaddr *sa)
         break;
     case AF_UNIX:
         obj->family = AF_UNIX;
-        memcpy(&obj->addr.unix, sa, sizeof(struct sockaddr_un));
+        memcpy(&obj->addr.sa_unix, sa, sizeof(struct sockaddr_un));
         break;
     default:
         N00B_CRAISE("Bad struct sockaddr");
@@ -182,7 +182,7 @@ repr_inet6(n00b_net_addr_t *obj)
 static inline n00b_string_t *
 repr_unix(n00b_net_addr_t *obj)
 {
-    return n00b_cformat("unix:«#»", n00b_cstring(obj->addr.unix.sun_path));
+    return n00b_cformat("unix:«#»", n00b_cstring(obj->addr.sa_unix.sun_path));
 }
 
 n00b_string_t *

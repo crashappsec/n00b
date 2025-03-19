@@ -6,7 +6,7 @@
 typedef union {
     struct sockaddr_in  v4;
     struct sockaddr_in6 v6;
-    struct sockaddr_un  unix;
+    struct sockaddr_un  sa_unix;
     struct sockaddr     generic;
 } n00b_sockaddr_t;
 
@@ -15,8 +15,8 @@ typedef union {
 // it barfs. Which results in double-setting the field...
 typedef struct {
     short int       family;
-    n00b_string_t    *resolved_name;
-    n00b_string_t    *service;
+    n00b_string_t  *resolved_name;
+    n00b_string_t  *service;
     n00b_sockaddr_t addr;
 } n00b_net_addr_t;
 

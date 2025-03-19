@@ -634,6 +634,17 @@ next_start:
     return -1;
 }
 
+char *
+n00b_buffer_to_c(n00b_buf_t *b, int64_t *len_ptr)
+{
+    // Assumes non-mutability.
+    if (len_ptr) {
+        *len_ptr = b->byte_len;
+    }
+
+    return b->data;
+}
+
 // We conservatively scan the data pointer.
 void
 n00b_buffer_set_gc_bits(uint64_t *bitfield, void *alloc)

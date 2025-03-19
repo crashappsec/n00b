@@ -930,6 +930,20 @@ _n00b_c_map(char *s, ...)
     return result;
 }
 
+n00b_list_t *
+n00b_from_cstr_list(char **arr, int64_t n)
+{
+    n00b_list_t *result = n00b_new(n00b_type_list(n00b_type_string()),
+                                   n00b_kw("length", n));
+
+    for (int i = 0; i < n; i++) {
+        n00b_string_t *s = n00b_cstring(arr[i]);
+        n00b_list_append(result, s);
+    }
+
+    return result;
+}
+
 extern bool n00b_flexarray_can_coerce_to(n00b_type_t *, n00b_type_t *);
 
 void

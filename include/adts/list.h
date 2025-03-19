@@ -76,6 +76,7 @@ n00b_list_enforce_uniqueness_when_adding(n00b_list_t *l)
 #define n00b_lock_list_write n00b_lock_list
 
 extern n00b_list_t *_n00b_c_map(char *, ...);
+extern n00b_list_t *n00b_from_cstr_list(char **arr, int64_t n);
 
 #define n00b_c_map(s, ...) _n00b_c_map(s, N00B_VA(__VA_ARGS__))
 

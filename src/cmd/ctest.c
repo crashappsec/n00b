@@ -141,8 +141,10 @@ report_signal(n00b_stream_t *e, int64_t signal, void *aux)
 int
 main(int argc, char **argv, char **envp)
 {
+    // Miro: These two lines to wrap
     n00b_init(argc, argv, envp);
     n00b_terminal_app_setup();
+    // END
 
     n00b_io_register_signal_handler(SIGTERM, (void *)exit_gracefully);
     // n00b_ignore_uncaught_io_errors();
@@ -160,10 +162,6 @@ main(int argc, char **argv, char **envp)
     n00b_stream_t *t = n00b_add_debug_topic("jtest");
     n00b_add_to_json_xform_on_write(t);
 
-    n00b_string_t *cmd = n00b_cstring("/bin/ls");
-    n00b_list_t   *l   = n00b_list(n00b_type_string());
-    n00b_list_append(l, n00b_cstring("-alG"));
-    n00b_list_append(l, n00b_cached_period());
     n00b_debug("jtest", r);
     r = NULL;
 
@@ -221,13 +219,23 @@ main(int argc, char **argv, char **envp)
     n00b_topic_post(tst, basic);
 #endif
 #if 1
+    // Miro: these lines to wrap
+    n00b_string_t *cmd = n00b_cstring("/bin/ls");
+    n00b_list_t   *l   = n00b_list(n00b_type_string());
+    n00b_list_append(l, n00b_cstring("-alG"));
+    n00b_list_append(l, n00b_cached_period());
+
     n00b_proc_t *pi = n00b_run_process(cmd,
                                        l,
                                        true,
                                        true,
                                        n00b_kw("pty", n00b_ka(true)));
-    n00b_buf_t  *b  = n00b_proc_get_stdout_capture(pi);
-    n00b_debug("tty", n00b_cformat("«em2»len(output):[/]\n«#»", n00b_buffer_len(b)));
+
+    n00b_buf_t *b = n00b_proc_get_stdout_capture(pi);
+    // End
+
+    n00b_debug("tty",
+               n00b_cformat("«em2»len(output):«/»\n«#»", n00b_buffer_len(b)));
 
     n00b_printf("«em1»Subprocess completed with error code «#».",
                 (int64_t)n00b_proc_get_exit_code(pi));
