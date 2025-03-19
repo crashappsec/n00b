@@ -35,7 +35,7 @@ c_args = [
     '-fno-omit-frame-pointer',
     '-ffunction-sections',
     '-DHATRACK_PER_INSTANCE_AUX',
-    '-DHATRACK_DONT_DEALLOC',    
+    '-DHATRACK_DONT_DEALLOC',
     '-DN00B_MIN_RENDER_WIDTH=' + render_width,
     '-DN00B_BACKTRACE_SUPPORTED',
 ]
@@ -198,7 +198,7 @@ n00b_core = [
     'src/core/exit.c',
     'src/core/heap.c',
     'src/core/heap_alloc.c',
-    'src/core/heap_collect.c',    
+    'src/core/heap_collect.c',
     'src/core/kargs.c',
     'src/core/exceptions.c',
     'src/core/types.c',
@@ -221,7 +221,7 @@ n00b_runtime = [
 ]
 
 n00b_adts = [
-    'src/adts/string.c',    
+    'src/adts/string.c',
     'src/adts/buffer.c',
     'src/adts/dict.c',
     'src/adts/set.c',
@@ -244,7 +244,7 @@ n00b_adts = [
 
 n00b_io = [
     'src/io/iocore.c',
-    'src/io/ioqueue.c',    
+    'src/io/ioqueue.c',
     'src/io/filters.c',
     'src/io/marshal.c',
     'src/io/file.c',
@@ -259,7 +259,7 @@ n00b_io = [
     'src/io/subproxy.c',
     'src/io/buffer.c',
     'src/io/strstream.c',
-    'src/io/colorterm.c',    
+    'src/io/colorterm.c',
     'src/io/print.c',
     'src/io/term.c',
     'src/io/http.c',
@@ -286,13 +286,13 @@ n00b_compiler = [
 ]
 
 n00b_util = [
-    'src/util/style.c',    
+    'src/util/style.c',
     'src/util/colors.c',
-    'src/util/breaks.c',    
+    'src/util/breaks.c',
     'src/util/hex.c',
     'src/util/tree_pattern.c',
-    'src/util/rich.c',    
-    'src/util/fmt_numbers.c',    
+    'src/util/rich.c',
+    'src/util/fmt_numbers.c',
     'src/util/fptostr.c',
     'src/util/path.c',
     'src/util/watch.c',
@@ -323,13 +323,13 @@ n00b_crypto = ['src/crypto/sha.c']
 n00b_cmd = ['src/cmd/main.c',
             'src/cmd/setup.c',
             'src/cmd/compile.c',
-            'src/cmd/run.c',            
+            'src/cmd/run.c',
             'src/cmd/debug.c',
 ]
 
 n00b_log = ['src/cmd/n00b_debug.c']
 
-n00b_base = n00b_core +  n00b_runtime + n00b_adts + n00b_io 
+n00b_base = n00b_core +  n00b_runtime + n00b_adts + n00b_io
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
 
 n00b_src = n00b_base + n00b_cmd
