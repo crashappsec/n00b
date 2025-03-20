@@ -580,14 +580,15 @@ n00b_get_virtual_heap_start(void)
 static n00b_list_t *
 n00b_pickle_xform(n00b_stream_t *e, void *thunk, void *obj)
 {
+    defer_on();
     n00b_pickle_ctx *ctx = thunk;
 
     n00b_lock_acquire(&ctx->lock);
+    defer(n00b_lock_release(&ctx->lock));
 
     if (ctx->closed) {
         n00b_post_cerror(e, "Stream has been closed for marshaling.");
-        n00b_lock_release(&ctx->lock);
-        return NULL;
+        Return NULL;
     }
 
     if (!n00b_in_heap(obj)) {
@@ -608,19 +609,17 @@ n00b_pickle_xform(n00b_stream_t *e, void *thunk, void *obj)
     }
     // Pass on conditions.
     if (n00b_type_is_condition(n00b_get_my_type(obj))) {
-        n00b_lock_release(&ctx->lock);
         n00b_list_t *result = n00b_list(n00b_type_condition());
 
         n00b_list_append(result, obj);
 
-        return result;
+        Return result;
     }
 
     n00b_list_t *result = n00b_internal_pickle(ctx, obj);
 
-    n00b_lock_release(&ctx->lock);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 static inline void
@@ -954,7 +953,9 @@ n00b_unpickle_xform(n00b_stream_t *e, void *thunk, void *obj)
     n00b_buf_t        *inbuf  = obj;
     n00b_list_t       *result = NULL;
 
+    defer_on();
     n00b_lock_acquire(&ctx->lock);
+    defer(n00b_lock_release(&ctx->lock));
 
     n00b_receive_unpickle_info(ctx, inbuf);
 
@@ -965,28 +966,26 @@ n00b_unpickle_xform(n00b_stream_t *e, void *thunk, void *obj)
         int64_t blen = n00b_buffer_len(ctx->partial);
 
         if (blen < 16) {
-            n00b_lock_release(&ctx->lock);
-            return result;
+            Return result;
         }
         uint64_t *p = (uint64_t *)ctx->partial->data;
 
         if (!check_magic(*p)) {
-            abort();
-            N00B_CRAISE("Attempt to unmarshal object in the wrong format.");
+            Return
+                N00B_CRAISE("Attempt to unmarshal object in the wrong format."),
+                NULL;
         }
         p++;
         ctx->vaddr_start = *p;
 
         if (lsb_erase(ctx->vaddr_start) != ctx->vaddr_start) {
-            abort();
-            N00B_CRAISE("Bad virtual address space.");
+            Return N00B_CRAISE("Bad virtual address space."), NULL;
         }
 
         if (blen == 16) {
             ctx->partial     = NULL;
             ctx->part_cursor = NULL;
-            n00b_lock_release(&ctx->lock);
-            return result;
+            Return result;
         }
 
         ctx->partial     = n00b_slice_get(ctx->partial, 16, blen);
@@ -997,8 +996,7 @@ n00b_unpickle_xform(n00b_stream_t *e, void *thunk, void *obj)
         n00b_buf_t *ready = n00b_check_unpickle_readiness(ctx);
 
         if (!ready) {
-            n00b_lock_release(&ctx->lock);
-            return result;
+            Return result;
         }
 
         if (!result) {
@@ -1007,6 +1005,7 @@ n00b_unpickle_xform(n00b_stream_t *e, void *thunk, void *obj)
 
         n00b_list_append(result, n00b_unpickle_one(ctx, ready));
     }
+    defer_func_end();
 }
 
 n00b_stream_filter_t *

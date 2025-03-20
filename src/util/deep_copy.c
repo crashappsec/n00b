@@ -68,10 +68,11 @@ dc_scan(n00b_deep_copy_ctx *ctx)
             if (value == N00B_NOSCAN) {
                 break;
             }
-            n00b_heap_t *heap = n00b_addr_find_heap((uint64_t *)value);
+            n00b_heap_t *heap = n00b_addr_find_heap((uint64_t *)value, true);
 
             if (heap == ctx->src_heap) {
-                n00b_alloc_hdr *new = n00b_find_allocation_record((void *)value);
+                n00b_alloc_hdr *new;
+                new = n00b_find_allocation_record((void *)value);
                 n00b_list_append(ctx->scan_list, new);
                 remaining++;
             }
@@ -146,7 +147,8 @@ dc_copy(n00b_deep_copy_ctx *ctx)
                     continue;
                 }
 
-                n00b_heap_t *heap = n00b_addr_find_heap((uint64_t *)value);
+                n00b_heap_t *heap = n00b_addr_find_heap((uint64_t *)value,
+                                                        true);
 
                 if (heap == ctx->src_heap) {
                     *to_p = dc_translate(ctx, (int64_t)start, value);
@@ -173,7 +175,7 @@ n00b_heap_deep_copy(void *addr)
 
     n00b_suspend_collections();
 
-    ctx.src_heap = n00b_addr_find_heap(addr);
+    ctx.src_heap = n00b_addr_find_heap(addr, true);
 
     if (!ctx.src_heap) {
         return NULL;

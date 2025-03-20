@@ -8,6 +8,8 @@ typedef struct n00b_lock_record_t n00b_lock_record_t;
 struct n00b_lock_record_t {
     char               *file;
     int                 line;
+    bool                unlock;
+    bool                all;
     n00b_lock_record_t *prev;
 };
 
@@ -46,7 +48,7 @@ typedef struct n00b_rw_lock_t {
 
 extern n00b_heap_t *n00b_internal_heap;
 
-#define add_lock_record(lock, f, lineno)                              \
+#define base_new_lock_record(lock, f, lineno)                         \
     n00b_push_heap(n00b_internal_heap);                               \
     n00b_lock_record_t *lr = n00b_gc_alloc_mapped(n00b_lock_record_t, \
                                                   N00B_GC_SCAN_ALL);  \
@@ -56,17 +58,20 @@ extern n00b_heap_t *n00b_internal_heap;
     lr->file    = f;                                                  \
     lr->line    = lineno;
 
-#define add_unlock_record(lock, f, lineno)                            \
-    n00b_push_heap(n00b_internal_heap);                               \
-    n00b_lock_record_t *lr = n00b_gc_alloc_mapped(n00b_lock_record_t, \
-                                                  N00B_GC_SCAN_ALL);  \
-    n00b_pop_heap();                                                  \
-    lr->prev      = lock->unlocks;                                    \
-    lock->unlocks = lr;                                               \
-    lr->file      = f;                                                \
-    lr->line      = lineno;
+#define n00b_add_lock_record(lock, f, lineno) \
+    base_new_lock_record(lock, f, lineno);    \
+    lr->unlock = false;
 
-#define clear_lock_records(lock) \
+#define n00b_add_unlock_record(lock, f, lineno) \
+    base_new_lock_record(lock, f, lineno);      \
+    lr->unlock = true;
+
+#define n00b_add_unlock_all_record(lock, f, lineno) \
+    base_new_lock_record(lock, f, lineno);          \
+    lr->unlock = true;                              \
+    lr->all    = true;
+
+#define n00b_clear_lock_records(lock) \
     lock->locks = NULL
 
 extern void n00b_raw_lock_init(n00b_lock_t *);
@@ -74,7 +79,7 @@ extern void n00b_raw_condition_init(n00b_condition_t *c);
 extern bool _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *, int);
 extern void _n00b_lock_acquire_raw(n00b_lock_t *l, char *, int);
 extern void _n00b_lock_acquire(n00b_lock_t *l, char *, int);
-extern void n00b_lock_release(n00b_lock_t *l);
+extern void _n00b_lock_release(n00b_lock_t *l, char *, int);
 extern void n00b_lock_release_all(n00b_lock_t *l);
 extern void n00b_gts_suspend(void);
 extern void n00b_gts_resume(void);
@@ -86,6 +91,7 @@ extern bool n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *, bool);
     _n00b_lock_acquire_raw(l, __FILE__, __LINE__)
 #define n00b_lock_acquire(l) \
     _n00b_lock_acquire(l, __FILE__, __LINE__)
+#define n00b_lock_release(l) _n00b_lock_release(l, __FILE__, __LINE__)
 
 static inline void
 n00b_lock_set_nosleep(n00b_lock_t *l)
@@ -135,15 +141,15 @@ _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
     switch (pthread_rwlock_trywrlock(&l->lock)) {
     case EDEADLK:
     case EBUSY:
-      if (l->thread == (void *)(int64_t)pthread_self()) {
+        if (l->thread == (void *)(int64_t)pthread_self()) {
             l->level++;
             return true;
         }
         return false;
     case 0:
-      l->thread = (void *)(int64_t)pthread_self();
+        l->thread = (void *)(int64_t)pthread_self();
         n00b_assert(!l->level);
-        add_lock_record(l, f, ln);
+        n00b_add_lock_record(l, f, ln);
         return true;
     default:
         return false;
@@ -162,17 +168,17 @@ _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
             n00b_gts_suspend();
             pthread_rwlock_wrlock(&l->lock);
             n00b_gts_resume();
-            add_lock_record(l, f, ln);
+            n00b_add_lock_record(l, f, ln);
         }
         else {
             n00b_gts_suspend();
             pthread_rwlock_wrlock(&l->lock);
             n00b_gts_resume();
-            add_lock_record(l, f, ln);
+            n00b_add_lock_record(l, f, ln);
         }
         l->thread = (void *)(int64_t)pthread_self();
         n00b_assert(!l->level);
-        add_lock_record(l, f, ln);
+        n00b_add_lock_record(l, f, ln);
     }
 }
 
@@ -183,20 +189,23 @@ _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
     _n00b_rw_lock_acquire_for_write(l, __FILE__, __LINE__)
 
 static inline void
-n00b_rw_lock_release(n00b_rw_lock_t *l)
+_n00b_rw_lock_release(n00b_rw_lock_t *l, char *file, int line)
 {
     if (!n00b_startup_complete) {
         return;
     }
 
     if (l->level && l->thread == (void *)(int64_t)pthread_self()) {
+        n00b_add_unlock_record(l, file, line);
         l->level--;
         return;
     }
     l->thread = NULL;
-    clear_lock_records(l);
+    n00b_clear_lock_records(l);
     pthread_rwlock_unlock(&l->lock);
 }
+
+#define n00b_rw_lock_release(l) _n00b_rw_lock_release(l, __FILE__, __LINE__)
 
 #define n00b_condition_lock_acquire_raw(c) \
     n00b_lock_acquire_raw(&((c)->lock));

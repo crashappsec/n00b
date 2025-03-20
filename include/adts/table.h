@@ -125,12 +125,12 @@ struct n00b_table_t {
     bool                    did_setup;
 };
 
-extern void           _n00b_table_add_cell(n00b_table_t *, void *, ...);
+extern bool           _n00b_table_add_cell(n00b_table_t *, void *, ...);
 extern void           n00b_table_empty_cell(n00b_table_t *);
 extern void           n00b_table_add_row(n00b_table_t *, n00b_list_t *);
 extern void           n00b_table_end_row(n00b_table_t *);
 extern void           n00b_table_end(n00b_table_t *);
-extern void           n00b_table_add_contents(n00b_table_t *, n00b_list_t *);
+extern bool           n00b_table_add_contents(n00b_table_t *, n00b_list_t *);
 extern n00b_list_t   *n00b_table_render(n00b_table_t *, int, int);
 extern n00b_string_t *n00b_table_to_string(n00b_table_t *);
 
@@ -176,9 +176,6 @@ n00b_flow(n00b_list_t *list)
     return t;
 }
 
-#define n00b_table_acquire(t) n00b_lock_acquire(&t->lock)
-#define n00b_table_release(t) n00b_lock_release(&t->lock)
-
 // In this API, you don't specify a column number. Will probably
 // change this, but it's the easiest for getting it working.
 #define n00b_table_next_column_default n00b_table_next_column_fit
@@ -193,6 +190,12 @@ extern int64_t n00b_table_next_column_set_width_pct(n00b_table_t *,
                                                     double);
 
 #if defined(N00B_USE_INTERNAL_API)
+
+#define n00b_table_acquire(t)               \
+    {                                       \
+        n00b_lock_acquire(&t->lock);        \
+        defer(n00b_lock_release(&t->lock)); \
+    }
 
 extern void n00b_table_set_column_priority(n00b_table_t *, int64_t, int64_t);
 

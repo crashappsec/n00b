@@ -21,13 +21,13 @@ n00b_buffer_empty()
 }
 
 static inline void
-n00b_buffer_acquire_w(n00b_buf_t *b)
+_n00b_buffer_acquire_w(n00b_buf_t *b)
 {
     n00b_rw_lock_acquire_for_write(&b->lock);
 }
 
 static inline void
-n00b_buffer_acquire_r(n00b_buf_t *b)
+_n00b_buffer_acquire_r(n00b_buf_t *b)
 {
     n00b_rw_lock_acquire_for_read(&b->lock, true);
 }
@@ -43,3 +43,15 @@ n00b_buf_to_string(n00b_buf_t *b)
 {
     return n00b_utf8(b->data, b->byte_len);
 }
+
+#define n00b_buffer_acquire_w(b)       \
+    {                                  \
+        _n00b_buffer_acquire_w(b);     \
+        defer(n00b_buffer_release(b)); \
+    }
+
+#define n00b_buffer_acquire_r(b)       \
+    {                                  \
+        _n00b_buffer_acquire_r(b);     \
+        defer(n00b_buffer_release(b)); \
+    }

@@ -776,14 +776,15 @@ _n00b_acquire_event_base(n00b_stream_base_t *eb, char *f, int l)
     _n00b_lock_acquire(&eb->lock, f, l);
 }
 
-#define n00b_acquire_event_base(eb) \
-    _n00b_acquire_event_base(eb, __FILE__, __LINE__)
-
 static inline void
 n00b_release_event_base(n00b_stream_base_t *eb)
 {
     n00b_lock_release(&eb->lock);
 }
+
+#define n00b_acquire_event_base(eb)                   \
+    _n00b_acquire_event_base(eb, __FILE__, __LINE__); \
+    defer(n00b_release_event_base(eb))
 
 static inline n00b_stream_t *
 n00b_alloc_party(n00b_io_impl_info_t *impl,
@@ -796,10 +797,8 @@ n00b_alloc_party(n00b_io_impl_info_t *impl,
 }
 
 #ifdef N00B_TMP_DEBUG
-#define n00b_acquire_party(x) _n00b_acquire_party(x, __FILE__, __LINE__)
-
 static inline void
-_n00b_acquire_party(n00b_stream_t *party, char *file, int line)
+_n00b_core_acquire_party(n00b_stream_t *party, char *file, int line)
 {
     if (party != NULL) {
         cprintf("Acquire: %s (%s:%d)\n", party, file, line);
@@ -808,17 +807,18 @@ _n00b_acquire_party(n00b_stream_t *party, char *file, int line)
 }
 
 #else
-static inline void
-_n00b_acquire_party(n00b_stream_t *party, char *file, int line)
+static inline bool
+_n00b_core_acquire_party(n00b_stream_t *party, char *file, int line)
 {
     if (party != NULL) {
         _n00b_lock_acquire(&((party)->lock), file, line);
+        return true;
     }
+    return false;
 }
-
-#define n00b_acquire_party(p) _n00b_acquire_party(p, __FILE__, __LINE__)
-
 #endif
+
+#define n00b_core_acquire_party(x) _n00b_core_acquire_party(x, __FILE__, __LINE__)
 
 #ifdef N00B_TMP_DEBUG
 #define n00b_release_party(x) _n00b_release_party(x, __FILE__, __LINE__)
@@ -839,6 +839,11 @@ n00b_release_party(n00b_stream_t *party)
     }
 }
 #endif
+
+#define n00b_acquire_party(p)              \
+    if (n00b_core_acquire_party(p)) {      \
+        n00b_defer(n00b_release_party(p)); \
+    }
 
 static inline n00b_stream_sub_t *
 n00b_alloc_subscription(n00b_stream_t *src)
@@ -902,6 +907,20 @@ n00b_get_io_callback_exit_notifier(n00b_stream_t *s)
     return c->notifier;
 }
 
+static inline void
+n00b_fd_make_blocking(int fd)
+{
+    int flags = fcntl(fd, F_GETFL) | O_NONBLOCK;
+    fcntl(fd, F_SETFL, flags);
+}
+
+static inline void
+n00b_fd_make_nonblocking(int fd)
+{
+    int flags = fcntl(fd, F_GETFL) & ~O_NONBLOCK;
+    fcntl(fd, F_SETFL, flags);
+}
+
 extern void
 n00b_post_error_internal(n00b_stream_t *e,
                          n00b_string_t *msg,
@@ -954,7 +973,7 @@ n00b_post_error_internal(n00b_stream_t *e,
             printf("%s:\n%s\n", x, n00b_hex_dump(b->data, b->byte_len)->data); \
         }                                                                      \
         else {                                                                 \
-            n00b_string_t *s = y;                                                 \
+            n00b_string_t *s = y;                                              \
             printf("%s:\n%s\n", x, n00b_hex_dump(s->data, s->byte_len)->data); \
         }                                                                      \
     }

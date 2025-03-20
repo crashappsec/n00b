@@ -39,5 +39,18 @@ n00b_unbuffer_stdout(void)
     setbuf(stdout, NULL);
 }
 
+static inline int
+n00b_calculate_render_width(int width)
+{
+    if (width <= 0) {
+        width = n00b_terminal_width();
+        if (!width) {
+            width = N00B_MIN_RENDER_WIDTH;
+        }
+    }
+
+    return width;
+}
+
 extern void n00b_terminal_raw_mode(void);
 extern void n00b_terminal_app_setup(void);

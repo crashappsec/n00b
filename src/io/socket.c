@@ -4,6 +4,8 @@
 n00b_stream_t *
 n00b_io_socket_open(int64_t fd, n00b_io_impl_info_t *impl)
 {
+    defer_on();
+
     evutil_socket_t     handle = fd;
     n00b_stream_base_t *base   = n00b_get_ev_base(impl);
     n00b_ev2_cookie_t  *cookie = n00b_new_ev2_cookie();
@@ -23,7 +25,7 @@ n00b_io_socket_open(int64_t fd, n00b_io_impl_info_t *impl)
 
     if (result != new) {
         n00b_release_party(new);
-        return result;
+        Return result;
     }
 
     cookie->read_event  = event_new(base->event_ctx,
@@ -37,7 +39,8 @@ n00b_io_socket_open(int64_t fd, n00b_io_impl_info_t *impl)
                                     n00b_ev2_w,
                                     result);
     n00b_release_party(result);
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 static n00b_string_t *

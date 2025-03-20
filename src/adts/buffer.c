@@ -114,12 +114,12 @@ buffer_init(n00b_buf_t *obj, va_list args)
 void
 n00b_buffer_resize(n00b_buf_t *buffer, uint64_t new_sz)
 {
+    defer_on();
     n00b_buffer_acquire_w(buffer);
 
     if ((int64_t)new_sz <= buffer->alloc_len) {
         buffer->byte_len = new_sz;
-        n00b_buffer_release(buffer);
-        return;
+        Return;
     }
 
     // Resize up, copying old data and leaving the rest zero'd.
@@ -137,12 +137,14 @@ n00b_buffer_resize(n00b_buf_t *buffer, uint64_t new_sz)
            buffer->byte_len,
            buffer->alloc_len);
 
-    n00b_buffer_release(buffer);
+    Return;
+    defer_func_end();
 }
 
 n00b_string_t *
 n00b_buffer_to_hex_str(n00b_buf_t *buf)
 {
+    defer_on();
     n00b_string_t *result;
 
     n00b_buffer_acquire_r(buf);
@@ -159,22 +161,22 @@ n00b_buffer_to_hex_str(n00b_buf_t *buf)
     result->u8_bytes   = result->codepoints;
     result->styling    = NULL;
 
-    n00b_buffer_release(buf);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 static n00b_string_t *
 buffer_repr(n00b_buf_t *buf)
 {
+    defer_on();
     n00b_buffer_acquire_r(buf);
 
     n00b_string_t *result = n00b_hex_dump(buf->data, buf->byte_len);
 
     result->styling = NULL;
-    n00b_buffer_release(buf);
 
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 static n00b_string_t *
@@ -212,6 +214,8 @@ n00b_buffer_add(n00b_buf_t *b1, n00b_buf_t *b2)
         return b1;
     }
 
+    defer_on();
+
     n00b_buffer_acquire_r(b1);
     n00b_buffer_acquire_r(b2);
 
@@ -230,15 +234,14 @@ n00b_buffer_add(n00b_buf_t *b1, n00b_buf_t *b2)
         memcpy(p, b2->data, l2);
     }
 
-    n00b_buffer_release(b2);
-    n00b_buffer_release(b1);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 n00b_buf_t *
 n00b_buffer_join(n00b_list_t *list, n00b_buf_t *joiner)
 {
+    defer_on();
     n00b_buffer_acquire_r(joiner);
 
     int64_t num_items = n00b_list_len(list);
@@ -265,8 +268,6 @@ n00b_buffer_join(n00b_list_t *list, n00b_buf_t *joiner)
 
     memcpy(p, cur->data, clen);
 
-    n00b_buffer_release(cur);
-
     for (int i = 1; i < num_items; i++) {
         p += clen;
 
@@ -275,17 +276,17 @@ n00b_buffer_join(n00b_list_t *list, n00b_buf_t *joiner)
             p += jlen;
         }
 
-        cur  = n00b_list_get(list, i, NULL);
+        cur = n00b_list_get(list, i, NULL);
+        _n00b_buffer_acquire_r(cur);
         clen = n00b_buffer_len(cur);
         memcpy(p, cur->data, clen);
         n00b_buffer_release(cur);
     }
 
-    n00b_buffer_release(joiner);
-
     n00b_assert(p - result->data == new_len);
 
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 int64_t
@@ -297,11 +298,12 @@ n00b_buffer_len(n00b_buf_t *buffer)
 n00b_string_t *
 n00b_buf_to_utf8_string(n00b_buf_t *buffer)
 {
+    defer_on();
     n00b_buffer_acquire_r(buffer);
     n00b_string_t *result = n00b_utf8(buffer->data, buffer->byte_len);
-    n00b_buffer_release(buffer);
 
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 static bool
@@ -335,15 +337,14 @@ buffer_coerce_to(n00b_buf_t *b, n00b_type_t *target_type)
         }
     }
 
+    defer_on();
+    n00b_buffer_acquire_r(b);
+
     if (n00b_types_are_compat(target_type, n00b_type_bytering(), NULL)) {
-        n00b_buffer_acquire_r(b);
-        return n00b_new(target_type, n00b_kw("buffer", b));
-        n00b_buffer_release(b);
+        Return n00b_new(target_type, n00b_kw("buffer", b));
     }
 
     if (n00b_types_are_compat(target_type, n00b_type_string(), NULL)) {
-        n00b_buffer_acquire_r(b);
-
         int32_t          count = 0;
         uint8_t         *p     = (uint8_t *)b->data;
         uint8_t         *end   = p + b->byte_len;
@@ -364,61 +365,66 @@ buffer_coerce_to(n00b_buf_t *b, n00b_type_t *target_type)
         result->codepoints    = count;
 
         memcpy(result->data, b->data, b->byte_len);
-        n00b_buffer_release(b);
+        Return result;
     }
 
-    N00B_CRAISE("Invalid conversion from buffer type");
+    Return
+        N00B_CRAISE("Invalid conversion from buffer type"),
+        NULL;
+    defer_func_end();
 }
 
 static uint8_t
 buffer_get_index(n00b_buf_t *b, int64_t n)
 {
+    defer_on();
     n00b_buffer_acquire_r(b);
     if (n < 0) {
         n += b->byte_len;
 
         if (n < 0) {
-            n00b_buffer_release(b);
-            N00B_CRAISE("Index would be before the start of the buffer.");
+            Return N00B_CRAISE("Index before the start of the buffer."), 0;
         }
     }
 
     if (n >= b->byte_len) {
-        n00b_buffer_release(b);
-        N00B_CRAISE("Index out of bounds.");
+        Return N00B_CRAISE("Index out of bounds."), 0;
     }
 
     uint8_t result = b->data[n];
-    n00b_buffer_release(b);
-    return result;
+    Return  result;
+    defer_func_end();
 }
 
-static void
+static bool
 buffer_set_index(n00b_buf_t *b, int64_t n, int8_t c)
 {
+    defer_on();
     n00b_buffer_acquire_w(b);
 
     if (n < 0) {
         n += b->byte_len;
 
         if (n < 0) {
-            n00b_buffer_release(b);
-            N00B_CRAISE("Index would be before the start of the buffer.");
+            Return
+                N00B_CRAISE("Index would be before the start of the buffer."),
+                false;
         }
     }
 
     if (n >= b->byte_len) {
-        n00b_buffer_release(b);
-        N00B_CRAISE("Index out of bounds.");
+        Return N00B_CRAISE("Index out of bounds."), false;
     }
 
     b->data[n] = c;
-    n00b_buffer_release(b);
+    Return true;
+    defer_func_end();
 }
 
 static n00b_buf_t *
 buffer_get_slice(n00b_buf_t *b, int64_t start, int64_t end)
 {
+    defer_on();
     n00b_buffer_acquire_r(b);
 
     int64_t len = b->byte_len;
@@ -428,8 +434,7 @@ buffer_get_slice(n00b_buf_t *b, int64_t start, int64_t end)
     }
     else {
         if (start >= len) {
-            n00b_buffer_release(b);
-            return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
+            Return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
         }
     }
     if (end < 0) {
@@ -441,8 +446,7 @@ buffer_get_slice(n00b_buf_t *b, int64_t start, int64_t end)
         }
     }
     if ((start | end) < 0 || start >= end) {
-        n00b_buffer_release(b);
-        return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
+        Return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
     }
 
     int64_t     slice_len = end - start;
@@ -451,14 +455,14 @@ buffer_get_slice(n00b_buf_t *b, int64_t start, int64_t end)
 
     memcpy(result->data, b->data + start, slice_len);
 
-    n00b_buffer_release(b);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
-static void
+static bool
 buffer_set_slice(n00b_buf_t *b, int64_t start, int64_t end, n00b_buf_t *val)
 {
+    defer_on();
     n00b_buffer_acquire_w(b);
 
     int64_t len = b->byte_len;
@@ -468,8 +472,9 @@ buffer_set_slice(n00b_buf_t *b, int64_t start, int64_t end, n00b_buf_t *val)
     }
     else {
         if (start >= len) {
-            n00b_buffer_release(b);
-            N00B_CRAISE("Slice out-of-bounds.");
+            Return
+                N00B_CRAISE("Slice out-of-bounds."),
+                false;
         }
     }
     if (end < 0) {
@@ -481,8 +486,7 @@ buffer_set_slice(n00b_buf_t *b, int64_t start, int64_t end, n00b_buf_t *val)
         }
     }
     if ((start | end) < 0 || start >= end) {
-        n00b_buffer_release(b);
-        N00B_CRAISE("Slice out-of-bounds.");
+        return N00B_CRAISE("Slice out-of-bounds."), false;
     }
 
     int64_t slice_len   = end - start;
@@ -522,7 +526,9 @@ buffer_set_slice(n00b_buf_t *b, int64_t start, int64_t end, n00b_buf_t *val)
     }
 
     b->byte_len = new_len;
-    n00b_buffer_release(b);
+
+    Return true;
+    defer_func_end();
 }
 
 static n00b_obj_t
@@ -554,15 +560,15 @@ buffer_lit(n00b_string_t        *su8,
 static n00b_buf_t *
 buffer_copy(n00b_buf_t *inbuf)
 {
+    defer_on();
     n00b_buffer_acquire_r(inbuf);
     n00b_buf_t *outbuf = n00b_new(n00b_type_buffer(),
                                   n00b_kw("length", n00b_ka(inbuf->byte_len)));
 
     memcpy(outbuf->data, inbuf->data, inbuf->byte_len);
 
-    n00b_buffer_release(inbuf);
-
-    return outbuf;
+    Return outbuf;
+    defer_func_end();
 }
 
 static n00b_type_t *

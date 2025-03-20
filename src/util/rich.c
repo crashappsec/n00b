@@ -490,7 +490,7 @@ object_self_repr(rich_ctrl_t *info,
                  char        *end,
                  bool         strip)
 {
-    if (!n00b_in_heap(object)) {
+    if (!n00b_in_any_heap(object)) {
         info->type     = RICH_PAYLOAD;
         info->tsi.repr = n00b_fmt_int((__int128_t)(int64_t)object, false);
         return;
@@ -513,12 +513,20 @@ object_self_repr(rich_ctrl_t *info,
 
     int ti = h->type->base_index;
 
+    if (ti == N00B_T_TYPESPEC) {
+        info->type     = RICH_PAYLOAD;
+        info->tsi.repr = n00b_to_string(object);
+        return;
+    }
+
     if (ti >= 0 && ti < N00B_NUM_BUILTIN_DTS) {
         n00b_format_fn fn;
+        char          *pos  = get_arg_string_start(info->start);
+        int            diff = info->end - pos;
+        void          *res;
+
         fn = (void *)n00b_base_type_info[ti].vtable->methods[N00B_BI_FORMAT];
         if (fn) {
-            char          *pos  = get_arg_string_start(info->start);
-            int            diff = info->end - pos;
             n00b_string_t *in;
 
             if (diff <= 0) {
@@ -528,22 +536,38 @@ object_self_repr(rich_ctrl_t *info,
                 in = n00b_utf8(pos, diff);
             }
 
-            void *res = fn(object, (void *)in);
+            res = fn(object, (void *)in);
+            goto successful_callback;
+            goto after_callback;
+        }
 
-            if (res) {
-                info->type = RICH_PAYLOAD;
+        if (diff) {
+            goto after_callback;
+        }
 
-                if (strip) {
-                    info->tsi.repr = n00b_string_reuse_text(res);
-                }
-                else {
-                    info->tsi.repr = res;
-                }
-                return;
+        n00b_repr_fn repr = (void *)n00b_base_type_info[ti].vtable->methods[N00B_BI_TO_STRING];
+
+        if (!repr) {
+            goto after_callback;
+        }
+
+        res = repr(object);
+
+successful_callback:
+
+        if (res) {
+            info->type = RICH_PAYLOAD;
+
+            if (strip) {
+                info->tsi.repr = n00b_string_reuse_text(res);
             }
+            else {
+                info->tsi.repr = res;
+            }
+            return;
         }
     }
-
+after_callback:
     if (start == end) {
         object_generic_repr(info, object, h, false);
     }
@@ -626,7 +650,7 @@ try_numeric_formatting(rich_ctrl_t *info, void *obj, char *start, char *end)
         repr = n00b_fmt_hex((uint64_t)obj, true);
         break;
     case 'f':;
-      union {
+        union {
             double d;
             void  *v;
         } convert;
@@ -690,7 +714,7 @@ sub_with_spec(rich_ctrl_t *info, void *object, char *start, char *end)
         if (at_end(start, end)) {
             n00b_alloc_hdr *h = NULL;
 
-            if (n00b_in_heap(object)) {
+            if (n00b_in_any_heap(object)) {
                 h = n00b_find_allocation_record(object);
             }
             object_generic_repr(info, object, h, false);
@@ -701,7 +725,7 @@ sub_with_spec(rich_ctrl_t *info, void *object, char *start, char *end)
         if (at_end(start, end)) {
             n00b_alloc_hdr *h = NULL;
 
-            if (n00b_in_heap(object)) {
+            if (n00b_in_any_heap(object)) {
                 h = n00b_find_allocation_record(object);
             }
             object_generic_repr(info, object, h, true);
@@ -796,7 +820,7 @@ sub_with_spec(rich_ctrl_t *info, void *object, char *start, char *end)
     }
 }
 
-static inline void
+static void
 process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
 {
     // This loops through each item, looks for control sequences, and
@@ -832,6 +856,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
                 continue;
             }
             item = n00b_list_get(args, next_positional++, &err);
+
             if (err) {
                 info[i].type = RICH_AS_TEXT;
                 continue;
@@ -972,7 +997,7 @@ extract_style_info(char *p, char *end, n00b_text_element_t **tp)
         if (!strncmp(p, "lower", n)) {
             return RICH_LOWER;
         }
-	break;
+        break;
     case 6:
         if (!strncmp(p, "italic", n)) {
             return RICH_I;

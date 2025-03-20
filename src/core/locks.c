@@ -30,7 +30,7 @@ _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
     switch (pthread_mutex_trylock(&l->lock)) {
     case EBUSY:
         if (l->thread == n00b_thread_self()) {
-            add_lock_record(l, file, line);
+            n00b_add_lock_record(l, file, line);
             l->level++;
 #ifdef N00B_DEBUG_LOCKS
             if (__n00b_lock_debug) {
@@ -46,7 +46,7 @@ _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
         return false;
     case 0:
         l->thread = n00b_thread_self();
-        add_lock_record(l, file, line);
+        n00b_add_lock_record(l, file, line);
         l->level = 0;
 
         n00b_lock_register(l);
@@ -85,8 +85,9 @@ _n00b_lock_acquire_raw(n00b_lock_t *l, char *file, int line)
 #endif
 
         pthread_mutex_lock(&l->lock);
+        l->thread = (void *)(int64_t)pthread_self();
         n00b_lock_register(l);
-        add_lock_record(l, file, line);
+        n00b_add_lock_record(l, file, line);
         n00b_assert(!l->level);
 #ifdef N00B_DEBUG_LOCKS
         if (__n00b_lock_debug) {
@@ -122,7 +123,7 @@ _n00b_lock_acquire(n00b_lock_t *l, char *file, int line)
         n00b_gts_resume();
 
         n00b_lock_register(l);
-        add_lock_record(l, file, line);
+        n00b_add_lock_record(l, file, line);
         n00b_assert(!l->level);
 #ifdef N00B_DEBUG_LOCKS
         if (__n00b_lock_debug) {
@@ -138,14 +139,9 @@ _n00b_lock_acquire(n00b_lock_t *l, char *file, int line)
 }
 
 void
-n00b_lock_release(n00b_lock_t *l)
+_n00b_lock_release(n00b_lock_t *l, char *file, int line)
 {
     if (!n00b_startup_complete) {
-        return;
-    }
-
-    if (l->level) {
-        l->level--;
         return;
     }
 
@@ -157,8 +153,14 @@ n00b_lock_release(n00b_lock_t *l)
     }
 #endif
 
+    if (l->level) {
+        n00b_add_unlock_record(l, file, line);
+        l->level--;
+        return;
+    }
+
     l->thread = NULL;
-    clear_lock_records(l);
+    n00b_clear_lock_records(l);
     n00b_lock_unregister(l);
     pthread_mutex_unlock(&l->lock);
 }
@@ -169,6 +171,9 @@ n00b_lock_release_all(n00b_lock_t *l)
     if (!n00b_startup_complete) {
         return;
     }
+    if (l->thread != (void *)(int64_t)pthread_self()) {
+        return;
+    }
 
 #ifdef N00B_DEBUG_LOCKS
     if (__n00b_lock_debug) {
@@ -176,11 +181,12 @@ n00b_lock_release_all(n00b_lock_t *l)
                l,
                n00b_thread_self());
     }
+    n00b_add_unlock_all_record(l, __FILE__, __LINE__);
 #endif
 
     l->level  = 0;
     l->thread = NULL;
-    clear_lock_records(l);
+    n00b_clear_lock_records(l);
     n00b_assert(!l->locks);
     n00b_lock_unregister(l);
     pthread_mutex_unlock(&l->lock);
@@ -246,7 +252,7 @@ n00b_new_notifier(void)
 
 #if !defined(__linux__)
     fcntl(result->pipe[1], F_SETNOSIGPIPE, 1);
-#endif    
+#endif
     fcntl(result->pipe[1], F_SETFL, flags | O_NONBLOCK);
 
     return result;

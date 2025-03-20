@@ -364,6 +364,7 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
 n00b_stream_t *
 n00b_io_fd_open(int64_t fd, n00b_io_impl_info_t *impl)
 {
+    defer_on();
     n00b_stream_base_t  *base   = n00b_get_ev_base(impl);
     n00b_io_permission_t perms  = n00b_io_perm_none;
     int                  flags  = fcntl(fd, F_GETFL);
@@ -393,27 +394,22 @@ n00b_io_fd_open(int64_t fd, n00b_io_impl_info_t *impl)
     cookie->id         = fd;
 
     // Lock us; we'll unlock it when we've finished initializing.
-    n00b_lock_debugging_on();
     n00b_acquire_party(new);
-    n00b_lock_debugging_off();
     n00b_stream_t *result = n00b_add_or_replace(new,
                                                 base->io_fd_cache,
                                                 (void *)fd);
 
     if (result != new) {
         n00b_release_party(new);
-        return result;
+        Return result;
     }
 
     result = new;
 
     add_file_info(result, perms);
 
-    n00b_lock_debugging_on();
-    n00b_release_party(result);
-    n00b_lock_debugging_off();
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 bool

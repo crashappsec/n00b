@@ -1,5 +1,16 @@
 #include "n00b.h"
 
+static inline void
+n00b_do_write(n00b_stream_t *stream, void *data, bool noblock)
+{
+    if (noblock) {
+        n00b_write(stream, data);
+    }
+    else {
+        n00b_write_blocking(stream, data, NULL);
+    }
+}
+
 void
 _n00b_print(n00b_obj_t first, ...)
 {
@@ -11,12 +22,13 @@ _n00b_print(n00b_obj_t first, ...)
     n00b_codepoint_t  end        = '\n';
     bool              flush      = false;
     bool              nocolor    = false;
+    bool              noblock    = false;
     int               numargs    = 1;
 
     va_start(args, first);
 
     if (first == NULL) {
-        n00b_write(n00b_stdout(), n00b_cached_newline());
+        n00b_do_write(n00b_stdout(), n00b_cached_newline(), true);
         return;
     }
 
@@ -27,7 +39,7 @@ _n00b_print(n00b_obj_t first, ...)
         first  = va_arg(args, n00b_obj_t);
         cur    = first;
         if (!first) {
-            n00b_write(n00b_stdout(), n00b_cached_newline());
+            n00b_do_write(n00b_stdout(), n00b_cached_newline(), true);
             return;
         }
     }
@@ -56,6 +68,7 @@ _n00b_print(n00b_obj_t first, ...)
         n00b_kw_codepoint("end", end);
         n00b_kw_bool("flush", flush);
         n00b_kw_bool("no_color", nocolor);
+        n00b_kw_bool("no_block", noblock);
     }
 
     if (stream == NULL) {
@@ -66,7 +79,7 @@ _n00b_print(n00b_obj_t first, ...)
 
     for (int i = 0; i < numargs; i++) {
         if (i && sep) {
-            n00b_write(stream, n00b_string_from_codepoint(sep));
+            n00b_do_write(stream, n00b_string_from_codepoint(sep), noblock);
         }
         if (n00b_type_is_string(n00b_get_my_type(cur))) {
             s = cur;
@@ -78,13 +91,13 @@ _n00b_print(n00b_obj_t first, ...)
             s = n00b_string_reuse_text(s);
         }
 
-        n00b_write(stream, s);
+        n00b_do_write(stream, s, noblock);
         cur = va_arg(args, n00b_obj_t);
     }
 
     if (end) {
         s = n00b_string_from_codepoint(end);
-        n00b_write(stream, s);
+        n00b_do_write(stream, s, noblock);
     }
 
 #if 0

@@ -1356,12 +1356,7 @@ n00b_string_wrap(n00b_string_t *s, int64_t width, int64_t hang)
         return result;
     }
 
-    if (width <= 0) {
-        width = n00b_terminal_width();
-        if (width <= 0) {
-            width = N00B_MIN_RENDER_WIDTH;
-        }
-    }
+    width = n00b_calculate_render_width(width);
 
     n00b_break_info_t *line_starts = n00b_break_wrap(s, width, hang);
 
@@ -1588,11 +1583,19 @@ n00b_string_reuse_text(n00b_string_t *s)
     return result;
 }
 
+#ifdef N00B_DESIRED_BUT_BROKEN
 n00b_string_t *
 n00b_string_copy(n00b_string_t *s)
 {
     return copy_styles(n00b_string_reuse_text(s), s);
 }
+#else
+n00b_string_t *
+n00b_string_copy(n00b_string_t *s)
+{
+    return copy_styles(n00b_utf8(s->data, s->u8_bytes), s);
+}
+#endif
 
 n00b_string_t *
 n00b_string_align_left(n00b_string_t *s, int w)
@@ -1690,14 +1693,14 @@ n00b_string_to_cstr(n00b_string_t *s)
 static inline char *
 n00b_copy_buffer_contents(n00b_buf_t *b)
 {
+    defer_on();
     n00b_buffer_acquire_r(b);
     char *result = n00b_gc_raw_alloc(b->byte_len + 1, N00B_GC_SCAN_ALL);
 
     memcpy(result, b->data, b->byte_len);
 
-    n00b_buffer_release(b);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 char *

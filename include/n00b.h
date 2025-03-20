@@ -16,7 +16,7 @@ typedef struct n00b_string_t n00b_string_t;
 // Everything includes this; the ordering here is somewhat important
 // due to interdependencies, though they can always be solved via
 // prototyping.
-
+#include "util/defer.h"
 #include "util/assert.h"
 #include "n00b/base.h"
 #include "core/init.h"

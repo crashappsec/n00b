@@ -594,7 +594,6 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
             while (cur->parent != NULL) {
                 cur = cur->parent;
             }
-            n00b_eprint(n00b_parse_tree_format(cur));
         }
         else {
             msg = n00b_cformat("Missing an expected «em»«#»«/».",
@@ -743,6 +742,8 @@ convert_parse_tree(n00b_gopt_ctx *gctx, n00b_parser_t *p, n00b_tree_node_t *node
     };
     n00b_gopt_result_t *result = n00b_gc_alloc_mapped(n00b_gopt_result_t,
                                                       N00B_GC_SCAN_ALL);
+
+    result->debug = gctx;
 
     if (gctx->show_debug) {
         n00b_print(n00b_parse_tree_format(ctx.intree));

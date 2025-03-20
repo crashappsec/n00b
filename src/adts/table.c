@@ -142,8 +142,6 @@ exception_cleanup(n00b_table_t *table)
     if (table->locked_list) {
         n00b_unlock_list(table->locked_list);
     }
-
-    n00b_table_release(table);
 }
 
 static inline void
@@ -216,17 +214,23 @@ raw_empty_cell(n00b_table_t *table)
 void
 n00b_table_empty_cell(n00b_table_t *table)
 {
+    defer_on();
     n00b_table_acquire(table);
     n00b_cell_t *cell = raw_empty_cell(table);
     n00b_list_append(table->current_row, cell);
     table->col_cursor += 1;
     n00b_row_width_check(table);
-    n00b_table_release(table);
+
+    Return;
+
+    defer_func_end();
 }
 
-void
+bool
 _n00b_table_add_cell(n00b_table_t *table, void *contents, ...)
 {
+    defer_on();
+
     int64_t           span;
     va_list           args;
     n00b_box_props_t *custom_props = NULL;
@@ -257,7 +261,9 @@ _n00b_table_add_cell(n00b_table_t *table, void *contents, ...)
 
     if (!t) {
         exception_cleanup(table);
-        N00B_CRAISE("Content is not an object type.");
+        Return
+            N00B_CRAISE("Content is not an object type."),
+            false;
     }
 
     n00b_cell_t *cell = n00b_gc_alloc_mapped(n00b_cell_t,
@@ -284,18 +290,23 @@ _n00b_table_add_cell(n00b_table_t *table, void *contents, ...)
         table->col_cursor = 0;
     }
     n00b_row_width_check(table);
-    n00b_table_release(table);
+
+    Return true;
+    defer_func_end();
 }
 
 void
 n00b_table_end_row(n00b_table_t *table)
 {
+    defer_on();
     n00b_table_acquire(table);
     internal_table_end_row(table);
     if (table->outstream) {
         emit_cache(table, false);
     }
-    n00b_table_release(table);
+
+    Return;
+    defer_func_end();
 }
 
 static inline void
@@ -321,29 +332,37 @@ internal_add_row(n00b_table_t *table, n00b_list_t *row)
 void
 n00b_table_add_row(n00b_table_t *table, n00b_list_t *row)
 {
+    defer_on();
     n00b_table_acquire(table);
     internal_add_row(table, row);
     if (table->outstream) {
         emit_cache(table, false);
     }
-    n00b_table_release(table);
+
+    Return;
+    defer_func_end();
 }
 
 void
 n00b_table_end(n00b_table_t *table)
 {
+    defer_on();
     n00b_table_acquire(table);
     table->max_col = table->row_cursor;
 
     if (table->outstream) {
         emit_cache(table, true);
     }
-    n00b_table_release(table);
+
+    Return;
+    defer_func_end();
 }
 
-void
+bool
 n00b_table_add_contents(n00b_table_t *table, n00b_list_t *l)
 {
+    defer_on();
+
     n00b_table_acquire(table);
     n00b_lock_list_read(l);
     table->locked_list = l;
@@ -355,25 +374,29 @@ n00b_table_add_contents(n00b_table_t *table, n00b_list_t *l)
 
         if (!n00b_type_is_list(t)) {
             exception_cleanup(table);
-            N00B_CRAISE("Row passed as table contents is not a list.");
+            Return
+                N00B_CRAISE("Row passed as table contents is not a list."),
+                false;
         }
         internal_add_row(table, row);
     }
 
     table->locked_list = NULL;
     n00b_unlock_list(l);
-    n00b_table_release(table);
+
+    Return true;
+    defer_func_end();
 }
 
 n00b_list_t *
 n00b_table_render(n00b_table_t *table, int width, int ignored)
 {
+    defer_on();
     n00b_table_acquire(table);
     n00b_stream_t *saved_outstream = table->outstream;
 
     if (saved_outstream && table->eject_on_render) {
-        n00b_table_release(table);
-        N00B_CRAISE("Table is set to stream and release data as it outputs.");
+        Return N00B_CRAISE("Table is set to stream and release data as it outputs."), NULL;
     }
 
     // We'll manually add to table->render_cache when we call render()
@@ -388,9 +411,8 @@ n00b_table_render(n00b_table_t *table, int width, int ignored)
     n00b_list_t *result = table->render_cache;
     table->render_cache = n00b_list(n00b_type_string());
 
-    n00b_table_release(table);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 n00b_string_t *
@@ -833,9 +855,8 @@ layout_table(n00b_table_t *table, int64_t width)
 static void
 setup_table_rendering(n00b_table_t *table, int width)
 {
-    if (width <= 0) {
-        width = n00b_max(n00b_terminal_width(), N00B_MIN_RENDER_WIDTH);
-    }
+    width = n00b_calculate_render_width(width);
+
     if (!table->max_col) {
         table->max_col = table->current_num_cols;
     }
@@ -1537,10 +1558,21 @@ emit_cache(n00b_table_t *table, bool add_end)
     }
 }
 
+static void *
+n00b_table_format(n00b_table_t *table, n00b_string_t *options)
+{
+    if (options && n00b_string_codepoint_len(options)) {
+        return NULL;
+    }
+
+    return n00b_table_to_string(table);
+}
+
 const n00b_vtable_t n00b_table_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_table_init,
         [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_table_to_string,
+        [N00B_BI_FORMAT]      = (n00b_vtable_entry)n00b_table_format,
         [N00B_BI_RENDER]      = (n00b_vtable_entry)n00b_table_render,
     },
 };

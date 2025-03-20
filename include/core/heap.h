@@ -273,8 +273,9 @@ typedef union n00b_mem_ptr {
     uint64_t               nonpointer;
 } n00b_mem_ptr;
 
-extern uint64_t n00b_gc_guard;
-extern int      __n00b_collector_running;
+extern uint64_t        n00b_gc_guard;
+extern int             __n00b_collector_running;
+extern pthread_mutex_t n00b_arena_protection_guard;
 
 #if defined(N00B_FULL_MEMCHECK)
 extern void n00b_run_memcheck(n00b_heap_t *);
@@ -300,7 +301,7 @@ extern n00b_heap_t *n00b_default_heap;
 // you call it, to ensure that sub-allocations use the same
 // allocator. When that happens, it will reset to NULL.
 
-extern n00b_heap_t    *n00b_addr_find_heap(void *);
+extern n00b_heap_t    *n00b_addr_find_heap(void *, bool);
 extern bool            n00b_addr_in_heap(n00b_heap_t *, void *);
 extern n00b_heap_t    *_n00b_new_heap(uint64_t, char *, int);
 extern void            n00b_delete_heap(n00b_heap_t *);
@@ -349,7 +350,13 @@ extern void           *n00b_heap_deep_copy(void *);
 static inline bool
 n00b_in_heap(void *addr)
 {
-    return n00b_addr_find_heap(addr) != NULL;
+    return n00b_addr_find_heap(addr, false) != NULL;
+}
+
+static inline bool
+n00b_in_any_heap(void *addr)
+{
+    return n00b_addr_find_heap(addr, true) != NULL;
 }
 
 static inline void
@@ -551,12 +558,12 @@ n00b_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
 #define N00B_ARENA_OVERHEAD (4 * n00b_page_bytes)
 #define N00B_ALLOC_OVERHEAD sizeof(n00b_header_t)
 
-extern void         n00b_add_arena(n00b_heap_t *, uint64_t);
-extern bool         n00b_addr_in_one_heap(n00b_heap_t *, void *);
+extern void           n00b_add_arena(n00b_heap_t *, uint64_t);
+extern bool           _n00b_addr_in_one_heap(n00b_heap_t *, void *);
 extern n00b_string_t *noob_debug_repr_heap(n00b_heap_t *);
-extern void         n00b_debug_print_heap(n00b_heap_t *);
+extern void           n00b_debug_print_heap(n00b_heap_t *);
 extern n00b_string_t *n00b_debug_repr_all_heaps(void);
-extern void         n00b_debug_all_heaps(void);
+extern void           n00b_debug_all_heaps(void);
 
 extern int          __n00b_collector_running;
 extern n00b_heap_t *__n00b_current_from_space;
@@ -575,6 +582,18 @@ extern int          n00b_heap_entries_pp;
 extern bool         n00b_collection_suspended;
 extern void         n00b_suspend_collections(void);
 extern void         n00b_allow_collections(void);
+
+static inline bool
+n00b_addr_in_one_heap(n00b_heap_t *h, void *addr)
+{
+    // The base impl skips this check for privacy to avoid
+    // too much code duplication for n00b_in_any_heap()
+    if (h->private && __n00b_current_from_space != h) {
+        return false;
+    }
+
+    return _n00b_addr_in_one_heap(h, addr);
+}
 
 static inline void
 n00b_heap_set_name(n00b_heap_t *h, char *n)
@@ -646,13 +665,28 @@ n00b_delete_arena(n00b_arena_t *a)
 static inline void
 n00b_lock_arena_header(n00b_arena_t *a)
 {
-    mprotect(a, n00b_page_bytes, PROT_READ);
+    // This mprotect is supposed to ensure the header is read-only
+    // except in cases where we absolutely have to change it.  The
+    // mutex around it makes sure multiple threads won't edit the same
+    // arena at once, even though that is 'belt and suspenders'--
+    // should already be stop-the-world.
+    //
+    // But in any case, the mprotect() on mac is occasionally failing
+    // when trying to add the successor arena w/ a write permission
+    // problem, which makes no sense at all to me.
+    //
+    // So, for the time being, this is a noop, until I get around
+    // to my TODO list to figure out what's going on.
+
+    // mprotect(a, n00b_page_bytes, PROT_READ);
+    // pthread_mutex_unlock(&n00b_arena_protection_guard);
 }
 
 static inline void
 n00b_unlock_arena_header(n00b_arena_t *a)
 {
-    mprotect(a, n00b_page_bytes, PROT_READ | PROT_WRITE);
+    // pthread_mutex_lock(&n00b_arena_protection_guard);
+    // mprotect(a, n00b_page_bytes, PROT_READ | PROT_WRITE);
 }
 
 #if defined(N00B_GC_ALLOW_DEBUG_BIT)

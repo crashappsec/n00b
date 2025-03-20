@@ -587,5 +587,5 @@ n00b_cfg_repr(n00b_cfg_node_t *node)
     n00b_tree_node_t *root = n00b_tree(n00b_cstring("Root"));
 
     n00b_cfg_build_repr(node, root, NULL, NULL);
-    return n00b_tree_format(root, NULL, NULL, false);
+    return n00b_tree_format(root, n00b_stringify, NULL, false);
 }

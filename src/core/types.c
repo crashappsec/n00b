@@ -1586,9 +1586,9 @@ n00b_type_repr(n00b_type_t *t)
 const n00b_vtable_t n00b_type_spec_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_type_init,
-        [N00B_BI_REPR]        = (n00b_vtable_entry)n00b_type_repr,
         [N00B_BI_COPY]        = (n00b_vtable_entry)n00b_type_copy,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)n00b_type_set_gc_bits,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_type_repr,
         [N00B_BI_FINALIZER]   = NULL,
     },
 };

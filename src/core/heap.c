@@ -29,9 +29,10 @@ uint64_t            n00b_page_modulus;
 uint64_t            n00b_modulus_mask;
 uint64_t            n00b_next_heap_index;
 int                 n00b_heap_entries_pp;
+pthread_mutex_t     n00b_arena_protection_guard = PTHREAD_MUTEX_INITIALIZER;
 
 n00b_heap_t *
-n00b_addr_find_heap(void *p)
+n00b_addr_find_heap(void *p, bool any)
 {
     if (!p) {
         return NULL;
@@ -45,6 +46,9 @@ n00b_addr_find_heap(void *p)
             continue;
         }
 
+        if (any && _n00b_addr_in_one_heap(h, p)) {
+            return h;
+        }
         if (n00b_addr_in_one_heap(h, p)) {
             return h;
         }
@@ -56,13 +60,9 @@ n00b_addr_find_heap(void *p)
 }
 
 bool
-n00b_addr_in_one_heap(n00b_heap_t *h, void *p)
+_n00b_addr_in_one_heap(n00b_heap_t *h, void *p)
 {
     if (h->released) {
-        return false;
-    }
-
-    if (h->private && __n00b_current_from_space != h) {
         return false;
     }
 
@@ -215,10 +215,7 @@ n00b_debug_print_heap(n00b_heap_t *p)
         fprintf(stderr, "'%s' ", p->name);
     }
 
-    fprintf(stderr, "(#%lld; %s:%d)",
-	    (long long int)p->heap_id,
-	    p->file,
-	    p->line);
+    fprintf(stderr, "(#%lld; %s:%d)", (long long int)p->heap_id, p->file, p->line);
 
     if (p->released) {
         fprintf(stderr, " (released)\n");
@@ -349,7 +346,7 @@ n00b_long_term_pin(n00b_heap_t *h)
         n00b_lock_arena_header(h->newest_arena);
         long_term_pins->newest_arena      = h->newest_arena;
         long_term_pins->total_alloc_count = atomic_read(&h->alloc_count);
-        h->ptr                            = crit;
+        long_term_pins->ptr               = crit;
     }
     else {
         n00b_arena_t *a = long_term_pins->newest_arena;
@@ -360,7 +357,7 @@ n00b_long_term_pin(n00b_heap_t *h)
         long_term_pins->newest_arena = h->newest_arena;
         long_term_pins->total_alloc_count += atomic_read(&h->alloc_count);
         n00b_lock_arena_header(a);
-        h->ptr = crit;
+        long_term_pins->ptr = crit;
     }
 
     h->first_arena  = NULL;
@@ -446,7 +443,7 @@ n00b_find_allocation_record(void *addr)
     }
 
     void       **p = (void **)addr;
-    n00b_heap_t *h = n00b_addr_find_heap(p);
+    n00b_heap_t *h = n00b_addr_find_heap(p, true);
 
     if (!h) {
         return NULL;

@@ -84,6 +84,8 @@ setup_exit_obj(n00b_proc_t *ctx)
 static void
 post_spawn_subscription_setup(n00b_proc_t *ctx)
 {
+    defer_on();
+
     // We need to lock anything we might be reading from during the
     // subscription process to prevent delivery till we have
     // everything set up.  Just go ahead and lock stdio as a matter of
@@ -162,6 +164,10 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
     n00b_release_party(ctx->subproc_stderr);
     n00b_release_party(ctx->subproc_stdout);
     n00b_release_party(ctx->subproc_stdin);
+
+    Return;
+
+    defer_func_end();
 }
 
 static inline bool
@@ -449,8 +455,7 @@ _n00b_run_process(n00b_string_t *cmd,
     n00b_kw_ptr("timeout", timeout);
     n00b_kw_bool("pty", pty);
     n00b_kw_bool("raw_argv", raw_argv);
-    n00b_kw_bool("run", run);
-    n00b_kw_bool("spawn", spawn);
+    n00b_kw_bool("async", spawn);
     n00b_kw_bool("merge", merge_output);
 
     if (run && spawn) {
@@ -481,13 +486,11 @@ _n00b_run_process(n00b_string_t *cmd,
         proc->flags |= N00B_PROC_RAW_ARGV;
     }
 
-    if (run) {
-        n00b_proc_run(proc, timeout);
+    if (spawn) {
+        n00b_proc_spawn(proc);
     }
     else {
-        if (spawn) {
-            n00b_proc_spawn(proc);
-        }
+        n00b_proc_run(proc, timeout);
     }
 
     return proc;

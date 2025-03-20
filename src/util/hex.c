@@ -96,17 +96,9 @@ n00b_hexl(void                *ptr,
     uint8_t  c;
     size_t   prefix_len = strlen(prefix);
 
-    if (width <= 0) {
-        // Right now, the render width is wider and both are static. But
-        // the render width might move to runtime.
-        width = n00b_max(n00b_max(n00b_terminal_width(), MIN_DUMP_WIDTH),
-                         N00B_MIN_RENDER_WIDTH);
-    }
-    else {
-        if (width < MIN_DUMP_WIDTH) {
-            width = MIN_DUMP_WIDTH;
-        }
-    }
+    // Right now, the render width is wider and both are static. But
+    // the render width might move to runtime.
+    width = n00b_max(n00b_calculate_render_width(width), MIN_DUMP_WIDTH);
 
     /*
     ** Calculate how many characters we have room to print per line.
@@ -401,12 +393,12 @@ apply_highlights(n00b_string_t       *s,
 n00b_string_t *
 _n00b_hex_dump(void *ptr, uint32_t len, ...)
 {
-    int64_t      start_offset = 0;
-    char        *prefix       = "";
-    n00b_list_t *highlights   = NULL;
-    int32_t      width        = -1;
+    int64_t        start_offset = 0;
+    char          *prefix       = "";
+    n00b_list_t   *highlights   = NULL;
+    int32_t        width        = -1;
     n00b_string_t *res;
-    char        *dump;
+    char          *dump;
     // int32_t   addr_width;
     // int32_t   bpl;
 

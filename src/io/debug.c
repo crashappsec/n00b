@@ -36,7 +36,7 @@ n00b_format_metadata(n00b_message_t *msg)
     bool           pass_by_value = false;
     void          *value         = msg->payload;
 
-    if (n00b_in_heap(value)) {
+    if (n00b_in_any_heap(value)) {
         n00b_basic_memory_info(value, &is_obj, &is_interior);
     }
     else {
@@ -129,7 +129,7 @@ n00b_debug_output_cb(void *ignore, n00b_message_t *msg, void *thunk)
     n00b_string_t *output    = n00b_format_metadata(msg);
     n00b_string_t *formatted = NULL;
 
-    if (!n00b_in_heap(msg->payload)) {
+    if (!n00b_in_any_heap(msg->payload)) {
         if (hex_for_values) {
             formatted = n00b_cformat("«#:x»", msg->payload);
         }
@@ -286,7 +286,7 @@ n00b_get_debug_topic(void *topic_info, bool create)
     n00b_string_t *tname = NULL;
     n00b_stream_t *topic;
 
-    if (!n00b_in_heap(topic_info)) {
+    if (!n00b_in_any_heap(topic_info)) {
         tname = n00b_cstring(topic_info);
     }
     else {
@@ -350,7 +350,7 @@ _n00b_debug(void *tname, void *v, ...)
         v = n00b_box_u64(0ull);
     }
 
-    if (n00b_in_heap(v)) {
+    if (n00b_in_any_heap(v)) {
         n00b_alloc_hdr *h = n00b_find_allocation_record(v);
         h->alloc_file     = n00b_backtrace_utf8()->data;
     }
@@ -366,7 +366,7 @@ _n00b_debug(void *tname, void *v, ...)
 void
 n00b_debug_object(void *tname, void *obj)
 {
-    if (!n00b_in_heap(obj)) {
+    if (!n00b_in_any_heap(obj)) {
         n00b_debug(tname, n00b_cformat("«#:o»}", (uint64_t)obj));
     }
     else {

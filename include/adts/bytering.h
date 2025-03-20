@@ -12,10 +12,10 @@ typedef struct {
 extern n00b_bytering_t *n00b_bytering_copy(n00b_bytering_t *);
 extern int64_t          n00b_bytering_len(n00b_bytering_t *);
 extern n00b_buf_t      *n00b_bytering_to_buffer(n00b_bytering_t *);
-extern n00b_string_t     *n00b_bytering_to_utf8(n00b_bytering_t *);
+extern n00b_string_t   *n00b_bytering_to_utf8(n00b_bytering_t *);
 extern void             n00b_bytering_resize(n00b_bytering_t *, int64_t);
 extern int8_t           n00b_bytering_get_index(n00b_bytering_t *, int64_t);
-extern void             n00b_bytering_set_index(n00b_bytering_t *,
+extern bool             n00b_bytering_set_index(n00b_bytering_t *,
                                                 int64_t,
                                                 int8_t);
 extern n00b_bytering_t *n00b_bytering_get_slice(n00b_bytering_t *,

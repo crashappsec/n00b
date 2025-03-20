@@ -1,4 +1,4 @@
-#ifdef some_stuff_i_may_enable
+#ifdef n00b_some_stuff_i_may_occasionally_enable_in_testing
 
 #define N00B_SHOW_GARBAGE_REPORTS
 #define N00B_USE_LOCK_DEBUGGING
@@ -7,9 +7,10 @@
 #define N00B_DEBUG_GC_ROOTS
 #define N00B_GC_ALLOW_DEBUG_BIT
 #define N00B_MPROTECT_WRAPPED_ALLOCS
-#undef N00B_FULL_MEMCHECK
-#else
 #define N00B_FLOG_DEBUG
+#define N00B_FULL_MEMCHECK
+#define N00B_DEBUG_LOCKS
+#else
 #endif
 
 #pragma once

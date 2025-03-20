@@ -191,6 +191,14 @@ main(int argc, char **argv, char **envp)
         ctx->args = resolve_paths(n00b_gopt_get_args(opt_res, ctx->cmd));
     }
 
+    if (opt_res && opt_res->tree) {
+        n00b_eprint(n00b_grammar_format(opt_res->debug->grammar));
+        n00b_eprint(n00b_parse_tree_format(opt_res->tree));
+    }
+    else {
+        printf("DOH!\n");
+    }
+
     if (!n00b_cmd_quiet(ctx)) {
         n00b_eprintf(
             "«em2»N00b «#».«#».«#»«/» «i»(«#», «#»)«/»\n"

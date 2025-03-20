@@ -40,6 +40,7 @@ internal_read_buf(n00b_stream_t *party, n00b_buf_t *b)
 static bool
 n00b_buf_read_fn(n00b_stream_t *e, uint64_t nbytes)
 {
+    defer_on();
     n00b_bio_cookie_t *cookie = e->cookie;
     n00b_buffer_acquire_r(cookie->b);
 
@@ -53,14 +54,14 @@ n00b_buf_read_fn(n00b_stream_t *e, uint64_t nbytes)
         internal_read_buf(e, slice);
     }
 
-    n00b_buffer_release(cookie->b);
-
-    return true;
+    Return true;
+    defer_func_end();
 }
 
 static void
 n00b_buf_write_fn(n00b_stream_t *e, n00b_buf_t *b)
 {
+    defer_on();
     n00b_bio_cookie_t *cookie = e->cookie;
     n00b_buffer_acquire_w(cookie->b);
 
@@ -71,7 +72,7 @@ n00b_buf_write_fn(n00b_stream_t *e, n00b_buf_t *b)
     int64_t len_added = n00b_buffer_len(b);
 
     if (len_added <= 0) {
-        goto done;
+        Return;
     }
 
     tmp                  = n00b_buffer_add(cookie->b, b);
@@ -79,9 +80,8 @@ n00b_buf_write_fn(n00b_stream_t *e, n00b_buf_t *b)
     cookie->b->byte_len  = tmp->byte_len;
     cookie->b->alloc_len = tmp->alloc_len;
 
-done:
-    n00b_buffer_release(cookie->b);
-    n00b_buffer_release(b);
+    Return;
+    defer_func_end();
 }
 
 bool
@@ -90,7 +90,7 @@ n00b_buf_subscribe(n00b_stream_sub_t *sub, n00b_io_subscription_kind perms)
     n00b_stream_t *stream = sub->source;
 
     if (perms != (n00b_io_subscription_kind)n00b_io_perm_r
-	&& n00b_len(stream->read_subs) == 1) {
+        && n00b_len(stream->read_subs) == 1) {
         n00b_bio_cookie_t *cookie = stream->cookie;
         if (!cookie->read_position) {
             n00b_buf_read_fn(stream, n00b_buffer_len(cookie->b));
@@ -103,6 +103,7 @@ n00b_buf_subscribe(n00b_stream_sub_t *sub, n00b_io_subscription_kind perms)
 static bool
 n00b_buf_at_eof(n00b_stream_t *e)
 {
+    defer_on();
     bool result;
 
     n00b_bio_cookie_t *cookie = e->cookie;
@@ -110,8 +111,8 @@ n00b_buf_at_eof(n00b_stream_t *e)
 
     result = cookie->read_position >= n00b_len(cookie->b);
 
-    n00b_buffer_release(cookie->b);
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 static n00b_string_t *

@@ -148,10 +148,8 @@ n00b_stream_repr(n00b_stream_t *e)
             0,
         };
 
-        snprintf(buf, 1023, "%llu (%s)",
-		 (long long int)id,
-		 e->impl->name->data);
-	
+        snprintf(buf, 1023, "%llu (%s)", (long long int)id, e->impl->name->data);
+
         name = n00b_cstring(buf);
     }
 
@@ -305,8 +303,10 @@ n00b_at_eof(n00b_stream_t *e)
 n00b_stream_t *
 n00b_add_or_replace(n00b_stream_t *new, n00b_dict_t *dict, void *key)
 {
+    defer_on();
+
     if (hatrack_dict_add(dict, key, new)) {
-        return new;
+        Return new;
     }
 
     n00b_stream_t *found = hatrack_dict_get(dict, key, NULL);
@@ -324,17 +324,15 @@ n00b_add_or_replace(n00b_stream_t *new, n00b_dict_t *dict, void *key)
         }
         else {
             hatrack_dict_put(dict, key, new);
-            n00b_lock_debugging_on();
-            n00b_release_party(found);
-            n00b_lock_debugging_off();
-            return new;
+            Return new;
         }
     }
 
     n00b_lock_debugging_on();
-    n00b_release_party(found);
     n00b_lock_debugging_off();
-    return found;
+    Return found;
+
+    defer_func_end();
 }
 
 static inline struct timeval *
@@ -368,6 +366,8 @@ get_event_start_time(n00b_stream_sub_t *sub)
 static void
 timeout_purge(evutil_socket_t fd, short event_type, void *info)
 {
+    defer_on();
+
     n00b_stream_sub_t *sub = info;
 
     n00b_acquire_party(sub->source);
@@ -385,8 +385,8 @@ timeout_purge(evutil_socket_t fd, short event_type, void *info)
         n00b_io_unsubscribe(info);
     }
 
-    n00b_release_party(sub->sink);
-    n00b_release_party(sub->source);
+    Return;
+    defer_func_end();
 }
 
 static inline n00b_stream_base_t *
@@ -461,6 +461,7 @@ n00b_post_to_subscribers(n00b_stream_t            *party,
 void
 n00b_ev2_r(evutil_socket_t fd, short event_type, void *info)
 {
+    defer_on();
     // Because we force sockets into non-blocking mode, read() cannot
     // block (with non-sockets, read() always returns).
     //
@@ -498,17 +499,14 @@ n00b_ev2_r(evutil_socket_t fd, short event_type, void *info)
         if (errno != EINTR && errno != EAGAIN) {
             party->error           = true;
             party->closed_for_read = true;
-            n00b_release_party(party);
             n00b_post_close(party);
             n00b_post_errno(party);
         }
-        n00b_release_party(party);
-        return;
+        Return;
     case 0:
         party->closed_for_read = true;
         n00b_post_close(party);
-        n00b_release_party(party);
-        return;
+        Return;
     default:
 #ifdef N00B_EV_STATS
     {
@@ -546,9 +544,10 @@ n00b_ev2_r(evutil_socket_t fd, short event_type, void *info)
             }
         }
 
-        n00b_release_party(party);
-        return;
+        Return;
     }
+
+    defer_func_end();
 }
 
 static inline bool
@@ -564,6 +563,8 @@ signal_possible_waiter(void *obj)
 void
 n00b_ev2_w(evutil_socket_t fd, short event_type, void *info)
 {
+    defer_on();
+
     n00b_stream_t *party = info;
 
     n00b_acquire_party(party);
@@ -586,8 +587,7 @@ n00b_ev2_w(evutil_socket_t fd, short event_type, void *info)
     if (!request) {
 not_done:
         n00b_event_add(cookie->write_event, NULL);
-        n00b_release_party(party);
-        return;
+        Return;
     }
 
     ssize_t n = write((int)cookie->id, write_start, request);
@@ -638,7 +638,8 @@ not_done:
         break;
     }
 
-    n00b_release_party(party);
+    Return;
+    defer_func_end();
 }
 
 void
@@ -711,19 +712,15 @@ _acquire_event_loop(char *f, int l)
     }
 }
 
-#define acquire_event_loop() _acquire_event_loop(__FILE__, __LINE__)
-
 static inline void
 release_event_loop(void)
 {
     n00b_lock_release(&event_loop_lock);
 }
 
-void
-n00b_suspend_io(void)
-{
-    n00b_lock_acquire(&event_loop_lock);
-}
+#define acquire_event_loop()                 \
+    _acquire_event_loop(__FILE__, __LINE__); \
+    defer(release_event_loop())
 
 extern void n00b_process_queue(void);
 
@@ -860,6 +857,8 @@ n00b_io_close(n00b_stream_t *party)
 static void
 n00b_stream_cycle_check(n00b_stream_t *source, n00b_stream_t *sink)
 {
+    defer_on();
+
     n00b_list_t *l;
     int          n;
 
@@ -887,7 +886,7 @@ n00b_stream_cycle_check(n00b_stream_t *source, n00b_stream_t *sink)
         }
     }
     if (!sink->write_subs) {
-        return;
+        Return;
     }
 
     l = n00b_dict_keys(sink->write_subs);
@@ -904,6 +903,9 @@ n00b_stream_cycle_check(n00b_stream_t *source, n00b_stream_t *sink)
         n00b_stream_cycle_check(source, next_sink);
         n00b_release_party(next_sink);
     }
+
+    Return;
+    defer_func_end();
 }
 
 static n00b_stream_sub_t *
@@ -980,6 +982,8 @@ n00b_io_subscribe(n00b_stream_t            *source,
                   n00b_duration_t          *timeout,
                   n00b_io_subscription_kind kind)
 {
+    defer_on();
+
     n00b_stream_sub_t *result;
 
     n00b_acquire_party(source);
@@ -996,12 +1000,15 @@ n00b_io_subscribe(n00b_stream_t            *source,
 
     n00b_release_party(source);
 
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 void
 n00b_raw_unsubscribe(n00b_stream_sub_t *sub)
 {
+    defer_on();
+
     n00b_stream_t         *source       = sub->source;
     bool                   remove_read  = false;
     bool                   remove_write = false;
@@ -1010,7 +1017,7 @@ n00b_raw_unsubscribe(n00b_stream_sub_t *sub)
     n00b_dict_t *subs = n00b_stream_get_subscriptions(source, sub->kind);
 
     if (!subs) {
-        return;
+        Return;
     }
 
     n00b_acquire_party(source);
@@ -1047,15 +1054,18 @@ n00b_raw_unsubscribe(n00b_stream_sub_t *sub)
         }
     }
 
-    n00b_release_party(source);
+    Return;
+    defer_func_end();
 }
 
 void
 n00b_io_unsubscribe(n00b_stream_sub_t *sub)
 {
+    defer_on();
     n00b_acquire_party(sub->source);
     n00b_raw_unsubscribe(sub);
-    n00b_release_party(sub->source);
+    Return;
+    defer_func_end();
 }
 
 static n00b_list_t *
@@ -1166,6 +1176,7 @@ can_quick_write(n00b_stream_t *party, void *msg)
 bool
 n00b_close(n00b_stream_t *party)
 {
+    defer_on();
     n00b_acquire_party(party);
 
     n00b_io_close_fn fn = party->impl->close_impl;
@@ -1186,34 +1197,34 @@ n00b_close(n00b_stream_t *party)
     party->close_subs = NULL;
     party->error_subs = NULL;
 
-    n00b_release_party(party);
-
-    return true;
+    Return true;
+    defer_func_end();
 }
 
 void
 n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
 {
+    defer_on();
     n00b_acquire_party(party);
 
     // The rest of this concerns what we write to the actual sink.
     // The waiter is blocking for the message to be written to the
     // sink, but filters on the sink might lead to the message being
 
-    if (!n00b_in_heap(msg)) {
-        msg = n00b_box_u64((uint64_t)msg);
-    }
+    //    if (!n00b_in_heap(msg)) {
+    //        msg = n00b_box_u64((uint64_t)msg);
+    //    }
 
     n00b_io_write_start_fn fn = party->impl->write_impl;
 
     if (!party->write_subs || party->closed_for_write) {
-        n00b_release_party(party);
         n00b_post_cerror(party, "Stream cannot be written to.");
+        Return;
     }
 
     if (signal_possible_waiter(msg)) {
         n00b_release_party(party);
-        return;
+        Return;
     }
 
     if (can_quick_write(party, msg)) {
@@ -1229,7 +1240,7 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
         n00b_post_to_subscribers(party, msg, n00b_io_sk_post_write);
 
         n00b_release_party(party);
-        return;
+        Return;
     }
 
     /*    cprintf("Write op (%s) on stream: %s\n",
@@ -1249,16 +1260,14 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
         msgs   = one_write_filter_level(filter, party, msgs);
 
         if (!msgs) {
-            n00b_release_party(party);
-            return;
+            Return;
         }
     }
 
     n = n00b_list_len(msgs);
 
     if (n == 0) {
-        n00b_release_party(party);
-        return;
+        Return;
     }
 
     for (int i = 0; i < n; i++) {
@@ -1280,25 +1289,15 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
         n00b_post_to_subscribers(party, msg, n00b_io_sk_post_write);
     }
 
-    n00b_release_party(party);
-    return;
-}
-
-// Plain ol' write queues, so lives in ioqueue.c
-void
-n00b_write_blocking(n00b_stream_t *party, void *msg, n00b_duration_t *timeout)
-{
-    // Need the dynamic alloc right now to get it a type.
-    n00b_condition_t *cv = n00b_new(n00b_type_condition());
-    n00b_raw_condition_init(cv);
-    n00b_condition_lock_acquire(cv);
-    n00b_write(party, msg);
-    n00b_condition_wait_then_unlock(cv, n00b_write(party, cv));
+    Return;
+    defer_func_end();
 }
 
 void *
 n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
 {
+    defer_on();
+
     // Note that if there are read subscriptions attached to an event,
     // they will process as they come in. In that case, this call will
     // return a copy of the NEXT available read, and can control how
@@ -1336,7 +1335,7 @@ n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
     else {
         if (!n) {
             n00b_release_party(party);
-            return NULL;
+            Return NULL;
         }
 
         num_objs = n;
@@ -1374,7 +1373,8 @@ n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
         n00b_condition_lock_release_all(&cv);
     }
 
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 typedef struct {
@@ -1397,6 +1397,8 @@ collect_items(n00b_stream_t *stream, void *msg, void *aux)
 void *
 n00b_stream_read_all(n00b_stream_t *stream)
 {
+    defer_on();
+
     // Once we've drained the stream, if every value is the same type,
     // and if that type is either string or buffer, then we add them
     // all up.
@@ -1407,8 +1409,7 @@ n00b_stream_read_all(n00b_stream_t *stream)
     n00b_acquire_party(stream);
 
     if (n00b_at_eof(stream)) {
-        n00b_release_party(stream);
-        return NULL;
+        Return NULL;
     }
 
     drain_ctx *ctx   = n00b_gc_alloc_mapped(drain_ctx, N00B_GC_SCAN_ALL);
@@ -1421,28 +1422,29 @@ n00b_stream_read_all(n00b_stream_t *stream)
                                                        (void *)collect_items,
                                                        ctx);
     n00b_release_party(stream);
+    stream = NULL;
     n00b_condition_wait_then_unlock(&ctx->cv);
     n00b_io_unsubscribe(sub);
 
     n = n00b_list_len(ctx->msgs);
 
     if (!n) {
-        return NULL;
+        Return NULL;
     }
 
     void *item = n00b_list_get(ctx->msgs, 0, NULL);
     if (!n00b_is_object_reference(item)) {
-        return ctx->msgs;
+        Return ctx->msgs;
     }
 
     n00b_type_t *t = n00b_get_my_type(item);
 
     if (!n00b_type_is_string(t) && !n00b_type_is_buffer(t)) {
-        return ctx->msgs;
+        Return ctx->msgs;
     }
 
     if (n == 1) {
-        return item;
+        Return item;
     }
 
     if (n00b_type_is_buffer(t)) {
@@ -1451,19 +1453,19 @@ n00b_stream_read_all(n00b_stream_t *stream)
         for (int i = 1; i < n; i++) {
             item = n00b_list_get(ctx->msgs, i, NULL);
             if (!n00b_is_object_reference(item)) {
-                return ctx->msgs;
+                Return ctx->msgs;
             }
 
             t = n00b_get_my_type(item);
 
             if (!n00b_type_is_buffer(t)) {
-                return ctx->msgs;
+                Return ctx->msgs;
             }
 
             b = n00b_buffer_add(b, item);
         }
 
-        return b;
+        Return b;
     }
 
     n00b_string_t *s = item;
@@ -1471,19 +1473,47 @@ n00b_stream_read_all(n00b_stream_t *stream)
     for (int i = 1; i < n; i++) {
         item = n00b_list_get(ctx->msgs, i, NULL);
         if (!n00b_is_object_reference(item)) {
-            return ctx->msgs;
+            Return ctx->msgs;
         }
 
         t = n00b_get_my_type(item);
 
         if (!n00b_type_is_string(t)) {
-            return ctx->msgs;
+            Return ctx->msgs;
         }
 
         s = n00b_string_concat(s, item);
     }
 
-    return s;
+    Return s;
+
+    defer_func_end();
+}
+
+// Plain ol' write queues, so lives in ioqueue.c
+// For now, we only allow synchronous writes for file descriptors.
+void
+n00b_write_blocking(n00b_stream_t *party, void *msg, n00b_duration_t *timeout)
+{
+    if (party->etype > n00b_io_ev_socket) {
+        N00B_CRAISE("Blocking writes may only be made to file/socket streams.");
+    }
+
+    if (timeout) {
+        N00B_CRAISE("Timeout for n00b_write_blocking is not yet implemented.");
+    }
+
+    defer_on();
+    n00b_acquire_party(party);
+    n00b_ev2_cookie_t *cookie = party->cookie;
+    int                fd     = (int)cookie->id;
+
+    n00b_fd_make_blocking(fd);
+    n00b_handle_one_delivery(party, msg);
+    n00b_fd_make_nonblocking(fd);
+
+    Return;
+    defer_func_end();
 }
 
 void
@@ -1495,6 +1525,7 @@ n00b_io_loop_once(void)
 void
 n00b_io_loop_drain(void)
 {
+    defer_on();
     // Allow a bit of recursion but not an eternal amount.
     // Otherwise, we'd just keep going until the callback queue is empty.
     n00b_duration_t *to_add = n00b_new(n00b_type_duration(),
@@ -1518,8 +1549,9 @@ n00b_io_loop_drain(void)
         n00b_io_loop_once();
         n00b_process_queue();
     }
-    release_event_loop();
-    n00b_release_event_base(n00b_system_event_base);
+
+    Return;
+    defer_func_end();
 }
 
 #if defined(N00B_DEBUG)
@@ -1530,6 +1562,8 @@ static void *
 run_io_loop(void *ignore)
 {
     bool do_thread_exit = false;
+
+    defer_on();
 
     N00B_TRY
     {
@@ -1555,7 +1589,6 @@ run_io_loop(void *ignore)
         while (event_base_loopbreak(n00b_system_event_base->event_ctx))
             ;
 
-        release_event_loop();
 #endif
         N00B_JUMP_TO_FINALLY();
     }
@@ -1566,14 +1599,15 @@ run_io_loop(void *ignore)
         n00b_io_has_exited = true;
         n00b_notify(exit_notifier, 1ULL);
         do_thread_exit = true;
-        n00b_release_event_base(n00b_system_event_base);
     }
     N00B_TRY_END;
 
     if (do_thread_exit) {
+        n00b_release_event_base(n00b_system_event_base);
         n00b_thread_exit(0);
     }
-    return NULL;
+    Return NULL;
+    defer_func_end();
 }
 
 static void

@@ -96,7 +96,7 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
         return; // Nothing to yield.
     }
 
-    n00b_codepoint_t *p = (n00b_codepoint_t *)raw_contents->data;
+    char *p = raw_contents->data;
 
     switch (*p) {
     case 't':
@@ -236,10 +236,10 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
 static inline void
 n00b_gopt_tok_possible_number(n00b_gopt_lex_state *state)
 {
-    n00b_codepoint_t *start = (n00b_codepoint_t *)state->raw_word->data;
-    n00b_codepoint_t *p     = start + state->cur_word_position;
-    n00b_codepoint_t *end   = p + state->cur_wordlen;
-    bool              dot   = false;
+    char *start = state->raw_word->data;
+    char *p     = start + state->cur_word_position;
+    char *end   = p + state->cur_wordlen;
+    bool  dot   = false;
 
     while (p < end) {
         switch (*p++) {
@@ -298,7 +298,7 @@ n00b_gopt_tok_possible_number(n00b_gopt_lex_state *state)
 static inline void
 n00b_gopt_tok_num_bool_or_word(n00b_gopt_lex_state *state)
 {
-    n00b_codepoint_t *p = (n00b_codepoint_t *)state->raw_word->data;
+    char *p = state->raw_word->data;
     switch (p[state->cur_word_position]) {
     case '0':
     case '1':
@@ -366,7 +366,8 @@ n00b_peek_and_disallow_assign(n00b_gopt_lex_state *state)
 }
 
 static inline void
-n00b_gopt_tok_argument_separator(n00b_gopt_lex_state *state, n00b_codepoint_t cp)
+n00b_gopt_tok_argument_separator(n00b_gopt_lex_state *state,
+                                 n00b_codepoint_t     cp)
 {
     if (!state->cur_word_position) {
         if (n00b_gopt_gflag_is_set(state, N00B_GOPT_NO_EQ_SPACING)) {
@@ -435,13 +436,13 @@ n00b_gopt_tok_gnu_short_opts(n00b_gopt_lex_state *state)
     // As soon as we find an argument that can take an option at all,
     // we treat the rest of the word as an argument.
 
-    n00b_codepoint_t *start   = (n00b_codepoint_t *)state->raw_word->data;
-    n00b_codepoint_t *p       = start + state->cur_word_position;
-    n00b_codepoint_t *end     = start + state->cur_wordlen;
-    bool              got_arg = false;
-    n00b_goption_t   *info;
-    n00b_string_t    *flag;
-    int64_t           tok_id;
+    char           *start   = state->raw_word->data;
+    char           *p       = start + state->cur_word_position;
+    char           *end     = start + state->cur_wordlen;
+    bool            got_arg = false;
+    n00b_goption_t *info;
+    n00b_string_t  *flag;
+    int64_t         tok_id;
 
     while (p < end) {
         flag = n00b_string_from_codepoint(*p);
@@ -483,9 +484,9 @@ n00b_gopt_tok_gnu_short_opts(n00b_gopt_lex_state *state)
 static inline void
 n00b_gopt_tok_longform_opt(n00b_gopt_lex_state *state)
 {
-    n00b_codepoint_t *start = (n00b_codepoint_t *)state->raw_word->data;
-    n00b_codepoint_t *p     = start + state->cur_word_position;
-    n00b_codepoint_t *end   = start + state->cur_wordlen;
+    char *start = state->raw_word->data;
+    char *p     = start + state->cur_word_position;
+    char *end   = start + state->cur_wordlen;
 
     while (p < end) {
         switch (*p) {
@@ -562,7 +563,8 @@ n00b_gopt_tok_default_state(n00b_gopt_lex_state *state)
         return;
     }
 
-    n00b_codepoint_t cp = ((n00b_codepoint_t *)state->raw_word->data)[0];
+    n00b_codepoint_t cp = state->raw_word->data[0];
+
     switch (cp) {
     case ':':
         if (!n00b_gopt_gflag_is_set(state, N00B_ALLOW_COLON_SEPARATOR)) {

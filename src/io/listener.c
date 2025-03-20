@@ -8,6 +8,8 @@ io_accept_callback(struct evconnlistener *unused,
                    int                    socklen,
                    void                  *obj)
 {
+    defer_on();
+
     n00b_stream_t     *listener   = obj;
     n00b_stream_t     *connection = n00b_io_socket_open(fd, &n00b_socket_impl);
     n00b_ev2_cookie_t *lcookie    = listener->cookie;
@@ -50,6 +52,7 @@ io_accept_callback(struct evconnlistener *unused,
     }
 
     n00b_release_party(connection);
+    defer_func_end();
 }
 
 n00b_stream_t *

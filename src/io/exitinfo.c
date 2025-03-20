@@ -78,6 +78,8 @@ exitinfo_fd_drained(n00b_stream_t *s, void *msg, n00b_stream_t *ei)
 n00b_stream_t *
 n00b_pid_monitor(int64_t pid, void *watch_fds)
 {
+    defer_on();
+
     n00b_exitinfo_t *cookie = n00b_gc_alloc_mapped(n00b_exitinfo_t,
                                                    N00B_GC_SCAN_ALL);
     n00b_stream_t *new      = n00b_alloc_party(&n00b_exitinfo_impl,
@@ -88,7 +90,7 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
     cookie->pid = pid;
 
     if (!watch_fds) {
-        return new;
+        Return new;
     }
 
     n00b_type_t *t = n00b_get_my_type(watch_fds);
@@ -103,7 +105,7 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
     int n = n00b_list_len(l);
 
     if (!n) {
-        return new;
+        Return new;
     }
 
     n00b_stream_t *callback = n00b_callback_open((void *)exitinfo_fd_drained,
@@ -126,20 +128,23 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
         atomic_fetch_add(&cookie->streams_to_drain, 1);
         n00b_io_subscribe_oneshot(fd, callback, n00b_io_sk_close);
         n00b_release_party(fd);
+        fd = NULL;
     }
 
-    return new;
+    Return new;
+    defer_func_end();
 }
 
 bool
 n00b_io_exitinfo_subscribe(n00b_stream_sub_t        *sub,
                            n00b_io_subscription_kind kind)
 {
+    defer_on();
     n00b_acquire_party(sub->source);
     n00b_exitinfo_t *cookie = sub->source->cookie;
 
     if (!atomic_read(&cookie->streams_to_drain)) {
-        return true;
+        Return true;
     }
 
     if (!atomic_read(&cookie->wait_thread)) {
@@ -157,9 +162,8 @@ n00b_io_exitinfo_subscribe(n00b_stream_sub_t        *sub,
         }
     }
 
-    n00b_release_party(sub->source);
-
-    return true;
+    Return true;
+    defer_func_end();
 }
 
 n00b_io_impl_info_t n00b_exitinfo_impl = {

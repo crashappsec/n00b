@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 // TODO: add a mutex around update operations.
@@ -90,6 +91,7 @@ n00b_sha_string_update(n00b_sha_t *ctx, n00b_string_t *str)
 void
 n00b_sha_buffer_update(n00b_sha_t *ctx, n00b_buf_t *buffer)
 {
+    defer_on();
     n00b_buffer_acquire_r(buffer);
 
     int32_t len = buffer->byte_len;
@@ -97,7 +99,8 @@ n00b_sha_buffer_update(n00b_sha_t *ctx, n00b_buf_t *buffer)
         EVP_DigestUpdate(ctx->openssl_ctx, buffer->data, len);
     }
 
-    n00b_buffer_release(buffer);
+    Return;
+    defer_func_end();
 }
 
 n00b_buf_t *

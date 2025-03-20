@@ -316,6 +316,7 @@ typedef struct {
     n00b_dict_t      *args;
     n00b_list_t      *errors;
     n00b_tree_node_t *tree;
+    n00b_gopt_ctx    *debug;
 } n00b_gopt_result_t;
 
 typedef struct {

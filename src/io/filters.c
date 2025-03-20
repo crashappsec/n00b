@@ -173,7 +173,7 @@ n00b_hex_dump_xform(n00b_stream_t *stream, void *ctx, void *msg)
     else {
         if (n00b_type_is_string(t)) {
             n00b_string_t *str = msg;
-            repr             = n00b_hex_dump(str->data, str->u8_bytes);
+            repr               = n00b_hex_dump(str->data, str->u8_bytes);
         }
         else {
             repr = n00b_hex_debug_repr(msg);
@@ -185,11 +185,11 @@ n00b_hex_dump_xform(n00b_stream_t *stream, void *ctx, void *msg)
     uint64_t *ptr      = n00b_box_u64((uint64_t)stream);
 
     n00b_string_t *s = n00b_cformat("«#» @«#:p» (msg: «#», ty: «#»):\n«#»",
-                                  stream,
-                                  ptr,
-                                  count,
-                                  t,
-                                  repr);
+                                    stream,
+                                    ptr,
+                                    count,
+                                    t,
+                                    repr);
 
     fprintf(stderr, "%s\n", s->data);
 
@@ -327,6 +327,7 @@ n00b_add_from_json_xform_on_write(n00b_stream_t *party)
 void
 n00b_add_filter(n00b_stream_t *party, n00b_stream_filter_t *filter, bool read)
 {
+    defer_on();
     n00b_acquire_party(party);
 
     if (read) {
@@ -346,5 +347,6 @@ n00b_add_filter(n00b_stream_t *party, n00b_stream_filter_t *filter, bool read)
             n00b_list_append(party->write_filters, filter);
         }
     }
-    n00b_release_party(party);
+    Return;
+    defer_func_end();
 }

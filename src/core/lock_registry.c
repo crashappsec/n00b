@@ -107,6 +107,26 @@ n00b_thread_unlock_all(void)
 }
 
 #ifdef N00B_DEBUG_LOCKS
+
+#define show_locks(l)              \
+    while (l->locks) {             \
+        char *s = "locked";        \
+        if (l->locks->unlock) {    \
+            if (l->locks->all) {   \
+                s = "Unlock All";  \
+            }                      \
+            else {                 \
+                s = "unlock";      \
+            }                      \
+        }                          \
+        fprintf(stderr,            \
+                "  %s @%s:%d\n",   \
+                s,                 \
+                l->locks->file,    \
+                l->locks->line);   \
+        l->locks = l->locks->prev; \
+    }
+
 void
 n00b_debug_held_locks(char *file, int line)
 {
@@ -129,13 +149,7 @@ n00b_debug_held_locks(char *file, int line)
         l = *p++;
         if (l && l->thread == self) {
             fprintf(stderr, "Not fully unlocked:\n");
-            while (l->locks) {
-                fprintf(stderr,
-                        "  locked @%s:%d\n",
-                        l->locks->file,
-                        l->locks->line);
-                l->locks = l->locks->prev;
-            }
+            show_locks(l);
         }
     }
     pthread_mutex_unlock(&n00b_lock_reg_edit);
@@ -162,13 +176,7 @@ n00b_debug_all_held_locks(void)
                     l->thread,
                     ((mmm_thread_t *)l->thread)->tid);
 
-            while (l->locks) {
-                fprintf(stderr,
-                        "  locked @%s:%d\n",
-                        l->locks->file,
-                        l->locks->line);
-                l->locks = l->locks->prev;
-            }
+            show_locks(l);
         }
     }
     pthread_mutex_unlock(&n00b_lock_reg_edit);

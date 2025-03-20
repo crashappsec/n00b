@@ -29,12 +29,7 @@ n00b_filter_colorterm(n00b_stream_t *party, colorterm_ctx *ctx, void *msg)
     int            n;
     int            width;
 
-    if (ctx->width <= 0) {
-        width = n00b_max(n00b_terminal_width(), N00B_MIN_RENDER_WIDTH);
-    }
-    else {
-        width = ctx->width;
-    }
+    width = n00b_calculate_render_width(ctx->width);
 
     // Temporary compatability.
     if (!n00b_type_is_string(t) || t->base_index != N00B_T_STRING) {

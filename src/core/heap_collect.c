@@ -251,7 +251,7 @@ initialize_dst_alloc(n00b_collection_ctx *ctx, n00b_alloc_record_t *from_p)
 static inline n00b_alloc_hdr *
 check_one_word(n00b_collection_ctx *ctx, void *addr)
 {
-    n00b_heap_t *h = n00b_addr_find_heap(addr);
+    n00b_heap_t *h = n00b_addr_find_heap(addr, false);
 
     if (!h) {
         // Not in any heap; it's data.

@@ -6,6 +6,7 @@
 // mutable.
 //
 // Currently, this does not support multi-threaded access.
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 void
@@ -127,7 +128,9 @@ n00b_bytering_to_buffer(n00b_bytering_t *l)
     n00b_buf_t *result;
     int         n;
 
+    defer_on();
     n00b_lock_acquire(&l->internal_lock);
+    defer(n00b_lock_release(&l->internal_lock));
 
     result = n00b_new(n00b_type_buffer(),
                       n00b_kw("length", n00b_ka(l->alloc_len)));
@@ -146,9 +149,8 @@ n00b_bytering_to_buffer(n00b_bytering_t *l)
         result->byte_len += n;
     }
 
-    n00b_lock_release(&l->internal_lock);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 n00b_string_t *
@@ -160,12 +162,14 @@ n00b_bytering_to_utf8(n00b_bytering_t *l)
 void
 n00b_bytering_resize(n00b_bytering_t *l, int64_t sz)
 {
+    defer_on();
     n00b_bytering_t *result;
     int              n;
 
     result = n00b_new(n00b_type_bytering(), n00b_kw("length", n00b_ka(sz)));
 
     n00b_lock_acquire(&l->internal_lock);
+    defer(n00b_lock_release(&l->internal_lock));
 
     n                 = n00b_min(n00b_bytering_len_raw(l), sz);
     result->read_ptr  = result->data;
@@ -182,7 +186,7 @@ n00b_bytering_resize(n00b_bytering_t *l, int64_t sz)
         add_bytes_size_checked(result, l->data, n);
     }
 
-    n00b_lock_release(&l->internal_lock);
+    defer_func_end();
 }
 
 static inline char *
@@ -207,8 +211,10 @@ n00b_bytering_end(n00b_bytering_t *l)
 int8_t
 n00b_bytering_get_index(n00b_bytering_t *l, int64_t ix)
 {
+    defer_on();
     int8_t result;
     n00b_lock_acquire(&l->internal_lock);
+    defer(n00b_lock_release(&l->internal_lock));
 
     int len = n00b_bytering_len_raw(l);
     if (ix < 0) {
@@ -216,21 +222,21 @@ n00b_bytering_get_index(n00b_bytering_t *l, int64_t ix)
     }
 
     if (ix < 0 || ix >= len) {
-        n00b_lock_release(&l->internal_lock);
-        N00B_CRAISE("Index out of bounds.");
+        Return N00B_CRAISE("Index out of bounds."), 0;
     }
 
     result = *n00b_bytering_index_addr(l, ix);
 
-    n00b_lock_release(&l->internal_lock);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
-void
+bool
 n00b_bytering_set_index(n00b_bytering_t *l, int64_t ix, int8_t c)
 {
+    defer_on();
     n00b_lock_acquire(&l->internal_lock);
+    defer(n00b_lock_release(&l->internal_lock));
 
     int len = n00b_bytering_len_raw(l);
     if (ix < 0) {
@@ -238,14 +244,13 @@ n00b_bytering_set_index(n00b_bytering_t *l, int64_t ix, int8_t c)
     }
 
     if (ix < 0 || ix >= len) {
-        N00B_CRAISE("Index out of bounds.");
+        Return N00B_CRAISE("Index out of bounds."), false;
     }
 
     *n00b_bytering_index_addr(l, ix) = c;
 
-    n00b_lock_release(&l->internal_lock);
-
-    return;
+    Return true;
+    defer_func_end();
 }
 
 n00b_bytering_t *
@@ -379,7 +384,7 @@ n00b_bytering_plus_eq(n00b_bytering_t *t1, n00b_bytering_t *t2)
     n00b_lock_release(&t1->internal_lock);
 }
 
-void
+bool
 n00b_bytering_set_slice(n00b_bytering_t *l,
                         int64_t          start,
                         int64_t          end,
@@ -390,8 +395,13 @@ n00b_bytering_set_slice(n00b_bytering_t *l,
     int              alloc_len;
     int              len;
 
+    defer_on();
     n00b_lock_acquire(&l->internal_lock);
     n00b_lock_acquire(&sub->internal_lock);
+    defer({
+        n00b_lock_release(&sub->internal_lock);
+        n00b_lock_release(&l->internal_lock);
+    });
 
     len = n00b_bytering_len_raw(l);
 
@@ -401,9 +411,7 @@ n00b_bytering_set_slice(n00b_bytering_t *l,
     else {
         if (start >= len) {
 bounds_err:
-            n00b_lock_release(&sub->internal_lock);
-            n00b_lock_release(&l->internal_lock);
-            N00B_CRAISE("Slice out of bounds.");
+            Return N00B_CRAISE("Slice out of bounds."), false;
         }
     }
 
@@ -440,8 +448,8 @@ bounds_err:
     l->write_ptr = tmp->write_ptr;
     l->read_ptr  = tmp->read_ptr;
 
-    n00b_lock_release(&sub->internal_lock);
-    n00b_lock_release(&l->internal_lock);
+    Return true;
+    defer_func_end();
 }
 
 n00b_bytering_t *
@@ -480,7 +488,10 @@ n00b_bytering_truncate_end(n00b_bytering_t *r, int64_t len)
         return;
     }
 
+    defer_on();
     n00b_lock_acquire(&r->internal_lock);
+    defer(n00b_lock_release(&r->internal_lock));
+
     int cur_len = n00b_bytering_len_raw(r);
 
     if (cur_len <= len) {
@@ -496,7 +507,8 @@ n00b_bytering_truncate_end(n00b_bytering_t *r, int64_t len)
         }
     }
 
-    n00b_lock_release(&r->internal_lock);
+    Return;
+    defer_func_end();
 }
 
 void
@@ -506,7 +518,11 @@ n00b_bytering_truncate_front(n00b_bytering_t *r, int64_t len)
         return;
     }
 
+    defer_on();
+
     n00b_lock_acquire(&r->internal_lock);
+    defer(n00b_lock_release(&r->internal_lock));
+
     int cur_len = n00b_bytering_len_raw(r);
 
     if (cur_len <= len) {
@@ -523,7 +539,9 @@ n00b_bytering_truncate_front(n00b_bytering_t *r, int64_t len)
             r->read_ptr = r->data + wrap;
         }
     }
-    n00b_lock_release(&r->internal_lock);
+
+    Return;
+    defer_func_end();
 }
 
 static bool
@@ -538,7 +556,9 @@ n00b_bytering_coerce_to(n00b_bytering_t *r, n00b_type_t *t)
 {
     n00b_obj_t result = NULL;
 
+    defer_on();
     n00b_lock_acquire(&r->internal_lock);
+    defer(n00b_lock_release(&r->internal_lock));
 
     if (n00b_type_is_bytering(t)) {
         result = r;
@@ -558,9 +578,8 @@ n00b_bytering_coerce_to(n00b_bytering_t *r, n00b_type_t *t)
         }
     }
 
-    n00b_lock_release(&r->internal_lock);
-
-    return result;
+    Return result;
+    defer_func_end();
 }
 
 static void
@@ -599,9 +618,14 @@ n00b_bytering_write_string(n00b_bytering_t *r, n00b_string_t *s)
 void
 n00b_bytering_write_bytering(n00b_bytering_t *dst, n00b_bytering_t *src)
 {
+    defer_on();
+
     ptrdiff_t to_copy;
     n00b_lock_acquire(&dst->internal_lock);
     n00b_lock_acquire(&src->internal_lock);
+    defer({
+    n00b_lock_release(&src->internal_lock);
+    n00b_lock_release(&dst->internal_lock); });
 
     if (src->read_ptr < src->write_ptr) {
         to_copy = src->write_ptr - src->read_ptr;
@@ -615,8 +639,8 @@ n00b_bytering_write_bytering(n00b_bytering_t *dst, n00b_bytering_t *src)
         n00b_bytering_write_raw(dst, src->data, to_copy);
     }
 
-    n00b_lock_release(&src->internal_lock);
-    n00b_lock_release(&dst->internal_lock);
+    Return;
+    defer_func_end();
 }
 
 // Write a string, buffer or bytering into an existing object at the

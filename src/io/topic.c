@@ -144,6 +144,8 @@ n00b_io_topic_repr(n00b_stream_t *e)
 extern bool
 n00b_topic_unsubscribe(n00b_stream_t *topic_obj, n00b_stream_t *subscriber)
 {
+    defer_on();
+
     bool found = false;
 
     n00b_check_topic(topic_obj);
@@ -167,7 +169,9 @@ n00b_topic_unsubscribe(n00b_stream_t *topic_obj, n00b_stream_t *subscriber)
         n00b_release_party(sub->source);
     }
 
-    return found;
+    Return found;
+
+    defer_func_end();
 }
 
 void
