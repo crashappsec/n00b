@@ -522,7 +522,7 @@ n00b_cfg_build_repr(n00b_cfg_node_t  *node,
         }
         break;
     case n00b_cfg_use:
-        str = n00b_cformat("@«#:x»: [«em»USE«/» «#» «i»(«#»)",
+        str = n00b_cformat("@«#:x»: «em»USE«/» «#» «i»(«#»)",
                            node_addr,
                            node->contents.flow.dst_symbol->name,
                            du_format_node(node));

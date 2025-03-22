@@ -199,7 +199,7 @@ n00b_string_init_from_cstring_with_len(n00b_string_t *s,
         N00B_CRAISE("Invalid UTF-8 in C string.");
     }
 
-    if (!n00b_in_heap(p)) {
+    if (!n00b_in_heap(p) || p[len]) {
         char *copy = n00b_gc_raw_alloc(num_bytes + 1, N00B_GC_SCAN_NONE);
         memcpy(copy, p, num_bytes);
         p = copy;
@@ -300,7 +300,7 @@ n00b_string_initialize_from_codepoint_array(n00b_string_t    *s,
         u8_len += 2;
     }
 
-    s->data     = n00b_gc_array_value_alloc(char, u8_len);
+    s->data     = n00b_gc_array_value_alloc(char, u8_len + 1);
     s->u8_bytes = u8_len;
 
     char *new = s->data;
@@ -1209,6 +1209,73 @@ n00b_string_split(n00b_string_t *str, n00b_string_t *sub)
 }
 
 n00b_list_t *
+_n00b_string_split_words(n00b_string_t *str, ...)
+{
+    n00b_list_t       *result    = n00b_list(n00b_type_string());
+    char              *p         = str->data;
+    char              *cur       = p;
+    n00b_break_info_t *binfo     = n00b_word_breaks(str);
+    int                cur_break = 0;
+    n00b_codepoint_t   cp;
+
+    bool spaces      = false;
+    bool punctuation = true;
+
+    n00b_karg_only_init(s);
+    n00b_kw_bool("spaces", spaces);
+    n00b_kw_bool("punctuation", punctuation);
+
+    if (!binfo->num_breaks) {
+        return result;
+    }
+
+    for (int i = 1; i < binfo->num_breaks; i++) {
+        int segment_len = binfo->breaks[i] - cur_break;
+        cur_break       = binfo->breaks[i];
+        for (int j = 0; j < segment_len; j++) {
+            cur += utf8proc_iterate((uint8_t *)cur, 4, &cp);
+        }
+        n00b_string_t *s = n00b_utf8(p, cur - p);
+
+        if (!s->codepoints) {
+            continue;
+        }
+
+        if (!spaces || !punctuation) {
+            utf8proc_iterate((uint8_t *)s->data, 4, &cp);
+
+            if (!spaces) {
+                if (cp == ' ' || cp == '\n' || cp == 'r') {
+                    p = cur;
+                    continue;
+                }
+
+                switch (n00b_codepoint_category(cp)) {
+                case UTF8PROC_CATEGORY_ZS:
+                case UTF8PROC_CATEGORY_ZL:
+                case UTF8PROC_CATEGORY_ZP:
+                    p = cur;
+                    continue;
+                default:
+                    break;
+                }
+            }
+            if (!punctuation) {
+                if (!n00b_codepoint_is_id_continue(cp)) {
+                    p = cur;
+                    continue;
+                }
+            }
+        }
+
+        n00b_list_append(result, s);
+        p = cur;
+    }
+
+    return result;
+}
+
+n00b_list_t *
 n00b_string_split_and_crop(n00b_string_t *str, n00b_string_t *sub, int64_t w)
 {
     n00b_list_t *result   = n00b_list(n00b_type_string());
@@ -1351,6 +1418,7 @@ n00b_list_t *
 n00b_string_wrap(n00b_string_t *s, int64_t width, int64_t hang)
 {
     n00b_list_t *result = n00b_list(n00b_type_string());
+    int          start, end, i = 0;
 
     if (!s || !s->codepoints) {
         return result;
@@ -1360,20 +1428,23 @@ n00b_string_wrap(n00b_string_t *s, int64_t width, int64_t hang)
 
     n00b_break_info_t *line_starts = n00b_break_wrap(s, width, hang);
 
-    int i = 0;
-
     for (; i < line_starts->num_breaks - 1; i++) {
-        n00b_string_t *slice = n00b_string_slice(s,
-                                                 line_starts->breaks[i],
-                                                 line_starts->breaks[i + 1]);
-
+        start                = line_starts->breaks[i];
+        end                  = line_starts->breaks[i + 1] - 1;
+        n00b_string_t *slice = n00b_string_slice(s, start, end);
         n00b_list_append(result, slice);
     }
 
     if (i == line_starts->num_breaks - 1) {
-        n00b_string_t *slice = n00b_string_slice(s,
-                                                 line_starts->breaks[i],
-                                                 s->codepoints);
+        start                = line_starts->breaks[i];
+        end                  = s->codepoints;
+        n00b_string_t *slice = n00b_string_slice(s, start, end);
+
+        // I think this might not be possible, but just in case.
+        if (slice->codepoints && slice->data[slice->u8_bytes - 1] == '\n') {
+            slice->codepoints--;
+            slice->u8_bytes--;
+        }
         n00b_list_append(result, slice);
     }
 

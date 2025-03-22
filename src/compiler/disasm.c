@@ -451,7 +451,7 @@ fmt_arg_or_imm_no_syms(n00b_vm_t *vm, n00b_zinstruction_t *instr, int i, bool im
     case fmt_unused:
         return n00b_cached_space();
     case fmt_const_obj:
-        return n00b_cformat("«em2»«em»«/»\n(const obj #«#:i»)",
+        return n00b_cformat("«#» (const obj #«#:i»)",
                             vm->obj->static_contents->items[value].v,
                             (int64_t)value);
     case fmt_const_ptr:
@@ -459,13 +459,13 @@ fmt_arg_or_imm_no_syms(n00b_vm_t *vm, n00b_zinstruction_t *instr, int i, bool im
     case fmt_offset:
         return n00b_cformat("target «#:x»", (int64_t)value);
     case fmt_bool:
-        return n00b_cformat("{}: {}",
+        return n00b_cformat("«#»: «#:i»",
                             get_bool_label(instr->op),
                             (int64_t)value);
     case fmt_int:
         return n00b_cformat("«#:i»", value);
     case fmt_hex:
-        return n00b_cformat("«#:x»}", value);
+        return n00b_cformat("0x«#:x»", value);
     case fmt_sym_local:
         return n00b_cformat("sym stack slot offset: «#»", value);
     case fmt_sym_static:
@@ -536,14 +536,6 @@ n00b_disasm(n00b_vm_t *vm, n00b_module_t *m)
 
     n00b_table_t *tbl = n00b_table("columns", n00b_ka(7));
     int64_t       len = n00b_list_len(m->instructions);
-
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_flex(tbl, 1);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
 
     n00b_table_add_cell(tbl, n00b_cstring("Address"));
     n00b_table_add_cell(tbl, n00b_cstring("Instruction"));

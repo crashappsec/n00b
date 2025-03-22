@@ -259,3 +259,258 @@ find_next_break:
 
     return res;
 }
+
+#define advance()                                \
+    l = utf8proc_iterate((uint8_t *)p, 4, &cur); \
+    assert(l > 0);                               \
+    p += l
+
+static inline bool
+is_AHLetter(n00b_wb_kind k)
+{
+    if (k == N00B_WB_ALetter || k == N00B_WB_Hebrew_Letter) {
+        return true;
+    }
+    return false;
+}
+
+static inline bool
+is_MidNumLetQ(n00b_wb_kind k)
+{
+    if (k == N00B_WB_MidNumLet || k == N00B_WB_Single_Quote) {
+        return true;
+    }
+
+    return false;
+}
+
+static inline bool
+is_CRLF(n00b_wb_kind k)
+{
+    if (k == N00B_WB_CR || k == N00B_WB_LF) {
+        return true;
+    }
+
+    return false;
+}
+
+static inline bool
+is_new_line(n00b_wb_kind k)
+{
+    return is_CRLF(k) || k == N00B_WB_Newline;
+}
+
+static inline bool
+is_ignored(n00b_wb_kind k)
+{
+    switch (k) {
+    case N00B_WB_Extend:
+    case N00B_WB_Format:
+    case N00B_WB_ZWJ:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool
+in_no_break_punct(n00b_wb_kind k1, n00b_wb_kind k2, n00b_wb_kind k3)
+{
+    if (!is_AHLetter(k1) || !is_AHLetter(k3)) {
+        return false;
+    }
+
+    return is_MidNumLetQ(k2) || (k2 == N00B_WB_MidLetter);
+}
+
+static inline bool
+is_number_punctuation(n00b_wb_kind k1, n00b_wb_kind k2, n00b_wb_kind k3)
+{
+    if (k1 != N00B_WB_Numeric || k3 != N00B_WB_Numeric) {
+        return false;
+    }
+
+    if (is_MidNumLetQ(k2) || k2 == N00B_WB_MidNum) {
+        return true;
+    }
+
+    return false;
+}
+
+static inline bool
+is_extender_prefix(n00b_wb_kind k)
+{
+    switch (k) {
+    case N00B_WB_ALetter:
+    case N00B_WB_Hebrew_Letter:
+    case N00B_WB_Numeric:
+    case N00B_WB_Katakana:
+    case N00B_WB_ExtendNumLet:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool
+is_extender_postfix(n00b_wb_kind k)
+{
+    switch (k) {
+    case N00B_WB_ALetter:
+    case N00B_WB_Hebrew_Letter:
+    case N00B_WB_Numeric:
+    case N00B_WB_Katakana:
+        return true;
+    default:
+        return false;
+    }
+}
+
+n00b_break_info_t *
+n00b_word_breaks(n00b_string_t *s)
+{
+    n00b_break_info_t *res = n00b_break_alloc(s, 6);
+    n00b_codepoint_t   cur = 0;
+    n00b_wb_kind       next_cat;
+    n00b_wb_kind       cur_cat;
+    n00b_wb_kind       prev_cat = N00B_WB_Other;
+    char              *p        = s->data;
+    char              *end      = p + n00b_string_byte_len(s);
+    int                l;
+    int                i = 0;
+
+    // WB1
+    if (!s || !s->codepoints) {
+        return res;
+    }
+    n00b_break_add(&res, 0);
+
+    advance();
+    cur_cat = n00b_codepoint_word_break_prop(cur);
+
+    while (p < end) {
+        advance();
+        i++;
+        next_cat = n00b_codepoint_word_break_prop(cur);
+
+        // WB3
+        if (cur_cat == N00B_WB_CR && next_cat == N00B_WB_LF) {
+            goto next;
+        }
+        // WB3a/b
+        if (is_new_line(cur_cat) || is_new_line(next_cat)) {
+            goto add_break;
+        }
+
+        // Not doing WB3c yet.
+        // WB3d
+        if (cur_cat == N00B_WB_WSegSpace && next_cat == N00B_WB_WSegSpace) {
+            goto next;
+        }
+        // WB4
+        if (is_ignored(next_cat)) {
+            continue;
+        }
+
+        if (is_AHLetter(cur_cat)) {
+            // WB5
+            if (is_AHLetter(next_cat)) {
+                goto next;
+            }
+            // WB9
+            if (next_cat == N00B_WB_Numeric) {
+                goto next;
+            }
+        }
+
+        // WB6 and WB7; In this case, we will have already added a break
+        // between AHLetter (MidLetter | MidNumLetQ) that we need to remove.
+        if (in_no_break_punct(prev_cat, cur_cat, next_cat)) {
+            n00b_undo_last_break(res);
+            goto next;
+        }
+
+        // WB 7A
+        if (cur_cat == N00B_WB_Hebrew_Letter
+            && next_cat == N00B_WB_Single_Quote) {
+            goto next;
+        }
+
+        // WB 7B and 7C
+        if (prev_cat == N00B_WB_Hebrew_Letter && cur_cat == N00B_WB_Double_Quote
+            && next_cat == N00B_WB_Hebrew_Letter) {
+            n00b_undo_last_break(res);
+            goto next;
+        }
+
+        if (cur_cat == N00B_WB_Numeric) {
+            // WB8
+            if (next_cat == N00B_WB_Numeric) {
+                goto next;
+            }
+            // WB10
+            if (is_AHLetter(next_cat)) {
+                goto next;
+            }
+        }
+
+        // WB11 and WB12
+        if (is_number_punctuation(prev_cat, cur_cat, next_cat)) {
+            n00b_undo_last_break(res);
+            goto next;
+        }
+
+        // WB13
+        if (cur_cat == N00B_WB_Katakana && next_cat == cur_cat) {
+            goto next;
+        }
+
+        // WB13a
+        if (next_cat == N00B_WB_ExtendNumLet && is_extender_prefix(cur_cat)) {
+            goto next;
+        }
+
+        // WB13b
+        if (cur_cat == N00B_WB_ExtendNumLet && is_extender_postfix(next_cat)) {
+            goto next;
+        }
+
+        // WB15 and WB16. Basically we really just need to keep track
+        // of pairs of Regional Indicators, so whenever we see a 'first'
+        // one, in addition to not breaking, we set its value to
+        // 'Next_Breaks' to let us know we can go ahead and break.
+        if (cur_cat == N00B_WB_Regional_Indicator) {
+            if (prev_cat != N00B_WB_Regional_Indicator_Next_Breaks) {
+                cur_cat = N00B_WB_Regional_Indicator_Next_Breaks;
+                goto next;
+            }
+        }
+
+        // There is no WB14 (probably removed?)  However, I do not
+        // like how the algorithm fails to group punctuation. For
+        // instance, in: "What-- He said that?!?!?!"
+        //
+        // The algorithm makes each bit of punctuation here its own
+        // word. So we have our own rule for that.
+
+        if (cur_cat == N00B_WB_Other && next_cat == N00B_WB_Other) {
+            goto next;
+        }
+
+        // fallthrough
+add_break:
+        // WB999
+        n00b_break_add(&res, i);
+        // fallthrough
+next:
+        prev_cat = cur_cat;
+        cur_cat  = next_cat;
+    }
+
+    // WB2
+    if (i) {
+        n00b_break_add(&res, i);
+    }
+
+    return res;
+}

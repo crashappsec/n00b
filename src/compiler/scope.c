@@ -421,13 +421,6 @@ n00b_format_scope(n00b_scope_t *scope)
 
     tbl = n00b_table("columns", n00b_ka(6));
 
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_flex(tbl, 1);
-    n00b_table_next_column_flex(tbl, 1);
-
     n00b_table_add_cell(tbl, n00b_cstring("Name"));
     n00b_table_add_cell(tbl, n00b_cstring("Kind"));
     n00b_table_add_cell(tbl, n00b_cstring("Type"));
@@ -479,7 +472,7 @@ n00b_format_scope(n00b_scope_t *scope)
         }
 
         n00b_table_add_cell(tbl,
-                            n00b_cformat("«em»«#» «/»«i»(«#»)",
+                            n00b_cformat("«#»(«#»)",
                                          n00b_internal_type_repr(symtype,
                                                                  memos,
                                                                  &nexttid),
@@ -491,7 +484,7 @@ n00b_format_scope(n00b_scope_t *scope)
         int n = n00b_list_len(entry->ct->sym_defs);
 
         if (n == 0) {
-            def_text = n00b_crich("«gray»none");
+            def_text = n00b_crich("«gray»none«/» ");
         }
         else {
             n00b_list_t *defs = n00b_list(n00b_type_string());

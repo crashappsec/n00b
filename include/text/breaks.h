@@ -15,7 +15,10 @@ extern n00b_break_info_t *n00b_get_grapheme_breaks(const n00b_string_t *,
                                                    int32_t);
 extern n00b_break_info_t *n00b_get_line_breaks(const n00b_string_t *);
 extern n00b_break_info_t *n00b_get_all_line_break_ops(const n00b_string_t *);
-extern n00b_break_info_t *n00b_wrap_text(const n00b_string_t *, int32_t, int32_t);
+extern n00b_break_info_t *n00b_wrap_text(const n00b_string_t *,
+                                         int32_t,
+                                         int32_t);
+extern n00b_break_info_t *n00b_word_breaks(n00b_string_t *s);
 
 static inline n00b_break_info_t *
 n00b_alloc_break_structure(n00b_string_t *s, int shift)
@@ -60,6 +63,12 @@ n00b_add_break(n00b_break_info_t **listp, int32_t br)
     }
 
     breaks->breaks[breaks->num_breaks++] = br;
+}
+
+static inline void
+n00b_undo_last_break(n00b_break_info_t *bi)
+{
+    bi->breaks[--bi->num_breaks] = 0;
 }
 
 // New interface for the new strings.

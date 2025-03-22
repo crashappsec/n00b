@@ -11,8 +11,8 @@ typedef struct n00b_table_t   n00b_table_t;
 #include "core/dt_kargs.h"
 #include "core/dt_objects.h"
 #include "core/dt_literals.h"
-#include "util/dt_colors.h"
-#include "adts/dt_codepoints.h"
+#include "text/dt_colors.h"
+#include "text/dt_codepoints.h"
 #include "adts/dt_flags.h"
 
 typedef struct n00b_type_t n00b_type_t;

@@ -65,6 +65,7 @@ extern int64_t           _n00b_string_rfind(n00b_string_t *,
                                             n00b_string_t *,
                                             ...);
 extern n00b_list_t      *n00b_string_split(n00b_string_t *, n00b_string_t *);
+extern n00b_list_t      *_n00b_string_split_words(n00b_string_t *, ...);
 extern n00b_list_t      *n00b_string_split_and_crop(n00b_string_t *,
                                                     n00b_string_t *,
                                                     int64_t);
@@ -95,6 +96,8 @@ extern n00b_string_t    *n00b_cstring_copy(char *);
     _n00b_string_find(str, sub, N00B_VA(__VA_ARGS__))
 #define n00b_string_rfind(a, b, ...) \
     _n00b_string_rfind(a, b, N00B_VA(__VA_ARGS__))
+#define n00b_string_split_words(str, ...) \
+    _n00b_string_split_words(str, N00B_VA(__VA_ARGS__))
 
 static inline n00b_codepoint_t
 n00b_codepoint_upper_case(n00b_codepoint_t cp)

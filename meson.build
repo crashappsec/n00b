@@ -220,8 +220,24 @@ n00b_runtime = [
     'src/runtime/ffi.c',
 ]
 
+n00b_text = [
+    'src/text/string.c',
+    'src/text/style.c',
+    'src/text/colors.c',
+    'src/text/breaks.c',
+    'src/text/rich.c',
+    'src/text/fmt_numbers.c',
+    'src/text/fptostr.c',
+    'src/text/markdown.c',
+    'src/text/theme.c',
+    'src/text/table_utils.c',
+    'src/text/table.c',
+    'src/text/layout.c',
+    'src/text/word_breaks.c',    
+]
+
+
 n00b_adts = [
-    'src/adts/string.c',
     'src/adts/buffer.c',
     'src/adts/dict.c',
     'src/adts/set.c',
@@ -239,7 +255,6 @@ n00b_adts = [
     'src/adts/flags.c',
     'src/adts/box.c',
     'src/adts/bytering.c',
-    'src/adts/table.c',
 ]
 
 n00b_io = [
@@ -286,14 +301,8 @@ n00b_compiler = [
 ]
 
 n00b_util = [
-    'src/util/style.c',
-    'src/util/colors.c',
-    'src/util/breaks.c',
     'src/util/hex.c',
     'src/util/tree_pattern.c',
-    'src/util/rich.c',
-    'src/util/fmt_numbers.c',
-    'src/util/fptostr.c',
     'src/util/path.c',
     'src/util/watch.c',
     'src/util/wrappers.c',
@@ -308,14 +317,10 @@ n00b_util = [
     'src/util/getopt_tokenize.c',
     'src/util/getopt_parse.c',
     'src/util/getopt_docs.c',
-    'src/util/markdown.c',
     'src/util/json.c',
     'src/util/assert.c',
     'src/util/memcheck.c',
     'src/util/deep_copy.c',
-    'src/util/theme.c',
-    'src/util/table_utils.c',
-    'src/util/layout.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
@@ -327,9 +332,10 @@ n00b_cmd = ['src/cmd/main.c',
             'src/cmd/debug.c',
 ]
 
+
 n00b_log = ['src/cmd/n00b_debug.c']
 
-n00b_base = n00b_core +  n00b_runtime + n00b_adts + n00b_io
+n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts + n00b_io 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
 
 n00b_src = n00b_base + n00b_cmd

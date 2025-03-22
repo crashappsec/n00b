@@ -39,7 +39,7 @@ n00b_show_any_debug_info(n00b_cmdline_ctx *ctx)
 static void
 n00b_show_module_debug_info(n00b_cmdline_ctx *ctx, n00b_module_t *m, bool entry)
 {
-  if (!n00b_show_any_debug_info(ctx)) {
+    if (!n00b_show_any_debug_info(ctx)) {
         return;
     }
 
@@ -51,7 +51,7 @@ n00b_show_module_debug_info(n00b_cmdline_ctx *ctx, n00b_module_t *m, bool entry)
     }
 
     if (n00b_cmd_show_source(ctx)) {
-        n00b_debug("source code", m->source);
+        n00b_debug("source code", n00b_cformat("«p»«#»", m->source));
     }
 
     if (n00b_cmd_show_tokens(ctx)) {

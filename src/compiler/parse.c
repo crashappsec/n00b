@@ -4451,7 +4451,7 @@ n00b_repr_one_n00b_node(n00b_pnode_t *one)
     n00b_string_t    *name = n00b_cstring(info->name);
     n00b_string_t    *xtra;
     n00b_string_t    *doc;
-    char             *fmt = "«em1»«#»«/»«em2»«#»«/»«em3»«#»«/» ";
+    char             *fmt = "«em2»«#» «em3»«#»«p»«em5»«#» ";
 
     if (info->show_contents && one->token != NULL) {
         n00b_string_t *token_text = n00b_token_raw_content(one->token);

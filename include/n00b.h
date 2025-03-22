@@ -27,15 +27,14 @@ typedef struct n00b_string_t n00b_string_t;
 
 // Core object.
 #include "core/object.h"
-#include "util/color.h"
 
-// Basic "exclusive" (i.e., single threaded) list.
+#include "text/color.h"
 #include "adts/list.h"
 
 // Type system API.
 #include "core/typestore.h"
 #include "core/type.h"
-#include "adts/string.h"
+#include "text/string.h"
 #include "adts/box.h"
 
 // Extra data structure stuff.
@@ -45,12 +44,13 @@ typedef struct n00b_string_t n00b_string_t;
 #include "adts/tuple.h"
 
 // Basic string handling.
-#include "adts/codepoint.h"
-#include "adts/string.h"
-#include "util/breaks.h"
-#include "util/theme.h"
-#include "util/style.h"
-#include "util/rich.h"
+#include "text/codepoint.h"
+#include "text/string.h"
+#include "text/breaks.h"
+#include "text/theme.h"
+#include "text/style.h"
+#include "text/rich.h"
+#include "text/word_breaks.h"
 
 // Basic exception handling support.
 #include "core/exception.h"
@@ -62,7 +62,7 @@ typedef struct n00b_string_t n00b_string_t;
 #include "adts/datetime.h"
 #include "adts/duration.h"
 #include "adts/bytering.h"
-#include "adts/table.h"
+#include "text/table.h"
 
 #include "util/sleep.h"
 
@@ -126,11 +126,11 @@ typedef struct n00b_string_t n00b_string_t;
 
 #include "util/parsing.h"  // generic parser via Earley parsing.
 #include "util/getopt.h"   // Getopt parsing.
-#include "util/markdown.h" // Wrap of vendored md4c.
+#include "text/markdown.h" // Wrap of vendored md4c.
 
 // Helper functions for object marshal implementations to
 // marshal primitive values.
 #include "util/hex.h"
 #include "io/debug.h"
 
-#include "util/layout.h"
+#include "text/layout.h"

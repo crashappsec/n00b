@@ -1167,12 +1167,6 @@ n00b_format_tokens(n00b_module_t *ctx)
     n00b_table_t *tbl = n00b_table("columns", n00b_ka(5));
     int64_t       len = n00b_list_len(ctx->ct->tokens);
 
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_fit(tbl);
-    n00b_table_next_column_flex(tbl, 1);
-
     n00b_table_add_cell(tbl, n00b_cstring("Seq #"));
     n00b_table_add_cell(tbl, n00b_cstring("Type"));
     n00b_table_add_cell(tbl, n00b_cstring("Line #"));

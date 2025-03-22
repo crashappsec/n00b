@@ -722,54 +722,146 @@ extract_column(n00b_table_t *t, int col)
     return result;
 }
 
+static inline int
+longest_word_len(n00b_string_t *s)
+{
+    n00b_list_t *l   = n00b_string_split_words(s,
+                                             n00b_kw("punctuation",
+                                                     n00b_ka(false)));
+    int          max = 0;
+    int          n   = n00b_list_len(l);
+
+    for (int i = 0; i < n; i++) {
+        n00b_string_t *w = n00b_list_get(l, i, NULL);
+        if (w->codepoints > max) {
+            max = w->codepoints;
+        }
+    }
+
+    return max;
+}
+
+static inline int
+longest_line_len(n00b_string_t *s)
+{
+    int            longest = 0;
+    int            start   = 0;
+    int            next    = 0;
+    n00b_string_t *nl      = n00b_cached_newline();
+
+    while (start < s->codepoints) {
+        next = n00b_string_find(s, nl, n00b_kw("start", n00b_ka(start)));
+        if (next < 0) {
+            next = s->codepoints;
+        }
+        int diff = next - start;
+        if (diff > longest) {
+            longest = diff;
+        }
+        start = next + 1;
+    }
+
+    return longest;
+}
+
 static inline void
 set_column_preferences(n00b_table_t *table, int64_t width)
 {
     for (int i = 0; i < table->max_col; i++) {
-        n00b_list_t *col_contents    = extract_column(table, i);
-        int64_t      high_water_mark = -1;
-
-        for (int j = 0; j < n00b_list_len(col_contents); j++) {
-            n00b_cell_t *cell = n00b_private_list_get(col_contents, j, NULL);
-
-            if (cell->span > 1) {
-                continue;
-            }
-
-            int64_t ix = -1;
-            if (n00b_type_is_string(n00b_get_my_type(cell->contents))) {
-                n00b_string_t *s = cell->contents;
-                int            l = n00b_string_codepoint_len(s);
-
-                if (!l) {
-                    continue;
-                }
-
-                ix = n00b_string_find(s, n00b_cached_newline());
-
-                if (ix == -1) {
-                    ix = l;
-                }
-                ix += get_left_pad(cell->formatting);
-                ix += get_right_pad(cell->formatting);
-            }
-
-            if (ix > high_water_mark) {
-                high_water_mark = ix;
-            }
-        }
+        n00b_list_t *col_contents;
+        int64_t      longest_line = 0;
+        int64_t      longest_word = 0;
+        int          pad;
 
         n00b_tree_node_t *t      = n00b_tree_get_child(table->column_specs, i);
         n00b_layout_t    *layout = n00b_tree_get_contents(t);
 
-        if (high_water_mark) {
-            layout->pref.value.i = high_water_mark;
+        if (layout->flex_multiple > 0) {
+            continue;
+        }
+
+        col_contents = extract_column(table, i);
+
+        for (int j = 0; j < n00b_list_len(col_contents); j++) {
+            n00b_cell_t *cell = n00b_private_list_get(col_contents, j, NULL);
+
+            if (!n00b_type_is_string(n00b_get_my_type(cell->contents))) {
+                continue;
+            }
+
+            n00b_string_t *s      = cell->contents;
+            int            max_wd = longest_word_len(s);
+            int            llen   = longest_line_len(s);
+
+            pad = get_left_pad(cell->formatting);
+            pad += get_right_pad(cell->formatting);
+
+            int span = cell->span;
+            if (span < 0) {
+                span = table->max_col - i;
+            }
+            if (span > 1) {
+                max_wd /= span;
+                llen /= span;
+            }
+
+            max_wd += pad;
+            llen += pad;
+
+            if (max_wd > longest_word) {
+                longest_word = max_wd;
+            }
+
+            if (llen > longest_line) {
+                longest_line = llen;
+            }
+        }
+
+        // If our column's contents are never strings, we don't try to
+        // be smart, we just turn the column into a 'flex' column. If
+        // it doesn't produce good results, then set the columns
+        // manually!
+
+        if (!longest_line) {
+            layout->flex_multiple = 1;
+            continue;
+        }
+
+        // If we have data in the table instead of english words (for
+        // instance, hex data), then the word boundry isn't actually
+        // an awesome lower bound; we probably want something higher.
+        // Generally speaking, the number of common words in english
+        // of length 16 or higher is negligable, so we use that as a
+        // cut-off.
+        if (width < longest_word && width > 15) {
+            longest_word = width / table->max_col;
         }
         else {
-            if (!layout->min.value.i && !layout->max.value.i
-                && !layout->flex_multiple) {
-                layout->flex_multiple = 1;
-            }
+            // We're going to end up using the 'longest_word' to try to
+            // prevent bad wrapping. We add '2' to it here, to account for
+            // possible important punctuation that doesn't wrap, like an
+            // empahsis dash.
+            longest_word += 2;
+        }
+
+        layout->min.value.i = longest_word;
+
+        // If the longest line *could* fit it in the full width, we'll
+        // take that width if we can get it!
+        //
+        // Otherwise, we aim for our proportional column size, given
+        // the number of columns (as long as that's not smaller than
+        // our biggest word).
+
+        if (longest_line < width) {
+            // If we actually fit, don't bother giving us extra space,
+            // we might be taking it from columns that don't need it.
+            layout->pref.value.i = longest_line;
+            layout->max.value.i  = layout->pref.value.i;
+        }
+        else {
+            layout->pref.value.i = n00b_max(longest_word,
+                                            width / table->max_col);
         }
     }
 }

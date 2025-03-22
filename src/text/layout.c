@@ -462,7 +462,7 @@ shrink_to_fit(n00b_tree_node_t *t, int64_t available)
 
     n00b_list_append(shrinking, cur);
 
-    while (n00b_list_len(shrinking) && available < 0) {
+    while (cur && n00b_list_len(shrinking) && available < 0) {
         while (n00b_list_len(list)) {
             next = n00b_list_get(list, 0, NULL);
 
@@ -479,6 +479,9 @@ shrink_to_fit(n00b_tree_node_t *t, int64_t available)
         int64_t target_width;
 
         cur = n00b_list_get(shrinking, 0, NULL);
+        if (!cur) {
+            break;
+        }
 
         if (n00b_list_len(list)) {
             next = n00b_list_get(list, 0, NULL);
