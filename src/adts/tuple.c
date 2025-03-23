@@ -48,10 +48,14 @@ tuple_repr(n00b_tuple_t *tup)
     n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_string()));
 
     for (int i = 0; i < len; i++) {
-        n00b_list_append(items, n00b_repr(tup->items[i]));
+        n00b_string_t *s = n00b_to_literal(tup->items[i]);
+        if (!s || !s->codepoints) {
+            s = n00b_to_string(tup->items[i]);
+        }
+        n00b_list_append(items, s);
     }
 
-    n00b_string_t *sep    = n00b_cached_comma();
+    n00b_string_t *sep    = n00b_cached_comma_padded();
     n00b_string_t *result = n00b_string_join(items, sep);
 
     result = n00b_string_concat(n00b_cached_lparen(),
@@ -182,7 +186,7 @@ n00b_clean_internal_list(n00b_list_t *l)
 const n00b_vtable_t n00b_tuple_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)tuple_init,
-        [N00B_BI_TO_STR]        = (n00b_vtable_entry)tuple_repr,
+        [N00B_BI_TO_STRING]     = (n00b_vtable_entry)tuple_repr,
         [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)tuple_can_coerce,
         [N00B_BI_COERCE]        = (n00b_vtable_entry)tuple_coerce,
         [N00B_BI_COPY]          = (n00b_vtable_entry)tuple_copy,

@@ -28,7 +28,7 @@ n00b_basic_memory_info(void *addr, bool *is_obj, bool *interior)
     }
 }
 
-static bool
+static inline bool
 n00b_is_object_reference(void *addr)
 {
     bool is_obj   = false;
@@ -55,36 +55,6 @@ n00b_is_object_reference(void *addr)
 #else
 #define n00b_object_sanity_check(x)
 #endif
-
-static inline bool
-n00b_has_repr(void *addr)
-{
-    if (!n00b_is_object_reference(addr)) {
-        return false;
-    }
-
-    n00b_type_t *t = n00b_get_my_type(addr);
-
-    if (!t) {
-        return false;
-    }
-
-    if (((int64_t)t->base_index) < 0) {
-        return false;
-    }
-    if (t->base_index >= N00B_NUM_BUILTIN_DTS) {
-        return false;
-    }
-
-    if (n00b_base_type_info[t->base_index].vtable->methods[N00B_BI_REPR]) {
-        return true;
-    }
-
-    if (n00b_base_type_info[t->base_index].vtable->methods[N00B_BI_TO_STR]) {
-        return true;
-    }
-    return false;
-}
 
 static inline n00b_dt_info_t *
 n00b_object_type_info(n00b_obj_t user_object)
@@ -162,10 +132,6 @@ extern n00b_obj_t _n00b_new(n00b_heap_t *, n00b_type_t *, ...);
     _n00b_new(n00b_default_heap, tid, N00B_VA(__VA_ARGS__))
 #endif
 
-extern n00b_string_t  *n00b_repr_explicit(void *, n00b_type_t *);
-extern n00b_string_t  *n00b_repr(void *);
-extern n00b_string_t *n00b_object_repr_opt(void *);
-extern n00b_string_t  *n00b_to_str(void *, n00b_type_t *);
 extern bool         n00b_can_coerce(n00b_type_t *, n00b_type_t *);
 extern n00b_obj_t   n00b_coerce(void *, n00b_type_t *, n00b_type_t *);
 extern n00b_obj_t   n00b_coerce_object(const n00b_obj_t, n00b_type_t *);
@@ -184,8 +150,6 @@ extern n00b_obj_t   n00b_index_get(n00b_obj_t, n00b_obj_t);
 extern void         n00b_index_set(n00b_obj_t, n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_slice_get(n00b_obj_t, int64_t, int64_t);
 extern void         n00b_slice_set(n00b_obj_t, int64_t, int64_t, n00b_obj_t);
-extern n00b_string_t  *n00b_value_obj_repr(n00b_obj_t);
-extern n00b_string_t  *n00b_value_obj_to_str(n00b_obj_t);
 extern n00b_type_t *n00b_get_item_type(n00b_obj_t);
 extern void        *n00b_get_view(n00b_obj_t, int64_t *);
 extern n00b_obj_t   n00b_container_literal(n00b_type_t *,

@@ -11,7 +11,13 @@ n00b_wrapper_join(n00b_list_t *l, n00b_string_t *joiner)
 n00b_string_t *
 n00b_wrapper_repr(n00b_obj_t obj)
 {
-    return n00b_to_literal(obj);
+    n00b_string_t *result = n00b_to_literal(obj);
+
+    if (!result) {
+        result = n00b_cached_empty_string();
+    }
+
+    return result;
 }
 
 n00b_string_t *

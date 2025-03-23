@@ -434,7 +434,7 @@ size_coerce_to(n00b_size_t *self, n00b_type_t *target_type)
 const n00b_vtable_t n00b_size_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)size_init,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)size_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)size_repr,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)size_lit,
         [N00B_BI_EQ]           = (n00b_vtable_entry)size_eq,
         [N00B_BI_LT]           = (n00b_vtable_entry)size_lt,

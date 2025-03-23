@@ -406,7 +406,7 @@ flags_view(n00b_flags_t *self, uint64_t *n)
 const n00b_vtable_t n00b_flags_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)flags_init,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)flags_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)flags_repr,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)flags_lit,
         [N00B_BI_COPY]         = (n00b_vtable_entry)n00b_flags_copy,
         [N00B_BI_ADD]          = (n00b_vtable_entry)n00b_flags_add,

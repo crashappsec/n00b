@@ -32,20 +32,10 @@ n00b_filter_colorterm(n00b_stream_t *party, colorterm_ctx *ctx, void *msg)
     width = n00b_calculate_render_width(ctx->width);
 
     // Temporary compatability.
-    if (!n00b_type_is_string(t) || t->base_index != N00B_T_STRING) {
+    if (!n00b_type_is_string(t)) {
+        msg = n00b_to_string(msg);
         // Then it's a synchronous write or other passthrough
-
-        if (ctx->s) {
-            n00b_private_list_append(l, n00b_flush_colorterm(party, ctx, NULL));
-            ctx->s = NULL;
-        }
-
-        n00b_private_list_append(l, msg);
-
-        return l;
     }
-
-    assert(t->base_index == N00B_T_STRING);
 
     s = (n00b_string_t *)msg;
 

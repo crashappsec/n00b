@@ -271,7 +271,7 @@ ipaddr_lit(n00b_string_t        *s_u8,
 const n00b_vtable_t n00b_ipaddr_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)ipaddr_init,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)ipaddr_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)ipaddr_repr,
         [N00B_BI_GC_MAP]       = (n00b_vtable_entry)N00B_GC_SCAN_NONE,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)ipaddr_lit,
         [N00B_BI_FINALIZER]    = NULL,

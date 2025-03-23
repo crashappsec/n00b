@@ -478,10 +478,13 @@ n00b_string_byte_len(n00b_string_t *s)
 }
 
 #if defined(N00B_USE_INTERNAL_API)
-extern hatrack_hash_t n00b_custom_string_hash(void *s);
+extern hatrack_hash_t n00b_custom_string_hash(void *);
 extern void           n00b_init_common_string_cache(void);
 extern void           n00b_string_sanity_check(n00b_string_t *);
-extern int            n00b_string_set_codepoint_count(n00b_string_t *s);
+extern int            n00b_string_set_codepoint_count(n00b_string_t *);
+extern n00b_string_t *n00b_to_string_provided_type(void *, n00b_type_t *);
+extern n00b_string_t *n00b_to_literal_provided_type(void *, n00b_type_t *);
+
 // This is meant for internal use.
 
 static inline n00b_string_t *

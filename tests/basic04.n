@@ -10,7 +10,8 @@ $output:
 hello, world!
 3
 """
-print("hello, world!")
+print("Hello, world!")
 const x = 3
 assert 4 - 1 == x
 print(x)
+print("Goodbye, world!")

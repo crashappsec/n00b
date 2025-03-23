@@ -60,7 +60,7 @@ n00b_init_common_string_cache(void)
         cache_cp_init(QUESTION_MARK, '?');
         cache_cp_init(TILDE, '~');
         cache_cstr_init(ARROW, " -> ");
-        cache_cstr_init(COMMA_PADDED, ",  ");
+        cache_cstr_init(COMMA_PADDED, ", ");
         cache_cstr_init(COLON_PADDED, " : ");
         cache_cp_init(ELLIPSIS, 0x2026);
     }
@@ -362,10 +362,13 @@ slice_styles(n00b_string_t *dst, n00b_string_t *src, int64_t start, int64_t end)
     int64_t i     = 0;
 
     for (; i < src->styling->num_styles; i++) {
-        if (src->styling->styles[i].end <= start) {
+        int ss = n00b_style_start(src, i);
+        int se = n00b_style_end(src, i);
+
+        if (se <= start) {
             continue;
         }
-        if (src->styling->styles[i].start >= end) {
+        if (ss >= end) {
             last = i;
             break;
         }
@@ -388,13 +391,21 @@ slice_styles(n00b_string_t *dst, n00b_string_t *src, int64_t start, int64_t end)
     int n = 0;
 
     for (i = first; i < last; i++) {
-        int64_t sold = src->styling->styles[i].start;
-        int64_t eold = src->styling->styles[i].end;
+        int64_t sold = n00b_style_start(src, i);
+        int64_t eold = n00b_style_end(src, i);
         int64_t snew = n00b_max(sold - start, 0);
         int64_t enew = n00b_min(eold, end) - start;
 
         if (snew >= enew) {
             break;
+        }
+
+        if (n00b_style_extends_front(&src->styling->styles[i])) {
+            snew = N00B_STYLE_EXTEND;
+        }
+
+        if (n00b_style_extends_end(&src->styling->styles[i])) {
+            enew = N00B_STYLE_EXTEND;
         }
 
         dst->styling->styles[n].start = snew;
@@ -441,24 +452,6 @@ copy_styles(n00b_string_t *dst, n00b_string_t *src)
 }
 
 static inline n00b_string_t *
-copy_styles_and_extend(n00b_string_t *dst, n00b_string_t *src)
-{
-    copy_styles(dst, src);
-
-    // Check to see if we should extend the last style to the end.
-    if (src->styling && src->styling->num_styles) {
-        int n = src->styling->num_styles;
-
-        if (src->styling->styles[n - 1].end >= src->codepoints) {
-            dst->styling->styles[n - 1].end = dst->codepoints;
-        }
-    }
-
-    n00b_string_sanity_check(dst);
-    return dst;
-}
-
-static inline n00b_string_t *
 copy_styles_with_offset(n00b_string_t *dst, n00b_string_t *src, int offset)
 {
     if (!src->styling || !src->styling->num_styles) {
@@ -473,12 +466,10 @@ copy_styles_with_offset(n00b_string_t *dst, n00b_string_t *src, int offset)
 
     for (int i = 0; i < n; i++) {
         dst->styling->styles[i].start += offset;
-        dst->styling->styles[i].end += offset;
-    }
 
-    // Check to see if we should extend the last style to the end.
-    if (src->styling->styles[n - 1].end >= src->codepoints) {
-        dst->styling->styles[n - 1].end = dst->codepoints;
+        if (!n00b_style_extends_end(&dst->styling->styles[i])) {
+            dst->styling->styles[i].end += offset;
+        }
     }
 
     n00b_string_sanity_check(dst);
@@ -489,79 +480,58 @@ copy_styles_with_offset(n00b_string_t *dst, n00b_string_t *src, int offset)
 static inline n00b_string_t *
 concat_styles(n00b_string_t *dst, n00b_string_t *s1, n00b_string_t *s2)
 {
-    int num_styles = 0;
-    if (s1->styling) {
-        num_styles = s1->styling->num_styles;
-    }
-
-    if (s2->styling) {
-        num_styles += s2->styling->num_styles;
-    }
+    int                  cp1        = n00b_string_codepoint_len(s1);
+    int                  n1         = n00b_style_count(s1);
+    int                  n2         = n00b_style_count(s2);
+    int                  num_styles = n1 + n2;
+    int                  x          = 0;
+    int                  extend     = false;
+    n00b_style_record_t *transition = NULL;
 
     if (!num_styles) {
         n00b_string_sanity_check(dst);
         return dst;
     }
 
-    dst->styling = n00b_gc_flex_alloc(n00b_string_style_info_t,
+    dst->styling             = n00b_gc_flex_alloc(n00b_string_style_info_t,
                                       n00b_style_record_t,
                                       num_styles,
                                       N00B_GC_SCAN_ALL);
-
     dst->styling->num_styles = num_styles;
 
-    int  n1           = 0;
-    int  n2           = 0;
-    bool back_extend  = false;
-    bool front_extend = false;
-
-    if (s1->styling) {
-        n1 = s1->styling->num_styles;
-    }
-    else {
-        front_extend = true;
-    }
-
-    if (s2->styling) {
-        n2 = s2->styling->num_styles;
-    }
-
     for (int i = 0; i < n1; i++) {
-        dst->styling->styles[i].info  = s1->styling->styles[i].info;
-        dst->styling->styles[i].start = s1->styling->styles[i].start;
-        dst->styling->styles[i].end   = s1->styling->styles[i].end;
+        dst->styling->styles[x].info  = s1->styling->styles[i].info;
+        dst->styling->styles[x].start = n00b_style_start(s1, i);
+        dst->styling->styles[x].end   = n00b_style_end(s1, i);
         if (i + 1 == n1) {
-            if (s1->styling->styles[i].end >= s1->codepoints) {
-                back_extend = true;
-            }
+            transition = &dst->styling->styles[x];
+            extend     = n00b_style_extends_end(&s1->styling->styles[i]);
         }
+        x++;
     }
-
-    int s1_cp = s1->codepoints;
-
-    int n = n1;
 
     for (int i = 0; i < n2; i++) {
-        dst->styling->styles[n].info  = s2->styling->styles[i].info;
-        dst->styling->styles[n].start = s2->styling->styles[i].start + s1_cp;
-        dst->styling->styles[n].end   = s2->styling->styles[i].end + s1_cp;
-        n++;
-    }
+        dst->styling->styles[x].info  = s2->styling->styles[i].info;
+        dst->styling->styles[x].start = n00b_style_start(s2, i) + cp1;
+        dst->styling->styles[x].end   = n00b_style_end(s2, i) + cp1;
 
-    // If the final style extended to the end of the string, then we
-    // extend it to the next start (or the end of the combined string
-    // if there is no style in d2.
-    if (back_extend) {
-        if (!n2) {
-            dst->styling->styles[n1 - 1].end = dst->codepoints;
-        }
-        else {
-            dst->styling->styles[n1 - 1].end = dst->styling->styles[n1].start;
-        }
-    }
+        if (!i) {
+            bool pre_extend = n00b_style_extends_front(&s2->styling->styles[0]);
 
-    if (front_extend && n > 0 && !s2->styling->styles[0].start) {
-        dst->styling->styles[0].start = 0;
+            // If we extended and have pre-extend, we do 0, because
+            // the transition style would have gotten cp1 above.
+            if (extend && !pre_extend) {
+                transition->end = dst->styling->styles[x].start;
+            }
+            if (pre_extend) {
+                dst->styling->styles[x].start = transition->end;
+            }
+        }
+
+        if (i + 1 == n2 && n00b_style_extends_end(&s2->styling->styles[i])) {
+            dst->styling->styles[x].end = N00B_STYLE_EXTEND;
+        }
+        x++;
     }
 
     n00b_string_sanity_check(dst);
@@ -1315,7 +1285,7 @@ n00b_string_split_and_crop(n00b_string_t *str, n00b_string_t *sub, int64_t w)
 }
 
 static n00b_string_t *
-n00b_string_repr(n00b_string_t *str)
+n00b_string_to_literal(n00b_string_t *str)
 {
     n00b_string_t *q = n00b_cached_2quote();
 
@@ -1432,7 +1402,7 @@ n00b_string_wrap(n00b_string_t *s, int64_t width, int64_t hang)
         start                = line_starts->breaks[i];
         end                  = line_starts->breaks[i + 1] - 1;
         n00b_string_t *slice = n00b_string_slice(s, start, end);
-        n00b_list_append(result, slice);
+        n00b_private_list_append(result, slice);
     }
 
     if (i == line_starts->num_breaks - 1) {
@@ -1445,7 +1415,7 @@ n00b_string_wrap(n00b_string_t *s, int64_t width, int64_t hang)
             slice->codepoints--;
             slice->u8_bytes--;
         }
-        n00b_list_append(result, slice);
+        n00b_private_list_append(result, slice);
     }
 
     return result;
@@ -1690,7 +1660,7 @@ n00b_string_align_left(n00b_string_t *s, int w)
         *p++ = ' ';
     }
 
-    return copy_styles_and_extend(result, s);
+    return copy_styles(result, s);
 }
 
 n00b_string_t *
@@ -1817,18 +1787,23 @@ n00b_make_cstr_array(n00b_list_t *l, int *lenp)
 }
 
 n00b_string_t *
-n00b_to_string(void *item)
+n00b_to_literal_provided_type(void *item, n00b_type_t *t)
 {
-    if (!n00b_in_heap(item)) {
+    uint64_t                x = t->base_index;
+    n00b_string_convertor_t p;
+
+    p = (void *)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_LITERAL];
+
+    if (!p) {
         return NULL;
     }
 
-    n00b_type_t *t = n00b_get_my_type(item);
+    return (*p)(item);
+}
 
-    if (!t) {
-        return NULL;
-    }
-
+n00b_string_t *
+n00b_to_string_provided_type(void *item, n00b_type_t *t)
+{
     uint64_t                x = t->base_index;
     n00b_string_convertor_t p;
 
@@ -1840,10 +1815,26 @@ n00b_to_string(void *item)
     p = (void *)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_STRING];
 
     if (!p) {
-        return n00b_to_literal(item);
+        return n00b_to_literal_provided_type(item, t);
     }
 
     return (*p)(item);
+}
+
+n00b_string_t *
+n00b_to_string(void *item)
+{
+    if (!n00b_in_heap(item)) {
+        return n00b_to_string_provided_type(item, n00b_type_i64());
+    }
+
+    n00b_type_t *t = n00b_get_my_type(item);
+
+    if (!t) {
+        return n00b_to_string_provided_type(item, n00b_type_i64());
+    }
+
+    return n00b_to_string_provided_type(item, t);
 }
 
 n00b_string_t *
@@ -1859,16 +1850,7 @@ n00b_to_literal(void *item)
         return NULL;
     }
 
-    uint64_t                x = t->base_index;
-    n00b_string_convertor_t p;
-
-    p = (void *)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_LITERAL];
-
-    if (!p) {
-        return NULL;
-    }
-
-    return (*p)(item);
+    return n00b_to_literal_provided_type(item, t);
 }
 
 static inline n00b_type_t *
@@ -1891,9 +1873,8 @@ n00b_cstring_copy(char *s)
 const n00b_vtable_t n00b_string_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)n00b_string_init,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)n00b_string_repr,
+        [N00B_BI_TO_LITERAL]   = (n00b_vtable_entry)n00b_string_to_literal,
         [N00B_BI_TO_STRING]    = (n00b_vtable_entry)n00b_string_to_str,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_string_to_str,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)n00b_string_format,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)n00b_string_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)n00b_string_coerce_to,

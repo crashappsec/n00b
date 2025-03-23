@@ -252,7 +252,7 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
 }
 
 static n00b_string_t *
-dict_repr(n00b_dict_t *dict)
+dict_to_string(n00b_dict_t *dict)
 {
     uint64_t             view_len;
     hatrack_dict_item_t *view = hatrack_dict_items_sort(dict, &view_len);
@@ -263,18 +263,22 @@ dict_repr(n00b_dict_t *dict)
     n00b_string_t *colon    = n00b_cached_colon();
 
     for (uint64_t i = 0; i < view_len; i++) {
-        n00b_list_set(one_item, 0, n00b_repr(view[i].key));
-        n00b_list_set(one_item, 1, n00b_repr(view[i].value));
+        n00b_string_t *k = n00b_to_literal(view[i].key);
+        n00b_string_t *v = n00b_to_literal(view[i].value);
+
+        if (!k) {
+            k = n00b_to_string(view[i].key);
+        }
+        if (!v) {
+            v = n00b_to_string(view[i].value);
+        }
+        n00b_list_set(one_item, 0, k);
+        n00b_list_set(one_item, 1, v);
         n00b_list_append(items, n00b_string_join(one_item, colon));
     }
 
-    return n00b_cformat("{«#»}", n00b_string_join(items, n00b_cached_comma()));
-    /*
-    n00b_list_set(one_item, 0, n00b_cached_lbrace());
-    n00b_list_set(one_item, 1, n00b_string_join(items, n00b_cached_comma()));
-    n00b_list_append(one_item, n00b_cached_rbrace());
-
-    return n00b_string_join(one_item, n00b_cached_space());*/
+    return n00b_cformat("{«#»}",
+                        n00b_string_join(items, n00b_cached_comma_padded()));
 }
 
 static bool
@@ -417,7 +421,7 @@ const n00b_vtable_t n00b_dict_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_dict_init,
         [N00B_BI_FINALIZER]     = (n00b_vtable_entry)hatrack_dict_cleanup,
-        [N00B_BI_TO_STR]        = (n00b_vtable_entry)dict_repr,
+        [N00B_BI_TO_STRING]     = (n00b_vtable_entry)dict_to_string,
         [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)dict_can_coerce_to,
         [N00B_BI_COERCE]        = (n00b_vtable_entry)dict_coerce_to,
         [N00B_BI_SHALLOW_COPY]  = (n00b_vtable_entry)n00b_dict_shallow_copy,

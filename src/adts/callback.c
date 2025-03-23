@@ -36,7 +36,7 @@ zcallback_repr(n00b_zcallback_t *cb)
 const n00b_vtable_t n00b_callback_vtable = {
     .methods = {
         [N00B_BI_GC_MAP]    = (n00b_vtable_entry)n00b_zcallback_gc_bits,
-        [N00B_BI_REPR]      = (n00b_vtable_entry)zcallback_repr,
+        [N00B_BI_TO_STRING] = (n00b_vtable_entry)zcallback_repr,
         [N00B_BI_FINALIZER] = NULL,
     },
 };

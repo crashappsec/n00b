@@ -150,17 +150,23 @@ n00b_write(n00b_stream_t *recipient, void *m)
 #ifdef N00B_INTERNAL_DEBUG
     printf("\n->q msg %llu for %s (%p); msg was:\n %s",
            write_index + 1,
-           n00b_repr(recipient)->data,
+           n00b_to_string(recipient)->data,
            entry.recipient,
-           n00b_repr(entry.msg)->data);
+           n00b_to_string(entry.msg)->data);
 #endif
 }
 
-extern void           n00b_handle_one_delivery(n00b_stream_t *, void *);
 extern n00b_string_t *n00b_stream_repr(n00b_stream_t *);
 // The main queue is processed AFTER one I/O event loop, but in the
 // same thread. Callbacks, however, run on a different thread.
-void
+//
+// Returns true if there are no new messages when we check after
+// processing the queue.
+//
+// This is *racy*, but only used during shutdown. Currently, callbacks
+// could take advantage, but we will probably forbid callbacks from
+// re-queuing.
+bool
 n00b_process_queue(void)
 {
     n00b_ioqueue_t *processing = atomic_read(&in_queue);
@@ -177,6 +183,10 @@ n00b_process_queue(void)
     int      pages     = total / msgs_per_page;
     uint64_t delivered = 0;
 
+    if (!total) {
+        return true;
+    }
+
     for (int i = 0; i < pages; i++) {
         for (unsigned int j = 0; j < msgs_per_page; j++) {
             // Spin-wait for slow writers.
@@ -186,13 +196,13 @@ n00b_process_queue(void)
             delivered++;
             processing->q[j] = empty;
             n00b_assert(n00b_type_is_stream(n00b_get_my_type(entry.recipient)));
-            n00b_handle_one_delivery(entry.recipient, entry.msg);
+            n00b_handle_one_delivery(entry.recipient, entry.msg, true);
 #ifdef N00B_INTERNAL_DEBUG
             printf("\nq-> deliver msg slot %llu to recipient %s (%p); msg was:\n%s\n",
                    delivered,
-                   n00b_repr(entry.recipient)->data,
+                   n00b_to_string(entry.recipient)->data,
                    entry.recipient,
-                   n00b_repr(entry.msg)->data);
+                   n00b_to_string(entry.msg)->data);
 #endif
         }
         processing = atomic_read(&processing->next_page);
@@ -205,11 +215,12 @@ n00b_process_queue(void)
 
         processing->q[delivered] = empty;
 
-        n00b_handle_one_delivery(entry.recipient, entry.msg);
+        n00b_handle_one_delivery(entry.recipient, entry.msg, true);
         delivered++;
     }
 
     atomic_store(&private_queue->num, 0);
+    return false;
 }
 
 void

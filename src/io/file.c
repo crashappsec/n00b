@@ -453,6 +453,235 @@ n00b_fd_open(int fd)
     return n00b_io_fd_open(fd, &n00b_fileio_impl);
 }
 
+// Before we send the message, we need to merge it with any pending
+// data to be written that hasn't been written yet. This only happens
+// in async-land, but we may be switching between sync and async.
+//
+// Note that unexpected things can happen if you try to use the same
+// fd at the same time via the sync and asyn interfaces.  In part,
+// this is because the synchronous write moves the fd to blocking mode
+// for the duration of the write.
+//
+// Duping the file descriptor to have a blocking clone does not work
+// portably. Particularly, on Linux, the 'non-blocking' flag is
+// applied at the INODE level, not the file descriptor.
+
+static n00b_ev2_cookie_t *
+n00b_fd_prep_write(n00b_stream_t *party, void *msg)
+{
+    n00b_type_t       *t      = n00b_get_my_type(msg);
+    n00b_ev2_cookie_t *cookie = party->cookie;
+
+    // Generally higher level filters should be converting strings
+    // so that we get a buffer here.
+    assert(n00b_type_is_buffer(t));
+
+    if (cookie->backlog && n00b_list_len(cookie->backlog) != 0) {
+add_to_backlog:
+        n00b_list_append(cookie->backlog, msg);
+        n00b_event_add(cookie->write_event, NULL);
+        return cookie;
+    }
+
+    if (cookie->pending_write) {
+        if (n00b_buffer_len(cookie->pending_write) > cookie->pending_ix) {
+            cookie->backlog = n00b_list(n00b_type_buffer());
+            goto add_to_backlog;
+        }
+    }
+
+    cookie->pending_write = msg;
+    cookie->pending_ix    = 0;
+
+    return cookie;
+}
+
+// This gets called when someone calls an IO operation on a file
+// descriptor that actually waits around for completion. It's mostly
+// straightforward at this point; the pub/sub piece happens around
+// this (via n00b_handle_one_write in iocore).
+//
+// This gets used for synchronous writes both for file descriptors and
+// sockets.
+void *
+n00b_io_fd_sync_write(n00b_stream_t *party, void *msg)
+{
+    defer_on();
+    n00b_acquire_party(party);
+
+    n00b_ev2_cookie_t *cookie      = n00b_fd_prep_write(party, msg);
+    n00b_buf_t        *pending     = cookie->pending_write;
+    int                offset      = cookie->pending_ix;
+    int                len         = n00b_buffer_len(pending);
+    int                remaining   = len - offset;
+    int                fd          = (int)cookie->id;
+    char              *write_start = pending->data + offset;
+
+    cookie->pending_write = NULL;
+    cookie->pending_ix    = 0;
+
+    n00b_fd_make_blocking(fd);
+    defer(n00b_fd_make_nonblocking(fd));
+
+    do {
+        ssize_t n = write(fd, write_start, remaining);
+
+        if (n == -1) {
+            if (errno != EINTR && errno != EAGAIN) {
+                party->closed_for_write = true;
+                party->error            = true;
+                n00b_post_close(party);
+                n00b_post_errno(party);
+                Return NULL;
+            }
+            continue;
+        }
+
+#ifdef N00B_EV_STATS
+        cookie->bytes_written += n;
+#endif
+        remaining -= n;
+        write_start += n;
+
+    } while (remaining);
+
+    Return NULL;
+    defer_func_end();
+}
+
+// The async `write` callback really just QUEUES the write.  We then
+// only have to tell libevent about the desire to write to our file
+// descriptor; when it decides the fd is free to write, we have
+// already registered n00b_ev2_w as a callback; it will get called,
+// and handle the final delivery.
+void *
+n00b_io_enqueue_fd_write(n00b_stream_t *party, void *msg)
+{
+    n00b_ev2_cookie_t *cookie = n00b_fd_prep_write(party, msg);
+
+    n00b_event_add(cookie->write_event, NULL);
+    return NULL;
+}
+
+// When we're doing an async write, we want to avoid errors if the fd
+// is set to blocking. To that end, we should only expect to be able
+// to write PIPE_BUF bytes at a time.
+//
+// But, when we have a longer message, instead of requeuing and
+// waiting for the next event loop, we look here to see if the fd can
+// accept ANOTHER full write. If so, we'll use it. If not, we'll go
+// ahead and re-queue the rest.
+
+static inline bool
+still_can_write(int fd)
+{
+    struct pollfd poll_set = {
+        .fd      = fd,
+        .events  = POLLOUT,
+        .revents = 0,
+    };
+
+    return poll(&poll_set, 1, 0) == 1;
+}
+
+// This is the async write function called by libevent when it's time
+// for us to ACTUALLY perform a write. We should not have it just do
+// the same thing as the sync write above, since, if the fd is set to
+// blocking mode, we cannot guarantee that we can write more than
+// PIPE_BUF bytes without blocking.
+//
+// LibEvent does force everything into non-blocking mode, but I prefer
+// to be a better citizen than that. Meaning, I may someday move away
+// from LibEvent, and if I write my own version, I'd prefer to leave
+// most fds blocking by default, and just be smarter about using them.
+void
+n00b_ev2_w(evutil_socket_t fd, short event_type, void *info)
+{
+    defer_on();
+
+    n00b_stream_t *party = info;
+
+    n00b_acquire_party(party);
+
+start_write:;
+    n00b_ev2_cookie_t *cookie      = party->cookie;
+    n00b_buf_t        *pending     = cookie->pending_write;
+    int                offset      = cookie->pending_ix;
+    int                len         = n00b_buffer_len(pending);
+    int                remaining   = len - offset;
+    char              *write_start = pending->data + offset;
+    int                request;
+
+    if (remaining > PIPE_BUF) {
+        request = PIPE_BUF;
+    }
+    else {
+        request = remaining;
+    }
+
+    if (!request) {
+not_done:
+        n00b_event_add(cookie->write_event, NULL);
+        Return;
+    }
+
+    ssize_t n = write((int)cookie->id, write_start, request);
+
+#ifdef N00B_INTERNAL_DEBUG
+    if (party->etype == n00b_io_ev_socket) {
+        cprintf("\nev2(w->%d):\n%s\n",
+                (int)cookie->id,
+                n00b_hex_dump(write_start, n));
+    }
+
+#endif
+
+    if (n == -1) {
+        if (errno != EINTR && errno != EAGAIN) {
+            party->closed_for_write = true;
+            party->error            = true;
+            n00b_post_close(party);
+            n00b_post_errno(party);
+            Return;
+        }
+        goto not_done;
+    }
+
+#ifdef N00B_EV_STATS
+    cookie->bytes_written += n;
+#endif
+    if (n != remaining) {
+        cookie->pending_ix += n;
+
+        if (still_can_write((int)cookie->id)) {
+            goto start_write;
+        }
+        goto not_done;
+    }
+
+    n00b_post_to_subscribers(party,
+                             cookie->pending_write,
+                             n00b_io_sk_post_write);
+    n00b_purge_subscription_list_on_boundary(party->write_subs);
+
+    cookie->pending_write = NULL;
+    cookie->pending_ix    = 0;
+
+    while (true) {
+        if (n00b_list_len(cookie->backlog) != 0) {
+            void *qi = n00b_list_dequeue(cookie->backlog);
+
+            cookie->pending_write = qi;
+            cookie->pending_ix    = 0;
+            goto not_done;
+        }
+        break;
+    }
+
+    Return;
+    defer_func_end();
+}
+
 static n00b_stream_t *__n00b_stdin_cache  = NULL;
 static n00b_stream_t *__n00b_stdout_cache = NULL;
 static n00b_stream_t *__n00b_stderr_cache = NULL;
@@ -621,22 +850,23 @@ n00b_io_fd_eof(n00b_stream_t *f)
 }
 
 n00b_io_impl_info_t n00b_fileio_impl = {
-    .open_impl        = (void *)n00b_io_fd_open,
-    .subscribe_impl   = n00b_io_fd_subscribe,
-    .unsubscribe_impl = n00b_io_ev_unsubscribe,
-    .read_impl        = n00b_io_enqueue_fd_read,
-    .eof_impl         = n00b_io_fd_eof,
-    .write_impl       = n00b_io_enqueue_fd_write,
-    .repr_impl        = n00b_io_fd_repr,
-    .close_impl       = n00b_io_close,
-    .use_libevent     = true,
-    .byte_oriented    = true,
+    .open_impl           = (void *)n00b_io_fd_open,
+    .subscribe_impl      = n00b_io_fd_subscribe,
+    .unsubscribe_impl    = n00b_io_ev_unsubscribe,
+    .read_impl           = n00b_io_enqueue_fd_read,
+    .eof_impl            = n00b_io_fd_eof,
+    .write_impl          = n00b_io_enqueue_fd_write,
+    .blocking_write_impl = n00b_io_fd_sync_write,
+    .repr_impl           = n00b_io_fd_repr,
+    .close_impl          = n00b_io_close,
+    .use_libevent        = true,
+    .byte_oriented       = true,
 };
 
 const n00b_vtable_t n00b_file_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_new_file_init,
-        [N00B_BI_TO_STR]      = (n00b_vtable_entry)n00b_file_repr,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_file_repr,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },
 };

@@ -312,7 +312,7 @@ n00b_flexarray_repr(flexarray_t *list)
             continue;
         }
 
-        n00b_string_t *s = n00b_repr(item);
+        n00b_string_t *s = n00b_to_string(item);
         n00b_list_append(items, s);
     }
 
@@ -320,7 +320,8 @@ n00b_flexarray_repr(flexarray_t *list)
     n00b_string_t *result = n00b_string_join(items, sep);
 
     result = n00b_string_concat(n00b_cached_lbracket(),
-                                n00b_string_concat(result, n00b_cached_rbracket()));
+                                n00b_string_concat(result,
+                                                   n00b_cached_rbracket()));
 
     return result;
 }
@@ -342,7 +343,7 @@ const n00b_vtable_t n00b_flexarray_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_flexarray_init,
         [N00B_BI_FINALIZER]     = (n00b_vtable_entry)flexarray_cleanup,
-        [N00B_BI_TO_STR]        = (n00b_vtable_entry)n00b_flexarray_repr,
+        [N00B_BI_TO_STRING]     = (n00b_vtable_entry)n00b_flexarray_repr,
         [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)n00b_flexarray_can_coerce_to,
         [N00B_BI_COERCE]        = (n00b_vtable_entry)n00b_flexarray_coerce_to,
         [N00B_BI_COPY]          = (n00b_vtable_entry)n00b_flexarray_copy,

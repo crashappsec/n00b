@@ -199,9 +199,19 @@ extern int64_t n00b_table_next_column_set_width_pct(n00b_table_t *,
 
 extern void n00b_table_set_column_priority(n00b_table_t *, int64_t, int64_t);
 
+static void
+n00b_ensure_theme(n00b_table_t *table)
+{
+    if (!table->theme) {
+        table->theme = n00b_get_current_theme();
+    }
+}
+
 static inline n00b_box_props_t *
 n00b_outer_box(n00b_table_t *table)
 {
+    n00b_ensure_theme(table);
+
     n00b_box_props_t *result;
 
     switch (table->decoration_style) {
@@ -249,6 +259,8 @@ n00b_outer_box(n00b_table_t *table)
 static inline n00b_box_props_t *
 n00b_cell_box(n00b_table_t *table)
 {
+    n00b_ensure_theme(table);
+
     n00b_box_props_t *result;
 
     switch (table->decoration_style) {
@@ -294,6 +306,8 @@ n00b_cell_box(n00b_table_t *table)
 static inline n00b_box_props_t *
 n00b_alt_cell_box(n00b_table_t *table)
 {
+    n00b_ensure_theme(table);
+
     n00b_box_props_t *result;
 
     switch (table->decoration_style) {
@@ -327,6 +341,8 @@ n00b_alt_cell_box(n00b_table_t *table)
 static inline n00b_box_props_t *
 n00b_header_box(n00b_table_t *table)
 {
+    n00b_ensure_theme(table);
+
     n00b_box_props_t *result;
 
     switch (table->decoration_style) {
@@ -374,6 +390,8 @@ n00b_header_box(n00b_table_t *table)
 static inline n00b_box_props_t *
 n00b_title_box(n00b_table_t *table)
 {
+    n00b_ensure_theme(table);
+
     n00b_box_props_t *result;
 
     result = table->theme->box_info[N00B_BOX_THEME_TITLE];
@@ -410,6 +428,8 @@ n00b_title_box(n00b_table_t *table)
 static inline n00b_box_props_t *
 n00b_caption_box(n00b_table_t *table)
 {
+    n00b_ensure_theme(table);
+
     n00b_box_props_t *result;
 
     result = table->theme->box_info[N00B_BOX_THEME_CAPTION];

@@ -38,6 +38,21 @@ n00b_string_style(n00b_string_t *s, n00b_text_element_t *style)
     return result;
 }
 
+n00b_string_t *
+n00b_string_style_extended(n00b_string_t *s, n00b_text_element_t *style)
+{
+    // Turns on style extension, as long as the string you're
+    // calling this on isn't pre-styled.
+
+    n00b_string_t *result = n00b_string_style(s, style);
+
+    if (!result->styling->base_style) {
+        result->styling->styles[0].end = -1;
+    }
+
+    return result;
+}
+
 n00b_text_element_t *
 n00b_text_style_overlay(n00b_text_element_t *base, n00b_text_element_t *new)
 {
@@ -509,10 +524,10 @@ n00b_rich_to_ansi(n00b_string_t *s, n00b_theme_t *theme)
     }
 
     for (int i = 0; i < n; i++) {
-        if (s->styling->styles[i].start > last) {
+        if (n00b_style_start(s, i) > last) {
             gaps++;
         }
-        last  = s->styling->styles[i].end;
+        last  = n00b_style_end(s, i);
         style = s->styling->styles[i].info;
         stash_ansi_codes(style, theme, inherited_defaults);
         len += style->ansi_len + RESET_LEN;
@@ -535,16 +550,17 @@ n00b_rich_to_ansi(n00b_string_t *s, n00b_theme_t *theme)
     char *dstp       = result;
     int   style_ix   = 0;
     int   i          = 0;
-    int   next_start = n ? s->styling->styles[0].start : s->codepoints;
+    int   next_start = n00b_style_start(s, 0);
     bool  case_state = false;
     int   end;
 
     n00b_string_sanity_check(s);
 
     while (srcp < srcend) {
-        if (style_ix < n && i == s->styling->styles[style_ix].start) {
+        if (style_ix < n && i == next_start) {
             copy_style_cache(&dstp, s->styling->styles[style_ix].info);
-            end = s->styling->styles[style_ix].end;
+            end = n00b_style_end(s, style_ix);
+
             while (srcp < srcend && i < end) {
                 copy_codepoint(&dstp,
                                &srcp,
@@ -554,17 +570,15 @@ n00b_rich_to_ansi(n00b_string_t *s, n00b_theme_t *theme)
                 i++;
             }
             add_reset_code(&dstp);
-            style_ix++;
-            if (style_ix == n) {
-                next_start = s->codepoints;
-            }
-            else {
-                next_start = s->styling->styles[style_ix].start;
-            }
+            next_start = n00b_style_start(s, ++style_ix);
+        }
+        if (i >= next_start) {
+            i = next_start;
+            continue;
         }
         // We're in fill space. We go from the current character
         // until we hit next_start, possibly filling the style.
-        if (inherited_defaults) {
+        if (inherited_defaults && i < next_start) {
             copy_style_cache(&dstp, inherited_defaults);
             while (srcp < srcend && i < next_start) {
                 copy_codepoint(&dstp,

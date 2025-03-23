@@ -99,6 +99,9 @@ add_kid_result_nodes(n00b_tree_node_t *tn_cell, n00b_tree_node_t *tn_res)
     for (int i = 0; i < l; i++) {
         n00b_layout_result_t *n = n00b_gc_alloc_mapped(n00b_layout_result_t,
                                                        N00B_GC_SCAN_ALL);
+        assert(!n->cell);
+        assert(!n->computed_min);
+        assert(!n->computed_max);
         n->cell                 = n00b_tree_get_child(tn_cell, i);
         n00b_layout_t *layout   = n00b_tree_get_contents(n->cell);
         n->cached_priority      = layout->priority;

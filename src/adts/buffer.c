@@ -663,8 +663,7 @@ n00b_buffer_set_gc_bits(uint64_t *bitfield, void *alloc)
 const n00b_vtable_t n00b_buffer_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)buffer_init,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)buffer_repr,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_buffer_to_hex_str,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)buffer_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)buffer_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)buffer_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)buffer_coerce_to,

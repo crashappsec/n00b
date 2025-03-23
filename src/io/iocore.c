@@ -55,7 +55,7 @@ n00b_io_impl_register(n00b_string_t *name, n00b_io_impl_info_t *info)
     }
 }
 
-static inline void
+void
 n00b_post_close(n00b_stream_t *event)
 {
     if (event->close_notified) {
@@ -561,88 +561,6 @@ signal_possible_waiter(void *obj)
 }
 
 void
-n00b_ev2_w(evutil_socket_t fd, short event_type, void *info)
-{
-    defer_on();
-
-    n00b_stream_t *party = info;
-
-    n00b_acquire_party(party);
-
-    n00b_ev2_cookie_t *cookie      = party->cookie;
-    n00b_buf_t        *pending     = cookie->pending_write;
-    int                offset      = cookie->pending_ix;
-    int                len         = n00b_buffer_len(pending);
-    int                remaining   = len - offset;
-    char              *write_start = pending->data + offset;
-    int                request;
-
-    if (remaining > PIPE_BUF) {
-        request = PIPE_BUF;
-    }
-    else {
-        request = remaining;
-    }
-
-    if (!request) {
-not_done:
-        n00b_event_add(cookie->write_event, NULL);
-        Return;
-    }
-
-    ssize_t n = write((int)cookie->id, write_start, request);
-
-#ifdef N00B_INTERNAL_DEBUG
-    if (party->etype == n00b_io_ev_socket) {
-        cprintf("\nev2(w->%d):\n%s\n",
-                (int)cookie->id,
-                n00b_hex_dump(write_start, n));
-    }
-
-#endif
-
-    if (n == -1) {
-        if (errno != EINTR && errno != EAGAIN) {
-            party->closed_for_write = true;
-            party->error            = true;
-            n00b_post_close(party);
-            n00b_post_errno(party);
-        }
-        goto not_done;
-    }
-
-#ifdef N00B_EV_STATS
-    cookie->bytes_written += n;
-#endif
-    if (n != remaining) {
-        cookie->pending_ix += n;
-        goto not_done;
-    }
-
-    n00b_post_to_subscribers(party,
-                             cookie->pending_write,
-                             n00b_io_sk_post_write);
-    n00b_purge_subscription_list_on_boundary(party->write_subs);
-
-    cookie->pending_write = NULL;
-    cookie->pending_ix    = 0;
-
-    while (true) {
-        if (n00b_list_len(cookie->backlog) != 0) {
-            void *qi = n00b_list_dequeue(cookie->backlog);
-
-            cookie->pending_write = qi;
-            cookie->pending_ix    = 0;
-            goto not_done;
-        }
-        break;
-    }
-
-    Return;
-    defer_func_end();
-}
-
-void
 n00b_io_ev_unsubscribe(n00b_stream_sub_t *info)
 {
     n00b_stream_t     *source     = info->source;
@@ -667,43 +585,6 @@ n00b_io_enqueue_fd_read(n00b_stream_t *party, uint64_t len)
     return true;
 }
 
-// This is for sockets and files ONLY.
-void *
-n00b_io_enqueue_fd_write(n00b_stream_t *party, void *msg)
-{
-    n00b_type_t       *t      = n00b_get_my_type(msg);
-    n00b_ev2_cookie_t *cookie = party->cookie;
-
-    if (n00b_type_is_string(t)) {
-        n00b_string_t *s = msg;
-        n00b_buf_t    *b = n00b_buffer_empty();
-        b->data          = s->data;
-        b->byte_len      = s->u8_bytes;
-        msg              = b;
-    }
-
-    if (cookie->backlog && n00b_list_len(cookie->backlog) != 0) {
-add_to_backlog:
-        n00b_list_append(cookie->backlog, msg);
-        n00b_event_add(cookie->write_event, NULL);
-        return NULL;
-    }
-
-    if (cookie->pending_write) {
-        if (n00b_buffer_len(cookie->pending_write) > cookie->pending_ix) {
-            cookie->backlog = n00b_list(n00b_type_buffer());
-            goto add_to_backlog;
-        }
-    }
-
-    cookie->pending_write = msg;
-    cookie->pending_ix    = 0;
-
-    // Tell libevent we have something to write.
-    n00b_event_add(cookie->write_event, NULL);
-    return NULL;
-}
-
 static inline void
 _acquire_event_loop(char *f, int l)
 {
@@ -721,8 +602,6 @@ release_event_loop(void)
 #define acquire_event_loop()                 \
     _acquire_event_loop(__FILE__, __LINE__); \
     defer(release_event_loop())
-
-extern void n00b_process_queue(void);
 
 bool
 n00b_io_run_base(n00b_stream_base_t *eb, int flags)
@@ -806,8 +685,8 @@ n00b_io_register_subscription(n00b_stream_sub_t        *sub,
 {
 #ifdef N00B_INTERNAL_DEBUG
     printf("sub: %s (sink) to %s (source)\n",
-           n00b_repr(sub->sink)->data,
-           n00b_repr(sub->source)->data);
+           n00b_to_string(sub->sink)->data,
+           n00b_to_string(sub->source)->data);
 #endif
 
     n00b_stream_t *src  = sub->source;
@@ -1202,11 +1081,12 @@ n00b_close(n00b_stream_t *party)
 }
 
 void
-n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
+n00b_handle_one_delivery(n00b_stream_t *party, void *msg, bool async)
 {
     defer_on();
     n00b_acquire_party(party);
 
+    n00b_io_write_start_fn fn = NULL;
     // The rest of this concerns what we write to the actual sink.
     // The waiter is blocking for the message to be written to the
     // sink, but filters on the sink might lead to the message being
@@ -1215,7 +1095,13 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg)
     //        msg = n00b_box_u64((uint64_t)msg);
     //    }
 
-    n00b_io_write_start_fn fn = party->impl->write_impl;
+    if (!async) {
+        fn = party->impl->blocking_write_impl;
+    }
+
+    if (!fn) {
+        fn = party->impl->write_impl;
+    }
 
     if (!party->write_subs || party->closed_for_write) {
         n00b_post_cerror(party, "Stream cannot be written to.");
@@ -1495,25 +1381,13 @@ n00b_stream_read_all(n00b_stream_t *stream)
 void
 n00b_write_blocking(n00b_stream_t *party, void *msg, n00b_duration_t *timeout)
 {
-    if (party->etype > n00b_io_ev_socket) {
-        N00B_CRAISE("Blocking writes may only be made to file/socket streams.");
-    }
-
     if (timeout) {
         N00B_CRAISE("Timeout for n00b_write_blocking is not yet implemented.");
     }
 
-    defer_on();
-    n00b_acquire_party(party);
-    n00b_ev2_cookie_t *cookie = party->cookie;
-    int                fd     = (int)cookie->id;
+    n00b_handle_one_delivery(party, msg, false);
 
-    n00b_fd_make_blocking(fd);
-    n00b_handle_one_delivery(party, msg);
-    n00b_fd_make_nonblocking(fd);
-
-    Return;
-    defer_func_end();
+    return;
 }
 
 void
@@ -1570,6 +1444,7 @@ run_io_loop(void *ignore)
 #ifndef N00B_ASYNC_IO_CALLBACKS
         n00b_ioqueue_launch_callback_thread();
         n00b_acquire_event_base(n00b_system_event_base);
+        acquire_event_loop();
         while (!(exit_requested())) {
             n00b_io_loop_once();
         }
@@ -1782,8 +1657,7 @@ n00b_post_error_internal(n00b_stream_t *e,
 const n00b_vtable_t n00b_stream_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_stream_init,
-        [N00B_BI_TO_STR]      = (n00b_vtable_entry)n00b_stream_repr,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_stream_repr,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
-        [N00B_BI_REPR]        = (n00b_vtable_entry)n00b_stream_repr,
     },
 };

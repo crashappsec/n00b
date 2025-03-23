@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 static const char *err1 =
@@ -210,11 +211,21 @@ mixed_as_word(n00b_mixed_t *m)
 }
 
 static n00b_string_t *
-mixed_repr(n00b_mixed_t *mixed)
+mixed_to_string(n00b_mixed_t *mixed)
 {
     // For the value types, we need to convert them to a 64-bit equiv
     // to send to the appropriate repr.
-    return n00b_repr_explicit((void *)mixed_as_word(mixed), mixed->held_type);
+    return n00b_to_string_provided_type((void *)mixed_as_word(mixed),
+                                        mixed->held_type);
+}
+
+static n00b_string_t *
+mixed_to_literal(n00b_mixed_t *mixed)
+{
+    // For the value types, we need to convert them to a 64-bit equiv
+    // to send to the appropriate repr.
+    return n00b_to_literal_provided_type((void *)mixed_as_word(mixed),
+                                         mixed->held_type);
 }
 
 static n00b_mixed_t *
@@ -240,7 +251,8 @@ mixed_copy(n00b_mixed_t *m)
 const n00b_vtable_t n00b_mixed_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)mixed_init,
-        [N00B_BI_REPR]        = (n00b_vtable_entry)mixed_repr,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)mixed_to_string,
+        [N00B_BI_TO_LITERAL]  = (n00b_vtable_entry)mixed_to_literal,
         [N00B_BI_COPY]        = (n00b_vtable_entry)mixed_copy,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
         [N00B_BI_FINALIZER]   = NULL,

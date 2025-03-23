@@ -191,6 +191,8 @@ main(int argc, char **argv, char **envp)
     n00b_cmdline_ctx   *ctx     = n00b_gc_alloc_mapped(n00b_cmdline_ctx,
                                                  N00B_GC_SCAN_ALL);
 
+    // n00b_set_current_theme(n00b_lookup_theme(n00b_cstring("n00b-bright")));
+
     ctx->cmd       = n00b_gopt_get_command(opt_res);
     ctx->args      = NULL;
     ctx->opts      = n00b_gopt_get_flags(opt_res);
@@ -204,8 +206,8 @@ main(int argc, char **argv, char **envp)
     }
 
     if (opt_res && opt_res->tree) {
-        n00b_eprint(n00b_grammar_format(opt_res->debug->grammar));
-        n00b_eprint(n00b_parse_tree_format(opt_res->tree));
+        //        n00b_eprint(n00b_grammar_format(opt_res->debug->grammar));
+        //        n00b_eprint(n00b_parse_tree_format(opt_res->tree));
     }
     else {
         printf("DOH!\n");

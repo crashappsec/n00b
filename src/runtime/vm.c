@@ -255,19 +255,15 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     n00b_type_t *t;
 
     switch ((n00b_builtin_type_fn)i->arg) {
-    case N00B_BI_TO_STR:
+    case N00B_BI_TO_STRING:
         STACK_REQUIRE_VALUES(1);
 
-        obj = n00b_to_str(tstate->sp->rvalue,
-                          n00b_get_my_type(tstate->sp->rvalue));
-
-        tstate->sp->rvalue = obj;
+        tstate->sp->rvalue = n00b_to_string(tstate->sp->rvalue);
         return;
-    case N00B_BI_REPR:
+    case N00B_BI_TO_LITERAL:
         STACK_REQUIRE_VALUES(1);
 
-        obj                = n00b_repr(tstate->sp->rvalue);
-        tstate->sp->rvalue = obj;
+        tstate->sp->rvalue = n00b_to_literal(tstate->sp->rvalue);
         return;
     case N00B_BI_COERCE:
 #if 0

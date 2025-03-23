@@ -583,7 +583,7 @@ duration_lit(n00b_string_t        *s,
 const n00b_vtable_t n00b_duration_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)duration_init,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)duration_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)duration_repr,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)duration_lit,
         [N00B_BI_EQ]           = (n00b_vtable_entry)n00b_duration_eq,
         [N00B_BI_LT]           = (n00b_vtable_entry)n00b_duration_lt,

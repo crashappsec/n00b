@@ -244,7 +244,7 @@ n00b_io_impl_info_t n00b_topic_impl = {
 const n00b_vtable_t n00b_message_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_message_init,
-        [N00B_BI_TO_STR]      = (n00b_vtable_entry)n00b_message_repr,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_message_repr,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },
 };

@@ -14,3 +14,7 @@ struct n00b_ioqueue_t {
     _Atomic(n00b_ioqueue_t *) next_page;
     n00b_ioqentry_t           q[];
 };
+
+#ifdef N00B_USE_INTERNAL_API
+extern bool n00b_process_queue(void);
+#endif

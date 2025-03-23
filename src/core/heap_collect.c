@@ -840,7 +840,7 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
     clock_gettime(CLOCK_MONOTONIC, &end);
     diff = n00b_duration_diff(&end, &start);
 
-    cprintf("---Collection ended (%s).\n", n00b_repr(diff));
+    cprintf("---Collection ended (%s).\n", n00b_to_string(diff));
     fprintf(stderr,
             "Preserved %d of %d records (%f%%)\n",
             ctx.allocs_copied,

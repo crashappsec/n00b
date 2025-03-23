@@ -376,6 +376,7 @@ struct n00b_io_impl_info_t {
     n00b_io_unsubscribe_fn unsubscribe_impl;
     n00b_io_read_fn        read_impl;
     n00b_io_write_start_fn write_impl;
+    n00b_io_write_start_fn blocking_write_impl;
     n00b_io_repr_fn        repr_impl;
     n00b_io_close_fn       close_impl;
     n00b_io_eof_fn         eof_impl;
@@ -723,6 +724,7 @@ extern n00b_stream_sub_t  *n00b_raw_subscribe(n00b_stream_t *,
 extern void                n00b_raw_unsubscribe(n00b_stream_sub_t *);
 extern bool                n00b_io_enqueue_fd_read(n00b_stream_t *, uint64_t);
 extern void               *n00b_io_enqueue_fd_write(n00b_stream_t *, void *);
+extern void               *n00b_io_fd_sync_write(n00b_stream_t *, void *);
 extern bool                n00b_io_fd_subscribe(n00b_stream_sub_t *,
                                                 n00b_io_subscription_kind);
 extern n00b_stream_t      *n00b_io_file_open(int64_t, n00b_io_impl_info_t *);
@@ -747,14 +749,16 @@ extern void                n00b_initialize_event(n00b_stream_t *,
                                                  n00b_io_event_type,
                                                  void *);
 extern bool                n00b_in_io_thread(void);
-extern void                n00b_handle_one_delivery(n00b_stream_t *, void *);
+extern void                n00b_handle_one_delivery(n00b_stream_t *,
+                                                    void *,
+                                                    bool);
 extern void                n00b_ioqueue_dont_block_callbacks(void);
 extern void                n00b_ioqueue_enqueue_callback(n00b_iocb_info_t *);
 extern void                n00b_ioqueue_dont_block_callbacks(void);
 extern void                n00b_ioqueue_launch_callback_thread(void);
 extern n00b_string_t      *n00b_stream_full_repr(n00b_stream_t *);
 extern void                n00b_internal_io_setup(void);
-
+extern void                n00b_post_close(n00b_stream_t *event);
 static inline n00b_stream_base_t *
 n00b_get_ev_base(n00b_io_impl_info_t *impl)
 {
@@ -963,7 +967,7 @@ n00b_post_error_internal(n00b_stream_t *e,
 #define N00B_IODB
 #ifdef N00B_IODB
 #define n00b_iodb(x, y) \
-    printf("%s: %s\n", x, n00b_to_string((n00b_repr(y))->data));
+    printf("%s: %s\n", x, n00b_to_string((n00b_to_string(y))->data));
 
 #define n00b_iodb_hex(x, y)                                                    \
     {                                                                          \

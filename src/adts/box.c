@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 static void
@@ -9,15 +10,10 @@ box_init(n00b_box_t *box, va_list args)
 }
 
 static n00b_string_t *
-box_repr(n00b_box_t *box)
+box_to_string(n00b_box_t *box)
 {
-    return n00b_repr_explicit(box->v, n00b_type_unbox(n00b_get_my_type(box)));
-}
-
-static n00b_string_t *
-box_to_str(n00b_box_t *box)
-{
-    return n00b_to_str(box->v, n00b_type_unbox(n00b_get_my_type(box)));
+    return n00b_to_string_provided_type(box->v,
+                                        n00b_type_unbox(n00b_get_my_type(box)));
 }
 
 static n00b_string_t *
@@ -40,8 +36,7 @@ box_from_lit(n00b_box_t *b, void *i1, void *i2, void *i3)
 const n00b_vtable_t n00b_box_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)box_init,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)box_repr,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)box_to_str,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)box_to_string,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)box_format,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)box_from_lit,
         [N00B_BI_GC_MAP]       = (n00b_vtable_entry)N00B_GC_SCAN_ALL,

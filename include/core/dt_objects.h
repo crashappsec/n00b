@@ -29,8 +29,6 @@ typedef void (*n00b_container_init)(n00b_obj_t *, void *, va_list);
 typedef enum {
     N00B_BI_CONSTRUCTOR = 0,
     // Old and about to be removed.
-    N00B_BI_REPR,
-    N00B_BI_TO_STR,
     N00B_BI_TO_STRING,
     N00B_BI_TO_LITERAL,
     N00B_BI_FORMAT,

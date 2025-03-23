@@ -278,8 +278,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a less generic / more concrete"),
-                       n00b_value_obj_repr(t2),
-                       n00b_value_obj_repr(t1),
+                       n00b_to_string(t2),
+                       n00b_to_string(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_match_right_more_specific:
@@ -288,8 +288,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a more generic / less concrete"),
-                       n00b_value_obj_repr(t2),
-                       n00b_value_obj_repr(t1),
+                       n00b_to_string(t2),
+                       n00b_to_string(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_match_both_have_more_generic_bits:
@@ -298,8 +298,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a type with different generic parts"),
-                       n00b_value_obj_repr(t2),
-                       n00b_value_obj_repr(t1),
+                       n00b_to_string(t2),
+                       n00b_to_string(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_cant_match:
@@ -308,8 +308,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a completely incompatible"),
-                       n00b_value_obj_repr(t2),
-                       n00b_value_obj_repr(t1),
+                       n00b_to_string(t2),
+                       n00b_to_string(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     }
@@ -507,7 +507,7 @@ n00b_format_scope(n00b_scope_t *scope)
             }
             else {
                 def_text = n00b_cformat("«i»value:«em» «#»«/»\n«#»",
-                                        n00b_value_obj_repr(entry->value),
+                                        n00b_to_string(entry->value),
                                         def_text);
             }
         }

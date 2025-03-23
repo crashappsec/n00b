@@ -238,7 +238,7 @@ extern const n00b_border_theme_t n00b_border_bold_dash2;
 extern const n00b_border_theme_t n00b_border_asterisk;
 extern const n00b_border_theme_t n00b_border_ascii;
 
-#define N00B_DEFAULT_THEME n00b_cstring("n00b-default")
+#define N00B_DEFAULT_THEME n00b_cstring("n00b-dark")
 
 static inline n00b_tree_props_t *
 n00b_get_current_tree_formatting(void)

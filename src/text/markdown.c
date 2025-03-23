@@ -676,14 +676,4 @@ n00b_markdown_to_table(n00b_string_t *s, bool keep_soft_newlines)
     md_node_to_table(&ctx);
 
     return n00b_list_get(ctx.entities, 0, NULL);
-    /*
-    n00b_table_t *t = n00b_list_get(ctx.entities, 0, NULL);
-
-    n00b_string_t *tmp = n00b_to_string(t);
-
-    printf("markdown:\n%s\n", n00b_rich_to_ansi(tmp, NULL));
-    n00b_eprint(n00b_repr_md_parse(ctx.cur_node));
-
-    return t;
-    */
 }

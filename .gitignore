@@ -6,3 +6,4 @@ subprojects/*/
 .cache
 deps/local
 tags
+src/unicode

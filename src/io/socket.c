@@ -84,13 +84,14 @@ n00b_raw_connect(n00b_net_addr_t *addr)
 }
 
 n00b_io_impl_info_t n00b_socket_impl = {
-    .open_impl        = (void *)n00b_io_socket_open,
-    .subscribe_impl   = n00b_io_fd_subscribe,
-    .unsubscribe_impl = n00b_io_ev_unsubscribe,
-    .read_impl        = n00b_io_enqueue_fd_read,
-    .write_impl       = n00b_io_enqueue_fd_write,
-    .repr_impl        = n00b_io_socket_repr,
-    .close_impl       = n00b_io_close,
-    .use_libevent     = true,
-    .byte_oriented    = true,
+    .open_impl           = (void *)n00b_io_socket_open,
+    .subscribe_impl      = n00b_io_fd_subscribe,
+    .unsubscribe_impl    = n00b_io_ev_unsubscribe,
+    .read_impl           = n00b_io_enqueue_fd_read,
+    .write_impl          = n00b_io_enqueue_fd_write,
+    .blocking_write_impl = n00b_io_fd_sync_write,
+    .repr_impl           = n00b_io_socket_repr,
+    .close_impl          = n00b_io_close,
+    .use_libevent        = true,
+    .byte_oriented       = true,
 };

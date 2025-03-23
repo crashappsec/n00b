@@ -75,7 +75,7 @@ n00b_line_buffer_xform(n00b_stream_t *e, void *ctx, void *msg)
     }
 
     if (!n00b_can_coerce(t, n00b_type_buffer())) {
-        n00b_string_t *s = n00b_object_repr_opt(msg);
+        n00b_string_t *s = n00b_to_string(msg);
 
         if (!s) {
             n00b_post_cerror_ctx(e,

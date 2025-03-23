@@ -21,6 +21,9 @@ clz_u128(__uint128_t u)
 static n00b_string_t *
 signed_repr(int64_t item)
 {
+    if (!item) {
+        return n00b_string_from_codepoint('0');
+    }
     // TODO, add hex as an option in how.
     char buf[21] = {
         0,
@@ -612,7 +615,7 @@ float_fmt(double *repr, n00b_string_t *f)
 
 const n00b_vtable_t n00b_u8_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)unsigned_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)unsigned_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)u8_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)any_int_coerce_to,
@@ -625,7 +628,7 @@ const n00b_vtable_t n00b_u8_type = {
 
 const n00b_vtable_t n00b_i8_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)signed_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)signed_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)i8_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)any_int_coerce_to,
@@ -638,7 +641,7 @@ const n00b_vtable_t n00b_i8_type = {
 
 const n00b_vtable_t n00b_u32_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)unsigned_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)unsigned_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)u32_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)any_int_coerce_to,
@@ -651,7 +654,7 @@ const n00b_vtable_t n00b_u32_type = {
 
 const n00b_vtable_t n00b_i32_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)signed_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)signed_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)i32_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)any_int_coerce_to,
@@ -664,7 +667,7 @@ const n00b_vtable_t n00b_i32_type = {
 
 const n00b_vtable_t n00b_u64_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)unsigned_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)unsigned_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)u64_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)any_int_coerce_to,
@@ -677,7 +680,7 @@ const n00b_vtable_t n00b_u64_type = {
 
 const n00b_vtable_t n00b_i64_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)signed_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)signed_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)i64_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)any_int_coerce_to,
@@ -690,7 +693,7 @@ const n00b_vtable_t n00b_i64_type = {
 
 const n00b_vtable_t n00b_bool_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)bool_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)bool_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)bool_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)bool_coerce_to,
@@ -703,7 +706,7 @@ const n00b_vtable_t n00b_bool_type = {
 
 const n00b_vtable_t n00b_float_type = {
     .methods = {
-        [N00B_BI_REPR]         = (n00b_vtable_entry)float_repr,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)float_repr,
         [N00B_BI_FORMAT]       = (n00b_vtable_entry)float_fmt,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)any_number_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)float_coerce_to,

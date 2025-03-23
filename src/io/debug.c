@@ -18,7 +18,7 @@ static bool            show_time             = true;
 static bool            show_date             = true;
 static bool            hex_for_values        = true;
 static bool            unquote_strings       = true;
-static const char     *type_format           = "(«i»«#»«/»)";
+static const char     *type_format           = "«blue»«i»(«#»«/i»)";
 static const char     *topic_format          = ":[|green|][|#|]";
 static const char     *dt_format             = "@[|#|]";
 static const char     *payload_sep           = ": ";
@@ -158,8 +158,8 @@ n00b_debug_output_cb(void *ignore, n00b_message_t *msg, void *thunk)
     output = n00b_string_concat(output, formatted);
 
     n00b_write(n00b_stderr(), output);
-
     atomic_fetch_add(&outstanding_dmsgs, -1);
+
     n00b_pop_heap();
 }
 

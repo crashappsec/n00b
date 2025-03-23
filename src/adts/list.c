@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 static void
@@ -60,7 +61,7 @@ n00b_list_resize(n00b_list_t *list, size_t len)
 static inline void
 list_auto_resize(n00b_list_t *list)
 {
-    n00b_list_resize(list, list->length << 1);
+    n00b_private_list_resize(list, list->length << 1);
 }
 
 #define lock_list(x)   n00b_lock_list(x)
@@ -380,7 +381,7 @@ n00b_list(n00b_type_t *x)
 }
 
 static n00b_string_t *
-n00b_list_repr(n00b_list_t *list)
+n00b_list_to_literal(n00b_list_t *list)
 {
     read_start(list);
 
@@ -396,12 +397,15 @@ n00b_list_repr(n00b_list_t *list)
             continue;
         }
 
-        s = n00b_repr(item);
+        s = n00b_to_literal(item);
+        if (!s || !s->codepoints) {
+            s = n00b_to_string(item);
+        }
 
         n00b_list_append(items, s);
     }
 
-    n00b_string_t *sep    = n00b_cached_comma();
+    n00b_string_t *sep    = n00b_cached_comma_padded();
     n00b_string_t *result = n00b_string_join(items, sep);
 
     result = n00b_string_concat(n00b_cached_lbracket(),
@@ -889,7 +893,9 @@ n00b_list_reverse(n00b_list_t *l)
 }
 
 static n00b_list_t *
-n00b_to_list_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *litmod)
+n00b_list_create(n00b_type_t   *objtype,
+                 n00b_list_t   *items,
+                 n00b_string_t *litmod)
 {
     n00b_mem_ptr p = {.v = items};
     p.alloc -= 1;
@@ -966,8 +972,9 @@ const n00b_vtable_t n00b_list_vtable = {
         [N00B_BI_SLICE_GET]     = (n00b_vtable_entry)n00b_list_get_slice,
         [N00B_BI_SLICE_SET]     = (n00b_vtable_entry)n00b_list_set_slice,
         [N00B_BI_VIEW]          = (n00b_vtable_entry)n00b_list_view,
-        [N00B_BI_CONTAINER_LIT] = (n00b_vtable_entry)n00b_to_list_lit,
-        [N00B_BI_REPR]          = (n00b_vtable_entry)n00b_list_repr,
+        [N00B_BI_CONTAINER_LIT] = (n00b_vtable_entry)n00b_list_create,
+        [N00B_BI_TO_LITERAL]    = (n00b_vtable_entry)n00b_list_to_literal,
+        [N00B_BI_TO_STRING]     = (n00b_vtable_entry)n00b_list_to_literal,
         [N00B_BI_GC_MAP]        = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
         [N00B_BI_RESTORE]       = (n00b_vtable_entry)n00b_list_restore,
         [N00B_BI_FINALIZER]     = NULL,

@@ -160,7 +160,7 @@ initialize_default_theme(void)
 
     table_head                             = n00b_new(n00b_type_box_props());
     table_head->text_style.fg_palate_index = N00B_THEME_ACCENT_1_LIGHTER;
-    table_head->text_style.bg_palate_index = N00B_THEME_DARKER_BACKGROUND;
+    table_head->text_style.bg_palate_index = N00B_THEME_LIGHTER_BACKGROUND;
     table_head->text_style.text_case       = N00B_TEXT_UPPER;
     table_head->text_style.bold            = N00B_3_YES;
     //    table_head->text_style.underline       = N00B_3_YES;
@@ -190,7 +190,7 @@ initialize_default_theme(void)
                                   "borders",
                                   n00b_ka(N00B_BORDER_INFO_SIDES)));
 
-    table_cell->text_style.fg_palate_index = N00B_THEME_DARKER_TEXT;
+    table_cell->text_style.fg_palate_index = N00B_THEME_DARKEST_TEXT;
     table_cell->text_style.bg_palate_index = N00B_THEME_ACCENT_2;
     table_cell->left_pad                   = 1;
     table_cell->right_pad                  = 1;
@@ -198,8 +198,9 @@ initialize_default_theme(void)
                               n00b_kw("border_theme",
                                       n00b_ka(N00B_BORDER_INFO_SIDES)));
 
-    table_cell_alt->text_style.fg_palate_index = N00B_THEME_DARKEST_TEXT;
+    table_cell_alt->text_style.fg_palate_index = N00B_THEME_DARKER_TEXT;
     table_cell_alt->text_style.bg_palate_index = N00B_THEME_ACCENT_2_LIGHTER;
+    table_cell_alt->text_style.bold            = N00B_3_YES;
     table_cell_alt->left_pad                   = 1;
     table_cell_alt->right_pad                  = 1;
     ornate_props                               = n00b_new(n00b_type_box_props(),
@@ -256,13 +257,14 @@ initialize_default_theme(void)
     list_cell->left_pad                   = 1;
 
     list_bullet                             = n00b_new(n00b_type_box_props());
-    list_bullet->text_style.fg_palate_index = N00B_THEME_ACCENT_2;
+    list_bullet->text_style.fg_palate_index = N00B_THEME_ACCENT_3;
     list_bullet->text_style.bg_palate_index = N00B_THEME_PRIMARY_BACKGROUND;
     list_bullet->alignment                  = N00B_ALIGN_TOP_RIGHT;
     list_bullet->left_pad                   = 0;
     list_bullet->right_pad                  = 0;
 
     n00b_theme_t *n00b_theme;
+    n00b_theme_t *result;
 
     // C0_Primary_Text = E6E2DC
     // C0_Darker_Accent1 = B3FF00 // Atomic lime
@@ -284,12 +286,11 @@ initialize_default_theme(void)
 
     n00b_theme = n00b_new(n00b_type_theme(),
                           n00b_kw("name",
-                                  N00B_DEFAULT_THEME,
+                                  n00b_cstring("n00b-bright"),
                                   "author",
                                   n00b_cstring("John Viega"),
                                   "description",
-                                  n00b_cstring(
-                                      "Default installed theme"),
+                                  n00b_cstring("Default installed theme"),
                                   "primary_text",
                                   n00b_ka(0xe6e2dc),
                                   "lighter_text",
@@ -303,9 +304,9 @@ initialize_default_theme(void)
                                   "primary_background",
                                   n00b_ka(0x0b1221),
                                   "lighter_background",
-                                  n00b_ka(0x3c414d),
+                                  n00b_ka(0x232937),
                                   "lightest_background",
-                                  n00b_ka(0x6d717a),
+                                  n00b_ka(0x3c414d),
                                   "darker_background",
                                   n00b_ka(0x050610),
                                   "darkest_background",
@@ -404,7 +405,131 @@ initialize_default_theme(void)
     n00b_theme->tree_props.text_style.reverse          = N00B_3_UNSPECIFIED;
     n00b_theme->tree_props.text_style.text_case        = N00B_TEXT_AS_IS;
 
-    return n00b_theme;
+    result = n00b_theme;
+    // Second theme...
+
+    n00b_theme = n00b_new(n00b_type_theme(),
+                          n00b_kw("name",
+                                  n00b_cstring("n00b-dark"),
+                                  "author",
+                                  n00b_cstring("John Viega"),
+                                  "description",
+                                  n00b_cstring("Less flashy"),
+                                  "primary_text",
+                                  n00b_ka(0xe6e2dc),
+                                  "lighter_text",
+                                  n00b_ka(0xeeebe8),
+                                  "lightest_text",
+                                  n00b_ka(0xfcfcfb),
+                                  "darker_text",
+                                  n00b_ka(0x232937),
+                                  "darkest_text",
+                                  n00b_ka(0x0b1221),
+                                  "primary_background",
+                                  n00b_ka(0x0b1221),
+                                  "lighter_background",
+                                  n00b_ka(0x232937),
+                                  "lightest_background",
+                                  n00b_ka(0x3c414d),
+                                  "darker_background",
+                                  n00b_ka(0x050610),
+                                  "darkest_background",
+                                  n00b_ka(0x000000),
+                                  "accent_1",
+                                  n00b_ka(0xbfff33),
+                                  "accent_1_lighter",
+                                  n00b_ka(0xcfff66),
+                                  "accent_1_darker",
+                                  n00b_ka(0xb3ff00),
+                                  "accent_3",
+                                  n00b_ka(0xff59a1),
+                                  "accent_3_lighter",
+                                  n00b_ka(0xffacd0),
+                                  "accent_3_darker",
+                                  n00b_ka(0xff2f8e),
+                                  "accent_2",
+                                  n00b_ka(0x7561b3),
+                                  "accent_2_lighter",
+                                  n00b_ka(0x9789c6),
+                                  "accent_2_darker",
+                                  n00b_ka(0x523aa4),
+                                  "grey",
+                                  n00b_ka(0x6d717a), // in-pallate
+                                  "pink",
+                                  n00b_ka(0xff82b9), // lighter jazzberry
+                                  "purple",
+                                  n00b_ka(0x523aa4), // fandango
+                                  "green",
+                                  n00b_ka(0xc7ff4c), // atomic lime
+                                  "orange",
+                                  n00b_ka(0xffbf00), // fluorescent orange
+                                  "red",
+                                  n00b_ka(0xff0800), // candy apple
+                                  "yellow",
+                                  n00b_ka(0xfdfd96), // pastel yellow
+                                  "blue",
+                                  n00b_ka(0x00bfff), // sky blue
+                                  "brown",
+                                  n00b_ka(0xa0522d), // sienna
+                                  "white",
+                                  n00b_ka(0xfcfcfb),
+                                  "black",
+                                  n00b_ka(0x0b1221),
+                                  "base_table_props",
+                                  table_props,
+                                  "ornate_table_props",
+                                  ornate_props,
+                                  "simple_table_props",
+                                  simple_props,
+                                  "table_cell_props",
+                                  table_cell,
+                                  "ornate_cell_props",
+                                  ornate_cell,
+                                  "simple_cell_props",
+                                  simple_cell,
+                                  "table_alt_cell",
+                                  table_cell_alt,
+                                  "ornate_alt_cell",
+                                  ornate_cell_alt,
+                                  "flow_props",
+                                  simple_cell,
+                                  "callout_props",
+                                  callout_cell,
+                                  "ol_base",
+                                  list_base,
+                                  "ol_cell",
+                                  list_cell,
+                                  "ol_bullet",
+                                  list_bullet,
+                                  "ul_base",
+                                  list_base,
+                                  "ul_cell",
+                                  list_cell,
+                                  "ul_bullet",
+                                  list_bullet));
+
+    n00b_theme->box_info[N00B_BOX_THEME_TABLE_HEADER]  = table_head;
+    n00b_theme->box_info[N00B_BOX_THEME_ORNATE_HEADER] = table_head;
+
+    n00b_theme->tree_props.pad                         = ' ';
+    n00b_theme->tree_props.tchar                       = 0x251c;
+    n00b_theme->tree_props.lchar                       = 0x2514;
+    n00b_theme->tree_props.hchar                       = 0x2500;
+    n00b_theme->tree_props.vchar                       = 0x2502;
+    n00b_theme->tree_props.vpad                        = 2;
+    n00b_theme->tree_props.ipad                        = 1;
+    n00b_theme->tree_props.remove_newlines             = true;
+    n00b_theme->tree_props.text_style.fg_palate_index  = N00B_THEME_LIGHTEST_TEXT;
+    n00b_theme->tree_props.text_style.bg_palate_index  = N00B_THEME_DARKEST_BACKGROUND;
+    n00b_theme->tree_props.text_style.bold             = N00B_3_UNSPECIFIED;
+    n00b_theme->tree_props.text_style.italic           = N00B_3_UNSPECIFIED;
+    n00b_theme->tree_props.text_style.underline        = N00B_3_UNSPECIFIED;
+    n00b_theme->tree_props.text_style.double_underline = N00B_3_UNSPECIFIED;
+    n00b_theme->tree_props.text_style.strikethrough    = N00B_3_UNSPECIFIED;
+    n00b_theme->tree_props.text_style.reverse          = N00B_3_UNSPECIFIED;
+    n00b_theme->tree_props.text_style.text_case        = N00B_TEXT_AS_IS;
+
+    return result;
 }
 
 static inline void
@@ -591,7 +716,8 @@ n00b_theme_initialization(void)
 
     initialize_tag_repo();
 
-    n00b_installed_theme = initialize_default_theme();
+    initialize_default_theme();
+    n00b_installed_theme = n00b_lookup_theme(N00B_DEFAULT_THEME);
 }
 
 static void

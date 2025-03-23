@@ -705,13 +705,13 @@ n00b_bytering_literal(n00b_string_t        *su8,
 static n00b_string_t *
 n00b_bytering_to_str(n00b_bytering_t *r)
 {
-    return n00b_to_str(n00b_bytering_to_buffer(r), n00b_type_buffer());
+    return n00b_to_string(n00b_bytering_to_buffer(r));
 }
 
 static n00b_string_t *
-n00b_bytering_repr(n00b_bytering_t *r)
+n00b_bytering_to_lit(n00b_bytering_t *r)
 {
-    return n00b_repr(n00b_bytering_to_buffer(r));
+    return n00b_to_literal(n00b_bytering_to_buffer(r));
 }
 
 // This does not grab the lock, and assumes we are iterating internally
@@ -731,8 +731,8 @@ n00b_bytering_advance_ptr(n00b_bytering_t *r, char **ptrp)
 const n00b_vtable_t n00b_bytering_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)n00b_bytering_init,
-        [N00B_BI_REPR]         = (n00b_vtable_entry)n00b_bytering_repr,
-        [N00B_BI_TO_STR]       = (n00b_vtable_entry)n00b_bytering_to_str,
+        [N00B_BI_TO_LITERAL]   = (n00b_vtable_entry)n00b_bytering_to_lit,
+        [N00B_BI_TO_STRING]    = (n00b_vtable_entry)n00b_bytering_to_str,
         [N00B_BI_COERCIBLE]    = (n00b_vtable_entry)n00b_bytering_can_coerce_to,
         [N00B_BI_COERCE]       = (n00b_vtable_entry)n00b_bytering_coerce_to,
         [N00B_BI_FROM_LITERAL] = (n00b_vtable_entry)n00b_bytering_literal,

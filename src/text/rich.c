@@ -537,7 +537,9 @@ object_self_repr(rich_ctrl_t *info,
             }
 
             res = fn(object, (void *)in);
-            goto successful_callback;
+            if (res) {
+                goto successful_callback;
+            }
             goto after_callback;
         }
 
@@ -1173,6 +1175,7 @@ final_assembly(rich_ctrl_t *info, int n)
     n00b_string_t *result     = n00b_new(n00b_type_string(), NULL, true, l);
     int            cp_ix      = 0;
     char          *p          = result->data;
+    bool           extend     = true;
     n00b_string_t *s;
 
     n00b_style_record_t *di, *si;
@@ -1204,12 +1207,23 @@ final_assembly(rich_ctrl_t *info, int n)
                 for (int j = 0; j < s->styling->num_styles; j++) {
                     si        = &s->styling->styles[j];
                     di        = &result->styling->styles[next_style];
-                    di->start = cp_ix + si->start;
-                    di->end   = cp_ix + si->end;
+                    di->start = cp_ix + n00b_style_start(s, j);
+                    di->end   = cp_ix + n00b_style_end(s, j);
                     di->info  = n00b_text_style_overlay(cur_style, si->info);
 
                     if (cur_props) {
                         di->info = n00b_text_style_overlay(cur_props, di->info);
+                    }
+
+                    if (j + 1 == s->styling->num_styles) {
+                        if (n00b_style_extends_end(si)) {
+                            extend     = true;
+                            last_style = i;
+                            cur_style  = empty_props();
+                            memcpy(cur_style,
+                                   si->info,
+                                   sizeof(n00b_text_element_t));
+                        }
                     }
 
                     next_style++;
@@ -1240,6 +1254,7 @@ final_assembly(rich_ctrl_t *info, int n)
             }
             di->info  = style;
             cur_style = style;
+            extend    = true;
             continue;
         case RICH_STYLE_OFF:
             if (last_style != -1) {
@@ -1253,6 +1268,7 @@ final_assembly(rich_ctrl_t *info, int n)
                 last_style = next_style++;
             }
             cur_style = empty_props();
+            extend    = false;
             continue;
         case RICH_PROP_ON:
             if (last_style != -1) {
@@ -1303,6 +1319,7 @@ final_assembly(rich_ctrl_t *info, int n)
             di->start  = cp_ix;
             di->info   = style;
             last_style = next_style++;
+            extend     = true;
             continue;
         case RICH_PROP_OFF:
             if (last_style != -1) {
@@ -1370,6 +1387,7 @@ final_assembly(rich_ctrl_t *info, int n)
             di->start  = cp_ix;
             di->info   = cur_style;
             last_style = next_style++;
+            extend     = false;
             continue;
         default:
             n00b_unreachable();
@@ -1378,14 +1396,15 @@ final_assembly(rich_ctrl_t *info, int n)
 
     result->codepoints = cp_ix;
 
-    if (last_style != -1) {
-        result->styling->styles[last_style].end = result->codepoints;
-    }
-
     if (result->styling) {
         result->styling->num_styles = next_style;
-    }
 
+        if (last_style != -1) {
+            int v = extend ? N00B_STYLE_EXTEND : result->codepoints;
+
+            result->styling->styles[last_style].end = v;
+        }
+    }
     n00b_string_sanity_check(result);
 
     return result;

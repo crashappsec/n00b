@@ -394,7 +394,8 @@ init_disasm(void)
             }
         }
 
-        bi_fn_names[N00B_BI_TO_STR]        = n00b_cstring("$str");
+        bi_fn_names[N00B_BI_TO_STRING]     = n00b_cstring("$str");
+        bi_fn_names[N00B_BI_TO_LITERAL]    = n00b_cstring("$lit");
         bi_fn_names[N00B_BI_FORMAT]        = n00b_cstring("$format");
         bi_fn_names[N00B_BI_FINALIZER]     = n00b_cstring("$final");
         bi_fn_names[N00B_BI_COERCIBLE]     = n00b_cstring("$can_cast");
