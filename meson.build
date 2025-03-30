@@ -235,6 +235,7 @@ n00b_text = [
     'src/text/layout.c',
     'src/text/word_breaks.c',
     'src/text/ansi.c',
+    'src/text/regex.c',    
 ]
 
 
@@ -416,6 +417,7 @@ else
 endif
 libbacktrace_dep = subproject('libbacktrace').get_variable('libbacktrace_dep')
 libffi_dep = subproject('libffi').get_variable('libffi_dep')
+libpcre_dep = subproject('pcre2').get_variable('libpcre2_8')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
 openssl_dep = subproject('openssl').get_variable('openssl_dep')
@@ -432,6 +434,7 @@ deps = [
   libcurl_dep,
   libevent_dep,
   libffi_dep,
+  libpcre_dep,
   libmath_dep,
   libthreads_dep,
   libunibreak_dep,

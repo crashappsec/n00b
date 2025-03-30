@@ -141,6 +141,34 @@ ansi_test(n00b_buf_t *b)
 }
 
 void
+regex_test(n00b_buf_t *b)
+{
+    n00b_string_t *s   = n00b_utf8(b->data, b->byte_len);
+    n00b_string_t *pat = n00b_cstring("\\[34m([a-zA-Z_.]*)\\^\\[.*m");
+    n00b_regex_t  *re  = n00b_create_regex(pat, false, false, false);
+    n00b_list_t   *l   = n00b_match_all(re, s);
+
+    for (int i = 0; i < n00b_list_len(l); i++) {
+        n00b_match_t  *m = n00b_list_get(l, i, NULL);
+        n00b_string_t *cap;
+
+        if (m->captures) {
+            assert(n00b_list_len(m->captures) == 1);
+            cap = n00b_list_pop(m->captures);
+        }
+        else {
+            cap = n00b_cstring("<<None>>");
+        }
+
+        n00b_printf("Match [|#|] ([|#|]-[|#|]): [|#|]",
+                    (int64_t)(i + 1),
+                    m->start,
+                    m->end,
+                    cap);
+    }
+}
+
+void
 tmp_testing(void)
 {
     n00b_string_t *cmd = n00b_cstring("/bin/ls");
@@ -170,6 +198,8 @@ tmp_testing(void)
                 (int64_t)n00b_proc_get_exit_code(pi));
 
     ansi_test(bout);
+    regex_test(bout);
+
     n00b_exit(0);
 
     n00b_string_t *for_testing = n00b_cstring(

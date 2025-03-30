@@ -135,3 +135,4 @@ typedef struct n00b_string_t n00b_string_t;
 
 #include "text/layout.h"
 #include "text/ansi.h"
+#include "text/regex.h"
