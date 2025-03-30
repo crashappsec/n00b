@@ -171,7 +171,17 @@ buffer_repr(n00b_buf_t *buf)
     defer_on();
     n00b_buffer_acquire_r(buf);
 
-    n00b_string_t *result = n00b_hex_dump(buf->data, buf->byte_len);
+    n00b_string_t *result;
+
+    N00B_TRY
+    {
+        result = n00b_utf8(buf->data, buf->byte_len);
+    }
+    N00B_EXCEPT
+    {
+        result = n00b_bytes_to_hex(buf->data, buf->byte_len);
+    }
+    N00B_TRY_END;
 
     result->styling = NULL;
 

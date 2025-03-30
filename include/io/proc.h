@@ -18,6 +18,7 @@ enum {
     N00B_PROC_RAW_ARGV          = 256,
     N00B_PROC_MERGE_OUTPUT      = 512,
     N00B_PROC_KILL_ON_TIMEOUT   = 1024,
+    N00B_PROC_PTY_STDERR        = 2048,
 };
 
 typedef struct {

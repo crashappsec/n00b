@@ -114,10 +114,8 @@ layout_test(void)
 }
 
 void
-ansi_test(void)
+ansi_test(n00b_buf_t *b)
 {
-    n00b_string_t *s = n00b_cformat("Test «em»1, «em2»2, «em3»3, «em4» 4«/»");
-    n00b_buf_t    *b = n00b_apply_ansi(s);
     n00b_ansi_ctx *c = n00b_ansi_parser_create();
 
     n00b_ansi_parse(c, b);
@@ -145,6 +143,35 @@ ansi_test(void)
 void
 tmp_testing(void)
 {
+    n00b_string_t *cmd = n00b_cstring("/bin/ls");
+    n00b_list_t   *l   = n00b_list(n00b_type_string());
+    n00b_list_append(l, n00b_cstring("-alG"));
+    n00b_list_append(l, n00b_cached_period());
+
+    n00b_proc_t *pi = n00b_run_process(cmd,
+                                       l,
+                                       false,
+                                       true,
+                                       n00b_kw("pty",
+                                               n00b_ka(true),
+                                               "err_pty",
+                                               n00b_ka(true)));
+
+    n00b_buf_t *bout = n00b_proc_get_stdout_capture(pi);
+    n00b_buf_t *berr = n00b_proc_get_stderr_capture(pi);
+    // End
+    printf("stdout capture: %s\n",
+           (bout && bout->byte_len) ? bout->data : "(none)");
+
+    printf("stderr capture: %s\n",
+           (berr && berr->byte_len) ? berr->data : "(none)");
+
+    n00b_printf("«em1»Subprocess completed with error code «#».",
+                (int64_t)n00b_proc_get_exit_code(pi));
+
+    ansi_test(bout);
+    n00b_exit(0);
+
     n00b_string_t *for_testing = n00b_cstring(
         "  I   do not know-- what's the answer?!?!?!!!\n"
         "I know I'm asking for the 3,100,270.002th time!!\n");
@@ -199,7 +226,7 @@ tmp_testing(void)
     n00b_string_t *s1 = n00b_cstring("Hello, ");
     n00b_string_t *s2 = n00b_cstring("world.");
 
-    n00b_list_t *l = n00b_list(n00b_type_string());
+    l = n00b_list(n00b_type_string());
     n00b_list_append(l, s1);
     n00b_list_append(l, s2);
     n00b_eprint(n00b_unordered_list(l, NULL));

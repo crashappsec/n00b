@@ -21,7 +21,6 @@ pre_launch_prep(n00b_proc_t *proc, char ***argp, char ***envp)
 {
     // At this point, the child process file descriptors will not yet
     // exist.
-
     if (!proc->cmd) {
         N00B_CRAISE("No command set.");
     }
@@ -305,20 +304,67 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
 }
 
 static inline void
+run_stderr_proxy(void)
+{
+    struct termios err_term;
+
+    tcgetattr(0, &err_term);
+
+    err_term.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON | IXANY);
+    err_term.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+    err_term.c_cflag &= ~(CSIZE | PARENB);
+
+    tcsetattr(0, TCSANOW, &err_term);
+
+    while (true) {
+        // The error 'terminal' will get the subproc's
+        // stdin as its
+        char    buf[PIPE_BUF];
+        ssize_t len = read(0, buf, PIPE_BUF);
+
+        switch (len) {
+        case -1:
+            if (errno == EAGAIN || errno == EINTR) {
+                continue;
+            }
+            close(1);
+            _exit(-1);
+        case 0:
+            close(1);
+            _exit(0);
+        default:
+            break;
+        }
+
+        char *p = buf;
+        while (len) {
+            ssize_t w = write(1, p, len);
+            if (w == -1) {
+                if (errno == EAGAIN || errno == EINTR) {
+                    continue;
+                }
+                close(1);
+                _exit(-2);
+            }
+            len -= w;
+            p += w;
+        }
+    }
+}
+
+static inline void
 proc_spawn_with_tty(n00b_proc_t *ctx)
 {
     struct winsize  wininfo;
     struct termios *term_ptr = ctx->subproc_termcap;
     struct winsize *win_ptr  = &wininfo;
     bool            proxy_in = ctx->flags & N00B_PROC_STDIN_MASK;
-    /*
-    bool            proxy_out = ctx->flags & N00B_PROC_STDOUT_MASK;
-    bool            proxy_err = ctx->flags & N00B_PROC_STDERR_MASK;
-    */
+    bool            use_err  = ctx->flags & N00B_PROC_PTY_STDERR;
     int             stdin_pipe[2];
-    //    int             stderr_pipe[2];
     int             pty_fd;
     pid_t           pid;
+    int             err_fd;
+    pid_t           err_pid;
     char          **argp;
     char          **envp;
 
@@ -334,6 +380,32 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         ioctl(0, TIOCGWINSZ, win_ptr);
     }
 
+    if (use_err) {
+        // If the user asks for a separate stderr, we need to make
+        // sure stderr is actually attached to a TTY; bash doesn't
+        // like it if it's not (when passing down a dup'd fd instead,
+        // somewhat common stuff breaks).
+        //
+        // Here, we set up a process to proxy stderr; it'll take
+        // anything it gets on stdin, and writes it to stdout.
+        //
+        // Its stdin will be attached to the true subproc's stderr.
+        // The read side will be handled in-process (and we write to
+        // stdout... it really doesn't matter, the pty combines stdout
+        // and stderr for each single terminal... our original
+        // problem).
+        //
+        // Hopefully nothing realizes that stderr and stdout are
+        // connected to *different* terminals. The issues I was seeing
+        // were essentially barfing because there was a call to
+        // isatty(2), so this *should* work out okay.
+        err_pid = forkpty(&err_fd, NULL, NULL, win_ptr);
+
+        if (err_pid == 0) {
+            run_stderr_proxy();
+        }
+    }
+
     pid = forkpty(&pty_fd, NULL, term_ptr, win_ptr);
 
     int flags = fcntl(pty_fd, F_GETFL) | O_NONBLOCK;
@@ -343,6 +415,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         ctx->pid            = pid;
         ctx->subproc_stdout = n00b_fd_open(pty_fd);
         ctx->subproc_stdin  = ctx->subproc_stdout;
+
+        if (use_err) {
+            ctx->subproc_stderr = n00b_fd_open(err_fd);
+        }
 
         n00b_io_set_repr(ctx->subproc_stdin,
                          n00b_cformat("«#»«#» pty«#»",
@@ -363,6 +439,11 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         return;
     }
 
+    if (use_err) {
+        dup2(err_fd, 2);
+    }
+
+    setvbuf(stderr, NULL, _IONBF, (size_t)0);
     setvbuf(stdout, NULL, _IONBF, (size_t)0);
     setvbuf(stdin, NULL, _IONBF, (size_t)0);
 
@@ -434,6 +515,9 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 }
 
 // TODO: Do a proc_init
+// ALSO NOTE: Timeout is not implemented yet.
+// Add initial stdin??
+// Close stdin after??
 
 n00b_proc_t *
 _n00b_run_process(n00b_string_t *cmd,
@@ -449,6 +533,7 @@ _n00b_run_process(n00b_string_t *cmd,
     bool             run          = true;
     bool             spawn        = false;
     bool             merge_output = false;
+    bool             err_pty      = false;
 
     n00b_karg_only_init(capture);
     n00b_kw_ptr("env", env);
@@ -457,6 +542,7 @@ _n00b_run_process(n00b_string_t *cmd,
     n00b_kw_bool("raw_argv", raw_argv);
     n00b_kw_bool("async", spawn);
     n00b_kw_bool("merge", merge_output);
+    n00b_kw_bool("err_pty", err_pty);
 
     if (run && spawn) {
         N00B_CRAISE("Cannot both run and spawn.");
@@ -484,6 +570,9 @@ _n00b_run_process(n00b_string_t *cmd,
     }
     if (raw_argv) {
         proc->flags |= N00B_PROC_RAW_ARGV;
+    }
+    if (err_pty) {
+        proc->flags |= N00B_PROC_PTY_STDERR;
     }
 
     if (spawn) {

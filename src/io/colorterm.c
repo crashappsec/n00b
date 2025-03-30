@@ -31,6 +31,11 @@ n00b_filter_colorterm(n00b_stream_t *party, colorterm_ctx *ctx, void *msg)
 
     width = n00b_calculate_render_width(ctx->width);
 
+    if (n00b_type_is_buffer(t)) {
+        n00b_list_append(l, msg);
+        return l;
+    }
+
     // Temporary compatability.
     if (!n00b_type_is_string(t)) {
         msg = n00b_to_string(msg);
