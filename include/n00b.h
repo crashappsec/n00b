@@ -134,3 +134,4 @@ typedef struct n00b_string_t n00b_string_t;
 #include "io/debug.h"
 
 #include "text/layout.h"
+#include "text/ansi.h"

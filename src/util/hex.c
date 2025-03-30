@@ -426,3 +426,19 @@ _n00b_hex_dump(void *ptr, uint32_t len, ...)
 
     return res;
 }
+
+n00b_string_t *
+n00b_bytes_to_hex(char *bytes, int n)
+{
+    n00b_string_t *result = n00b_alloc_utf8_to_copy(n * 2);
+    char          *dst    = result->data;
+    uint8_t       *src    = (uint8_t *)bytes;
+
+    for (int i = 0; i < n; i++) {
+        uint8_t b = *src++;
+        *dst++    = n00b_hex_map_lower[b >> 4];
+        *dst++    = n00b_hex_map_lower[b & 0xf];
+    }
+
+    return result;
+}

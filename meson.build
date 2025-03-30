@@ -233,7 +233,8 @@ n00b_text = [
     'src/text/table_utils.c',
     'src/text/table.c',
     'src/text/layout.c',
-    'src/text/word_breaks.c',    
+    'src/text/word_breaks.c',
+    'src/text/ansi.c',
 ]
 
 

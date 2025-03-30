@@ -13,8 +13,6 @@
                     fnname,                                   \
                     modname,                                  \
                     (int64_t)lineno)
-#define OUTPUT_FRAME() \
-    n00b_ansi_render(s, f);
 
 static inline n00b_list_t *
 format_one_frame(n00b_vmthread_t *tstate, int n)

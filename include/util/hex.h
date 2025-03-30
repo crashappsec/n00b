@@ -6,6 +6,7 @@
 
 extern n00b_string_t *_n00b_hex_dump(void *, uint32_t, ...);
 extern void           n00b_debug_object(void *, void *);
+extern n00b_string_t *n00b_bytes_to_hex(char *, int);
 
 #define n00b_hex_dump(p, l, ...) _n00b_hex_dump(p, l, N00B_VA(__VA_ARGS__))
 

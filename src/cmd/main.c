@@ -114,6 +114,35 @@ layout_test(void)
 }
 
 void
+ansi_test(void)
+{
+    n00b_string_t *s = n00b_cformat("Test «em»1, «em2»2, «em3»3, «em4» 4«/»");
+    n00b_buf_t    *b = n00b_apply_ansi(s);
+    n00b_ansi_ctx *c = n00b_ansi_parser_create();
+
+    n00b_ansi_parse(c, b);
+
+    n00b_list_t *r = n00b_ansi_parser_results(c);
+
+    int len = n00b_list_len(r);
+    for (int i = 0; i < len; i++) {
+        n00b_ansi_node_t *n = n00b_list_get(r, i, NULL);
+        n00b_printf("[|#|]: [|#|]", (int64_t)(i + 1), n00b_ansi_node_repr(n));
+    }
+
+    char *p = b->data;
+
+    printf("%s\n", b->data);
+    for (int i = 0; i < b->byte_len; i++) {
+        if (*p == 0x1b) {
+            *p = '^';
+        }
+        p++;
+    }
+    printf("%s\n", b->data);
+}
+
+void
 tmp_testing(void)
 {
     n00b_string_t *for_testing = n00b_cstring(
