@@ -21,32 +21,36 @@ enum {
     N00B_PROC_PTY_STDERR        = 2048,
 };
 
+typedef void (*n00b_post_fork_hook_t)(void *);
+
 typedef struct {
-    n00b_string_t   *cmd;
-    n00b_list_t     *args;
-    n00b_list_t     *env;
-    n00b_stream_t   *subproc_stdin;
-    n00b_stream_t   *subproc_stdout;
-    n00b_stream_t   *subproc_stderr;
-    n00b_stream_t   *subproc_pid;
-    n00b_exitinfo_t *subproc_results;
-    n00b_lock_t      run_lock;
-    n00b_condition_t cv;
-    n00b_buf_t      *cap_in;
-    n00b_buf_t      *cap_out;
-    n00b_buf_t      *cap_err;
-    struct termios  *parent_termcap;
-    struct termios  *subproc_termcap;
-    struct termios   initial_termcap;
-    int              exit_status;
-    int              term_signal;
-    int              saved_errno;
-    pid_t            pid;
-    int              flags;
-    bool             errored;
-    bool             exited;
-    bool             timeout;
-    bool             wait_for_exit;
+    n00b_string_t        *cmd;
+    n00b_list_t          *args;
+    n00b_list_t          *env;
+    n00b_stream_t        *subproc_stdin;
+    n00b_stream_t        *subproc_stdout;
+    n00b_stream_t        *subproc_stderr;
+    n00b_stream_t        *subproc_pid;
+    n00b_exitinfo_t      *subproc_results;
+    n00b_lock_t           run_lock;
+    n00b_condition_t      cv;
+    n00b_buf_t           *cap_in;
+    n00b_buf_t           *cap_out;
+    n00b_buf_t           *cap_err;
+    n00b_post_fork_hook_t hook;
+    void                 *thunk;
+    struct termios       *parent_termcap;
+    struct termios       *subproc_termcap;
+    struct termios        initial_termcap;
+    int                   exit_status;
+    int                   term_signal;
+    int                   saved_errno;
+    pid_t                 pid;
+    int                   flags;
+    bool                  errored;
+    bool                  exited;
+    bool                  timeout;
+    bool                  wait_for_exit;
 } n00b_proc_t;
 
 #define n00b_proc_check_and_set(p, operation)              \
@@ -240,5 +244,9 @@ extern n00b_proc_t *_n00b_run_process(n00b_string_t *cmd,
                                       bool           proxy,
                                       bool           capture,
                                       ...);
+
+extern void n00b_proc_spawn(n00b_proc_t *);
+extern void n00b_proc_run(n00b_proc_t *, n00b_duration_t *);
+
 #define n00b_run_process(cmd, proxy, capture, ...) \
     _n00b_run_process(cmd, proxy, capture, N00B_VA(__VA_ARGS__))

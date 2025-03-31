@@ -10,6 +10,74 @@ n00b_get_current_directory(void)
     return n00b_cstring(getcwd(buf, MAXPATHLEN));
 }
 
+static n00b_string_t *n00b_base_tmp_dir;
+static pthread_once_t tmpdir_setup = PTHREAD_ONCE_INIT;
+
+static void
+n00b_acquire_base_tmp_dir(void)
+{
+    n00b_gc_register_root(&n00b_base_tmp_dir, 1);
+    if ((n00b_base_tmp_dir = n00b_get_env(n00b_cstring("TMPDIR")))) {
+        return;
+    }
+    if ((n00b_base_tmp_dir = n00b_get_env(n00b_cstring("TMP")))) {
+        return;
+    }
+    if ((n00b_base_tmp_dir = n00b_get_env(n00b_cstring("TEMP")))) {
+        return;
+    }
+    n00b_base_tmp_dir = n00b_cstring("/tmp/");
+}
+
+static inline n00b_string_t *
+construct_random_name(n00b_string_t *prefix, n00b_string_t *suffix)
+{
+    pthread_once(&tmpdir_setup, n00b_acquire_base_tmp_dir);
+
+    uint64_t       bytes         = n00b_rand64();
+    n00b_string_t *random_string = n00b_bytes_to_hex((char *)&bytes, 8);
+
+    if (prefix || suffix) {
+        if (!prefix) {
+            prefix = n00b_cached_empty_string();
+        }
+        if (!suffix) {
+            suffix = n00b_cached_empty_string();
+        }
+        random_string = n00b_cformat("[|#|][|#|][|#|]",
+                                     prefix,
+                                     random_string,
+                                     suffix);
+    }
+
+    return n00b_path_simple_join(n00b_base_tmp_dir, random_string);
+}
+
+n00b_string_t *
+n00b_new_temp_dir(n00b_string_t *prefix, n00b_string_t *suffix)
+{
+    n00b_string_t *dirname = construct_random_name(prefix, suffix);
+    if (mkdir(dirname->data, 0774)) {
+        n00b_raise_errno();
+    }
+
+    return dirname;
+}
+
+n00b_string_t *
+n00b_get_temp_root(void)
+{
+    pthread_once(&tmpdir_setup, n00b_acquire_base_tmp_dir);
+    return n00b_base_tmp_dir;
+}
+
+void *
+n00b_tempfile(n00b_string_t *prefix, n00b_string_t *suffix)
+{
+    n00b_string_t *filename = construct_random_name(prefix, suffix);
+    return n00b_new(n00b_type_file(), filename, n00b_fm_rw);
+}
+
 // This is private; it mutates the string, which we don't normally
 // want to support, and only do so because we know it's all private.
 static n00b_string_t *
@@ -462,7 +530,7 @@ n00b_app_path(void)
     snprintf(proc_path, PATH_MAX, "/proc/%d/exe", getpid());
     buf[readlink(proc_path, buf, PATH_MAX)] = 0;
 
-    return n00b_cstring(buf);
+    return n00b_resolve_path(n00b_cstring(buf));
 }
 #elif defined(__MACH__)
 n00b_string_t *
@@ -471,7 +539,7 @@ n00b_app_path(void)
     char buf[PROC_PIDPATHINFO_MAXSIZE];
     proc_pidpath(getpid(), buf, PROC_PIDPATHINFO_MAXSIZE);
 
-    return n00b_cstring(buf);
+    return n00b_resolve_path(n00b_cstring(buf));
 }
 #else
 #error "Unsupported platform"
@@ -552,4 +620,144 @@ n00b_path_strip_slashes_both_ends(n00b_string_t *s)
         s->data[--s->u8_bytes] = 0;
         s->codepoints--;
     }
+}
+
+n00b_string_t *
+n00b_filename_from_path(n00b_string_t *s)
+{
+    int64_t n = n00b_string_find(s, n00b_cached_slash());
+
+    if (n == -1) {
+        return s;
+    }
+
+    n00b_string_t *news = n00b_resolve_path(s);
+
+    if (news == s) {
+        s = n00b_string_copy_text(s);
+    }
+    else {
+        s = news;
+    }
+
+    n00b_path_strip_slashes_both_ends(s);
+
+    n = n00b_string_rfind(s, n00b_cached_slash());
+    if (n == -1) {
+        return s;
+    }
+
+    return n00b_string_slice(s, n + 1, -1);
+}
+
+n00b_list_t *
+n00b_find_file_in_program_path(n00b_string_t *cmd, n00b_list_t *path_list)
+{
+    // This is a building block for find_command_paths. It simply checks
+    // for existance of a file or symlink to a file.
+
+    n00b_list_t *result = n00b_list(n00b_type_string());
+
+    if (!path_list) {
+        path_list = n00b_get_program_search_path();
+    }
+
+    cmd = n00b_filename_from_path(cmd);
+
+    int n = n00b_list_len(path_list);
+
+    for (int i = 0; i < n; i++) {
+        n00b_string_t *dir       = n00b_list_get(path_list, i, NULL);
+        dir                      = n00b_resolve_path(dir);
+        n00b_string_t *full_path = n00b_path_simple_join(dir, cmd);
+
+        switch (n00b_get_file_kind(full_path)) {
+        case N00B_FK_IS_REG_FILE:
+        case N00B_FK_IS_FLINK:
+            n00b_private_list_append(result, full_path);
+            continue;
+        default:
+            continue;
+        }
+    }
+
+    return result;
+}
+
+n00b_list_t *
+n00b_find_command_paths(n00b_string_t *cmd,
+                        n00b_list_t   *path_list,
+                        bool           self_ok)
+{
+    // Returns all executables in the given path that we have permission
+    // to execute. If self_ok is 'false' then this function will not
+    // return the current executable.
+    //
+    // Note that, as with any file system API stuff, without holding a
+    // file descriptor, we cannot escape possible race conditions; we
+    // can only comment on what file we saw and what its perms were at
+    // the time we checked.
+    //
+    // We should eventually do that anywhere that supports execveat()
+
+    n00b_list_t   *result     = n00b_find_file_in_program_path(cmd, path_list);
+    int            n          = n00b_list_len(result);
+    n00b_string_t *my_path    = NULL;
+    uid_t          my_euid    = geteuid();
+    int            num_groups = -1;
+    gid_t          groups[NGROUPS_MAX];
+
+    if (self_ok) {
+        my_path = n00b_app_path();
+    }
+
+    while (n--) {
+        n00b_string_t *path = n00b_private_list_get(result, n, NULL);
+        // Don't return ourselves if self_ok is false.
+        if (self_ok && n00b_string_eq(path, my_path)) {
+            n00b_private_list_remove(result, n);
+            continue;
+        }
+
+        struct stat file_info;
+
+        // It's possible there was a race and the item got deleted.
+
+        if (stat(path->data, &file_info) != 0) {
+            n00b_private_list_remove(result, n);
+            continue;
+        }
+
+        int exe_bits = file_info.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH);
+
+        if (!exe_bits) {
+            n00b_private_list_remove(result, n);
+            continue;
+        }
+
+        if (exe_bits & S_IXOTH) {
+            continue;
+        }
+
+        if ((exe_bits & S_IXUSR) && file_info.st_uid == my_euid) {
+            continue;
+        }
+
+        if (num_groups < 0) {
+            num_groups = getgroups(NGROUPS_MAX, groups);
+        }
+
+        gid_t program_gid = file_info.st_gid;
+
+        for (int i = 0; i < num_groups; i++) {
+            if (program_gid == groups[i]) {
+                goto on_success;
+            }
+        }
+        n00b_private_list_remove(result, n);
+on_success:
+        continue;
+    }
+
+    return result;
 }

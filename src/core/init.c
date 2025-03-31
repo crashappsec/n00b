@@ -5,7 +5,8 @@
 
 char              **n00b_stashed_argv;
 char              **n00b_stashed_envp;
-static n00b_list_t *exit_handlers = NULL;
+static n00b_list_t *exit_handlers           = NULL;
+static n00b_dict_t *cached_environment_vars = NULL;
 
 static void
 n00b_on_exit(void)
@@ -65,8 +66,6 @@ n00b_get_argv0(void)
     return n00b_cstring(*n00b_stashed_argv);
 }
 
-static n00b_dict_t *cached_environment_vars = NULL;
-
 static inline int
 find_env_value(char *c, char **next)
 {
@@ -104,6 +103,7 @@ load_env(n00b_dict_t *environment_vars)
         n00b_assert(hatrack_dict_get(environment_vars, key, NULL) == value);
     }
     n00b_gc_register_root(&cached_environment_vars, 1);
+    cached_environment_vars = environment_vars;
 }
 
 n00b_string_t *
@@ -116,6 +116,27 @@ n00b_get_env(n00b_string_t *name)
     }
 
     return hatrack_dict_get(cached_environment_vars, name, NULL);
+}
+
+void
+n00b_set_env(n00b_string_t *name, n00b_string_t *value)
+{
+    if (putenv(name->data)) {
+        n00b_raise_errno();
+    }
+    hatrack_dict_put(cached_environment_vars, name, value);
+}
+
+bool
+n00b_remove_env(n00b_string_t *name)
+{
+    bool result = !unsetenv(name->data);
+
+    if (result) {
+        hatrack_dict_remove(cached_environment_vars, name);
+    }
+
+    return result;
 }
 
 n00b_dict_t *

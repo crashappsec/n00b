@@ -282,6 +282,7 @@ n00b_io = [
     'src/io/http.c',
     'src/io/proc.c',
     'src/io/debug.c',
+    'src/io/session.c',    
 ]
 
 n00b_compiler = [

@@ -20,6 +20,7 @@ typedef struct n00b_string_t n00b_string_t;
 #include "util/assert.h"
 #include "n00b/base.h"
 #include "core/init.h"
+#include "core/env.h"    // env variable API
 #include "core/exit.h"
 #include "util/macros.h" // Helper macros
 #include "core/kargs.h"  // Keyword arguments.
@@ -45,7 +46,6 @@ typedef struct n00b_string_t n00b_string_t;
 
 // Basic string handling.
 #include "text/codepoint.h"
-#include "text/string.h"
 #include "text/breaks.h"
 #include "text/theme.h"
 #include "text/style.h"
@@ -136,3 +136,5 @@ typedef struct n00b_string_t n00b_string_t;
 #include "text/layout.h"
 #include "text/ansi.h"
 #include "text/regex.h"
+
+#include "io/session.h"

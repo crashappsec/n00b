@@ -290,6 +290,10 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
         return;
     }
 
+    if (ctx->hook) {
+        (*ctx->hook)(ctx->thunk);
+    }
+
     if (proxy_in) {
         dup2(stdin_pipe[0], 0);
     }
@@ -439,6 +443,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         return;
     }
 
+    if (ctx->hook) {
+        (*ctx->hook)(ctx->thunk);
+    }
+
     if (use_err) {
         dup2(err_fd, 2);
     }
@@ -526,18 +534,22 @@ _n00b_run_process(n00b_string_t *cmd,
                   bool           capture,
                   ...)
 {
-    n00b_list_t     *env          = NULL;
-    n00b_duration_t *timeout      = NULL;
-    bool             pty          = false;
-    bool             raw_argv     = false;
-    bool             run          = true;
-    bool             spawn        = false;
-    bool             merge_output = false;
-    bool             err_pty      = false;
+    n00b_list_t          *env          = NULL;
+    n00b_duration_t      *timeout      = NULL;
+    n00b_post_fork_hook_t hook         = NULL;
+    void                 *thunk        = NULL;
+    bool                  pty          = false;
+    bool                  raw_argv     = false;
+    bool                  run          = true;
+    bool                  spawn        = false;
+    bool                  merge_output = false;
+    bool                  err_pty      = false;
 
     n00b_karg_only_init(capture);
     n00b_kw_ptr("env", env);
     n00b_kw_ptr("timeout", timeout);
+    n00b_kw_ptr("pre_exec_hook", hook);
+    n00b_kw_ptr("hook_param", thunk);
     n00b_kw_bool("pty", pty);
     n00b_kw_bool("raw_argv", raw_argv);
     n00b_kw_bool("async", spawn);
@@ -550,9 +562,11 @@ _n00b_run_process(n00b_string_t *cmd,
 
     n00b_proc_t *proc = n00b_gc_alloc_mapped(n00b_proc_t, N00B_GC_SCAN_ALL);
 
-    proc->pid  = -1;
-    proc->cmd  = cmd;
-    proc->args = argv;
+    proc->pid   = -1;
+    proc->cmd   = cmd;
+    proc->args  = argv;
+    proc->hook  = hook;
+    proc->thunk = thunk;
 
     n00b_raw_condition_init(&proc->cv);
 
@@ -579,7 +593,9 @@ _n00b_run_process(n00b_string_t *cmd,
         n00b_proc_spawn(proc);
     }
     else {
-        n00b_proc_run(proc, timeout);
+        if (run) {
+            n00b_proc_run(proc, timeout);
+        }
     }
 
     return proc;

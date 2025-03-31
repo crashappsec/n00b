@@ -105,3 +105,18 @@ n00b_is_socket(n00b_stream_t *stream)
 
     return S_ISSOCK(fd_info.st_mode);
 }
+
+static inline n00b_string_t *
+n00b_stream_get_name(n00b_stream_t *stream)
+{
+    // TODO: make this work for unix sockets at least.
+
+    if (stream->etype != n00b_io_ev_file) {
+        return NULL;
+    }
+
+    n00b_ev2_cookie_t *cookie    = stream->cookie;
+    n00b_file_data_t  *file_info = cookie->aux;
+
+    return file_info->name;
+}

@@ -41,8 +41,8 @@ extern void         n00b_list_set_slice(n00b_list_t *,
 extern n00b_list_t *n00b_list_get_slice(n00b_list_t *, int64_t, int64_t);
 extern bool         n00b_private_list_remove(n00b_list_t *list, int64_t);
 extern bool         n00b_list_remove(n00b_list_t *list, int64_t);
-extern bool         n00b_private_list_remove_item(n00b_list_t *list, void *);
-extern bool         n00b_list_remove_item(n00b_list_t *list, void *);
+extern bool         n00b_private_list_remove_item(n00b_list_t *, void *);
+extern bool         n00b_list_remove_item(n00b_list_t *, void *);
 extern void        *n00b_list_private_dequeue(n00b_list_t *);
 extern void        *n00b_list_dequeue(n00b_list_t *);
 extern bool         n00b_private_list_contains(n00b_list_t *, n00b_obj_t);

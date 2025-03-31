@@ -20,8 +20,6 @@ n00b_raw_envp(void)
 
 extern n00b_list_t   *n00b_get_program_arguments(void);
 extern n00b_string_t *n00b_get_argv0(void);
-extern n00b_string_t *n00b_get_env(n00b_string_t *);
-extern n00b_dict_t   *n00b_environment(void);
 extern n00b_string_t *n00b_path_search(n00b_string_t *, n00b_string_t *);
 extern n00b_string_t *n00b_n00b_root(void);
 extern n00b_string_t *n00b_system_module_path(void);
