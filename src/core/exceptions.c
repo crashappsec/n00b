@@ -56,14 +56,10 @@ n00b_print_exception(n00b_exception_t *exception, n00b_string_t *title)
 {
     n00b_table_t *tbl = n00b_table("columns",
                                    n00b_ka(2),
-                                   "outstream",
-                                   n00b_stderr(),
                                    "title",
                                    title,
                                    "style",
-                                   n00b_ka(N00B_TABLE_SIMPLE),
-                                   "outstream",
-                                   n00b_stderr());
+                                   n00b_ka(N00B_TABLE_SIMPLE));
 
     n00b_table_next_column_fit(tbl);
     n00b_table_next_column_flex(tbl, 1);
@@ -74,24 +70,17 @@ n00b_print_exception(n00b_exception_t *exception, n00b_string_t *title)
                         n00b_cformat("«#»:«#:i»",
                                      n00b_cstring((char *)exception->file),
                                      (int64_t)exception->line));
+    n00b_eprint(tbl);
+
 #if defined(N00B_DEBUG) && defined(N00B_BACKTRACE_SUPPORTED)
     if (!exception->c_trace) {
-        n00b_table_add_cell(tbl,
-                            n00b_cformat("«em2»No C backtrace available."),
-                            N00B_COL_SPAN_ALL);
+        n00b_eprintf("«em2»No C backtrace available.");
     }
     else {
-        n00b_table_add_cell(tbl,
-                            n00b_cformat("«em2»C Backtrace:"),
-                            N00B_COL_SPAN_ALL);
-
-        n00b_table_add_cell(tbl,
-                            n00b_to_string(exception->c_trace),
-                            N00B_COL_SPAN_ALL);
+        n00b_eprintf("«em2»C Backtrace:");
+        n00b_eprint(exception->c_trace);
     }
 #endif
-
-    n00b_table_end(tbl);
 }
 
 void

@@ -160,6 +160,9 @@ typedef enum : int64_t {
     N00B_T_TEXT_ELEMENT,
     N00B_T_BOX_PROPS,
     N00B_T_THEME,
+    N00B_T_SESSION,
+    N00B_T_SESSION_STATE,
+    N00B_T_SESSION_TRIGGER,
     N00B_NUM_BUILTIN_DTS,
 } n00b_builtin_t;
 

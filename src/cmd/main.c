@@ -130,7 +130,22 @@ ansi_test(n00b_buf_t *b)
 
     char *p = b->data;
 
-    printf("%s\n", b->data);
+    n00b_printf("Okay, reassemble, stripping:\n");
+    //    printf("\e[?69h\e[?30h"
+    printf("\e[?69h\e[8;40;40t");
+    n00b_printf("[|#|]\n", n00b_ansi_nodes_to_string(r, false));
+    n00b_printf("Okay, reassemble, NOT stripping:\n");
+
+    n00b_list_t *parts = n00b_string_split(n00b_ansi_nodes_to_string(r, true),
+                                           n00b_cached_newline());
+
+    for (int i = 0; i < n00b_list_len(parts); i++) {
+        n00b_printf("[|#|]", n00b_list_get(parts, i, NULL));
+        printf("\n");
+    }
+
+    printf("%s", n00b_ansi_nodes_to_string(r, true)->data);
+    /*
     for (int i = 0; i < b->byte_len; i++) {
         if (*p == 0x1b) {
             *p = '^';
@@ -138,6 +153,7 @@ ansi_test(n00b_buf_t *b)
         p++;
     }
     printf("%s\n", b->data);
+    */
 }
 
 void
@@ -169,6 +185,25 @@ regex_test(n00b_buf_t *b)
 }
 
 void
+session_test(void)
+{
+    /*
+    n00b_printf("[|h4|]Starting session.");
+    n00b_session_t *s = n00b_new(n00b_type_session(),
+                                 n00b_kw("capture_tmpfile", n00b_ka(true)));
+    n00b_session_run(s);
+    n00b_printf("[|h4|]Session done.");
+
+    n00b_string_t *tmpfile = n00b_session_capture_filename(s);
+    n00b_printf("Tmp file in: [|#|]", tmpfile);
+    n00b_string_t *cmds = n00b_session_extract_commands(s);
+    n00b_printf("[|h6|]Extracted commands: [|p|]\n[|#|]", cmds);
+    n00b_printf("[|h6|]Done with extraction!");
+    */
+    n00b_testgen_record(n00b_cstring("testcase.cap10"));
+}
+
+void
 tmp_testing(void)
 {
     n00b_string_t *cmd = n00b_cstring("/bin/ls");
@@ -176,6 +211,7 @@ tmp_testing(void)
     n00b_list_append(l, n00b_cstring("-alG"));
     n00b_list_append(l, n00b_cached_period());
 
+#if 0
     n00b_proc_t *pi = n00b_run_process(cmd,
                                        l,
                                        false,
@@ -196,11 +232,9 @@ tmp_testing(void)
 
     n00b_printf("«em1»Subprocess completed with error code «#».",
                 (int64_t)n00b_proc_get_exit_code(pi));
-
     ansi_test(bout);
     regex_test(bout);
-
-    n00b_exit(0);
+#endif
 
     n00b_string_t *for_testing = n00b_cstring(
         "  I   do not know-- what's the answer?!?!?!!!\n"
@@ -267,6 +301,8 @@ tmp_testing(void)
     n00b_string_t *s3 = n00b_string_concat(s1, s2);
     n00b_eprint(s3);
 
+    session_test();
+
     n00b_exit(0);
 }
 
@@ -326,7 +362,7 @@ main(int argc, char **argv, char **envp)
         break;
     case N00B_CMD_REPL:
         tmp_testing();
-        // n00b_eprintf("«em2»Interactive mode is not implemented yet.");
+        n00b_eprintf("«em2»Interactive mode is not implemented yet.");
         ctx->exit_code = N00B_NOT_DONE;
     }
 

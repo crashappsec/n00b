@@ -112,12 +112,16 @@ n00b_regex_raw_match(n00b_regex_t  *re,
         process_ovector(s, md, matches);
 
         if (!all) {
+            if (!n00b_list_len(matches)) {
+                return NULL;
+            }
             return matches;
         }
 
         n00b_match_t *m = n00b_list_get(matches,
                                         n00b_list_len(matches) - 1,
                                         NULL);
+        m->input_string = s;
 
         if (m->end == m->start) {
             // Handle empty string matches.

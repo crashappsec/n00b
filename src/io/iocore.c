@@ -62,18 +62,20 @@ n00b_post_close(n00b_stream_t *event)
         return;
     }
 
-    n00b_ev2_cookie_t *c = event->cookie;
+    if (event->impl->use_libevent) {
+        n00b_ev2_cookie_t *c = event->cookie;
 
-    event->close_notified = true;
+        event->close_notified = true;
 
-    if (c->write_event) {
-        n00b_event_del(c->write_event);
-        c->write_event = NULL;
-    }
+        if (c->write_event) {
+            n00b_event_del(c->write_event);
+            c->write_event = NULL;
+        }
 
-    if (c->read_event) {
-        n00b_event_del(c->read_event);
-        c->read_event = NULL;
+        if (c->read_event) {
+            n00b_event_del(c->read_event);
+            c->read_event = NULL;
+        }
     }
 
     if (n00b_stream_has_remaining_subscribers(event, n00b_io_sk_close)) {
@@ -457,6 +459,17 @@ n00b_post_to_subscribers(n00b_stream_t            *party,
 
 // End utility functions.
 // Begin file impl.
+static inline bool
+still_can_read(int fd)
+{
+    struct pollfd poll_set = {
+        .fd      = fd,
+        .events  = POLLIN,
+        .revents = 0,
+    };
+
+    return poll(&poll_set, 1, 0) == 1;
+}
 
 void
 n00b_ev2_r(evutil_socket_t fd, short event_type, void *info)
@@ -491,6 +504,7 @@ n00b_ev2_r(evutil_socket_t fd, short event_type, void *info)
         n = PIPE_BUF;
     }
 
+read_again:;
     n00b_buf_t *buf;
     ssize_t     len = read(fd, tmp_buf, n);
 
@@ -542,6 +556,10 @@ n00b_ev2_r(evutil_socket_t fd, short event_type, void *info)
                 n00b_purge_subscription_list_on_boundary(party->read_subs);
                 n00b_ev2_post_read_cleanup(party);
             }
+        }
+
+        if (len == PIPE_BUF && still_can_read(fd)) {
+            goto read_again;
         }
 
         Return;
@@ -651,9 +669,7 @@ setup_libevent(void)
                             n00b_free_compat);
 
     if (!n00b_system_event_base) {
-        //        n00b_push_heap(n00b_internal_heap);
         n00b_system_event_base = n00b_new_base();
-        //        n00b_pop_heap();
     }
 
     event_set_log_callback(n00b_dislikes_libevent);
@@ -1080,6 +1096,53 @@ n00b_close(n00b_stream_t *party)
     defer_func_end();
 }
 
+static inline bool
+n00b_stream_position_me(n00b_stream_t *party, int position, bool relative)
+{
+    defer_on();
+    n00b_acquire_party(party);
+
+    n00b_io_seek_fn fn = party->impl->seek_impl;
+
+    if (!fn) {
+        Return false;
+    }
+
+    bool   result = (*fn)(party, relative, position);
+    Return result;
+
+    defer_func_end();
+}
+
+bool
+n00b_stream_set_position(n00b_stream_t *party, int position)
+{
+    return n00b_stream_position_me(party, position, false);
+}
+bool
+n00b_stream_relative_position(n00b_stream_t *party, int position)
+{
+    return n00b_stream_position_me(party, position, true);
+}
+
+int
+n00b_stream_get_position(n00b_stream_t *party)
+{
+    defer_on();
+    n00b_acquire_party(party);
+
+    n00b_io_tell_fn fn = party->impl->tell_impl;
+
+    if (!fn) {
+        Return ~0;
+    }
+
+    int    result = (*fn)(party);
+    Return result;
+
+    defer_func_end();
+}
+
 void
 n00b_handle_one_delivery(n00b_stream_t *party, void *msg, bool async)
 {
@@ -1191,7 +1254,7 @@ n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
 
     n00b_io_read_fn    fn = party->impl->read_impl;
     n00b_stream_sub_t *sub;
-    n00b_condition_t   cv;
+    n00b_condition_t  *cv = n00b_gc_alloc_mapped(n00b_condition_t, NULL);
     n00b_stream_t     *cv_event;
     void              *result;
     void              *one_item;
@@ -1238,25 +1301,26 @@ n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
                          "Party cannot be read from synchronously.)");
     }
 
-    n00b_static_condition_init(cv);
+    n00b_raw_condition_init(cv);
 
-    cv_event = n00b_condition_open(&cv, NULL);
+    cv_event = n00b_condition_open(cv, NULL);
 
     for (int i = 0; i < num_objs; i++) {
-        n00b_condition_lock_acquire(&cv);
+        n00b_condition_lock_acquire(cv);
+        n00b_printf("«em6»Waiting on [|#:p|] ", cv);
         sub = n00b_io_subscribe_to_reads(party, cv_event, timeout);
         n00b_make_oneshot(sub);
 
         n00b_release_party(party);
-        n00b_condition_wait_then_unlock(&cv, (*fn)(party, n));
-        one_item = cv.aux;
+        n00b_condition_wait_then_unlock(cv, (*fn)(party, n));
+        one_item = cv->aux;
         if (use_list) {
             n00b_list_append(result, one_item);
         }
         else {
             result = one_item;
         }
-        n00b_condition_lock_release_all(&cv);
+        n00b_condition_lock_release_all(cv);
     }
 
     Return result;
@@ -1598,7 +1662,6 @@ launch_once(void *ignore)
 {
     n00b_set_system_thread();
     if (is_running) {
-        n00b_static_c_backtrace();
         return NULL;
     }
     is_running = true;
@@ -1621,6 +1684,7 @@ void n00b_restart_debugging(void);
 void
 n00b_restart_io(void)
 {
+    is_running = false;
     n00b_thread_spawn(launch_once, NULL);
     n00b_restart_debugging();
 }

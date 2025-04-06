@@ -1,7 +1,7 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static void
+void
 n00b_list_init(n00b_list_t *list, va_list args)
 {
     int64_t length = 16;

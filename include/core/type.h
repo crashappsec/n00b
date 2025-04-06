@@ -210,16 +210,6 @@ n00b_type_is_condition(n00b_type_t *t)
 }
 
 static inline bool
-n00b_type_is_stream(n00b_type_t *t)
-{
-    if (!n00b_ensure_type(t)) {
-        return false;
-    }
-
-    return n00b_type_resolve(t)->base_index == N00B_T_STREAM;
-}
-
-static inline bool
 n00b_type_is_file(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {
@@ -227,6 +217,17 @@ n00b_type_is_file(n00b_type_t *t)
     }
 
     return n00b_type_resolve(t)->base_index == N00B_T_FILE;
+}
+
+static inline bool
+n00b_type_is_stream(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_STREAM
+        || n00b_type_is_file(t);
 }
 
 static inline bool
@@ -726,6 +727,24 @@ n00b_type_table(void)
 }
 
 static inline n00b_type_t *
+n00b_type_session(void)
+{
+    return n00b_bi_types[N00B_T_SESSION];
+}
+
+static inline n00b_type_t *
+n00b_type_session_state(void)
+{
+    return n00b_bi_types[N00B_T_SESSION_STATE];
+}
+
+static inline n00b_type_t *
+n00b_type_session_trigger(void)
+{
+    return n00b_bi_types[N00B_T_SESSION_TRIGGER];
+}
+
+static inline n00b_type_t *
 n00b_merge_types(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 {
     n00b_type_t *result = n00b_unify(t1, t2);
@@ -989,6 +1008,36 @@ n00b_type_is_table(n00b_type_t *t)
     }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_TABLE;
+}
+
+static inline bool
+n00b_type_is_session(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_SESSION;
+}
+
+static inline bool
+n00b_type_is_session_state(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_SESSION_STATE;
+}
+
+static inline bool
+n00b_type_is_session_trigger(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_SESSION_TRIGGER;
 }
 
 static inline bool

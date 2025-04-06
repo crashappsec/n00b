@@ -335,6 +335,7 @@ n00b_add_debug_topic(void *topic_info)
 void
 _n00b_debug(void *tname, void *v, ...)
 {
+    printf("sup\n");
     if (skip_debugging) {
         return;
     }

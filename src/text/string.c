@@ -57,6 +57,7 @@ n00b_init_common_string_cache(void)
         cache_cp_init(PIPE, '=');
         cache_cp_init(GT, '=');
         cache_cp_init(LT, '=');
+        cache_cp_init(ESC, '\e');
         cache_cp_init(QUESTION_MARK, '?');
         cache_cp_init(TILDE, '~');
         cache_cstr_init(ARROW, " -> ");
@@ -137,6 +138,10 @@ n00b_string_sanity_check(n00b_string_t *s)
         return;
     }
 
+    if (!s->data) {
+        s->data = "";
+    }
+
     if (!s->u8_bytes && !s->codepoints) {
         return;
     }
@@ -184,6 +189,8 @@ n00b_string_initialize_from_cstring(n00b_string_t *s, char *p)
     s->data       = p;
     s->codepoints = num_cp;
     s->u8_bytes   = num_bytes;
+
+    n00b_string_sanity_check(s);
 }
 
 static inline void
@@ -193,6 +200,11 @@ n00b_string_init_from_cstring_with_len(n00b_string_t *s,
 {
     int num_cp    = 0;
     int num_bytes = 0;
+
+    if (len <= 0) {
+        memcpy(s, n00b_cached_empty_string(), sizeof(n00b_string_t));
+        return;
+    }
 
     if (!n00b_cstring_validate_u8(p, &num_cp, &num_bytes, len)
         || len != num_bytes) {
@@ -208,15 +220,6 @@ n00b_string_init_from_cstring_with_len(n00b_string_t *s,
     s->data       = p;
     s->codepoints = num_cp;
     s->u8_bytes   = num_bytes;
-}
-
-static inline void
-n00b_string_initialize_from_prechecked_bytes(n00b_string_t *s, char *p, int l)
-{
-    assert(n00b_in_heap(p));
-    s->data       = p;
-    s->codepoints = l;
-    s->u8_bytes   = l;
 }
 
 n00b_codepoint_t *
@@ -332,12 +335,7 @@ n00b_string_init(n00b_string_t *s, va_list args)
     }
     if (cstr) {
         if (p) {
-            if (n00b_in_heap(p)) {
-                n00b_string_initialize_from_prechecked_bytes(s, p, len);
-            }
-            else {
-                n00b_string_init_from_cstring_with_len(s, p, len);
-            }
+            n00b_string_init_from_cstring_with_len(s, p, len);
             return;
         }
 
@@ -546,7 +544,7 @@ n00b_string_slice(n00b_string_t *s, int64_t start, int64_t end)
     }
 
     if (end < 0) {
-        end += s->codepoints;
+        end += s->codepoints + 1;
     }
     else {
         if (end > s->codepoints) {
@@ -683,10 +681,10 @@ n00b_string_concat(n00b_string_t *s1, n00b_string_t *s2)
     n00b_string_sanity_check(s1);
     n00b_string_sanity_check(s2);
 
-    if (!s1) {
+    if (!s1 || !s1->u8_bytes) {
         return s2;
     }
-    if (!s2) {
+    if (!s2 || !s2->u8_bytes) {
         return s1;
     }
 

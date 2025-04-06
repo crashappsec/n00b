@@ -31,6 +31,7 @@ extern n00b_list_t   *n00b_find_file_in_program_path(n00b_string_t *,
 extern n00b_list_t   *n00b_find_command_paths(n00b_string_t *,
                                               n00b_list_t *,
                                               bool);
+extern n00b_string_t *n00b_rename(n00b_string_t *, n00b_string_t *);
 
 // n00b_tempfile actually returns a n00b_stream_t * but it's not
 // defined here, so we'll just declare its return value void *
@@ -54,6 +55,14 @@ static inline n00b_string_t *
 n00b_get_home_directory(void)
 {
     return n00b_path_tilde_expand(NULL);
+}
+
+// Inherently racy.
+static inline bool
+n00b_file_exists(n00b_string_t *filename)
+{
+    struct stat info;
+    return stat(filename->data, &info) == 0;
 }
 
 // This maybe should move into a user / uid module, but I did it in
@@ -90,6 +99,47 @@ n00b_path_simple_join(n00b_string_t *p1, n00b_string_t *p2)
     n00b_list_append(x, p2);
 
     return n00b_path_join(x);
+}
+
+static inline n00b_list_t *
+n00b_path_parts(n00b_string_t *p)
+{
+    if (!p || !p->u8_bytes) {
+        return NULL;
+    }
+
+    n00b_list_t   *result   = n00b_list(n00b_type_string());
+    n00b_string_t *resolved = n00b_resolve_path(p);
+    n00b_string_t *filename;
+    int            n;
+
+    // A directory.
+    if (p->data[p->u8_bytes - 1] == '/'
+        || resolved->data[resolved->u8_bytes - 1] == '/') {
+        n00b_list_append(result, resolved);
+        n00b_list_append(result, n00b_cached_empty_string());
+        n00b_list_append(result, n00b_cached_empty_string());
+
+        return result;
+    }
+
+    n = n00b_string_rfind(resolved, n00b_cached_slash());
+
+    n00b_list_append(result, n00b_string_slice(resolved, 0, n));
+    filename = n00b_string_slice(resolved, n + 1, -1);
+
+    n = n00b_string_rfind(filename, n00b_cached_period());
+
+    if (n == -1) {
+        n00b_list_append(result, filename);
+        n00b_list_append(result, n00b_cached_empty_string());
+        return result;
+    }
+
+    n00b_list_append(result, n00b_string_slice(filename, 0, n));
+    n00b_list_append(result, n00b_string_slice(filename, n + 1, -1));
+
+    return result;
 }
 
 #ifdef N00B_USE_INTERNAL_API

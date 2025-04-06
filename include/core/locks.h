@@ -2,6 +2,7 @@
 #include "n00b/base.h"
 
 extern bool n00b_is_world_stopped(void);
+extern bool n00b_abort_signal;
 
 typedef struct n00b_lock_record_t n00b_lock_record_t;
 
@@ -25,7 +26,6 @@ typedef struct n00b_lock_t {
 typedef struct n00b_condition_t {
     n00b_lock_t    lock;
     pthread_cond_t cv;
-    char           pad[128];
     void          *aux;
     void          *extra; // User-defined.
     void (*cb)(void *);   // Callback called before signaling.
@@ -134,7 +134,7 @@ n00b_raw_rw_lock_init(n00b_rw_lock_t *l)
 static inline bool
 _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
 {
-    if (!n00b_startup_complete || !n00b_get_tsi_ptr()) {
+    if (!n00b_startup_complete || !n00b_get_tsi_ptr() || n00b_abort_signal) {
         return true;
     }
 
@@ -148,7 +148,7 @@ _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
         return false;
     case 0:
         l->thread = (void *)(int64_t)pthread_self();
-        n00b_assert(!l->level);
+        l->level  = 0;
         n00b_add_lock_record(l, f, ln);
         return true;
     default:
@@ -159,7 +159,7 @@ _n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
 static inline void
 _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
 {
-    if (!n00b_startup_complete || !n00b_get_tsi_ptr()) {
+    if (!n00b_startup_complete || !n00b_get_tsi_ptr() || n00b_abort_signal) {
         return;
     }
 
@@ -177,7 +177,7 @@ _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
             n00b_add_lock_record(l, f, ln);
         }
         l->thread = (void *)(int64_t)pthread_self();
-        n00b_assert(!l->level);
+        l->level  = 0;
         n00b_add_lock_record(l, f, ln);
     }
 }
@@ -252,7 +252,6 @@ _n00b_rw_lock_release(n00b_rw_lock_t *l, char *file, int line)
         if (cb) {                           \
             (*cb)(c);                       \
         }                                   \
-                                            \
         pthread_cond_broadcast((&(c)->cv)); \
     }
 

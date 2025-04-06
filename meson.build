@@ -206,7 +206,6 @@ n00b_core = [
     'src/core/literals.c',
     'src/core/object.c',
     'src/core/validation.c',
-    'src/core/rtsetup.c',
     'src/core/thread.c',        # Basic thread interface
     'src/core/thread_tsi.c',    # Internal API; thread specific data
     'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
@@ -215,6 +214,7 @@ n00b_core = [
 ]
 
 n00b_runtime = [
+    'src/runtime/rtsetup.c',
     'src/runtime/attrstore.c',
     'src/runtime/vm.c',
     'src/runtime/ffi.c',
@@ -324,6 +324,7 @@ n00b_util = [
     'src/util/assert.c',
     'src/util/memcheck.c',
     'src/util/deep_copy.c',
+    'src/util/testgen.c',    
 ]
 
 n00b_crypto = ['src/crypto/sha.c']

@@ -35,6 +35,8 @@ extern void                  n00b_colorterm_enable(n00b_stream_t *,
                                                    size_t,
                                                    bool,
                                                    n00b_theme_t *);
+extern n00b_stream_filter_t *n00b_ansi_ctrl_parse_on_write(n00b_stream_t *);
+extern n00b_stream_filter_t *n00b_ansi_ctrl_parse_on_read(n00b_stream_t *);
 
 static inline bool
 n00b_add_read_filter(n00b_stream_t *stream, n00b_stream_filter_t *f)

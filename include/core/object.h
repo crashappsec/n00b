@@ -13,6 +13,16 @@ static inline n00b_type_t *n00b_type_i64();
 extern n00b_type_t *n00b_get_my_type(n00b_obj_t);
 
 static inline void
+n00b_set_type(void *addr, n00b_type_t *t)
+{
+    n00b_assert(n00b_in_heap(addr));
+    n00b_mem_ptr p = (n00b_mem_ptr){.v = addr};
+    p.alloc -= 1;
+    n00b_assert(p.alloc->guard == n00b_gc_guard);
+    p.alloc->type = t;
+}
+
+static inline void
 n00b_basic_memory_info(void *addr, bool *is_obj, bool *interior)
 {
     n00b_assert(n00b_in_heap(addr));
@@ -217,4 +227,7 @@ extern const n00b_vtable_t n00b_box_props_vtable;
 extern const n00b_vtable_t n00b_theme_vtable;
 extern const n00b_vtable_t n00b_string_vtable;
 extern const n00b_vtable_t n00b_table_vtable;
+extern const n00b_vtable_t n00b_session_vtable;
+extern const n00b_vtable_t n00b_session_state_vtable;
+extern const n00b_vtable_t n00b_session_trigger_vtable;
 #endif

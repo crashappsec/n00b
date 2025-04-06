@@ -1,6 +1,20 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+static inline void
+copy_window_size_to_fd(int fd)
+{
+    struct winsize ws;
+    ioctl(1, TIOCGWINSZ, &ws);
+    ioctl(fd, TIOCSWINSZ, &ws);
+}
+
+static void
+n00b_handle_winch(n00b_stream_t *sig, int64_t signal, int64_t fd)
+{
+    copy_window_size_to_fd(fd);
+}
+
 static void
 proc_exited(n00b_exitinfo_t *result, int64_t stats, n00b_proc_t *ctx)
 {
@@ -10,14 +24,13 @@ proc_exited(n00b_exitinfo_t *result, int64_t stats, n00b_proc_t *ctx)
     ctx->exited          = true;
 
     if (ctx->wait_for_exit) {
-        ctx->exited = true;
         n00b_condition_notify_all(&ctx->cv);
     }
     n00b_condition_lock_release(&ctx->cv);
 }
 
 static void
-pre_launch_prep(n00b_proc_t *proc, char ***argp, char ***envp)
+pre_launch_prep(n00b_proc_t *proc, char ***argp)
 {
     // At this point, the child process file descriptors will not yet
     // exist.
@@ -44,14 +57,6 @@ pre_launch_prep(n00b_proc_t *proc, char ***argp, char ***envp)
     }
 
     *argp = (void *)n00b_make_cstr_array(args, NULL);
-
-    if (proc->env) {
-        *envp = (void *)n00b_make_cstr_array(proc->env, NULL);
-    }
-
-    else {
-        *envp = n00b_raw_envp();
-    }
 }
 
 static n00b_stream_t *
@@ -160,6 +165,22 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
                                       n00b_cached_rbracket()));
     }
 
+    if (ctx->pending_stdout_subs != NULL) {
+        int n = n00b_list_len(ctx->pending_stdout_subs);
+        for (int i = 0; i < n; i++) {
+            n00b_stream_t *s = n00b_list_get(ctx->pending_stdout_subs, i, NULL);
+            n00b_io_subscribe_to_reads(ctx->subproc_stdout, s, NULL);
+        }
+    }
+
+    if (ctx->pending_stderr_subs != NULL) {
+        int n = n00b_list_len(ctx->pending_stderr_subs);
+        for (int i = 0; i < n; i++) {
+            n00b_stream_t *s = n00b_list_get(ctx->pending_stderr_subs, i, NULL);
+            n00b_io_subscribe_to_reads(ctx->subproc_stderr, s, NULL);
+        }
+    }
+
     n00b_release_party(ctx->subproc_stderr);
     n00b_release_party(ctx->subproc_stdout);
     n00b_release_party(ctx->subproc_stdin);
@@ -228,7 +249,7 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     char **argp;
     char **envp;
 
-    pre_launch_prep(ctx, &argp, &envp);
+    pre_launch_prep(ctx, &argp);
 
     open_pipe(proxy_in, stdin_pipe);
     open_pipe(proxy_out, stdout_pipe);
@@ -290,9 +311,9 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
         return;
     }
 
-    if (ctx->hook) {
-        (*ctx->hook)(ctx->thunk);
-    }
+    close_write_side(proxy_in, stdin_pipe);
+    close_read_side(proxy_out, stdout_pipe);
+    close_read_side(proxy_err, stderr_pipe);
 
     if (proxy_in) {
         dup2(stdin_pipe[0], 0);
@@ -302,6 +323,18 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     }
     if (proxy_err) {
         dup2(stderr_pipe[1], 2);
+    }
+
+    if (ctx->hook) {
+        (*ctx->hook)(ctx->thunk);
+    }
+
+    if (ctx->env) {
+        envp = (void *)n00b_make_cstr_array(ctx->env, NULL);
+    }
+
+    else {
+        envp = n00b_raw_envp();
     }
 
     try_execve(ctx, argp, envp);
@@ -360,7 +393,7 @@ static inline void
 proc_spawn_with_tty(n00b_proc_t *ctx)
 {
     struct winsize  wininfo;
-    struct termios *term_ptr = ctx->subproc_termcap;
+    struct termios *term_ptr = ctx->subproc_termcap_ptr;
     struct winsize *win_ptr  = &wininfo;
     bool            proxy_in = ctx->flags & N00B_PROC_STDIN_MASK;
     bool            use_err  = ctx->flags & N00B_PROC_PTY_STDERR;
@@ -372,7 +405,7 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     char          **argp;
     char          **envp;
 
-    pre_launch_prep(ctx, &argp, &envp);
+    pre_launch_prep(ctx, &argp);
     tcgetattr(0, &ctx->initial_termcap);
 
     open_pipe(true, stdin_pipe);
@@ -403,10 +436,18 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         // connected to *different* terminals. The issues I was seeing
         // were essentially barfing because there was a call to
         // isatty(2), so this *should* work out okay.
-        err_pid = forkpty(&err_fd, NULL, NULL, win_ptr);
+        err_pid = forkpty(&err_fd, NULL, term_ptr, win_ptr);
 
         if (err_pid == 0) {
             run_stderr_proxy();
+        }
+        else {
+            copy_window_size_to_fd(err_fd);
+            if (ctx->flags & N00B_PROC_HANDLE_WIN_SIZE) {
+                n00b_io_register_signal_handler(SIGWINCH,
+                                                (void *)n00b_handle_winch,
+                                                err_fd);
+            }
         }
     }
 
@@ -433,31 +474,33 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         close_read_side(proxy_in, stdin_pipe);
         post_spawn_subscription_setup(ctx);
 
-        if (!ctx->parent_termcap) {
-            n00b_termcap_apply_raw_mode(&ctx->initial_termcap);
-            n00b_termcap_set(&ctx->initial_termcap);
-        }
-        else {
+        if (ctx->parent_termcap) {
             n00b_termcap_set(ctx->parent_termcap);
         }
-        return;
-    }
 
-    if (ctx->hook) {
-        (*ctx->hook)(ctx->thunk);
+        copy_window_size_to_fd(pty_fd);
+        if (ctx->flags & N00B_PROC_HANDLE_WIN_SIZE) {
+            n00b_io_register_signal_handler(SIGWINCH,
+                                            (void *)n00b_handle_winch,
+                                            pty_fd);
+        }
+
+        return;
     }
 
     if (use_err) {
         dup2(err_fd, 2);
     }
 
-    setvbuf(stderr, NULL, _IONBF, (size_t)0);
-    setvbuf(stdout, NULL, _IONBF, (size_t)0);
-    setvbuf(stdin, NULL, _IONBF, (size_t)0);
-
     if (close_write_side(proxy_in, stdin_pipe)) {
         dup2(stdin_pipe[0], 0);
     }
+
+    close_write_side(proxy_in, stdin_pipe);
+
+    setvbuf(stderr, NULL, _IONBF, (size_t)0);
+    setvbuf(stdout, NULL, _IONBF, (size_t)0);
+    setvbuf(stdin, NULL, _IONBF, (size_t)0);
 
     signal(SIGHUP, SIG_DFL);
     signal(SIGINT, SIG_DFL);
@@ -476,6 +519,19 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     signal(SIGTTIN, SIG_DFL);
     signal(SIGTTOU, SIG_DFL);
     signal(SIGWINCH, SIG_DFL);
+
+    if (ctx->hook) {
+        (*ctx->hook)(ctx->thunk);
+    }
+
+    // Do this after the hook so that it sticks.
+    if (ctx->env) {
+        envp = (void *)n00b_make_cstr_array(ctx->env, NULL);
+    }
+
+    else {
+        envp = n00b_raw_envp();
+    }
 
     try_execve(ctx, argp, envp);
 }
@@ -534,9 +590,12 @@ _n00b_run_process(n00b_string_t *cmd,
                   bool           capture,
                   ...)
 {
+    n00b_list_t          *stdout_subs  = NULL;
+    n00b_list_t          *stderr_subs  = NULL;
     n00b_list_t          *env          = NULL;
     n00b_duration_t      *timeout      = NULL;
     n00b_post_fork_hook_t hook         = NULL;
+    struct termios       *termcap      = NULL;
     void                 *thunk        = NULL;
     bool                  pty          = false;
     bool                  raw_argv     = false;
@@ -544,17 +603,23 @@ _n00b_run_process(n00b_string_t *cmd,
     bool                  spawn        = false;
     bool                  merge_output = false;
     bool                  err_pty      = false;
+    bool                  handle_winch = true;
 
     n00b_karg_only_init(capture);
     n00b_kw_ptr("env", env);
+    n00b_kw_ptr("termcap", termcap);
     n00b_kw_ptr("timeout", timeout);
     n00b_kw_ptr("pre_exec_hook", hook);
     n00b_kw_ptr("hook_param", thunk);
+    n00b_kw_ptr("stdout_subs", stdout_subs);
+    n00b_kw_ptr("stderr_subs", stderr_subs);
     n00b_kw_bool("pty", pty);
     n00b_kw_bool("raw_argv", raw_argv);
     n00b_kw_bool("async", spawn);
     n00b_kw_bool("merge", merge_output);
     n00b_kw_bool("err_pty", err_pty);
+    n00b_kw_bool("run", run);
+    n00b_kw_bool("handle_win_size", handle_winch); // Only if pty is true.
 
     if (run && spawn) {
         N00B_CRAISE("Cannot both run and spawn.");
@@ -562,11 +627,32 @@ _n00b_run_process(n00b_string_t *cmd,
 
     n00b_proc_t *proc = n00b_gc_alloc_mapped(n00b_proc_t, N00B_GC_SCAN_ALL);
 
-    proc->pid   = -1;
-    proc->cmd   = cmd;
-    proc->args  = argv;
-    proc->hook  = hook;
-    proc->thunk = thunk;
+    proc->pid                 = -1;
+    proc->cmd                 = cmd;
+    proc->args                = argv;
+    proc->hook                = hook;
+    proc->thunk               = thunk;
+    proc->pending_stdout_subs = stdout_subs;
+    proc->pending_stderr_subs = stderr_subs;
+
+    if (termcap) {
+        proc->subproc_termcap = *termcap;
+    }
+    else {
+        n00b_termcap_get(&proc->subproc_termcap);
+        int clf = proc->subproc_termcap.c_lflag;
+
+        if (clf & ECHO) {
+            clf &= ~ECHO;
+        }
+        else {
+            clf |= ECHO;
+        }
+
+        proc->subproc_termcap.c_lflag = clf;
+    }
+
+    proc->subproc_termcap_ptr = &proc->subproc_termcap;
 
     n00b_raw_condition_init(&proc->cv);
 
@@ -581,11 +667,15 @@ _n00b_run_process(n00b_string_t *cmd,
     }
     if (pty) {
         proc->flags |= N00B_PROC_USE_PTY;
+        if (handle_winch) {
+            proc->flags |= N00B_PROC_HANDLE_WIN_SIZE;
+        }
     }
     if (raw_argv) {
         proc->flags |= N00B_PROC_RAW_ARGV;
     }
     if (err_pty) {
+        abort();
         proc->flags |= N00B_PROC_PTY_STDERR;
     }
 

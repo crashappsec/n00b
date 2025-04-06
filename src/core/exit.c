@@ -24,7 +24,6 @@ n00b_thread_exit(void *result)
     if (n00b_thread_run_count() == 1) {
         exit(saved_exit_code);
     }
-
     pthread_exit(result);
 }
 

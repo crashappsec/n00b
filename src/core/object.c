@@ -670,6 +670,34 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .mutable   = true,
 
     },
+    [N00B_T_SESSION] = {
+        .name      = "session",
+        .typeid    = N00B_T_SESSION,
+        .alloc_len = sizeof(n00b_session_t),
+        .vtable    = &n00b_session_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_SESSION_STATE] = {
+        .name      = "Session_state",
+        .typeid    = N00B_T_SESSION_STATE,
+        .alloc_len = sizeof(n00b_list_t),
+        .vtable    = &n00b_session_state_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_SESSION_TRIGGER] = {
+        .name      = "Trigger",
+        .typeid    = N00B_T_SESSION_TRIGGER,
+        .alloc_len = sizeof(n00b_trigger_t),
+        .vtable    = &n00b_session_trigger_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = false,
+    },
+
 };
 
 #if defined(N00B_GC_STATS) || defined(N00B_DEBUG)

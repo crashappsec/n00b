@@ -119,7 +119,9 @@ _n00b_lock_acquire(n00b_lock_t *l, char *file, int line)
 #endif
 
         n00b_gts_suspend();
-        pthread_mutex_lock(&l->lock);
+        if (!n00b_abort_signal) {
+            pthread_mutex_lock(&l->lock);
+        }
         n00b_gts_resume();
 
         n00b_lock_register(l);

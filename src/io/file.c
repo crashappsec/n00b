@@ -473,8 +473,13 @@ n00b_fd_prep_write(n00b_stream_t *party, void *msg)
     n00b_ev2_cookie_t *cookie = party->cookie;
 
     // Generally higher level filters should be converting strings
-    // so that we get a buffer here.
-    assert(n00b_type_is_buffer(t));
+    // so that we get a buffer here. But okay.
+    if (n00b_type_is_string(t)) {
+        msg = n00b_string_to_buffer(msg);
+    }
+    else {
+        assert(n00b_type_is_buffer(t));
+    }
 
     if (cookie->backlog && n00b_list_len(cookie->backlog) != 0) {
 add_to_backlog:
@@ -837,6 +842,12 @@ n00b_io_fd_eof(n00b_stream_t *f)
     int                fd     = cookie->id;
     fd_set             select_set;
 
+    int n = lseek(fd, 0, SEEK_CUR);
+    if (n == lseek(cookie->id, 0, SEEK_END)) {
+        return true;
+    }
+    lseek(fd, n, SEEK_SET);
+
     FD_ZERO(&select_set);
     FD_SET(fd, &select_set);
 
@@ -849,6 +860,29 @@ n00b_io_fd_eof(n00b_stream_t *f)
     return false;
 }
 
+bool
+n00b_io_seek(n00b_stream_t *s, bool relative, int position)
+{
+    n00b_ev2_cookie_t *cookie = s->cookie;
+    int                fd     = cookie->id;
+    int                whence = relative ? SEEK_CUR : SEEK_SET;
+
+    if (!relative && position < 0) {
+        return lseek(fd, 0, SEEK_END) != -1;
+    }
+
+    return lseek(fd, position, whence) != -1;
+}
+
+int
+n00b_io_tell(n00b_stream_t *s)
+{
+    n00b_ev2_cookie_t *cookie = s->cookie;
+    int                fd     = cookie->id;
+
+    return lseek(fd, 0, SEEK_CUR);
+}
+
 n00b_io_impl_info_t n00b_fileio_impl = {
     .open_impl           = (void *)n00b_io_fd_open,
     .subscribe_impl      = n00b_io_fd_subscribe,
@@ -859,6 +893,8 @@ n00b_io_impl_info_t n00b_fileio_impl = {
     .blocking_write_impl = n00b_io_fd_sync_write,
     .repr_impl           = n00b_io_fd_repr,
     .close_impl          = n00b_io_close,
+    .seek_impl           = n00b_io_seek,
+    .tell_impl           = n00b_io_tell,
     .use_libevent        = true,
     .byte_oriented       = true,
 };
@@ -943,4 +979,56 @@ n00b_read_utf8_file(n00b_string_t *path, bool lock)
     }
 
     return n00b_buf_to_utf8_string(b);
+}
+
+void
+n00b_stream_raw_fd_write(n00b_stream_t *s, n00b_buf_t *b)
+{
+    if (s->etype != n00b_io_ev_file && s->etype != n00b_io_ev_socket) {
+        N00B_CRAISE("Requires a stream using a file descriptor as an argument");
+    }
+
+    n00b_ev2_cookie_t *cookie = s->cookie;
+    int                total  = b->byte_len;
+    int                remain = total;
+    int                fd     = cookie->id;
+    char              *p      = b->data;
+
+    while (remain) {
+        int written = write(fd, p, total);
+        if (written == -1) {
+            if (errno == EAGAIN || errno == EINTR) {
+                continue;
+            }
+            n00b_raise_errno();
+        }
+        remain -= written;
+        p += written;
+    }
+}
+
+void
+n00b_stream_raw_fd_read(n00b_stream_t *s, n00b_buf_t *b)
+{
+    if (s->etype != n00b_io_ev_file && s->etype != n00b_io_ev_socket) {
+        N00B_CRAISE("Requires a stream using a file descriptor as an argument");
+    }
+
+    n00b_ev2_cookie_t *cookie = s->cookie;
+    int                total  = b->byte_len;
+    int                remain = total;
+    int                fd     = cookie->id;
+    char              *p      = b->data;
+
+    while (remain) {
+        int n = read(fd, p, total);
+        if (n == -1) {
+            if (errno == EAGAIN || errno == EINTR) {
+                continue;
+            }
+            n00b_raise_errno();
+        }
+        remain -= n;
+        p += n;
+    }
 }

@@ -8,9 +8,10 @@
 
 typedef pcre2_code n00b_regex_t;
 typedef struct {
-    int64_t      start;
-    int64_t      end;
-    n00b_list_t *captures;
+    n00b_string_t *input_string;
+    int64_t        start;
+    int64_t        end;
+    n00b_list_t   *captures;
 } n00b_match_t;
 
 extern pcre2_compile_context *n00b_pcre2_compile;
@@ -54,12 +55,18 @@ n00b_create_regex(n00b_string_t *s,
     return result;
 }
 
+static inline n00b_regex_t *
+n00b_regex_any_non_empty(void)
+{
+    return n00b_create_regex(n00b_cstring(".+"), false, false, false);
+}
+
 static inline n00b_match_t *
 n00b_match(n00b_regex_t *re, n00b_string_t *s)
 {
     n00b_list_t *l = n00b_regex_raw_match(re, s, 0, false, false, false);
 
-    if (n00b_list_len(l) == 0) {
+    if (!l || n00b_list_len(l) == 0) {
         return NULL;
     }
 

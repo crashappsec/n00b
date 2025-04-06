@@ -55,8 +55,6 @@ extern bool              n00b_string_starts_with(n00b_string_t *,
                                                  n00b_string_t *);
 extern bool              n00b_string_ends_with(n00b_string_t *,
                                                n00b_string_t *);
-extern bool              n00b_string_ends_with(n00b_string_t *,
-                                               n00b_string_t *);
 extern bool              n00b_string_from_file(n00b_string_t *, int *);
 extern int64_t           _n00b_string_find(n00b_string_t *,
                                            n00b_string_t *,
@@ -213,6 +211,7 @@ enum {
     N00B_STRCACHE_PIPE,
     N00B_STRCACHE_GT,
     N00B_STRCACHE_LT,
+    N00B_STRCACHE_ESC,
     N00B_STRCACHE_QUESTION_MARK,
     N00B_STRCACHE_TILDE,
     N00B_STRCACHE_ARROW,
@@ -427,6 +426,12 @@ static inline n00b_string_t *
 n00b_cached_lt(void)
 {
     return n00b_common_string_cache[N00B_STRCACHE_LT];
+}
+
+static inline n00b_string_t *
+n00b_cached_escape(void)
+{
+    return n00b_common_string_cache[N00B_STRCACHE_ESC];
 }
 
 static inline n00b_string_t *

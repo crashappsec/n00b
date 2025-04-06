@@ -4,7 +4,7 @@
 __attribute__((constructor)) void n00b_init(int, char **, char **);
 
 extern char **n00b_stashed_argv;
-extern char **n00b_stashed_envp;
+extern char **environ;
 
 static inline char **
 n00b_raw_argv(void)
@@ -15,7 +15,7 @@ n00b_raw_argv(void)
 static inline char **
 n00b_raw_envp(void)
 {
-    return n00b_stashed_envp;
+    return environ;
 }
 
 extern n00b_list_t   *n00b_get_program_arguments(void);

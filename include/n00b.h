@@ -138,3 +138,4 @@ typedef struct n00b_string_t n00b_string_t;
 #include "text/regex.h"
 
 #include "io/session.h"
+#include "util/testgen.h"

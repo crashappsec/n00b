@@ -54,6 +54,7 @@ n00b_io_signal_open(int64_t signal, n00b_io_impl_info_t *impl)
                                           signal,
                                           sighandle,
                                           result);
+        n00b_event_add(cookie->read_event, NULL);
         n00b_lock_release(&new->lock);
         return result;
     }
@@ -138,12 +139,12 @@ n00b_get_signal_name(int64_t signal)
         return n00b_cstring("SIGUSR1");
     case SIGUSR2:
         return n00b_cstring("SIGUSR2");
-#if !defined(__linux__)	
+#if !defined(__linux__)
     case SIGEMT:
         return n00b_cstring("SIGEMT");
     case SIGINFO:
         return n00b_cstring("SIGINFO");
-#endif	
+#endif
     default:
         N00B_CRAISE("Unknown signal");
     }
@@ -177,7 +178,7 @@ _n00b_io_register_signal_handler(int                 signal,
                                   n00b_cached_lbracket(),
                                   n00b_get_signal_name(signal),
                                   n00b_cached_rbracket()));
-    return n00b_io_subscribe_to_reads(ev, cb, a);
+    return n00b_io_subscribe_to_reads(ev, cb, NULL);
 }
 
 n00b_io_impl_info_t n00b_signal_impl = {

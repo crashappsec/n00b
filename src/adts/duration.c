@@ -1,5 +1,7 @@
 #include "n00b.h"
 
+#define NSEC_PER_SEC 1000000000
+
 n00b_duration_t *
 n00b_now(void)
 {
@@ -542,7 +544,7 @@ n00b_duration_diff(n00b_duration_t *t1, n00b_duration_t *t2)
     result->tv_sec  = b->tv_sec - l->tv_sec;
 
     if (result->tv_nsec < 0) {
-        result->tv_nsec += 1000000000;
+        result->tv_nsec += NSEC_PER_SEC;
         result->tv_sec -= 1;
     }
 
@@ -557,10 +559,23 @@ n00b_duration_add(n00b_duration_t *t1, n00b_duration_t *t2)
     result->tv_nsec = t1->tv_nsec + t2->tv_nsec;
     result->tv_sec  = t1->tv_sec + t2->tv_sec;
 
-    if (result->tv_nsec >= 1000000000) {
+    if (result->tv_nsec >= NSEC_PER_SEC) {
         result->tv_sec += 1;
-        result->tv_nsec -= 1000000000;
+        result->tv_nsec -= NSEC_PER_SEC;
     }
+
+    return result;
+}
+
+n00b_duration_t *
+n00b_duration_multiply(n00b_duration_t *d, double m)
+{
+    n00b_duration_t *result = n00b_new(n00b_type_duration());
+
+    int64_t p1       = (int64_t)(m * d->tv_nsec);
+    int64_t overflow = p1 / NSEC_PER_SEC;
+    result->tv_nsec  = p1 % NSEC_PER_SEC;
+    result->tv_sec   = overflow + (int64_t)(m * d->tv_sec);
 
     return result;
 }

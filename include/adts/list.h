@@ -84,4 +84,5 @@ extern n00b_list_t *n00b_from_cstr_list(char **arr, int64_t n);
 extern void n00b_list_add_if_unique(n00b_list_t *list,
                                     void        *item,
                                     bool (*fn)(void *, void *));
+extern void n00b_list_init(n00b_list_t *, va_list);
 #endif

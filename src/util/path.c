@@ -75,7 +75,10 @@ void *
 n00b_tempfile(n00b_string_t *prefix, n00b_string_t *suffix)
 {
     n00b_string_t *filename = construct_random_name(prefix, suffix);
-    return n00b_new(n00b_type_file(), filename, n00b_fm_rw);
+    return n00b_new(n00b_type_file(),
+                    filename,
+                    n00b_fm_rw,
+                    n00b_kw("allow_file_creation", n00b_ka(true)));
 }
 
 // This is private; it mutates the string, which we don't normally
@@ -760,4 +763,37 @@ on_success:
     }
 
     return result;
+}
+
+n00b_string_t *
+n00b_rename(n00b_string_t *from, n00b_string_t *to)
+{
+    from = n00b_resolve_path(from);
+    to   = n00b_resolve_path(to);
+
+    if (!n00b_file_exists(from)) {
+        N00B_CRAISE("Source file cannot be found");
+    }
+    if (n00b_file_exists(to)) {
+        n00b_list_t *parts = n00b_path_parts(to);
+
+        n00b_eprint(parts);
+
+        n00b_string_t *ext  = n00b_list_pop(parts);
+        n00b_string_t *base = n00b_path_join(parts);
+        int            i    = 0;
+
+        if (n00b_string_codepoint_len(ext)) {
+            ext = n00b_string_concat(n00b_cached_period(), ext);
+        }
+        do {
+            to = n00b_cformat("[|#|].[|#|][|#|]", base, ++i, ext);
+        } while (n00b_file_exists(to));
+    }
+
+    if (rename(from->data, to->data)) {
+        n00b_raise_errno();
+    }
+
+    return to;
 }

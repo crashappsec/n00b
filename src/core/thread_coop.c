@@ -8,7 +8,7 @@
 static _Atomic uint32_t                  coop_epoch = 0;
 static _Atomic n00b_global_thread_info_t gti;
 static _Atomic int                       gti_nesting_level = 0;
-static bool                              n00b_abort_signal = false;
+bool                                     n00b_abort_signal = false;
 
 const struct timespec gts_poll_interval = {
     .tv_sec  = 0,
@@ -193,7 +193,10 @@ n00b_gts_stop_the_world(void)
 
     if (tsi->thread_state == n00b_gts_stop) {
         n00b_assert(expected.state == n00b_gts_stop);
-        n00b_assert(expected.leader == self);
+        // Can happen during an abort.
+        if (expected.leader != self) {
+            _exit(0);
+        }
         atomic_fetch_add(&gti_nesting_level, 1);
         return;
     }
