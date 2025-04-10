@@ -499,6 +499,36 @@ static error_info_t error_info[] = {
         "hex characters after that.",
         false,
     },
+    [n00b_err_hex_eos] = {
+        n00b_err_hex_eos,
+        "hex_unfinished",
+        "Hex literal was not completed before reaching the end of the string.",
+        false,
+    },
+    [n00b_err_hex_missing] = {
+        n00b_err_hex_missing,
+        "hex_missing",
+        "Escape sequence indicated a hex literal, but no hex digits followed.",
+        false,
+    },
+    [n00b_err_hex_x] = {
+        n00b_err_hex_x,
+        "invalid_hex",
+        "«i»\\x«/» escapes in strings must be followed by two hex digits.",
+        false,
+    },
+    [n00b_err_hex_u] = {
+        n00b_err_hex_u,
+        "invalid_hex",
+        "«i»\\u«/» escapes in strings must be followed by four hex digits.",
+        false,
+    },
+    [n00b_err_hex_U] = {
+        n00b_err_hex_U,
+        "invalid_hex",
+        "«i»\\U«/» escapes in strings must be followed by four hex digits.",
+        false,
+    },
     [n00b_err_invalid_redeclaration] = {
         n00b_err_invalid_redeclaration,
         "invalid_redeclaration",

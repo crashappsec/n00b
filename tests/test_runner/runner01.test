@@ -1,0 +1,31 @@
+MERGE
+# @2025-04-21 11:24:35 PM -0400
+# This sets the width and height of the test terminal.
+SIZE 136:62
+# PROMPT will match a top-level process exiting
+PROMPT
+INJECT mkdir test\n
+PROMPT
+INJECT cd test\n
+PROMPT
+INJECT ls -l\n
+# Leave the following for an exact match of the core text below.
+# Change the verb to PATTERN to use an (unanchored) regexp.
+# ERR_ in front of a verb matches the error stream; otherwise, it
+# will match the output stream.
+EXPECT total 0\n
+PROMPT
+INJECT ln -s / foo\n
+PROMPT
+INJECT ls -l\n
+EXPECT total 0\n
+EXPECT foo -> /\n
+PROMPT
+INJECT rm foo\n
+PROMPT
+INJECT cd ..\n
+EXPECT \n
+PROMPT
+INJECT rmdir test\n
+EXPECT \n
+PROMPT

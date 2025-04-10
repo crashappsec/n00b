@@ -315,7 +315,7 @@ static inline n00b_type_t *
 n00b_type_get_param(n00b_type_t *t, int i)
 {
     if (t && t->items) {
-        return n00b_list_get(t->items, i, NULL);
+        return n00b_private_list_get(t->items, i, NULL);
     }
     else {
         return NULL;
@@ -727,6 +727,12 @@ n00b_type_table(void)
 }
 
 static inline n00b_type_t *
+n00b_type_regex(void)
+{
+    return n00b_bi_types[N00B_T_REGEX];
+}
+
+static inline n00b_type_t *
 n00b_type_session(void)
 {
     return n00b_bi_types[N00B_T_SESSION];
@@ -1008,6 +1014,16 @@ n00b_type_is_table(n00b_type_t *t)
     }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_TABLE;
+}
+
+static inline bool
+n00b_type_is_regex(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_REGEX;
 }
 
 static inline bool

@@ -244,7 +244,7 @@ n00b_getopt_default_usage(n00b_gopt_ctx      *ctx,
                                                   i,
                                                   NULL);
 
-            if (pr->penalty_rule || pr->cost || pr->link) {
+            if (pr->penalty_rule || pr->cost || pr->link || pr->thunk) {
                 continue;
             }
 

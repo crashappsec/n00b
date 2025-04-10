@@ -6,7 +6,13 @@
 
 #include "pcre2.h"
 
-typedef pcre2_code n00b_regex_t;
+// Laid out w/ the string repr first, so we can easily treat it like a
+// string when we need to (primarily when we go to hash it).
+typedef struct {
+    n00b_string_t repr;
+    pcre2_code   *regex;
+} n00b_regex_t;
+
 typedef struct {
     n00b_string_t *input_string;
     int64_t        start;
@@ -22,43 +28,33 @@ extern n00b_list_t           *n00b_regex_raw_match(n00b_regex_t *,
                                                    bool exact,
                                                    bool no_eol,
                                                    bool all);
+static inline n00b_regex_t *
+n00b_regex(n00b_string_t *s)
+{
+    return n00b_new(n00b_type_regex(), s);
+}
 
 static inline n00b_regex_t *
-n00b_create_regex(n00b_string_t *s,
-                  bool           anchored,
-                  bool           insensitive,
-                  bool           multiline)
+n00b_regex_unanchored(n00b_string_t *s)
 {
-    int           err;
-    PCRE2_SIZE    eoffset;
-    n00b_regex_t *result;
-    int           flags = PCRE2_ALLOW_EMPTY_CLASS | PCRE2_ALT_BSUX
-              | PCRE2_NEVER_BACKSLASH_C | PCRE2_UCP | PCRE2_NO_UTF_CHECK;
+    return n00b_new(n00b_type_regex(), s, n00b_kw("anchored", n00b_ka(false)));
+}
 
-    flags |= (PCRE2_ANCHORED * (int)anchored);
-    flags |= (PCRE2_CASELESS * (int)insensitive);
-    flags |= (PCRE2_MULTILINE * (int)multiline);
-
-    result = pcre2_compile((PCRE2_SPTR8)s->data,
-                           s->u8_bytes,
-                           flags,
-                           &err,
-                           &eoffset,
-                           n00b_pcre2_compile);
-
-    if (!result) {
-        PCRE2_UCHAR8 buf[N00B_PCRE2_ERR_LEN];
-        pcre2_get_error_message(err, buf, N00B_PCRE2_ERR_LEN);
-        N00B_RAISE(n00b_cstring(buf));
-    }
-
-    return result;
+static inline n00b_regex_t *
+n00b_regex_multiline(n00b_string_t *s, bool anchored)
+{
+    return n00b_new(n00b_type_regex(),
+                    s,
+                    n00b_kw("anchored",
+                            n00b_ka(anchored),
+                            "multiline",
+                            n00b_ka(true)));
 }
 
 static inline n00b_regex_t *
 n00b_regex_any_non_empty(void)
 {
-    return n00b_create_regex(n00b_cstring(".+"), false, false, false);
+    return n00b_regex(n00b_cstring(".+"));
 }
 
 static inline n00b_match_t *

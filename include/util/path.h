@@ -18,6 +18,7 @@ extern n00b_string_t *n00b_resolve_path(n00b_string_t *);
 extern n00b_string_t *n00b_path_tilde_expand(n00b_string_t *);
 extern n00b_string_t *n00b_get_user_dir(n00b_string_t *);
 extern n00b_string_t *n00b_get_current_directory(void);
+extern bool           n00b_set_current_directory(n00b_string_t *);
 extern n00b_string_t *n00b_path_join(n00b_list_t *);
 extern n00b_file_kind n00b_get_file_kind(n00b_string_t *);
 extern n00b_list_t   *_n00b_path_walk(n00b_string_t *, ...);
@@ -32,12 +33,60 @@ extern n00b_list_t   *n00b_find_command_paths(n00b_string_t *,
                                               n00b_list_t *,
                                               bool);
 extern n00b_string_t *n00b_rename(n00b_string_t *, n00b_string_t *);
+extern n00b_list_t   *n00b_path_parts(n00b_string_t *);
+extern n00b_list_t   *_n00b_list_directory(n00b_string_t *, ...);
+extern n00b_string_t *n00b_path_remove_extension(n00b_string_t *);
 
 // n00b_tempfile actually returns a n00b_stream_t * but it's not
 // defined here, so we'll just declare its return value void *
 extern void *n00b_tempfile(n00b_string_t *, n00b_string_t *);
 
-#define n00b_path_walk(x, ...) _n00b_path_walk(x, N00B_VA(__VA_ARGS__))
+static inline bool
+n00b_path_exists(n00b_string_t *s)
+{
+    return n00b_get_file_kind(s) != N00B_FK_NOT_FOUND;
+}
+
+static inline bool
+n00b_path_is_file(n00b_string_t *s)
+{
+    switch (n00b_get_file_kind(s)) {
+    case N00B_FK_IS_REG_FILE:
+    case N00B_FK_IS_FLINK:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool
+n00b_path_is_directory(n00b_string_t *s)
+{
+    switch (n00b_get_file_kind(s)) {
+    case N00B_FK_IS_DIR:
+    case N00B_FK_IS_DLINK:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool
+n00b_path_is_link(n00b_string_t *s)
+{
+    switch (n00b_get_file_kind(s)) {
+    case N00B_FK_IS_FLINK:
+    case N00B_FK_IS_DLINK:
+        return true;
+    default:
+        return false;
+    }
+}
+
+#define n00b_path_walk(x, ...) \
+    _n00b_path_walk(x, N00B_VA(__VA_ARGS__))
+#define n00b_list_directory(x, ...) \
+    _n00b_list_directory(x, N00B_VA(__VA_ARGS__))
 
 static inline n00b_string_t *
 n00b_find_first_command_path(n00b_string_t *s, n00b_list_t *l, bool self)
@@ -101,45 +150,13 @@ n00b_path_simple_join(n00b_string_t *p1, n00b_string_t *p2)
     return n00b_path_join(x);
 }
 
-static inline n00b_list_t *
-n00b_path_parts(n00b_string_t *p)
+static inline n00b_string_t *
+n00b_path_get_file(n00b_string_t *s)
 {
-    if (!p || !p->u8_bytes) {
-        return NULL;
-    }
+    s                  = n00b_path_trim_trailing_slashes(n00b_resolve_path(s));
+    n00b_list_t *parts = n00b_string_split(s, n00b_cached_slash());
 
-    n00b_list_t   *result   = n00b_list(n00b_type_string());
-    n00b_string_t *resolved = n00b_resolve_path(p);
-    n00b_string_t *filename;
-    int            n;
-
-    // A directory.
-    if (p->data[p->u8_bytes - 1] == '/'
-        || resolved->data[resolved->u8_bytes - 1] == '/') {
-        n00b_list_append(result, resolved);
-        n00b_list_append(result, n00b_cached_empty_string());
-        n00b_list_append(result, n00b_cached_empty_string());
-
-        return result;
-    }
-
-    n = n00b_string_rfind(resolved, n00b_cached_slash());
-
-    n00b_list_append(result, n00b_string_slice(resolved, 0, n));
-    filename = n00b_string_slice(resolved, n + 1, -1);
-
-    n = n00b_string_rfind(filename, n00b_cached_period());
-
-    if (n == -1) {
-        n00b_list_append(result, filename);
-        n00b_list_append(result, n00b_cached_empty_string());
-        return result;
-    }
-
-    n00b_list_append(result, n00b_string_slice(filename, 0, n));
-    n00b_list_append(result, n00b_string_slice(filename, n + 1, -1));
-
-    return result;
+    return n00b_list_pop(parts);
 }
 
 #ifdef N00B_USE_INTERNAL_API

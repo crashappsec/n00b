@@ -670,6 +670,15 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .mutable   = true,
 
     },
+    [N00B_T_REGEX] = {
+        .name      = "regex",
+        .typeid    = N00B_T_REGEX,
+        .alloc_len = sizeof(n00b_regex_t),
+        .vtable    = &n00b_regex_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
+        .mutable   = true,
+    },
     [N00B_T_SESSION] = {
         .name      = "session",
         .typeid    = N00B_T_SESSION,

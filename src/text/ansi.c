@@ -747,10 +747,16 @@ n00b_ansi_nodes_to_string(n00b_list_t *nodes, bool keep_control)
             case N00B_ANSI_TEXT:
                 break;
             case N00B_ANSI_C0_CODE:
-                if (node->ctrl.ctrl_byte == 0xa) {
+                switch (node->ctrl.ctrl_byte) {
+                case '\n':
                     n00b_list_append(pieces, n00b_cached_newline());
+                    continue;
+                case '\t':
+                    n00b_list_append(pieces, n00b_string_from_codepoint('\t'));
+                    continue;
+                default:
+                    continue;
                 }
-                continue;
             default:
                 continue;
             }

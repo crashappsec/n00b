@@ -15,8 +15,8 @@
 
 static n00b_string_t *n00b_assert_strs[NUM_ASSERTION_STRS];
 
-int
-n00b_show_assert_failure(char *expr, char *func, char *file, int line)
+void
+_n00b_show_assert_failure(char *expr, char *func, char *file, int line)
 {
     fprintf(stderr,
             "%s %s\n%s %s %s %s:%d",
@@ -33,6 +33,12 @@ n00b_show_assert_failure(char *expr, char *func, char *file, int line)
     n00b_static_c_backtrace();
 #endif
     fprintf(stderr, "\n");
+}
+
+int
+n00b_show_assert_failure(char *expr, char *func, char *file, int line)
+{
+    _n00b_show_assert_failure(expr, func, file, line);
     abort();
     return 0;
 }

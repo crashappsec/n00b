@@ -85,6 +85,8 @@ extern n00b_string_t    *n00b_to_literal(void *item);
 extern n00b_codepoint_t  n00b_codepoint_title_case(n00b_codepoint_t, bool *);
 extern n00b_string_t    *n00b_string_to_hex(n00b_string_t *, bool);
 extern n00b_string_t    *n00b_cstring_copy(char *);
+extern n00b_string_t    *n00b_string_unescape(n00b_string_t *, int *);
+extern n00b_string_t    *n00b_string_escape(n00b_string_t *);
 
 #define n00b_string_strip(s, ...) \
     _n00b_string_strip(s, N00B_VA(__VA_ARGS__))

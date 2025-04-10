@@ -42,6 +42,7 @@ typedef struct {
     n00b_buf_t           *cap_err;
     n00b_post_fork_hook_t hook;
     void                 *thunk;
+    struct winsize        dimensions;
     struct termios       *parent_termcap;
     struct termios       *subproc_termcap_ptr;
     struct termios        subproc_termcap;

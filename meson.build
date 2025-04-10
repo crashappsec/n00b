@@ -209,8 +209,7 @@ n00b_core = [
     'src/core/thread.c',        # Basic thread interface
     'src/core/thread_tsi.c',    # Internal API; thread specific data
     'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
-    'src/core/locks.c',         # Convenience wrapper around pthread locking
-    'src/core/lock_registry.c', # Support for helping manage deadlocks
+    'src/core/lock.c',     
 ]
 
 n00b_runtime = [
@@ -282,7 +281,11 @@ n00b_io = [
     'src/io/http.c',
     'src/io/proc.c',
     'src/io/debug.c',
-    'src/io/session.c',    
+    'src/io/session.c',
+    'src/io/session_control.c',
+    'src/io/session_capture.c',
+    'src/io/session_replay.c',
+    'src/io/session_states.c',
 ]
 
 n00b_compiler = [
@@ -324,16 +327,20 @@ n00b_util = [
     'src/util/assert.c',
     'src/util/memcheck.c',
     'src/util/deep_copy.c',
-    'src/util/testgen.c',    
+    'src/util/testgen.c',
+    'src/util/notify.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
 
-n00b_cmd = ['src/cmd/main.c',
-            'src/cmd/setup.c',
-            'src/cmd/compile.c',
-            'src/cmd/run.c',
-            'src/cmd/debug.c',
+n00b_cmd = [
+    'src/cmd/main.c',
+    'src/cmd/setup.c',
+    'src/cmd/compile.c',
+    'src/cmd/run.c',
+    'src/cmd/record.c',
+    'src/cmd/test.c',                        
+    'src/cmd/debug.c',
 ]
 
 

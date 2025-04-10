@@ -227,6 +227,7 @@ extern const n00b_vtable_t n00b_box_props_vtable;
 extern const n00b_vtable_t n00b_theme_vtable;
 extern const n00b_vtable_t n00b_string_vtable;
 extern const n00b_vtable_t n00b_table_vtable;
+extern const n00b_vtable_t n00b_regex_vtable;
 extern const n00b_vtable_t n00b_session_vtable;
 extern const n00b_vtable_t n00b_session_state_vtable;
 extern const n00b_vtable_t n00b_session_trigger_vtable;

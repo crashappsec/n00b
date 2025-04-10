@@ -120,3 +120,16 @@ n00b_stream_get_name(n00b_stream_t *stream)
 
     return file_info->name;
 }
+
+static inline int
+n00b_fileno(n00b_stream_t *stream)
+{
+    n00b_io_event_type t = stream->etype;
+
+    if (t != n00b_io_ev_file && t != n00b_io_ev_socket) {
+        return -1;
+    }
+    n00b_ev2_cookie_t *cookie = stream->cookie;
+
+    return (int)cookie->id;
+}

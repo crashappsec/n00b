@@ -7,9 +7,10 @@ struct n00b_thread_t {
     // This reserves space for MMM's use; the n00b_thread_t * is
     // transparently cast to it, so this must be first.
     mmm_thread_t mmm_info;
-    pthread_t    pthread_id;
+    void        *tsi;
     void        *base; // base pointer of stack
     void        *cur;  // current stack 'top'.
+    pthread_t    pthread_id;
 };
 
 // Global thread cooperation is going to happen w/o worrying about
@@ -74,6 +75,19 @@ extern void           n00b_thread_stack_region(n00b_thread_t *);
 extern n00b_thread_t *n00b_thread_register(void);
 extern void           n00b_thread_unregister(void *);
 extern n00b_thread_t *n00b_thread_spawn(void *(*)(void *), void *);
+extern void           n00b_thread_cancel_other_threads(void);
+
+static inline void
+n00b_thread_prevent_cancelation(void)
+{
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+}
+
+static inline void
+n00b_thread_async_cancelable(void)
+{
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+}
 
 typedef struct {
     void *(*true_cb)(void *);
@@ -87,7 +101,6 @@ typedef struct {
 extern void           n00b_threading_setup(void);
 extern n00b_thread_t *n00b_thread_list_acquire(void);
 extern void           n00b_thread_list_release(void);
-extern void           n00b_thread_unlock_all(void);
 extern bool           n00b_current_process_is_exiting(void);
 extern void           n00b_initialize_global_thread_info(void);
 extern n00b_thread_t *n00b_thread_find_by_pthread_id(pthread_t);

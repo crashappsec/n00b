@@ -5,6 +5,7 @@
 extern void n00b_terminal_dimensions(size_t *cols, size_t *rows);
 extern void n00b_termcap_apply_raw_mode(struct termios *termcap);
 extern void n00b_termcap_apply_app_defaults(struct termios *termcap);
+extern void n00b_termcap_apply_subshell_mode(struct termios *termcap);
 
 static inline size_t
 n00b_terminal_width(void)

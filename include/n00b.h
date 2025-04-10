@@ -65,6 +65,7 @@ typedef struct n00b_string_t n00b_string_t;
 #include "text/table.h"
 
 #include "util/sleep.h"
+#include "util/notify.h"
 
 // IO primitives.
 #include "io/term.h"

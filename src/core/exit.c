@@ -18,6 +18,8 @@ n00b_thread_exit(void *result)
         n00b_ioqueue_dont_block_callbacks();
     }
 
+    n00b_thread_cancel_other_threads();
+
     // This has a potential race condition, but given we always should
     // have an IO thread running until actual shutdown, I think it's
     // okay.
@@ -33,6 +35,7 @@ n00b_exit(int code)
     saved_exit_code = code;
     exiting         = true;
     n00b_io_begin_shutdown();
+    n00b_thread_cancel_other_threads();
     n00b_thread_exit(NULL);
 }
 
@@ -43,6 +46,7 @@ n00b_abort(void)
     exiting         = true;
     n00b_gts_notify_abort();
     n00b_io_begin_shutdown();
+    n00b_thread_cancel_other_threads();
     n00b_wait_for_io_shutdown();
     abort();
 }

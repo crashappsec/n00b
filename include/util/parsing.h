@@ -154,6 +154,8 @@ struct n00b_parse_rule_t {
     // generated rules for single token omission that respect that
     // fact (done to avoid cycles).
     bool               penalty_rule;
+    // User-defined info. Getopt uses it to hide intermediate productions.
+    void              *thunk;
 };
 
 struct n00b_rule_group_t {

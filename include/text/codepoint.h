@@ -2,12 +2,12 @@
 
 #include "n00b.h"
 
-#define n00b_codepoint_category(c)     utf8proc_category(c)
-#define n00b_codepoint_valid(c)        utf8proc_codepoint_valid(c)
-#define n00b_codepoint_lower(c)        utf8proc_tolower(c)
-#define n00b_codepoint_upper(c)        utf8proc_toupper(c)
-#define n00b_codepoint_width(c)        utf8proc_charwidth(c)
-#define n00b_codepoint_is_printable(c) (n00b_codepoint_width(c) != 0)
+#define n00b_codepoint_category(c)  utf8proc_category(c)
+#define n00b_codepoint_valid(c)     utf8proc_codepoint_valid(c)
+#define n00b_codepoint_lower(c)     utf8proc_tolower(c)
+#define n00b_codepoint_upper(c)     utf8proc_toupper(c)
+#define n00b_codepoint_width(c)     utf8proc_charwidth(c)
+#define n00b_codepoint_has_width(c) (n00b_codepoint_width(c) != 0)
 
 static inline bool
 n00b_codepoint_is_space(n00b_codepoint_t cp)
@@ -25,6 +25,22 @@ n00b_codepoint_is_space(n00b_codepoint_t cp)
         return true;
     default:
         return false;
+    }
+}
+
+static inline bool
+n00b_codepoint_is_printable(n00b_codepoint_t cp)
+{
+    switch (utf8proc_category(cp)) {
+    case UTF8PROC_CATEGORY_CC:
+    case UTF8PROC_CATEGORY_CF:
+    case UTF8PROC_CATEGORY_CS:
+        return false;
+    default:
+        if (n00b_codepoint_is_space(cp) && cp != ' ') {
+            return false;
+        }
+        return true;
     }
 }
 

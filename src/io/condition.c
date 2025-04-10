@@ -26,15 +26,20 @@ n00b_io_condition_notify(n00b_stream_t *ev, void *msg)
     if (cookie->signaled) {
         return NULL;
     }
+
+    n00b_condition_lock_acquire(&cookie->condition);
+
     n00b_printf("«em6»Signaling [|#:p|] ", cookie->condition);
     cookie->signaled = true;
 
     if (cookie->aux) {
-        n00b_condition_notify_one(cookie->condition, cookie->aux);
+        n00b_condition_notify_aux(cookie->condition, cookie->aux);
     }
     else {
-        n00b_condition_notify_one(cookie->condition, msg);
+        n00b_condition_notify_aux(cookie->condition, msg);
     }
+
+    n00b_condition_lock_release(&cookie->condition);
 
     return NULL;
 }

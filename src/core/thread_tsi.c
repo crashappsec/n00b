@@ -109,10 +109,20 @@ n00b_finish_main_thread_initialization(void)
     if (!threads_inited) {
         // turn on locking.
         n00b_push_heap(n00b_internal_heap);
-        n00b_setup_lock_registry(); // lock_registry.c
         n00b_pop_heap();
         n00b_gts_start();
         threads_inited = true;
+    }
+}
+
+static inline void
+n00b_thread_unlock_all(void)
+{
+    n00b_generic_lock_t *l = n00b_get_thread_locks();
+    while (l) {
+        n00b_generic_lock_t *next = l->prev_held;
+        n00b_lock_release_all(l);
+        l = next;
     }
 }
 
@@ -127,7 +137,6 @@ n00b_tsi_cleanup(void *arg)
     int size    = n00b_round_up_to_given_power_of_2(page_sz,
                                                  sizeof(n00b_tsi_t));
 
-    N00B_DEBUG_HELD_LOCKS();
     n00b_thread_unlock_all();
 
     // Thread string heaps are only set up if used.
@@ -145,6 +154,20 @@ n00b_tsi_cleanup(void *arg)
     mprotect(tsi, size, PROT_NONE);
 #endif
     munmap(tsi, size);
+}
+
+void
+n00b_thread_cancel_other_threads(void)
+{
+    n00b_thread_t *self = n00b_thread_self();
+
+    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
+        n00b_thread_t *t = atomic_read(&n00b_global_thread_list[i]);
+        if (!t || t == self) {
+            continue;
+        }
+        pthread_cancel(t->pthread_id);
+    }
 }
 
 static pthread_once_t tsi_initialized = PTHREAD_ONCE_INIT;

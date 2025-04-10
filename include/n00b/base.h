@@ -26,6 +26,7 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <poll.h>
+#include <util.h>
 
 #include <sys/select.h>
 #include <sys/types.h>

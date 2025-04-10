@@ -16,10 +16,6 @@ n00b_list_init(n00b_list_t *list, va_list args)
 
     n00b_rw_lock_init(&list->lock);
 
-    // Asserts the lock is never around code that would wait long
-    // enough to impair the GC.
-    n00b_rw_lock_set_nosleep(&list->lock);
-
     n00b_type_t *t = n00b_get_my_type(list);
 
     if (n00b_type_requires_gc_scan(n00b_type_get_param(t, 0))) {
@@ -66,7 +62,7 @@ list_auto_resize(n00b_list_t *list)
 
 #define lock_list(x)   n00b_lock_list(x)
 #define unlock_list(x) n00b_unlock_list(x)
-#define read_start(x)  n00b_rw_lock_acquire_for_read(&x->lock, true)
+#define read_start(x)  n00b_rw_lock_acquire_for_read(&x->lock)
 #define read_end(x)    n00b_rw_lock_release(&x->lock)
 
 bool
@@ -233,7 +229,6 @@ void *
 n00b_private_list_pop(n00b_list_t *list)
 {
     if (list->append_ix == 0) {
-        unlock_list(list);
         return NULL;
     }
 

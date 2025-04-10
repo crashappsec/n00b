@@ -1,18 +1,27 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static inline void
-copy_window_size_to_fd(int fd)
+void
+n00b_proc_proxy_winch(n00b_proc_t *ctx)
 {
-    struct winsize ws;
-    ioctl(1, TIOCGWINSZ, &ws);
-    ioctl(fd, TIOCSWINSZ, &ws);
+    int fd;
+
+    ioctl(1, TIOCGWINSZ, &ctx->dimensions);
+    if (ctx->subproc_stdout) {
+        fd = n00b_fileno(ctx->subproc_stdout);
+        ioctl(fd, TIOCSWINSZ, &ctx->dimensions);
+    }
+
+    if (ctx->subproc_stderr) {
+        fd = n00b_fileno(ctx->subproc_stderr);
+        ioctl(fd, TIOCSWINSZ, &ctx->dimensions);
+    }
 }
 
 static void
-n00b_handle_winch(n00b_stream_t *sig, int64_t signal, int64_t fd)
+n00b_handle_winch(n00b_stream_t *sig, int64_t signal, n00b_proc_t *ctx)
 {
-    copy_window_size_to_fd(fd);
+    n00b_proc_proxy_winch(ctx);
 }
 
 static void
@@ -77,9 +86,10 @@ setup_exit_obj(n00b_proc_t *ctx)
     }
 
     n00b_stream_t *result   = n00b_pid_monitor(ctx->pid, l);
-    n00b_stream_t *callback = n00b_callback_open((void *)proc_exited, ctx);
+    n00b_stream_t *callback = n00b_callback_open((void *)proc_exited,
+                                                 ctx,
+                                                 n00b_cstring("wait4 exit"));
 
-    n00b_io_set_repr(callback, n00b_cstring("exit (wait4 return)"));
     n00b_io_subscribe(result, callback, NULL, n00b_io_sk_read);
 
     return result;
@@ -278,10 +288,6 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     if (pid != 0) {
         ctx->pid = pid;
 
-        close_read_side(proxy_in, stdin_pipe);
-        close_write_side(proxy_out, stdout_pipe);
-        close_write_side(proxy_err, stderr_pipe);
-
         if (proxy_in) {
             ctx->subproc_stdin = n00b_fd_open(stdin_pipe[1]);
             n00b_io_set_repr(ctx->subproc_stdin,
@@ -340,25 +346,28 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     try_execve(ctx, argp, envp);
 }
 
+// I was using this to proxy stderr writes, but might actually need to
+// run it in reverse to copy input into stderr.  In that case, we will
+// also need to periodically tcflush() the queue for it to have a
+// chance in heck of working at all.
+//
+// Otherwise, will just nix this, and the '+err' mode will be "use at
+// your own risk".
+#if 0
 static inline void
 run_stderr_proxy(void)
 {
-    struct termios err_term;
+    fd_set fdset;
+    FD_ZERO(&fdset);
 
-    tcgetattr(0, &err_term);
-
-    err_term.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON | IXANY);
-    err_term.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-    err_term.c_cflag &= ~(CSIZE | PARENB);
-
-    tcsetattr(0, TCSANOW, &err_term);
+    int flags = fcntl(0, F_GETFL) | O_NONBLOCK;
+    fcntl(0, F_SETFL, flags);
 
     while (true) {
-        // The error 'terminal' will get the subproc's
-        // stdin as its
+        FD_SET(0, &fdset);
+        select(0, &fdset, NULL, NULL, NULL);
         char    buf[PIPE_BUF];
         ssize_t len = read(0, buf, PIPE_BUF);
-
         switch (len) {
         case -1:
             if (errno == EAGAIN || errno == EINTR) {
@@ -373,9 +382,11 @@ run_stderr_proxy(void)
             break;
         }
 
-        char *p = buf;
+        char *p = &buf[0];
+
         while (len) {
             ssize_t w = write(1, p, len);
+
             if (w == -1) {
                 if (errno == EAGAIN || errno == EINTR) {
                     continue;
@@ -388,6 +399,21 @@ run_stderr_proxy(void)
         }
     }
 }
+#endif
+
+static void
+should_exit_via_sig(n00b_stream_t *sig, int64_t signal, n00b_proc_t *ctx)
+{
+    n00b_condition_lock_acquire(&ctx->cv);
+    n00b_close(ctx->subproc_stdin);
+    n00b_close(ctx->subproc_stdout);
+    n00b_close(ctx->subproc_stderr);
+    ctx->exited = true;
+    if (ctx->wait_for_exit) {
+        n00b_condition_notify_all(&ctx->cv);
+    }
+    n00b_condition_lock_release(&ctx->cv);
+}
 
 static inline void
 proc_spawn_with_tty(n00b_proc_t *ctx)
@@ -395,112 +421,156 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     struct winsize  wininfo;
     struct termios *term_ptr = ctx->subproc_termcap_ptr;
     struct winsize *win_ptr  = &wininfo;
-    bool            proxy_in = ctx->flags & N00B_PROC_STDIN_MASK;
-    bool            use_err  = ctx->flags & N00B_PROC_PTY_STDERR;
-    int             stdin_pipe[2];
+    bool            use_aux  = ctx->flags & N00B_PROC_PTY_STDERR;
     int             pty_fd;
     pid_t           pid;
-    int             err_fd;
-    pid_t           err_pid;
+    int             aux_fd;
     char          **argp;
     char          **envp;
 
+    n00b_io_register_signal_handler(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    n00b_io_register_signal_handler(SIGPIPE, (void *)should_exit_via_sig, ctx);
+
     pre_launch_prep(ctx, &argp);
-    tcgetattr(0, &ctx->initial_termcap);
 
-    open_pipe(true, stdin_pipe);
-
-    if (n00b_is_tty(n00b_stdin())) {
+    if (!n00b_is_tty(n00b_stdin())) {
         win_ptr = NULL;
     }
     else {
         ioctl(0, TIOCGWINSZ, win_ptr);
     }
 
-    if (use_err) {
+    int subproc_aux;
+    int subproc_fd;
+    int flags = fcntl(0, F_GETFL) | O_NONBLOCK;
+
+    if (openpty(&pty_fd, &subproc_fd, NULL, term_ptr, win_ptr)) {
+        n00b_raise_errno();
+    }
+
+    if (use_aux) {
         // If the user asks for a separate stderr, we need to make
         // sure stderr is actually attached to a TTY; bash doesn't
         // like it if it's not (when passing down a dup'd fd instead,
         // somewhat common stuff breaks).
         //
-        // Here, we set up a process to proxy stderr; it'll take
-        // anything it gets on stdin, and writes it to stdout.
+        // However, for whatever reason, `more` will hang waiting for
+        // input unless I put stdin and stderr on the same TTY. I
+        // believe it opens stderr's tty and waits for reads from it.
         //
-        // Its stdin will be attached to the true subproc's stderr.
-        // The read side will be handled in-process (and we write to
-        // stdout... it really doesn't matter, the pty combines stdout
-        // and stderr for each single terminal... our original
-        // problem).
-        //
-        // Hopefully nothing realizes that stderr and stdout are
-        // connected to *different* terminals. The issues I was seeing
-        // were essentially barfing because there was a call to
-        // isatty(2), so this *should* work out okay.
-        err_pid = forkpty(&err_fd, NULL, term_ptr, win_ptr);
+        // Right now, the below seems to work pretty well. But if
+        // something makes the same assumption about stdout, then we
+        // can write a little input proxy.
+        openpty(&aux_fd, &subproc_aux, NULL, term_ptr, win_ptr);
 
-        if (err_pid == 0) {
-            run_stderr_proxy();
-        }
-        else {
-            copy_window_size_to_fd(err_fd);
-            if (ctx->flags & N00B_PROC_HANDLE_WIN_SIZE) {
-                n00b_io_register_signal_handler(SIGWINCH,
-                                                (void *)n00b_handle_winch,
-                                                err_fd);
-            }
-        }
+        ctx->subproc_stderr = n00b_fd_open(aux_fd);
     }
 
-    pid = forkpty(&pty_fd, NULL, term_ptr, win_ptr);
+    int pmain[2];
 
-    int flags = fcntl(pty_fd, F_GETFL) | O_NONBLOCK;
-    fcntl(pty_fd, F_SETFL, flags);
+    if (pipe(pmain)) {
+        n00b_raise_errno();
+    }
 
+    pid = fork();
+
+    if (pid < 0) {
+        n00b_raise_errno();
+    }
+
+    int err_code;
     if (pid != 0) {
-        ctx->pid            = pid;
-        ctx->subproc_stdout = n00b_fd_open(pty_fd);
-        ctx->subproc_stdin  = ctx->subproc_stdout;
+        close(subproc_fd);
+        close(pmain[1]);
 
-        if (use_err) {
-            ctx->subproc_stderr = n00b_fd_open(err_fd);
+        if (read(pmain[0], &err_code, sizeof(err_code)) > 0) {
+            int status;
+            waitpid(pid, &status, 0);
+            pid   = -1;
+            errno = err_code;
+            close(pmain[0]);
+            n00b_raise_errno();
         }
+        close(pmain[0]);
 
+        ctx->pid = pid;
+        if (use_aux) {
+            ctx->subproc_stdout = ctx->subproc_stderr;
+            ctx->subproc_stderr = n00b_fd_open(pty_fd);
+            ctx->subproc_stdin  = ctx->subproc_stderr;
+        }
+        else {
+            ctx->subproc_stdout = n00b_fd_open(pty_fd);
+            ctx->subproc_stdin  = ctx->subproc_stdout;
+        }
         n00b_io_set_repr(ctx->subproc_stdin,
                          n00b_cformat("«#»«#» pty«#»",
                                       n00b_cached_lbracket(),
                                       ctx->cmd,
                                       n00b_cached_rbracket()));
 
-        close_read_side(proxy_in, stdin_pipe);
         post_spawn_subscription_setup(ctx);
 
-        if (ctx->parent_termcap) {
-            n00b_termcap_set(ctx->parent_termcap);
+        if (ctx->subproc_termcap_ptr) {
+            n00b_termcap_set(ctx->subproc_termcap_ptr);
         }
 
-        copy_window_size_to_fd(pty_fd);
         if (ctx->flags & N00B_PROC_HANDLE_WIN_SIZE) {
+            n00b_proc_proxy_winch(ctx);
             n00b_io_register_signal_handler(SIGWINCH,
                                             (void *)n00b_handle_winch,
-                                            pty_fd);
+                                            ctx);
         }
+
+        fcntl(pty_fd, F_SETFL, flags);
+
+        if (use_aux) {
+            close(subproc_aux);
+            fcntl(aux_fd, F_SETFL, flags);
+        }
+
+        n00b_unbuffer_stdin();
+        n00b_unbuffer_stdout();
+        n00b_unbuffer_stderr();
 
         return;
     }
 
-    if (use_err) {
-        dup2(err_fd, 2);
+    close(pty_fd);
+
+    if (use_aux) {
+        close(aux_fd);
+    }
+    close(pmain[0]);
+
+    setsid();
+
+    if (ioctl(subproc_fd, TIOCSCTTY, 0)) {
+        write(pmain[1], &errno, sizeof(errno));
+        _exit(127);
     }
 
-    if (close_write_side(proxy_in, stdin_pipe)) {
-        dup2(stdin_pipe[0], 0);
+    close(pmain[1]);
+
+    dup2(subproc_fd, 0);
+    if (use_aux) {
+        dup2(subproc_fd, 2);
+        dup2(subproc_aux, 1);
+        if (subproc_aux > 2) {
+            close(subproc_aux);
+        }
+    }
+    else {
+        dup2(subproc_fd, 1);
+        dup2(subproc_fd, 2);
+    }
+    if (subproc_fd > 2) {
+        close(subproc_fd);
     }
 
-    close_write_side(proxy_in, stdin_pipe);
-
-    setvbuf(stderr, NULL, _IONBF, (size_t)0);
-    setvbuf(stdout, NULL, _IONBF, (size_t)0);
-    setvbuf(stdin, NULL, _IONBF, (size_t)0);
+    n00b_unbuffer_stdin();
+    n00b_unbuffer_stdout();
+    n00b_unbuffer_stderr();
 
     signal(SIGHUP, SIG_DFL);
     signal(SIGINT, SIG_DFL);
@@ -523,7 +593,6 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     if (ctx->hook) {
         (*ctx->hook)(ctx->thunk);
     }
-
     // Do this after the hook so that it sticks.
     if (ctx->env) {
         envp = (void *)n00b_make_cstr_array(ctx->env, NULL);
@@ -574,6 +643,7 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
         N00B_CRAISE("Cannot spawn; no command set.");
     }
 
+    n00b_condition_lock_acquire(&(ctx->cv));
     n00b_condition_wait(&(ctx->cv), n00b_proc_spawn(ctx));
     n00b_condition_lock_release(&(ctx->cv));
 }
@@ -601,7 +671,7 @@ _n00b_run_process(n00b_string_t *cmd,
     bool                  raw_argv     = false;
     bool                  run          = true;
     bool                  spawn        = false;
-    bool                  merge_output = false;
+    bool                  merge_output = true;
     bool                  err_pty      = false;
     bool                  handle_winch = true;
 
@@ -635,26 +705,18 @@ _n00b_run_process(n00b_string_t *cmd,
     proc->pending_stdout_subs = stdout_subs;
     proc->pending_stderr_subs = stderr_subs;
 
+    tcgetattr(0, &proc->initial_termcap);
+    proc->parent_termcap = &proc->initial_termcap;
+
     if (termcap) {
-        proc->subproc_termcap = *termcap;
+        proc->subproc_termcap     = *termcap;
+        proc->subproc_termcap_ptr = &proc->subproc_termcap;
     }
     else {
-        n00b_termcap_get(&proc->subproc_termcap);
-        int clf = proc->subproc_termcap.c_lflag;
-
-        if (clf & ECHO) {
-            clf &= ~ECHO;
-        }
-        else {
-            clf |= ECHO;
-        }
-
-        proc->subproc_termcap.c_lflag = clf;
+        proc->subproc_termcap_ptr = NULL;
     }
 
-    proc->subproc_termcap_ptr = &proc->subproc_termcap;
-
-    n00b_raw_condition_init(&proc->cv);
+    n00b_condition_init(&proc->cv);
 
     if (capture) {
         proc->flags = N00B_PROC_CAP_ALL;
@@ -675,7 +737,6 @@ _n00b_run_process(n00b_string_t *cmd,
         proc->flags |= N00B_PROC_RAW_ARGV;
     }
     if (err_pty) {
-        abort();
         proc->flags |= N00B_PROC_PTY_STDERR;
     }
 

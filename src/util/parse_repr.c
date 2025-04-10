@@ -51,7 +51,7 @@ n00b_string_t *
 n00b_repr_term(n00b_grammar_t *grammar, int64_t id)
 {
     if (id < N00B_START_TOK_ID) {
-        if (n00b_codepoint_is_printable(id)) {
+        if (n00b_codepoint_has_width(id)) {
             char buf[10] = {
                 '\'',
             };

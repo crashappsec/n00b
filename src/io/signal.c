@@ -170,14 +170,13 @@ _n00b_io_register_signal_handler(int                 signal,
     va_list arg;
     va_start(arg, fn);
 
-    void          *a  = va_arg(arg, void *);
-    n00b_stream_t *ev = n00b_io_get_signal_event(signal);
-    n00b_stream_t *cb = n00b_callback_open(fn, a);
-    n00b_io_set_repr(cb,
-                     n00b_cformat("«#»«#» handler«#»",
-                                  n00b_cached_lbracket(),
-                                  n00b_get_signal_name(signal),
-                                  n00b_cached_rbracket()));
+    void          *a    = va_arg(arg, void *);
+    n00b_stream_t *ev   = n00b_io_get_signal_event(signal);
+    n00b_string_t *name = n00b_cformat("«#»«#» handler«#»",
+                                       n00b_cached_lbracket(),
+                                       n00b_get_signal_name(signal),
+                                       n00b_cached_rbracket());
+    n00b_stream_t *cb   = n00b_callback_open(fn, a, name);
     return n00b_io_subscribe_to_reads(ev, cb, NULL);
 }
 

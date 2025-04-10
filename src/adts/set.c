@@ -18,6 +18,7 @@ n00b_set_init(n00b_set_t *set, va_list args)
         hash_fn = HATRACK_DICT_KEY_TYPE_OBJ_PTR;
         break;
     case N00B_T_STRING:
+    case N00B_T_REGEX:
         custom_hash = (hatrack_hash_func_t)n00b_custom_string_hash;
         break;
     default:

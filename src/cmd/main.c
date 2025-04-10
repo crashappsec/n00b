@@ -20,6 +20,9 @@ resolve_paths(n00b_list_t *args)
 static int
 get_cmd_id(n00b_string_t *cmd)
 {
+    if (!cmd->codepoints) {
+        return N00B_CMD_REPL;
+    }
     if (n00b_string_eq(cmd, n00b_cstring("compile"))) {
         return N00B_CMD_COMPILE;
     }
@@ -29,8 +32,16 @@ get_cmd_id(n00b_string_t *cmd)
     if (n00b_string_eq(cmd, n00b_cstring("run"))) {
         return N00B_CMD_RUN;
     }
-
-    return N00B_CMD_REPL;
+    if (n00b_string_eq(cmd, n00b_cstring("record"))) {
+        return N00B_CMD_RECORD;
+    }
+    if (n00b_string_eq(cmd, n00b_cstring("test"))) {
+        return N00B_CMD_TEST;
+    }
+    if (n00b_string_eq(cmd, n00b_cstring("test.show"))) {
+        return N00B_CMD_TEST_SHOW;
+    }
+    n00b_unreachable();
 }
 
 static inline void
@@ -161,7 +172,7 @@ regex_test(n00b_buf_t *b)
 {
     n00b_string_t *s   = n00b_utf8(b->data, b->byte_len);
     n00b_string_t *pat = n00b_cstring("\\[34m([a-zA-Z_.]*)\\^\\[.*m");
-    n00b_regex_t  *re  = n00b_create_regex(pat, false, false, false);
+    n00b_regex_t  *re  = n00b_regex_unanchored(pat);
     n00b_list_t   *l   = n00b_match_all(re, s);
 
     for (int i = 0; i < n00b_list_len(l); i++) {
@@ -200,7 +211,6 @@ session_test(void)
     n00b_printf("[|h6|]Extracted commands: [|p|]\n[|#|]", cmds);
     n00b_printf("[|h6|]Done with extraction!");
     */
-    n00b_testgen_record(n00b_cstring("testcase.cap10"));
 }
 
 void
@@ -309,6 +319,8 @@ tmp_testing(void)
 int
 main(int argc, char **argv, char **envp)
 {
+    //    n00b_show_write_log = true;
+
     n00b_gopt_result_t *opt_res = n00b_basic_setup(argc, argv, envp);
     n00b_cmdline_ctx   *ctx     = n00b_gc_alloc_mapped(n00b_cmdline_ctx,
                                                  N00B_GC_SCAN_ALL);
@@ -323,16 +335,13 @@ main(int argc, char **argv, char **envp)
     ctx->cmd_parse = opt_res ? opt_res->tree : NULL;
     ctx->exit_code = 0;
 
-    if (ctx->cmd) {
-        ctx->args = resolve_paths(n00b_gopt_get_args(opt_res, ctx->cmd));
+    if (opt_res) {
+        ctx->args = n00b_gopt_get_args(opt_res, ctx->cmd);
     }
 
     if (opt_res && opt_res->tree) {
         //        n00b_eprint(n00b_grammar_format(opt_res->debug->grammar));
         //        n00b_eprint(n00b_parse_tree_format(opt_res->tree));
-    }
-    else {
-        printf("DOH!\n");
     }
 
     if (!n00b_cmd_quiet(ctx)) {
@@ -355,15 +364,30 @@ main(int argc, char **argv, char **envp)
 
     switch (get_cmd_id(ctx->cmd)) {
     case N00B_CMD_RUN:
+        ctx->args = resolve_paths(ctx->args);
         n00b_compile_and_run(ctx);
         break;
     case N00B_CMD_COMPILE:
+        ctx->args = resolve_paths(ctx->args);
         n00b_compile(ctx, true);
         break;
     case N00B_CMD_REPL:
-        tmp_testing();
+        // tmp_testing();
         n00b_eprintf("«em2»Interactive mode is not implemented yet.");
         ctx->exit_code = N00B_NOT_DONE;
+        break;
+    case N00B_CMD_RECORD:
+        n00b_record_testcase(ctx);
+        n00b_exit(ctx->exit_code);
+        break;
+    case N00B_CMD_TEST:
+        n00b_run_tests(ctx);
+        n00b_exit(ctx->exit_code);
+    case N00B_CMD_TEST_SHOW:
+        n00b_show_tests(ctx);
+        n00b_exit(0);
+    default:
+        n00b_unreachable();
     }
 
     n00b_show_cmdline_debug_info(ctx);

@@ -4,285 +4,181 @@
 extern bool n00b_is_world_stopped(void);
 extern bool n00b_abort_signal;
 
-typedef struct n00b_lock_record_t n00b_lock_record_t;
+// Must be a power of 2.
+#define N00B_LOCK_DEBUG_RING  8
+#define N00B_LOCK_MAX_READERS 32
 
-struct n00b_lock_record_t {
-    char               *file;
-    int                 line;
-    bool                unlock;
-    bool                all;
-    n00b_lock_record_t *prev;
-};
+// All locks use the same header, so the debugigng can iterate and
+// print info specific to the kind.
 
-typedef struct n00b_lock_t {
-    pthread_mutex_t     lock;
-    void               *thread;
-    unsigned int        level   : 31;
-    unsigned int        nosleep : 1;
-    int                 slot;
-    n00b_lock_record_t *locks;
-} n00b_lock_t;
-
-typedef struct n00b_condition_t {
-    n00b_lock_t    lock;
-    pthread_cond_t cv;
-    void          *aux;
-    void          *extra; // User-defined.
-    void (*cb)(void *);   // Callback called before signaling.
-} n00b_condition_t;
+typedef enum {
+    N00B_LK_MUTEX,
+    N00B_LK_RWLOCK,
+    N00B_LK_CONDITION,
+} n00b_lock_kind;
 
 typedef struct {
-    int pipe[2];
-} n00b_notifier_t;
+    char *file;
+    int   line;
+} n00b_lock_record_t;
 
-extern n00b_notifier_t *n00b_new_notifier(void);
-extern int64_t          n00b_wait(n00b_notifier_t *, int);
+typedef struct {
+    void              *next_held;
+    void              *prev_held;
+    void              *thread;
+    int                level;
+    n00b_lock_kind     kind;
+    // Debug stuff.
+    char              *debug_name;
+    n00b_lock_record_t alloc_info;
+    n00b_lock_record_t lock_info[N00B_LOCK_DEBUG_RING];
+    uint8_t            walked : 1;
+    uint8_t            inited : 1;
+    void              *lock[0];
+} n00b_generic_lock_t;
 
-typedef struct n00b_rw_lock_t {
-    pthread_rwlock_t    lock;
-    void               *thread; // Thread holding the write lock.
-    unsigned int        level   : 31;
-    unsigned int        nosleep : 1;
-    n00b_lock_record_t *locks;
-} n00b_rw_lock_t;
+typedef struct n00b_mutex_t {
+    n00b_generic_lock_t info;
+    pthread_mutex_t     lock;
+} n00b_mutex_t;
 
-extern n00b_heap_t *n00b_internal_heap;
+typedef n00b_mutex_t n00b_lock_t;
 
-#define base_new_lock_record(lock, f, lineno)                         \
-    n00b_push_heap(n00b_internal_heap);                               \
-    n00b_lock_record_t *lr = n00b_gc_alloc_mapped(n00b_lock_record_t, \
-                                                  N00B_GC_SCAN_ALL);  \
-    n00b_pop_heap();                                                  \
-    lr->prev    = lock->locks;                                        \
-    lock->locks = lr;                                                 \
-    lr->file    = f;                                                  \
-    lr->line    = lineno;
+extern void _n00b_lock_init(n00b_lock_t *, char *, char *, int);
+extern bool _n00b_lock_acquire_if_unlocked(n00b_lock_t *, char *, int);
+extern void _n00b_lock_acquire_raw(n00b_lock_t *, char *, int);
+extern void _n00b_lock_acquire(n00b_lock_t *, char *, int);
+extern void n00b_mutex_release(n00b_lock_t *);
+extern void n00b_mutex_release_all(n00b_lock_t *);
 
-#define n00b_add_lock_record(lock, f, lineno) \
-    base_new_lock_record(lock, f, lineno);    \
-    lr->unlock = false;
-
-#define n00b_add_unlock_record(lock, f, lineno) \
-    base_new_lock_record(lock, f, lineno);      \
-    lr->unlock = true;
-
-#define n00b_add_unlock_all_record(lock, f, lineno) \
-    base_new_lock_record(lock, f, lineno);          \
-    lr->unlock = true;                              \
-    lr->all    = true;
-
-#define n00b_clear_lock_records(lock) \
-    lock->locks = NULL
-
-extern void n00b_raw_lock_init(n00b_lock_t *);
-extern void n00b_raw_condition_init(n00b_condition_t *c);
-extern bool _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *, int);
-extern void _n00b_lock_acquire_raw(n00b_lock_t *l, char *, int);
-extern void _n00b_lock_acquire(n00b_lock_t *l, char *, int);
-extern void _n00b_lock_release(n00b_lock_t *l, char *, int);
-extern void n00b_lock_release_all(n00b_lock_t *l);
-extern void n00b_gts_suspend(void);
-extern void n00b_gts_resume(void);
-extern bool n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *, bool);
-
+#define n00b_lock_init(ptr) \
+    _n00b_lock_init(ptr, NULL, __FILE__, __LINE__)
+#define n00b_named_lock_init(l, n) \
+    _n00b_lock_init(l, n, __FILE__, __LINE__)
 #define n00b_lock_acquire_if_unlocked(l) \
     _n00b_lock_acquire_if_unlocked(l, __FILE__, __LINE__)
 #define n00b_lock_acquire_raw(l) \
     _n00b_lock_acquire_raw(l, __FILE__, __LINE__)
 #define n00b_lock_acquire(l) \
     _n00b_lock_acquire(l, __FILE__, __LINE__)
-#define n00b_lock_release(l) _n00b_lock_release(l, __FILE__, __LINE__)
 
-static inline void
-n00b_lock_set_nosleep(n00b_lock_t *l)
-{
-    l->nosleep = true;
-}
+typedef struct {
+    char *file;
+    int   line;
+    int   level;
+    void *thread;
+} n00b_rw_reader_record_t;
 
-static inline void
-n00b_notify(n00b_notifier_t *n, uint64_t value)
-{
-top:
-    switch (write(n->pipe[1], &value, sizeof(uint64_t))) {
-    case -1:
-        if (errno == EINTR || errno == EAGAIN) {
-            goto top;
-        }
-        abort(); // should be unreachable
-    case sizeof(uint64_t):
-        return;
-    default:
-        abort(); // should be unreachable.
-    }
-}
+typedef struct n00b_rw_lock_t {
+    n00b_generic_lock_t     info;
+    pthread_rwlock_t        lock;
+    _Atomic int             reader_id;
+    _Atomic int             num_readers;
+    void                   *next_rw_lock;
+    n00b_rw_reader_record_t readers[N00B_LOCK_MAX_READERS];
+} n00b_rw_lock_t;
 
-static inline void
-n00b_rw_lock_set_nosleep(n00b_rw_lock_t *l)
-{
-    l->nosleep = true;
-}
+extern void _n00b_rw_lock_init(n00b_rw_lock_t *, char *, char *, int);
+extern bool _n00b_rw_lock_try_read(n00b_rw_lock_t *, char *, int);
+extern void _n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *, char *, int);
+extern bool _n00b_rw_lock_try_write(n00b_rw_lock_t *, char *, int);
+extern void _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *, char *, int);
+extern bool _n00b_rw_lock_try_read(n00b_rw_lock_t *, char *, int);
+extern void _n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *, char *, int);
+extern void _n00b_rw_lock_release(n00b_rw_lock_t *, bool);
 
-static inline void
-n00b_raw_rw_lock_init(n00b_rw_lock_t *l)
-{
-    pthread_rwlock_init(&l->lock, NULL);
-    l->level = 0;
-}
-
-#define n00b_rw_lock_init(x) n00b_raw_rw_lock_init(x)
-
-static inline bool
-_n00b_rw_lock_acquire_for_write_if_unlocked(n00b_rw_lock_t *l, char *f, int ln)
-{
-    if (!n00b_startup_complete || !n00b_get_tsi_ptr() || n00b_abort_signal) {
-        return true;
-    }
-
-    switch (pthread_rwlock_trywrlock(&l->lock)) {
-    case EDEADLK:
-    case EBUSY:
-        if (l->thread == (void *)(int64_t)pthread_self()) {
-            l->level++;
-            return true;
-        }
-        return false;
-    case 0:
-        l->thread = (void *)(int64_t)pthread_self();
-        l->level  = 0;
-        n00b_add_lock_record(l, f, ln);
-        return true;
-    default:
-        return false;
-    }
-}
-
-static inline void
-_n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *f, int ln)
-{
-    if (!n00b_startup_complete || !n00b_get_tsi_ptr() || n00b_abort_signal) {
-        return;
-    }
-
-    if (!_n00b_rw_lock_acquire_for_write_if_unlocked(l, f, ln)) {
-        if (!l->nosleep) {
-            n00b_gts_suspend();
-            pthread_rwlock_wrlock(&l->lock);
-            n00b_gts_resume();
-            n00b_add_lock_record(l, f, ln);
-        }
-        else {
-            n00b_gts_suspend();
-            pthread_rwlock_wrlock(&l->lock);
-            n00b_gts_resume();
-            n00b_add_lock_record(l, f, ln);
-        }
-        l->thread = (void *)(int64_t)pthread_self();
-        l->level  = 0;
-        n00b_add_lock_record(l, f, ln);
-    }
-}
-
-#define n00b_rw_lock_acquire_for_write_if_unlocked(l) \
-    _n00b_rw_lock_acquire_for_write_if_unlocked(l, __FILE__, __LINE__)
-
+#define n00b_rw_lock_init(l) _n00b_rw_lock_init(l, NULL, __FILE__, __LINE__)
+#define n00b_named_rw_lock_init(l, n) \
+    _n00b_rw_lock_init(l, n, __FILE__, __LINE__)
+#define n00b_rw_lock_try_read(l) \
+    _n00b_rw_lock_try_read(l, __FILE__, __LINE__)
+#define n00b_rw_lock_acquire_for_read(l) \
+    _n00b_rw_lock_acquire_for_read(l, __FILE__, __LINE__)
+#define n00b_rw_lock_try_write(l) \
+    _n00b_rw_lock_try_write(l, __FILE__, __LINE__)
 #define n00b_rw_lock_acquire_for_write(l) \
     _n00b_rw_lock_acquire_for_write(l, __FILE__, __LINE__)
+#define n00b_rw_lock_release(l)     _n00b_rw_lock_release(l, false)
+#define n00b_rw_lock_release_all(l) _n00b_rw_lock_release(l, true)
 
-static inline void
-_n00b_rw_lock_release(n00b_rw_lock_t *l, char *file, int line)
-{
-    if (!n00b_startup_complete) {
-        return;
-    }
+typedef struct n00b_condition_t {
+    n00b_lock_t    mutex;
+    pthread_cond_t cv;
+    void          *aux;
+    void          *extra; // User-defined.
+    void (*cb)(void *);   // Callback called before signaling.
+    n00b_rw_reader_record_t last_notify;
+} n00b_condition_t;
 
-    if (l->level && l->thread == (void *)(int64_t)pthread_self()) {
-        n00b_add_unlock_record(l, file, line);
-        l->level--;
-        return;
-    }
-    l->thread = NULL;
-    n00b_clear_lock_records(l);
-    pthread_rwlock_unlock(&l->lock);
-}
+extern void _n00b_condition_init(n00b_condition_t *, char *, char *, int);
+extern void n00b_condition_pre_wait(n00b_condition_t *);
+extern void n00b_condition_post_wait(n00b_condition_t *, char *, int);
+extern bool _n00b_condition_timed_wait(n00b_condition_t *,
+                                       n00b_duration_t *,
+                                       char *,
+                                       int);
+extern void _n00b_condition_notify_one(n00b_condition_t *, void *, char *, int);
+extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
 
-#define n00b_rw_lock_release(l) _n00b_rw_lock_release(l, __FILE__, __LINE__)
+#define n00b_condition_init(c) \
+    _n00b_condition_init(c, NULL, __FILE__, __LINE__)
+#define n00b_named_condition_init(c, n) \
+    _n00b_condition_init(c, n, __FILE__, __LINE__)
 
 #define n00b_condition_lock_acquire_raw(c) \
-    n00b_lock_acquire_raw(&((c)->lock));
+    n00b_lock_acquire_raw(&(((n00b_condition_t *)c)->lock));
 
 #define n00b_condition_lock_acquire(c) \
-    n00b_lock_acquire(&((c)->lock));
+    n00b_lock_acquire(&(((n00b_condition_t *)c)->mutex));
 
 #define n00b_condition_lock_release(c) \
-    n00b_lock_release(&((c)->lock));
+    n00b_lock_release(&(((n00b_condition_t *)c)->mutex));
 
 #define n00b_condition_lock_release_all(c) \
-    n00b_lock_release_all(&((c)->lock))
+    n00b_lock_release_all(&(((n00b_condition_t *)c)->mutex))
 
-#define n00b_condition_wait_raw(c, ...) \
-    n00b_lock_acquire(&(c)->lock);      \
-    __VA_ARGS__;                        \
-    pthread_cond_wait(&((c)->cv), (&(c)->lock.lock));
+#define n00b_condition_wait_raw(c, ...)                        \
+    n00b_condition_pre_wait((n00b_condition_t *)c);            \
+    __VA_ARGS__;                                               \
+    pthread_cond_wait(&(((n00b_condition_t *)c)->cv),          \
+                      (&((n00b_condition_t *)c)->mutex.lock)); \
+    n00b_condition_post_wait((n00b_condition_t *)c, __FILE__, __LINE__)
 
-#define n00b_condition_wait(c, ...)                                          \
-    n00b_lock_acquire(&(c)->lock);                                           \
-    __VA_ARGS__;                                                             \
-    n00b_gts_suspend();                                                      \
-    n00b_assert(pthread_cond_wait(&((c)->cv), (&(c)->lock.lock)) != EINVAL); \
-    n00b_gts_resume()
+#define n00b_condition_wait(c, ...)                                       \
+    n00b_condition_pre_wait((n00b_condition_t *)c);                       \
+    __VA_ARGS__;                                                          \
+    n00b_gts_suspend();                                                   \
+    n00b_assert(pthread_cond_wait(&(((n00b_condition_t *)c)->cv),         \
+                                  (&((n00b_condition_t *)c)->mutex.lock)) \
+                != EINVAL);                                               \
+    n00b_gts_resume();                                                    \
+                                                                          \
+    n00b_condition_post_wait((n00b_condition_t *)c, __FILE__, __LINE__)
+
+#define n00b_condition_timed_wait(c, d) \
+    _n00b_condition_timed_wait((n00b_condition_t *)c, d, __FILE__, __LINE__)
 
 #define n00b_condition_wait_then_unlock(c, ...)          \
-    n00b_condition_wait((c)                              \
+    n00b_condition_wait(((n00b_condition_t *)c)          \
                             __VA_OPT__(, ) __VA_ARGS__); \
-    n00b_condition_lock_release(c)
+    n00b_condition_lock_release((n00b_condition_t *)c)
 
-#define n00b_condition_notify_one(c, ...)   \
-    {                                       \
-        __VA_OPT__((c)->aux = __VA_ARGS__); \
-        void (*cb)(void *) = (c)->cb;       \
-        if (cb) {                           \
-            (*cb)(c);                       \
-        }                                   \
-        pthread_cond_signal(&((c)->cv));    \
-    }
-
-#define n00b_condition_notify_all(c)        \
-    {                                       \
-        void (*cb)(void *) = (c)->cb;       \
-        if (cb) {                           \
-            (*cb)(c);                       \
-        }                                   \
-        pthread_cond_broadcast((&(c)->cv)); \
-    }
+#define n00b_condition_notify_one(c) \
+    _n00b_condition_notify_one(c, NULL, __FILE__, __LINE__)
+#define n00b_condition_notify_aux(c, arg) \
+    _n00b_condition_notify_one(c, arg, __FILE__, __LINE__)
+#define n00b_condition_notify_all(c) \
+    _n00b_condition_notify_all(c, __FILE__, __LINE__)
 
 #define n00b_new_lock()         n00b_new(n00b_type_lock(), NULL)
 #define n00b_new_condition(...) n00b_new(n00b_type_condition(), \
                                          __VA_ARGS__            \
                                              __VA_OPT__(, ) NULL)
-#define n00b_lock_init(x)             n00b_raw_lock_init(x)
-#define n00b_static_lock_init(x)      n00b_raw_lock_init(&(x))
-#define n00b_static_condition_init(x) n00b_raw_condition_init(&(x))
-#define n00b_static_rw_lock_init(x)   n00b_raw_rw_lock_init(&(x))
 
-#if defined(N00B_USE_INTERNAL_API)
-extern void n00b_setup_lock_registry(void);
-extern void n00b_lock_register(n00b_lock_t *);
-extern void n00b_lock_unregister(n00b_lock_t *);
+#define n00b_static_lock_init(x)      n00b_lock_init(&(x))
+#define n00b_static_condition_init(x) n00b_condition_init(&(x))
+#define n00b_static_rw_lock_init(x)   n00b_rw_lock_init(&(x))
 
-#if defined(N00B_DEBUG_LOCKS)
-extern void         n00b_debug_held_locks(char *, int);
-extern void         n00b_debug_all_held_locks(void);
-extern _Atomic bool __n00b_lock_debug;
-
-#define N00B_DEBUG_HELD_LOCKS()                    \
-    if (__n00b_lock_debug) {                       \
-        n00b_debug_held_locks(__FILE__, __LINE__); \
-    }
-#define n00b_lock_debugging_on()  atomic_store(&__n00b_lock_debug, true)
-#define n00b_lock_debugging_off() atomic_store(&__n00b_lock_debug, false)
-#else
-#define N00B_DEBUG_HELD_LOCKS()
-#define n00b_lock_debugging_on()
-#define n00b_lock_debugging_off()
-#endif
-#endif
+extern void n00b_debug_all_locks(void);
+extern void n00b_lock_release(void *);
+extern void n00b_lock_release_all(void *);

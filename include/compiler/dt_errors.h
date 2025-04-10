@@ -83,6 +83,11 @@ typedef enum {
     n00b_err_parse_lit_invalid_neg,
     n00b_err_parse_for_assign_vars,
     n00b_err_parse_lit_bad_flags,
+    n00b_err_hex_eos,
+    n00b_err_hex_missing,
+    n00b_err_hex_x,
+    n00b_err_hex_u,
+    n00b_err_hex_U,
     n00b_err_invalid_redeclaration,
     n00b_err_omit_string_enum_value,
     n00b_err_invalid_enum_lit_type,
@@ -239,9 +244,9 @@ typedef struct {
     // .. $n, and the formatter will assume the right number of array
     // elements are there based on the values it sees.
 
-    n00b_string_t        *loc;
-    n00b_string_t         *long_info;
-    int32_t            num_args;
+    n00b_string_t      *loc;
+    n00b_string_t      *long_info;
+    int32_t             num_args;
     n00b_err_severity_t severity;
-    n00b_string_t         *msg_parameters[];
+    n00b_string_t      *msg_parameters[];
 } n00b_compile_error;

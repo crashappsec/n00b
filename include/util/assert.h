@@ -1,6 +1,9 @@
 #pragma once
 
 #ifdef N00B_DEBUG
+// This first one doesn't abort.
+extern void
+_n00b_show_assert_failure(char *, char *, char *, int);
 extern int
 n00b_show_assert_failure(char *expression,
                          char *func,

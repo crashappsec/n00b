@@ -88,10 +88,10 @@ n00b_regex_raw_match(n00b_regex_t  *re,
     }
 
     // pcre2 checks to ensure the offset isn't off the end.
-    md = pcre2_match_data_create_from_pattern(re, n00b_pcre2_global);
+    md = pcre2_match_data_create_from_pattern(re->regex, n00b_pcre2_global);
 
     while (true) {
-        err = pcre2_match(re,
+        err = pcre2_match(re->regex,
                           (PCRE2_SPTR8)s->data,
                           s->u8_bytes,
                           off,
@@ -136,3 +136,54 @@ n00b_regex_raw_match(n00b_regex_t  *re,
         off = m->end;
     }
 }
+
+void
+regex_object_init(n00b_regex_t *regex, va_list args)
+{
+    n00b_string_t *pattern     = va_arg(args, n00b_string_t *);
+    bool           anchored    = true;
+    bool           insensitive = false;
+    bool           multiline   = false;
+
+    n00b_karg_va_init(args);
+    n00b_kw_bool("anchored", anchored);
+    n00b_kw_bool("insensitive", insensitive);
+    n00b_kw_bool("multiline", multiline);
+
+    regex->repr = *pattern;
+
+    int        err;
+    PCRE2_SIZE eoffset;
+    int        flags = PCRE2_ALLOW_EMPTY_CLASS | PCRE2_ALT_BSUX
+              | PCRE2_NEVER_BACKSLASH_C | PCRE2_UCP | PCRE2_NO_UTF_CHECK;
+
+    flags |= (PCRE2_ANCHORED * (int)anchored);
+    flags |= (PCRE2_CASELESS * (int)insensitive);
+    flags |= (PCRE2_MULTILINE * (int)multiline);
+
+    regex->regex = pcre2_compile((PCRE2_SPTR8)pattern->data,
+                                 pattern->u8_bytes,
+                                 flags,
+                                 &err,
+                                 &eoffset,
+                                 n00b_pcre2_compile);
+
+    if (!regex->regex) {
+        PCRE2_UCHAR8 buf[N00B_PCRE2_ERR_LEN];
+        pcre2_get_error_message(err, buf, N00B_PCRE2_ERR_LEN);
+        N00B_RAISE(n00b_cstring(buf));
+    }
+}
+
+n00b_string_t *
+n00b_regex_to_string(n00b_regex_t *regex)
+{
+    return n00b_utf8(regex->repr.data, regex->repr.u8_bytes);
+}
+
+const n00b_vtable_t n00b_regex_vtable = {
+    .methods = {
+        [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)regex_object_init,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_regex_to_string,
+    },
+};

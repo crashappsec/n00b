@@ -196,6 +196,8 @@ n00b_exception_raise(n00b_exception_t *exception,
     exception->line    = line;
     exception->c_trace = backtrace;
 
+    n00b_thread_resume_locking();
+
     if (!frame) {
         (*uncaught_handler)(exception);
         n00b_abort();

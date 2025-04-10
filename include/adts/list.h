@@ -71,7 +71,7 @@ n00b_list_enforce_uniqueness_when_adding(n00b_list_t *l)
 }
 
 #define n00b_lock_list_read(list_obj) \
-    n00b_rw_lock_acquire_for_read(&(list_obj->lock), true);
+    n00b_rw_lock_acquire_for_read(&(list_obj->lock));
 
 #define n00b_lock_list_write n00b_lock_list
 

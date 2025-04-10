@@ -29,7 +29,7 @@ _n00b_buffer_acquire_w(n00b_buf_t *b)
 static inline void
 _n00b_buffer_acquire_r(n00b_buf_t *b)
 {
-    n00b_rw_lock_acquire_for_read(&b->lock, true);
+    n00b_rw_lock_acquire_for_read(&b->lock);
 }
 
 static inline void

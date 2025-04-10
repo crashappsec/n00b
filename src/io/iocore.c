@@ -46,9 +46,7 @@ n00b_io_impl_register(n00b_string_t *name, n00b_io_impl_info_t *info)
         info->cookie = (void *)n00b_system_event_base;
     }
 
-    //    n00b_push_heap(n00b_internal_heap);
     n00b_string_t *s = n00b_string_copy(name);
-    //    n00b_pop_heap();
 
     if (!hatrack_dict_add(impls, s, info)) {
         N00B_CRAISE("Implementation already exists.");
@@ -117,7 +115,7 @@ n00b_initialize_event(n00b_stream_t       *event,
 
     n00b_assert(event->perms & (n00b_io_perm_r | n00b_io_perm_w));
 
-    n00b_static_lock_init(event->lock);
+    n00b_named_lock_init(&event->lock, "event lock");
 }
 
 static void
@@ -312,9 +310,7 @@ n00b_add_or_replace(n00b_stream_t *new, n00b_dict_t *dict, void *key)
     }
 
     n00b_stream_t *found = hatrack_dict_get(dict, key, NULL);
-    n00b_lock_debugging_on();
     n00b_acquire_party(found);
-    n00b_lock_debugging_off();
 
     while (found->closed_for_read || found->closed_for_write) {
         n00b_stream_t *assure = hatrack_dict_get(dict, key, NULL);
@@ -330,8 +326,6 @@ n00b_add_or_replace(n00b_stream_t *new, n00b_dict_t *dict, void *key)
         }
     }
 
-    n00b_lock_debugging_on();
-    n00b_lock_debugging_off();
     Return found;
 
     defer_func_end();
@@ -528,7 +522,7 @@ read_again:;
     }
 #endif
         buf = n00b_new(n00b_type_buffer(),
-                       n00b_kw("raw", tmp_buf, "length", n00b_ka(len)));
+                       n00b_kw("raw", &tmp_buf[0], "length", n00b_ka(len)));
 
 #ifdef N00B_INTERNAL_DEBUG
         n00b_ev2_cookie_t *cookie = party->cookie;
@@ -572,7 +566,9 @@ static inline bool
 signal_possible_waiter(void *obj)
 {
     if (n00b_type_is_condition(n00b_get_my_type(obj))) {
-        n00b_condition_notify_one((n00b_condition_t *)obj, NULL);
+        n00b_condition_lock_acquire(obj);
+        n00b_condition_notify_one((n00b_condition_t *)obj);
+        n00b_condition_lock_release(obj);
         return true;
     }
     return false;
@@ -658,6 +654,7 @@ n00b_dislikes_libevent(int severity, const char *msg)
     if (severity >= 1) {
         fprintf(stderr, "%d: %s\n", severity, msg);
         n00b_static_c_backtrace();
+        exit(-1);
     }
 }
 
@@ -826,6 +823,12 @@ n00b_raw_subscribe(n00b_stream_t            *source,
     n00b_stream_sub_t *existing = already_subscribed(source, sink, kind);
 
     if (existing) {
+        if (src_locked) {
+            if (sink) {
+                n00b_release_party(sink);
+            }
+            n00b_release_party(source);
+        }
         return existing;
     }
 
@@ -841,11 +844,10 @@ n00b_raw_subscribe(n00b_stream_t            *source,
 
     n00b_io_register_subscription(sub, kind);
 
-    if (existing) {
-        return existing;
-    }
-
     if (src_locked) {
+        if (sink) {
+            n00b_release_party(sink);
+        }
         n00b_release_party(source);
     }
 
@@ -888,12 +890,6 @@ n00b_io_subscribe(n00b_stream_t            *source,
     }
 
     result = n00b_raw_subscribe(source, sink, timeout, kind, true);
-
-    if (sink) {
-        n00b_release_party(sink);
-    }
-
-    n00b_release_party(source);
 
     Return result;
     defer_func_end();
@@ -1071,6 +1067,10 @@ can_quick_write(n00b_stream_t *party, void *msg)
 bool
 n00b_close(n00b_stream_t *party)
 {
+    if (!party) {
+        return false;
+    }
+
     defer_on();
     n00b_acquire_party(party);
 
@@ -1082,9 +1082,6 @@ n00b_close(n00b_stream_t *party)
 
     if (fn) {
         (*fn)(party);
-
-        //        party->closed_for_write = true;
-        //        party->closed_for_read  = true;
     }
 
     n00b_post_close(party);
@@ -1153,10 +1150,6 @@ n00b_handle_one_delivery(n00b_stream_t *party, void *msg, bool async)
     // The rest of this concerns what we write to the actual sink.
     // The waiter is blocking for the message to be written to the
     // sink, but filters on the sink might lead to the message being
-
-    //    if (!n00b_in_heap(msg)) {
-    //        msg = n00b_box_u64((uint64_t)msg);
-    //    }
 
     if (!async) {
         fn = party->impl->blocking_write_impl;
@@ -1301,7 +1294,7 @@ n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
                          "Party cannot be read from synchronously.)");
     }
 
-    n00b_raw_condition_init(cv);
+    n00b_condition_init(cv);
 
     cv_event = n00b_condition_open(cv, NULL);
 
@@ -1320,7 +1313,6 @@ n00b_read(n00b_stream_t *party, uint64_t n, n00b_duration_t *timeout)
         else {
             result = one_item;
         }
-        n00b_condition_lock_release_all(cv);
     }
 
     Return result;
@@ -1340,7 +1332,9 @@ collect_items(n00b_stream_t *stream, void *msg, void *aux)
     n00b_list_append(ctx->msgs, msg);
 
     if (n00b_at_eof(ctx->from_stream)) {
-        n00b_condition_notify_one(&ctx->cv, NULL);
+        n00b_condition_lock_acquire(&ctx->cv);
+        n00b_condition_notify_one(&ctx->cv);
+        n00b_condition_lock_release(&ctx->cv);
     }
 }
 
@@ -1366,13 +1360,14 @@ n00b_stream_read_all(n00b_stream_t *stream)
     ctx->msgs        = n00b_list(n00b_type_ref());
     ctx->from_stream = stream;
 
-    n00b_raw_condition_init(&ctx->cv);
+    n00b_condition_init(&ctx->cv);
 
     n00b_stream_sub_t *sub = n00b_io_add_read_callback(stream,
                                                        (void *)collect_items,
                                                        ctx);
     n00b_release_party(stream);
     stream = NULL;
+    n00b_condition_lock_acquire(&ctx->cv);
     n00b_condition_wait_then_unlock(&ctx->cv);
     n00b_io_unsubscribe(sub);
 
@@ -1443,12 +1438,23 @@ n00b_stream_read_all(n00b_stream_t *stream)
 // Plain ol' write queues, so lives in ioqueue.c
 // For now, we only allow synchronous writes for file descriptors.
 void
-n00b_write_blocking(n00b_stream_t *party, void *msg, n00b_duration_t *timeout)
+_n00b_write_blocking(n00b_stream_t *party,
+                     void          *msg,
+#ifdef N00B_INTERNAL_DEBUG
+                     char *file,
+                     int   line,
+#endif
+                     n00b_duration_t *timeout)
 {
     if (timeout) {
         N00B_CRAISE("Timeout for n00b_write_blocking is not yet implemented.");
     }
 
+#ifdef N00B_INTERNAL_DEBUG
+    if (n00b_show_write_log) {
+        fprintf(stderr, "Write %p @%s:%d\n", msg, file, line);
+    }
+#endif
     n00b_handle_one_delivery(party, msg, false);
 
     return;
@@ -1559,9 +1565,8 @@ extern void n00b_ioqueue_setup(void);
 void
 n00b_internal_io_setup(void)
 {
-    n00b_static_lock_init(event_loop_lock);
+    n00b_named_lock_init(&event_loop_lock, "event loop");
 
-    //    n00b_push_heap(n00b_internal_heap);
     impls = n00b_dict(n00b_type_string(), n00b_type_ref());
     setup_libevent();
     n00b_system_event_base->system = true;
@@ -1614,16 +1619,13 @@ n00b_internal_io_setup(void)
 
     n00b_stream_t *sio = n00b_stdout();
     n00b_io_set_repr(sio, n00b_cstring("[stdout]"));
-    // n00b_merge_ansi(sio, 0, 0, false);
     sio = n00b_stderr();
-    //  n00b_merge_ansi(sio, 0, 0, false);
     n00b_io_set_repr(sio, n00b_cstring("[stderr]"));
     sio = n00b_stdin();
     n00b_io_set_repr(sio, n00b_cstring("[stdin]"));
 
     n00b_io_thread = n00b_thread_self();
     n00b_ioqueue_setup();
-    //    n00b_pop_heap();
 }
 
 bool
@@ -1641,9 +1643,7 @@ n00b_wait_for_io_shutdown(void)
 void
 n00b_io_begin_shutdown(void)
 {
-    //    n00b_push_heap(n00b_internal_heap);
     exit_notifier = n00b_new_notifier();
-    //    n00b_pop_heap();
 }
 
 void
@@ -1661,6 +1661,8 @@ static void *
 launch_once(void *ignore)
 {
     n00b_set_system_thread();
+    n00b_thread_prevent_cancelation();
+
     if (is_running) {
         return NULL;
     }
