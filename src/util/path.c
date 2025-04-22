@@ -939,12 +939,48 @@ _n00b_list_directory(n00b_string_t *dir, ...)
 }
 
 n00b_string_t *
+n00b_path_get_extension(n00b_string_t *s)
+{
+    int n = n00b_string_rfind(s, n00b_cached_period());
+    int m = n00b_string_rfind(s, n00b_cached_slash());
+
+    if (n <= m) {
+        return n00b_cached_empty_string();
+    }
+
+    return n00b_string_slice(s, n, -1);
+}
+
+n00b_string_t *
 n00b_path_remove_extension(n00b_string_t *s)
 {
     int n = n00b_string_rfind(s, n00b_cached_period());
-    if (n == -1) {
+    int m = n00b_string_rfind(s, n00b_cached_slash());
+
+    if (n <= m) {
         return s;
     }
 
     return n00b_string_slice(s, 0, n);
+}
+
+// This returns the extension (with the dot), and edits the string in
+// place.
+
+n00b_string_t *
+n00b_path_chop_extension(n00b_string_t *s)
+{
+    int n = n00b_string_rfind(s, n00b_cached_period());
+    int m = n00b_string_rfind(s, n00b_cached_slash());
+
+    if (n <= m) {
+        return n00b_cached_empty_string();
+    }
+
+    n00b_string_t *result = n00b_string_slice(s, n, -1);
+    s->codepoints -= result->codepoints;
+    s->u8_bytes -= result->u8_bytes;
+    s->data[s->u8_bytes] = 0;
+
+    return result;
 }

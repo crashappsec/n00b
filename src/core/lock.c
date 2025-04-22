@@ -585,6 +585,7 @@ _n00b_condition_init(n00b_condition_t *c, char *name, char *file, int line)
 {
     n00b_generic_lock_init(&c->mutex.info, name, file, line, N00B_LK_CONDITION);
     pthread_mutex_init(&c->mutex.lock, NULL);
+    pthread_cond_init(&c->cv, NULL);
 }
 
 void

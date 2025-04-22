@@ -173,6 +173,7 @@ extern bool            n00b_session_run_cinematic(n00b_session_t *);
 extern void            n00b_session_set_replay_stream(n00b_session_t *,
                                                       n00b_stream_t *);
 extern n00b_table_t   *n00b_session_state_repr(n00b_session_t *);
+extern void            n00b_session_start_replay(n00b_session_t *);
 
 static inline void
 n00b_session_set_proxy_input(n00b_session_t *s, bool value)
@@ -712,7 +713,6 @@ n00b_session_disable_ansi_matching(n00b_session_t *session)
 #define N00B_SESSION_SHELL_BASH "--rcfile"
 
 extern void n00b_session_setup_control_stream(n00b_session_t *);
-extern void n00b_session_setup_replay(n00b_session_t *);
 
 extern void                  n00b_session_setup_state_handling(n00b_session_t *);
 extern void                  n00b_session_run_control_loop(n00b_session_t *);

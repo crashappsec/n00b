@@ -41,8 +41,12 @@
         "# Change the verb to PATTERN to use an (unanchored) regexp.\n"       \
         "# ERR_ in front of a verb matches the error stream; otherwise, it\n" \
         "# will match the output stream.\n")
-#define PROMPT_HDR \
-    n00b_cstring("# PROMPT will match a top-level process exiting\n")
+#define PROMPT_HDR                                                 \
+    n00b_cstring(                                                  \
+        "# PROMPT matches whenever the starting shell is bash, \n" \
+        "# and that shell gives you a prompt.\n"                   \
+        "# If you run tasks in the foreground, it will match\n"    \
+        "# on processes exiting.\n")
 #define WINCH_HDR \
     n00b_cstring("# This sets the width and height of the test terminal.\n")
 
@@ -523,7 +527,6 @@ n00b_testgen_load_test_file(n00b_string_t *s, int id)
 
     n00b_list_t *parts = n00b_path_parts(n00b_resolve_path(s));
     n00b_list_pop(parts);
-    n00b_string_t *base = n00b_path_join(parts);
 
     n00b_string_t *dir = n00b_list_get(parts, 0, NULL);
     parts              = n00b_string_split(dir, n00b_cached_slash());
@@ -825,7 +828,9 @@ n00b_testgen_load_one_group(n00b_testing_ctx *ctx,
                                               n00b_ka(false),
                                               "extension",
                                               n00b_cstring(".test")));
-    int n        = n00b_list_len(test_fnames);
+
+    n00b_private_list_reverse(test_fnames);
+    int n = n00b_list_len(test_fnames);
 
     if (!n) {
         if (ctx->verbose) {
@@ -1165,11 +1170,12 @@ _n00b_testgen_setup(N00B_OPT_KARGS)
     return result;
 }
 
-void
-n00b_testgen_start_runner(n00b_testing_ctx *ctx)
+int
+n00b_testgen_run_tests(n00b_testing_ctx *ctx)
 {
-    int  n     = n00b_list_len(ctx->groups);
-    bool quiet = ctx->quiet;
+    int  n      = n00b_list_len(ctx->groups);
+    bool quiet  = ctx->quiet;
+    int  result = 0;
 
     for (int i = 0; i < n; i++) {
         n00b_test_group_t *g = n00b_list_get(ctx->groups, i, NULL);
@@ -1182,7 +1188,7 @@ n00b_testgen_start_runner(n00b_testing_ctx *ctx)
 
         if (!quiet) {
             n00b_printf(
-                "[|h6|]Entering Test Group:[|/|] [|em1|][|#|][|/|] "
+                "[|h5|]Entering Test Group:[|/|] [|em1|][|#|][|/|] "
                 "([|#|]/[|#|] tests enabled)",
                 g->name,
                 g->num_enabled,
@@ -1193,7 +1199,7 @@ n00b_testgen_start_runner(n00b_testing_ctx *ctx)
             n00b_test_t *tc = n00b_list_get(g->tests, j, NULL);
             if (!tc->enabled) {
                 if (!quiet) {
-                    n00b_printf("[|h5|]Skipped test #[|#|] ([|#|])",
+                    n00b_printf("[|h6|]Skipped test #[|#|] ([|#|])",
                                 tc->id + 1,
                                 tc->name);
                 }
@@ -1203,7 +1209,7 @@ n00b_testgen_start_runner(n00b_testing_ctx *ctx)
             tc->pass  = false; // Just incase we do multiple runs.
 
             if (!quiet) {
-                n00b_printf("[|h6|] Running test #[|#|] ([|#|]/[|#|]) ",
+                n00b_printf("[|h5|] Running test #[|#|] ([|#|]/[|#|]) ",
                             tc->id + 1,
                             tc->group,
                             tc->name);
@@ -1252,10 +1258,14 @@ n00b_testgen_start_runner(n00b_testing_ctx *ctx)
                         g->name);
         }
         n00b_printf(
-            "[|h4|]Passed: [|/|] [|em1|][|#|]/[|#|][|/|] "
+            "[|green|]Passed: [|/|] [|em1|][|#|]/[|#|][|/|] "
             "([|#|] skipped)",
             g->passed,
             g->num_enabled,
             n00b_list_len(g->tests) - g->num_enabled);
+
+        result += g->num_enabled - g->passed;
     }
+
+    return result;
 }
