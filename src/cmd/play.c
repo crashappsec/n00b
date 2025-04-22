@@ -51,6 +51,13 @@ n00b_play_capture(n00b_cmdline_ctx *ctx)
     }
 
     n00b_session_t *session = n00b_cinematic_replay_setup(stream);
-    n00b_session_run(session);
+    if (n00b_session_run(session)) {
+        n00b_eprintf("«em»Replay complete.");
+    }
+    else {
+        printf("\n");
+        fflush(stdout);
+        n00b_eprintf("«em2»Replay aborted.");
+    }
     return;
 }

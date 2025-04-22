@@ -131,7 +131,6 @@ main(int argc, char **argv, char **envp)
         break;
     case N00B_CMD_PLAY:
         n00b_play_capture(ctx);
-        n00b_eprintf("«em2»Replay complete.");
         n00b_exit(ctx->exit_code);
         break;
     case N00B_CMD_TEST:

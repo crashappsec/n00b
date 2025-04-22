@@ -26,6 +26,7 @@ typedef void (*n00b_post_fork_hook_t)(void *);
 
 typedef struct {
     n00b_string_t        *cmd;
+    n00b_string_t        *seeded_stdin;
     n00b_list_t          *args;
     n00b_list_t          *env;
     n00b_stream_t        *subproc_stdin;
