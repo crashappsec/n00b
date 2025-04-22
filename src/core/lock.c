@@ -667,7 +667,6 @@ _n00b_condition_timed_wait(n00b_condition_t *c,
         return true;
     }
 
-    n00b_condition_pre_wait(c);
     n00b_gts_suspend();
     int result = pthread_cond_timedwait(&((c)->cv),
                                         (&(c)->mutex.lock),

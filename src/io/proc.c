@@ -627,16 +627,14 @@ n00b_proc_spawn(n00b_proc_t *ctx)
 void
 n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 {
-#if 0
     n00b_duration_t *end;
     n00b_duration_t *now;
 
-    // TODO: timeout.
     if (timeout) {
         now = n00b_now();
         end = n00b_duration_add(now, timeout);
     }
-#endif
+
     ctx->wait_for_exit = true;
 
     if (!ctx->cmd) {
@@ -644,7 +642,16 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
     }
 
     n00b_condition_lock_acquire(&(ctx->cv));
-    n00b_condition_wait(&(ctx->cv), n00b_proc_spawn(ctx));
+    if (end) {
+        n00b_condition_pre_wait(&(ctx->cv));
+        n00b_proc_spawn(ctx);
+        if (!_n00b_condition_timed_wait(&(ctx->cv), end, __FILE__, __LINE__)) {
+            n00b_proc_close(ctx);
+        }
+    }
+    else {
+        n00b_condition_wait(&(ctx->cv), n00b_proc_spawn(ctx));
+    }
     n00b_condition_lock_release(&(ctx->cv));
 }
 
@@ -663,6 +670,7 @@ _n00b_run_process(n00b_string_t *cmd,
     n00b_list_t          *stdout_subs  = NULL;
     n00b_list_t          *stderr_subs  = NULL;
     n00b_list_t          *env          = NULL;
+    // Timeout doesn't get used if 'run' is not true.
     n00b_duration_t      *timeout      = NULL;
     n00b_post_fork_hook_t hook         = NULL;
     struct termios       *termcap      = NULL;

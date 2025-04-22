@@ -155,8 +155,20 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
                                                                           \
     n00b_condition_post_wait((n00b_condition_t *)c, __FILE__, __LINE__)
 
-#define n00b_condition_timed_wait(c, d) \
-    _n00b_condition_timed_wait((n00b_condition_t *)c, d, __FILE__, __LINE__)
+#define n00b_condition_timed_wait(c, d)                   \
+    n00b_condition_pre_wait(c),                           \
+        _n00b_condition_timed_wait((n00b_condition_t *)c, \
+                                   d,                     \
+                                   __FILE__,              \
+                                   __LINE__)
+
+#define n00b_condition_timed_wait_arg(c, d, CODE)     \
+    n00b_condition_pre_wait(c);                       \
+    CODE;                                             \
+    _n00b_condition_timed_wait((n00b_condition_t *)c, \
+                               d,                     \
+                               __FILE__,              \
+                               __LINE__)
 
 #define n00b_condition_wait_then_unlock(c, ...)          \
     n00b_condition_wait(((n00b_condition_t *)c)          \
@@ -179,6 +191,7 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
 #define n00b_static_condition_init(x) n00b_condition_init(&(x))
 #define n00b_static_rw_lock_init(x)   n00b_rw_lock_init(&(x))
 
-extern void n00b_debug_all_locks(void);
+extern void
+            n00b_debug_all_locks(void);
 extern void n00b_lock_release(void *);
 extern void n00b_lock_release_all(void *);
