@@ -1189,7 +1189,7 @@ _n00b_string_split_words(n00b_string_t *str, ...)
     bool spaces      = false;
     bool punctuation = true;
 
-    n00b_karg_only_init(s);
+    n00b_karg_only_init(str);
     n00b_kw_bool("spaces", spaces);
     n00b_kw_bool("punctuation", punctuation);
 
