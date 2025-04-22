@@ -111,6 +111,11 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
 
     ctx->subproc_pid = setup_exit_obj(ctx);
 
+    if (ctx->seeded_stdin && ctx->subproc_stdin) {
+        n00b_write(ctx->subproc_stdin, ctx->seeded_stdin);
+        ctx->seeded_stdin = NULL;
+    }
+
     if (ctx->flags & N00B_PROC_STDIN_PROXY) {
         // Proxy parent's stdin to the subproc.
         n00b_io_subscribe_to_reads(n00b_stdin(), ctx->subproc_stdin, NULL);
@@ -667,23 +672,25 @@ _n00b_run_process(n00b_string_t *cmd,
                   bool           capture,
                   ...)
 {
-    n00b_list_t          *stdout_subs  = NULL;
-    n00b_list_t          *stderr_subs  = NULL;
-    n00b_list_t          *env          = NULL;
+    n00b_string_t        *stdin_injection = NULL;
+    n00b_list_t          *stdout_subs     = NULL;
+    n00b_list_t          *stderr_subs     = NULL;
+    n00b_list_t          *env             = NULL;
     // Timeout doesn't get used if 'run' is not true.
-    n00b_duration_t      *timeout      = NULL;
-    n00b_post_fork_hook_t hook         = NULL;
-    struct termios       *termcap      = NULL;
-    void                 *thunk        = NULL;
-    bool                  pty          = false;
-    bool                  raw_argv     = false;
-    bool                  run          = true;
-    bool                  spawn        = false;
-    bool                  merge_output = true;
-    bool                  err_pty      = false;
-    bool                  handle_winch = true;
+    n00b_duration_t      *timeout         = NULL;
+    n00b_post_fork_hook_t hook            = NULL;
+    struct termios       *termcap         = NULL;
+    void                 *thunk           = NULL;
+    bool                  pty             = false;
+    bool                  raw_argv        = false;
+    bool                  run             = true;
+    bool                  spawn           = false;
+    bool                  merge_output    = true;
+    bool                  err_pty         = false;
+    bool                  handle_winch    = true;
 
     n00b_karg_only_init(capture);
+    n00b_kw_ptr("stdin_injection", stdin_injection);
     n00b_kw_ptr("env", env);
     n00b_kw_ptr("termcap", termcap);
     n00b_kw_ptr("timeout", timeout);
@@ -712,6 +719,7 @@ _n00b_run_process(n00b_string_t *cmd,
     proc->thunk               = thunk;
     proc->pending_stdout_subs = stdout_subs;
     proc->pending_stderr_subs = stderr_subs;
+    proc->seeded_stdin        = stdin_injection;
 
     tcgetattr(0, &proc->initial_termcap);
     proc->parent_termcap = &proc->initial_termcap;
