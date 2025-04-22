@@ -1,16 +1,21 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+int
+n00b_lexical_sort_fn(const n00b_string_t **s1, const n00b_string_t **s2)
+{
+    return strcmp((*s1)->data, (*s2)->data);
+}
+
 void
 n00b_list_init(n00b_list_t *list, va_list args)
 {
     int64_t length = 16;
 
-    list->noscan = N00B_NOSCAN;
-
     n00b_karg_va_init(args);
     n00b_kw_int64("length", length);
 
+    list->noscan    = N00B_NOSCAN;
     list->append_ix = 0;
     list->length    = n00b_max(length, 16);
 
@@ -134,18 +139,10 @@ n00b_list_append(n00b_list_t *l, void *item)
     n00b_unlock_list(l);
 }
 
-void
-n00b_private_list_sort(n00b_list_t *list, n00b_sort_fn f)
+int
+n00b_lexical_sort(const n00b_string_t **s1, const n00b_string_t **s2)
 {
-    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
-}
-
-void
-n00b_list_sort(n00b_list_t *list, n00b_sort_fn f)
-{
-    lock_list(list);
-    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
-    unlock_list(list);
+    return strcmp((*s1)->data, (*s2)->data);
 }
 
 static inline void *

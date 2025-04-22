@@ -26,7 +26,6 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <poll.h>
-#include <util.h>
 
 #include <sys/select.h>
 #include <sys/types.h>
@@ -52,6 +51,7 @@
 #if defined(__MACH__)
 #include <machine/endian.h>
 #include <libproc.h>
+#include <util.h>
 #endif
 
 #ifdef HAVE_MUSL
@@ -60,9 +60,6 @@
 
 #ifdef HAVE_PTY_H
 #include <pty.h>
-#else
-extern pid_t
-forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
 
 #define n00b_min(a, b) ({ __typeof__ (a) _a = (a), _b = (b); \

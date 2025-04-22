@@ -37,16 +37,16 @@ build_target_name(n00b_capture_t kind, bool regex)
     }
 
     if (kind & N00B_CAPTURE_STDIN) {
-        n00b_list_append(parts, n00b_cstring("user input"));
+        n00b_private_list_append(parts, n00b_cstring("user input"));
     }
     if (kind & N00B_CAPTURE_INJECTED) {
-        n00b_list_append(parts, n00b_cstring("injected input"));
+        n00b_private_list_append(parts, n00b_cstring("injected input"));
     }
     if (kind & N00B_CAPTURE_STDOUT) {
-        n00b_list_append(parts, n00b_cstring("output"));
+        n00b_private_list_append(parts, n00b_cstring("output"));
     }
     if (kind & N00B_CAPTURE_STDERR) {
-        n00b_list_append(parts, n00b_cstring("errors"));
+        n00b_private_list_append(parts, n00b_cstring("errors"));
     }
 
     return n00b_cformat("[|#|] [|#|]",
@@ -123,7 +123,7 @@ n00b_session_state_repr(n00b_session_t *s)
         goto add_global;
     }
 
-    n00b_list_append(worklist, s->start_state);
+    n00b_private_list_append(worklist, s->start_state);
     hatrack_set_put(memos, s->start_state);
 
     while (n00b_list_len(worklist)) {
@@ -148,7 +148,7 @@ n00b_session_state_repr(n00b_session_t *s)
             add_one_trigger(tbl, state_name, t);
             if (t->next_state && !hatrack_set_contains(memos, t->next_state)) {
                 hatrack_set_put(memos, t->next_state);
-                n00b_list_append(worklist, t->next_state);
+                n00b_private_list_append(worklist, t->next_state);
             }
         }
     }
@@ -259,7 +259,7 @@ successful_match(n00b_session_t *session,
         }
     }
 
-    if (last == n00b_string_codepoint_len(str)) {
+    if (!str || last == n00b_string_codepoint_len(str)) {
         n00b_truncate_all_match_data(session, NULL, 0);
     }
     else {
@@ -579,7 +579,7 @@ n00b_session_trigger_init(n00b_trigger_t *trigger, va_list args)
     }
 
     if (state) {
-        n00b_list_append((n00b_list_t *)state, trigger);
+        n00b_private_list_append((n00b_list_t *)state, trigger);
     }
 
     if (next_state)
@@ -701,7 +701,7 @@ __n00b_trigger(n00b_session_t *session,
         if (!session->global_actions) {
             session->global_actions = n00b_list(n00b_type_ref());
         }
-        n00b_list_append(session->global_actions, result);
+        n00b_private_list_append(session->global_actions, result);
     }
 
     return result;

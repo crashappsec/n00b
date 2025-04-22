@@ -1189,7 +1189,7 @@ _n00b_string_split_words(n00b_string_t *str, ...)
     bool spaces      = false;
     bool punctuation = true;
 
-    n00b_karg_only_init(s);
+    n00b_karg_only_init(str);
     n00b_kw_bool("spaces", spaces);
     n00b_kw_bool("punctuation", punctuation);
 
@@ -1358,10 +1358,10 @@ n00b_string_lit(n00b_string_t        *s,
                 return NULL;
             }
         }
+	break;
     default:
         // TODO / FIXME: hook up the errors.
         return n00b_string_unescape(s, (int *)err);
-        break;
     }
     *err = n00b_err_parse_no_lit_mod_match;
     return NULL;

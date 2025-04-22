@@ -28,7 +28,6 @@ static void
 proc_exited(n00b_exitinfo_t *result, int64_t stats, n00b_proc_t *ctx)
 {
     n00b_condition_lock_acquire(&ctx->cv);
-
     ctx->subproc_results = result;
     ctx->exited          = true;
 
@@ -110,6 +109,11 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
     n00b_acquire_party(ctx->subproc_stderr);
 
     ctx->subproc_pid = setup_exit_obj(ctx);
+
+    if (ctx->seeded_stdin && ctx->subproc_stdin) {
+        n00b_write(ctx->subproc_stdin, ctx->seeded_stdin);
+        ctx->seeded_stdin = NULL;
+    }
 
     if (ctx->flags & N00B_PROC_STDIN_PROXY) {
         // Proxy parent's stdin to the subproc.
@@ -242,7 +246,6 @@ try_execve(n00b_proc_t *ctx, char *argv[], char *envp[])
     char *cmd = n00b_string_to_cstr(ctx->cmd);
 
     execve(cmd, argv, envp);
-
     n00b_raise_errno();
 }
 
@@ -627,24 +630,39 @@ n00b_proc_spawn(n00b_proc_t *ctx)
 void
 n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 {
-#if 0
-    n00b_duration_t *end;
+    n00b_duration_t *end = NULL;
     n00b_duration_t *now;
 
-    // TODO: timeout.
     if (timeout) {
         now = n00b_now();
         end = n00b_duration_add(now, timeout);
     }
-#endif
+
     ctx->wait_for_exit = true;
 
     if (!ctx->cmd) {
         N00B_CRAISE("Cannot spawn; no command set.");
     }
 
-    n00b_condition_lock_acquire(&(ctx->cv));
-    n00b_condition_wait(&(ctx->cv), n00b_proc_spawn(ctx));
+    if (end) {
+        n00b_proc_spawn(ctx);
+        n00b_condition_lock_acquire(&(ctx->cv));
+        if (!ctx->exited
+            && !_n00b_condition_timed_wait(&(ctx->cv),
+                                           end,
+                                           __FILE__,
+                                           __LINE__)) {
+            n00b_proc_close(ctx);
+        }
+    }
+    else {
+        n00b_proc_spawn(ctx);
+        n00b_condition_lock_acquire(&(ctx->cv));
+        if (!ctx->exited) {
+            n00b_condition_wait(&(ctx->cv));
+        }
+        n00b_proc_close(ctx);
+    }
     n00b_condition_lock_release(&(ctx->cv));
 }
 
@@ -660,22 +678,25 @@ _n00b_run_process(n00b_string_t *cmd,
                   bool           capture,
                   ...)
 {
-    n00b_list_t          *stdout_subs  = NULL;
-    n00b_list_t          *stderr_subs  = NULL;
-    n00b_list_t          *env          = NULL;
-    n00b_duration_t      *timeout      = NULL;
-    n00b_post_fork_hook_t hook         = NULL;
-    struct termios       *termcap      = NULL;
-    void                 *thunk        = NULL;
-    bool                  pty          = false;
-    bool                  raw_argv     = false;
-    bool                  run          = true;
-    bool                  spawn        = false;
-    bool                  merge_output = true;
-    bool                  err_pty      = false;
-    bool                  handle_winch = true;
+    n00b_string_t        *stdin_injection = NULL;
+    n00b_list_t          *stdout_subs     = NULL;
+    n00b_list_t          *stderr_subs     = NULL;
+    n00b_list_t          *env             = NULL;
+    // Timeout doesn't get used if 'run' is not true.
+    n00b_duration_t      *timeout         = NULL;
+    n00b_post_fork_hook_t hook            = NULL;
+    struct termios       *termcap         = NULL;
+    void                 *thunk           = NULL;
+    bool                  pty             = false;
+    bool                  raw_argv        = false;
+    bool                  run             = true;
+    bool                  spawn           = false;
+    bool                  merge_output    = true;
+    bool                  err_pty         = false;
+    bool                  handle_winch    = true;
 
     n00b_karg_only_init(capture);
+    n00b_kw_ptr("stdin_injection", stdin_injection);
     n00b_kw_ptr("env", env);
     n00b_kw_ptr("termcap", termcap);
     n00b_kw_ptr("timeout", timeout);
@@ -704,6 +725,7 @@ _n00b_run_process(n00b_string_t *cmd,
     proc->thunk               = thunk;
     proc->pending_stdout_subs = stdout_subs;
     proc->pending_stderr_subs = stderr_subs;
+    proc->seeded_stdin        = stdin_injection;
 
     tcgetattr(0, &proc->initial_termcap);
     proc->parent_termcap = &proc->initial_termcap;
@@ -716,7 +738,7 @@ _n00b_run_process(n00b_string_t *cmd,
         proc->subproc_termcap_ptr = NULL;
     }
 
-    n00b_condition_init(&proc->cv);
+    n00b_named_condition_init(&proc->cv, "process_exit_monitor");
 
     if (capture) {
         proc->flags = N00B_PROC_CAP_ALL;

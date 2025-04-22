@@ -1,7 +1,7 @@
 #pragma once
 #include "n00b.h"
 
-static inline int
+static inline bool
 n00b_nanosleep_raw(n00b_duration_t *rqtp, n00b_duration_t *rmtp)
 {
     int result;
@@ -9,7 +9,7 @@ n00b_nanosleep_raw(n00b_duration_t *rqtp, n00b_duration_t *rmtp)
     result = nanosleep(rqtp, rmtp);
     n00b_gts_resume();
 
-    return result;
+    return result != 0;
 }
 
 static inline void

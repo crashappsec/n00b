@@ -44,12 +44,13 @@ typedef struct n00b_mutex_t {
 
 typedef n00b_mutex_t n00b_lock_t;
 
-extern void _n00b_lock_init(n00b_lock_t *, char *, char *, int);
-extern bool _n00b_lock_acquire_if_unlocked(n00b_lock_t *, char *, int);
-extern void _n00b_lock_acquire_raw(n00b_lock_t *, char *, int);
-extern void _n00b_lock_acquire(n00b_lock_t *, char *, int);
-extern void n00b_mutex_release(n00b_lock_t *);
-extern void n00b_mutex_release_all(n00b_lock_t *);
+extern void           _n00b_lock_init(n00b_lock_t *, char *, char *, int);
+extern bool           _n00b_lock_acquire_if_unlocked(n00b_lock_t *, char *, int);
+extern void           _n00b_lock_acquire_raw(n00b_lock_t *, char *, int);
+extern void           _n00b_lock_acquire(n00b_lock_t *, char *, int);
+extern void           n00b_mutex_release(n00b_lock_t *);
+extern void           n00b_mutex_release_all(n00b_lock_t *);
+extern n00b_string_t *n00b_lock_to_string(n00b_generic_lock_t *);
 
 #define n00b_lock_init(ptr) \
     _n00b_lock_init(ptr, NULL, __FILE__, __LINE__)
@@ -126,13 +127,13 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
     _n00b_condition_init(c, n, __FILE__, __LINE__)
 
 #define n00b_condition_lock_acquire_raw(c) \
-    n00b_lock_acquire_raw(&(((n00b_condition_t *)c)->lock));
+    n00b_lock_acquire_raw(&(((n00b_condition_t *)c)->mutex))
 
 #define n00b_condition_lock_acquire(c) \
-    n00b_lock_acquire(&(((n00b_condition_t *)c)->mutex));
+    n00b_lock_acquire(&(((n00b_condition_t *)c)->mutex))
 
 #define n00b_condition_lock_release(c) \
-    n00b_lock_release(&(((n00b_condition_t *)c)->mutex));
+    n00b_lock_release(&(((n00b_condition_t *)c)->mutex))
 
 #define n00b_condition_lock_release_all(c) \
     n00b_lock_release_all(&(((n00b_condition_t *)c)->mutex))
@@ -140,6 +141,7 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
 #define n00b_condition_wait_raw(c, ...)                        \
     n00b_condition_pre_wait((n00b_condition_t *)c);            \
     __VA_ARGS__;                                               \
+                                                               \
     pthread_cond_wait(&(((n00b_condition_t *)c)->cv),          \
                       (&((n00b_condition_t *)c)->mutex.lock)); \
     n00b_condition_post_wait((n00b_condition_t *)c, __FILE__, __LINE__)
@@ -155,8 +157,19 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
                                                                           \
     n00b_condition_post_wait((n00b_condition_t *)c, __FILE__, __LINE__)
 
-#define n00b_condition_timed_wait(c, d) \
-    _n00b_condition_timed_wait((n00b_condition_t *)c, d, __FILE__, __LINE__)
+#define n00b_condition_timed_wait(c, d)               \
+    _n00b_condition_timed_wait((n00b_condition_t *)c, \
+                               d,                     \
+                               __FILE__,              \
+                               __LINE__)
+
+#define n00b_condition_timed_wait_arg(c, d, CODE)     \
+    n00b_condition_pre_wait(c);                       \
+    CODE;                                             \
+    _n00b_condition_timed_wait((n00b_condition_t *)c, \
+                               d,                     \
+                               __FILE__,              \
+                               __LINE__)
 
 #define n00b_condition_wait_then_unlock(c, ...)          \
     n00b_condition_wait(((n00b_condition_t *)c)          \
@@ -179,6 +192,7 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
 #define n00b_static_condition_init(x) n00b_condition_init(&(x))
 #define n00b_static_rw_lock_init(x)   n00b_rw_lock_init(&(x))
 
-extern void n00b_debug_all_locks(void);
+extern void
+            n00b_debug_all_locks(void);
 extern void n00b_lock_release(void *);
 extern void n00b_lock_release_all(void *);

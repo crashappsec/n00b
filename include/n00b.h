@@ -1,7 +1,5 @@
 #pragma once
 
-extern bool n00b_startup_complete;
-
 // #define _XOPEN_SOURCE 700
 // #define _POSIX_C_SOURCE 200809L
 #include "n00b/config.h"
@@ -19,6 +17,9 @@ typedef struct n00b_string_t n00b_string_t;
 #include "util/defer.h"
 #include "util/assert.h"
 #include "n00b/base.h"
+
+extern bool n00b_startup_complete;
+
 #include "core/init.h"
 #include "core/env.h"    // env variable API
 #include "core/exit.h"

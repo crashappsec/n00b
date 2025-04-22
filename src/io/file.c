@@ -86,7 +86,7 @@ add_file_info(n00b_stream_t *stream, n00b_io_permission_t perms)
     if (perms & n00b_io_perm_w) {
         cookie->write_event = event_new(base->event_ctx,
                                         cookie->id,
-                                        EV_WRITE | EV_ET,
+                                        EV_WRITE,
                                         n00b_ev2_w,
                                         stream);
     }
@@ -185,6 +185,7 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
     }
 
     if (writes_always_append) {
+        printf("append??\n");
         flags |= O_APPEND;
     }
 
@@ -364,7 +365,7 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
 n00b_stream_t *
 n00b_instream_file(n00b_string_t *fname)
 {
-    return n00b_new(n00b_type_file(), fname, n00b_io_perm_r);
+    return n00b_new(n00b_type_file(), fname, n00b_fm_read_only);
 }
 
 n00b_stream_t *
@@ -379,7 +380,7 @@ n00b_outstream_file(n00b_string_t *s,
 
     return n00b_new(n00b_type_file(),
                     s,
-                    n00b_io_perm_w,
+                    n00b_fm_write_only,
                     n00b_kw("error_if_exists",
                             n00b_ka(new_only),
                             "allow_file_creation",
@@ -388,7 +389,15 @@ n00b_outstream_file(n00b_string_t *s,
                             n00b_ka(append)));
 }
 
-n00b_stream_t *n00b_iostream_file(n00b_string_t *, bool);
+n00b_stream_t *
+n00b_iostream_file(n00b_string_t *s, bool new_only)
+{
+    return n00b_new(n00b_type_file(),
+                    s,
+                    n00b_fm_rw,
+                    n00b_kw("error_if_exists",
+                            n00b_ka(new_only)));
+}
 
 n00b_stream_t *
 n00b_io_fd_open(int64_t fd, n00b_io_impl_info_t *impl)

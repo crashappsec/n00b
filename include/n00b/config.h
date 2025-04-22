@@ -140,7 +140,7 @@
 
 #ifndef N00B_DEFAULT_HEAP_SIZE
 // This is the size any test case that prints a thing grows to awfully fast.
-#define N00B_DEFAULT_HEAP_SIZE (1 << 26) // 30 == 1 g
+#define N00B_DEFAULT_HEAP_SIZE (1 << 28) // 30 == 1 g
 #endif
 
 #ifndef N00B_SYSTEM_HEAP_SIZE

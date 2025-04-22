@@ -10,8 +10,6 @@ extern bool         n00b_private_list_set(n00b_list_t *, int64_t, void *);
 extern bool         n00b_list_set(n00b_list_t *, int64_t, void *);
 extern void         n00b_private_list_append(n00b_list_t *list, void *item);
 extern void         n00b_list_append(n00b_list_t *list, void *item);
-extern void         n00b_private_list_sort(n00b_list_t *, n00b_sort_fn);
-extern void         n00b_list_sort(n00b_list_t *, n00b_sort_fn);
 extern void        *n00b_private_list_get(n00b_list_t *, int64_t, bool *);
 extern void        *n00b_list_get(n00b_list_t *, int64_t, bool *);
 extern void        *n00b_list_pop(n00b_list_t *list);
@@ -51,6 +49,7 @@ extern void        *n00b_list_view(n00b_list_t *, uint64_t *);
 extern void         n00b_private_list_reverse(n00b_list_t *);
 extern void         n00b_list_reverse(n00b_list_t *);
 extern n00b_list_t *_n00b_to_list(n00b_type_t *, int, ...);
+extern int          n00b_lexical_sort(const n00b_string_t **, const n00b_string_t **);
 
 #define n00b_to_list(t, ...) \
     _n00b_to_list(t, N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)
@@ -79,6 +78,22 @@ extern n00b_list_t *_n00b_c_map(char *, ...);
 extern n00b_list_t *n00b_from_cstr_list(char **arr, int64_t n);
 
 #define n00b_c_map(s, ...) _n00b_c_map(s, N00B_VA(__VA_ARGS__))
+
+// These should take n00b_sort_fn in the 2nd param, but declared
+// as void * to avoid needing casts.
+static inline void
+n00b_private_list_sort(n00b_list_t *list, void *f)
+{
+    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
+}
+
+static inline void
+n00b_list_sort(n00b_list_t *list, void *f)
+{
+    n00b_lock_list(list);
+    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
+    n00b_unlock_list(list);
+}
 
 #ifdef N00B_USE_INTERNAL_API
 extern void n00b_list_add_if_unique(n00b_list_t *list,
