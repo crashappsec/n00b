@@ -71,7 +71,7 @@ n00b_list_enforce_uniqueness_when_adding(n00b_list_t *l)
 }
 
 #define n00b_lock_list_read(list_obj) \
-    n00b_rw_lock_acquire_for_read(&(list_obj->lock), true);
+    n00b_rw_lock_acquire_for_read(&(list_obj->lock));
 
 #define n00b_lock_list_write n00b_lock_list
 
@@ -84,4 +84,5 @@ extern n00b_list_t *n00b_from_cstr_list(char **arr, int64_t n);
 extern void n00b_list_add_if_unique(n00b_list_t *list,
                                     void        *item,
                                     bool (*fn)(void *, void *));
+extern void n00b_list_init(n00b_list_t *, va_list);
 #endif

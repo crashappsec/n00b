@@ -1,11 +1,7 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-// n00b_debug("wait4", n00b_cstring("Capture RUSAGE."));
-
-//    if (wait4((pid_t)pid, &cookie->stats, WNOHANG, &cookie->rusage) == -1) {
-//        N00B_CRAISE("Provided pid is not a valid subprocess of this process.");
-//    }
+static void *launch_wait4(void *arg);
 
 bool
 n00b_io_exitinfo_report(n00b_stream_t *party, uint64_t ignore_always_1)
@@ -35,19 +31,26 @@ launch_wait4(void *arg)
     n00b_thread_t *expected = NULL;
     n00b_thread_t *me       = n00b_thread_self();
 
+    n00b_thread_async_cancelable();
     if (!CAS(&cookie->wait_thread, &expected, me)) {
         // Another thread got to do the wait.
         return NULL;
     }
 
-    n00b_gts_suspend();
+    while (true) {
+        n00b_nanosleep(0, N00B_CALLBACK_THREAD_POLL_INTERVAL);
+        n00b_gts_suspend();
 
-    int r = wait4(cookie->pid, &cookie->stats, 0, &cookie->rusage);
+        int r = wait4(cookie->pid, &cookie->stats, WNOHANG, &cookie->rusage);
+        if (r == -1) {
+            n00b_gts_resume();
+            n00b_post_errno(party);
+        }
 
-    n00b_gts_resume();
-
-    if (r == -1) {
-        n00b_post_errno(party);
+        if (r) {
+            n00b_gts_resume();
+            break;
+        }
     }
 
     n00b_list_t *l;
@@ -61,6 +64,37 @@ launch_wait4(void *arg)
     }
 
     return NULL;
+}
+
+bool
+n00b_io_exitinfo_subscribe(n00b_stream_sub_t        *sub,
+                           n00b_io_subscription_kind kind)
+{
+    defer_on();
+    n00b_acquire_party(sub->source);
+    n00b_exitinfo_t *cookie = sub->source->cookie;
+
+    if (!atomic_read(&cookie->streams_to_drain)) {
+        Return true;
+    }
+
+    if (!atomic_read(&cookie->wait_thread)) {
+        n00b_thread_spawn(launch_wait4, sub->source);
+    }
+    else {
+        if (kind == n00b_io_sk_read) {
+            n00b_list_t *l;
+            l = n00b_handle_read_operation(sub->source,
+                                           (void *)(int64_t)cookie->stats);
+            n00b_post_to_subscribers(sub->source,
+                                     n00b_list_get(l, 0, NULL),
+                                     n00b_io_sk_read);
+            n00b_purge_subscription_list_on_boundary(sub->source->read_subs);
+        }
+    }
+
+    Return true;
+    defer_func_end();
 }
 
 static void
@@ -109,7 +143,8 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
     }
 
     n00b_stream_t *callback = n00b_callback_open((void *)exitinfo_fd_drained,
-                                                 new);
+                                                 new,
+                                                 n00b_cstring("exitinfo_fd_drained"));
     for (int i = 0; i < n; i++) {
         n00b_stream_t *fd = n00b_list_get(l, i, NULL);
         n00b_type_t   *t  = n00b_get_my_type(fd);
@@ -132,37 +167,6 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
     }
 
     Return new;
-    defer_func_end();
-}
-
-bool
-n00b_io_exitinfo_subscribe(n00b_stream_sub_t        *sub,
-                           n00b_io_subscription_kind kind)
-{
-    defer_on();
-    n00b_acquire_party(sub->source);
-    n00b_exitinfo_t *cookie = sub->source->cookie;
-
-    if (!atomic_read(&cookie->streams_to_drain)) {
-        Return true;
-    }
-
-    if (!atomic_read(&cookie->wait_thread)) {
-        n00b_thread_spawn(launch_wait4, sub->source);
-    }
-    else {
-        if (kind == n00b_io_sk_read) {
-            n00b_list_t *l;
-            l = n00b_handle_read_operation(sub->source,
-                                           (void *)(int64_t)cookie->stats);
-            n00b_post_to_subscribers(sub->source,
-                                     n00b_list_get(l, 0, NULL),
-                                     n00b_io_sk_read);
-            n00b_purge_subscription_list_on_boundary(sub->source->read_subs);
-        }
-    }
-
-    Return true;
     defer_func_end();
 }
 

@@ -18,6 +18,13 @@ extern bool             n00b_duration_gt(n00b_duration_t *,
                                          n00b_duration_t *);
 extern bool             n00b_duration_lit(n00b_duration_t *,
                                           n00b_duration_t *);
+extern n00b_duration_t *n00b_duration_multiply(n00b_duration_t *, double);
+
+static inline n00b_duration_t *
+n00b_duration_divide(n00b_duration_t *dur, double f)
+{
+    return n00b_duration_multiply(dur, 1 / f);
+}
 
 static inline struct timeval *
 n00b_duration_to_timeval(n00b_duration_t *d)

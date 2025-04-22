@@ -310,9 +310,10 @@ struct n00b_stream_sub_t {
 typedef struct n00b_cv_cookie_t {
     n00b_condition_t *condition;
     void             *aux;
+    bool              signaled;
 } n00b_cv_cookie_t;
 
-#define N00B_SEEK_END -1
+#define N00B_SEEK_END SEEK_END
 
 typedef struct n00b_bio_cookie_t {
     n00b_buf_t *b;
@@ -361,6 +362,8 @@ typedef bool (*n00b_io_read_fn)(n00b_stream_t *, uint64_t);
 typedef void *(*n00b_io_write_start_fn)(n00b_stream_t *, void *);
 typedef void (*n00b_io_close_fn)(n00b_stream_t *);
 typedef bool (*n00b_io_eof_fn)(n00b_stream_t *);
+typedef bool (*n00b_io_seek_fn)(n00b_stream_t *, bool, int);
+typedef int (*n00b_io_tell_fn)(n00b_stream_t *);
 
 // Returns a list of messages.
 typedef n00b_list_t *(*n00b_filter_fn)(n00b_stream_t *, void *, void *);
@@ -380,6 +383,8 @@ struct n00b_io_impl_info_t {
     n00b_io_repr_fn        repr_impl;
     n00b_io_close_fn       close_impl;
     n00b_io_eof_fn         eof_impl;
+    n00b_io_seek_fn        seek_impl;
+    n00b_io_tell_fn        tell_impl;
     bool                   use_libevent;
     bool                   byte_oriented;
 };
@@ -398,6 +403,7 @@ typedef struct n00b_callback_cookie_t {
     n00b_io_callback_fn fn;
     void               *aux;
     n00b_notifier_t    *notifier;
+    n00b_string_t      *name;
     bool                notify;
 } n00b_callback_cookie_t;
 
@@ -428,24 +434,57 @@ extern n00b_stream_sub_t *n00b_io_subscribe(n00b_stream_t *,
                                             n00b_io_subscription_kind);
 extern void               n00b_io_unsubscribe(n00b_stream_sub_t *);
 extern bool               n00b_close(n00b_stream_t *);
-extern void               n00b_write(n00b_stream_t *, void *);
-extern bool               n00b_at_eof(n00b_stream_t *);
-extern void               n00b_write_blocking(n00b_stream_t *,
-                                              void *,
-                                              n00b_duration_t *);
-extern void              *n00b_read(n00b_stream_t *,
-                                    uint64_t,
-                                    n00b_duration_t *);
+#ifdef N00B_INTERNAL_DEBUG
+extern void _n00b_write(n00b_stream_t *, void *, char *, int);
+#else
+extern void _n00b_write(n00b_stream_t *, void *);
+#endif
+extern bool n00b_at_eof(n00b_stream_t *);
+extern void _n00b_write_blocking(n00b_stream_t *,
+                                 void *,
+#ifdef N00B_INTERNAL_DEBUG
+                                 char *,
+                                 int,
+#endif
+                                 n00b_duration_t *);
+extern void *n00b_read(n00b_stream_t *,
+                       uint64_t,
+                       n00b_duration_t *);
+
+#ifdef N00B_INTERNAL_DEBUG
+#define n00b_write(s, m) _n00b_write(s, m, __FILE__, __LINE__)
+#define n00b_write_blocking(s, m, d) \
+    _n00b_write_blocking(s, m, __FILE__, __LINE__, d)
+#else
+#define n00b_write(s, m)             _n00b_write(s, m)
+#define n00b_write_blocking(s, m, d) _n00b_write_blocking(s, m, d)
+#endif
+
 // Init w/o launching a thread in an IO loop.
-extern void               n00b_io_init(void);
-extern void               n00b_launch_io_loop(void);
-extern void               n00b_io_loop_once(void);
-extern n00b_stream_t     *n00b_fd_open(int);
-extern void               n00b_io_close(n00b_stream_t *);
-extern n00b_string_t     *n00b_io_fd_repr(n00b_stream_t *);
-extern n00b_stream_t     *n00b_pid_monitor(int64_t, void *);
-extern n00b_stream_t     *n00b_callback_open(n00b_io_callback_fn, void *);
-extern n00b_stream_t     *n00b_condition_open(n00b_condition_t *, void *);
+extern void           n00b_io_init(void);
+extern void           n00b_launch_io_loop(void);
+extern void           n00b_io_loop_once(void);
+extern n00b_stream_t *n00b_fd_open(int);
+extern void           n00b_io_close(n00b_stream_t *);
+extern bool           n00b_stream_set_position(n00b_stream_t *, int);
+extern bool           n00b_stream_relative_position(n00b_stream_t *, int);
+extern int            n00b_stream_get_position(n00b_stream_t *);
+extern void           n00b_stream_raw_fd_write(n00b_stream_t *,
+                                               n00b_buf_t *);
+extern void           n00b_stream_raw_fd_read(n00b_stream_t *,
+                                              n00b_buf_t *);
+
+extern n00b_string_t *n00b_io_fd_repr(n00b_stream_t *);
+extern n00b_stream_t *n00b_pid_monitor(int64_t, void *);
+extern n00b_stream_t *_n00b_callback_open(n00b_io_callback_fn,
+                                          void *,
+                                          ...);
+
+#define n00b_callback_open(f, a, ...) \
+    _n00b_callback_open(f, a, __VA_ARGS__ __VA_OPT__(, ) 0ULL)
+
+extern n00b_stream_t     *n00b_condition_open(n00b_condition_t *,
+                                              void *);
 extern n00b_stream_t     *n00b_io_get_signal_event(int);
 extern n00b_stream_sub_t *_n00b_io_register_signal_handler(int,
                                                            n00b_io_callback_fn,
@@ -458,7 +497,8 @@ extern n00b_stream_t     *n00b_io_listener(n00b_net_addr_t *,
 extern bool               n00b_wait_for_io_shutdown(void);
 extern void               n00b_io_begin_shutdown(void);
 extern n00b_stream_t     *n00b_connect(n00b_net_addr_t *);
-extern n00b_stream_t     *n00b_get_topic(n00b_string_t *, n00b_string_t *);
+extern n00b_stream_t     *n00b_get_topic(n00b_string_t *,
+                                         n00b_string_t *);
 extern bool               n00b_topic_unsubscribe(n00b_stream_t *,
                                                  n00b_stream_t *);
 extern void               n00b_topic_post(void *, void *);
@@ -472,6 +512,9 @@ extern n00b_stream_t     *n00b_stderr(void);
 
 #define n00b_io_register_signal_handler(x, y, ...) \
     _n00b_io_register_signal_handler((x), (y), __VA_ARGS__ __VA_OPT__(, ) 0)
+
+#define n00b_stream_skip_to_end(s) \
+    n00b_set_stream_position(s, N00B_SEEK_END)
 
 static inline bool
 n00b_stream_can_read(n00b_stream_t *party)
@@ -655,7 +698,7 @@ n00b_iostream_buffer(n00b_buf_t *b)
 
 extern n00b_stream_t *n00b_stream_string(n00b_string_t *s);
 extern n00b_stream_t *n00b_instream_file(n00b_string_t *);
-extern n00b_stream_t *n00b_outstream_file(n00b_string_t *, bool, bool);
+extern n00b_stream_t *n00b_outstream_file(n00b_string_t *, bool, bool, bool);
 extern n00b_stream_t *n00b_iostream_file(n00b_string_t *, bool);
 extern void           n00b_ignore_uncaught_io_errors(void);
 extern void          *n00b_stream_read_all(n00b_stream_t *);
@@ -830,6 +873,9 @@ static inline void
 _n00b_release_party(n00b_stream_t *party, char *file, int line)
 {
     if (party != NULL) {
+        if (!party->lock.info.level) {
+            return;
+        }
         cprintf("Release: %s (%s:%d)\n", party, file, line);
         n00b_lock_release(&party->lock);
     }
@@ -839,6 +885,9 @@ static inline void
 n00b_release_party(n00b_stream_t *party)
 {
     if (party != NULL) {
+        if (!party->lock.info.level) {
+            return;
+        }
         n00b_lock_release(&party->lock);
     }
 }

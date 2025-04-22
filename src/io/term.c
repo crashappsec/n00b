@@ -21,22 +21,33 @@ void
 n00b_termcap_apply_raw_mode(struct termios *termcap)
 {
     termcap->c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON | IXANY);
-    // termcap->c_oflag &= ~OPOST;
-    termcap->c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+    termcap->c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG | PENDIN);
     termcap->c_cflag &= ~(CSIZE | PARENB);
-    termcap->c_cc[VMIN]  = 0;
+    termcap->c_cflag |= CREAD | HUPCL;
+    termcap->c_iflag |= IUTF8 | IGNBRK;
+}
+
+void
+n00b_termcap_apply_subshell_mode(struct termios *termcap)
+{
+    /*
+    n00b_termcap_apply_raw_mode(termcap);
+    termcap->c_lflag = IEXTEN | ISIG;
+    termcap->c_cflag = HUPCL | CS8 | CREAD;
+    termcap->c_oflag |= OPOST;
+    termcap->c_iflag     = IUTF8 | IGNBRK;
+    termcap->c_cc[VMIN]  = 1;
     termcap->c_cc[VTIME] = 0;
+    */
 }
 
 void
 n00b_termcap_apply_app_defaults(struct termios *termcap)
 {
-    termcap->c_iflag     = ICRNL | INPCK;
-    termcap->c_lflag     = 0;
-    termcap->c_cflag     = 0;
-    termcap->c_oflag     = ONLCR | OPOST;
-    termcap->c_cc[VMIN]  = 1;
-    termcap->c_cc[VTIME] = 0;
+    n00b_termcap_apply_raw_mode(termcap);
+    termcap->c_cflag |= CREAD | HUPCL | CS8;
+    termcap->c_oflag |= OPOST;
+    termcap->c_iflag = IUTF8;
 }
 
 pthread_once_t termcap_save = PTHREAD_ONCE_INIT;

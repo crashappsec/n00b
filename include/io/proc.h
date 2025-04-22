@@ -19,6 +19,7 @@ enum {
     N00B_PROC_MERGE_OUTPUT      = 512,
     N00B_PROC_KILL_ON_TIMEOUT   = 1024,
     N00B_PROC_PTY_STDERR        = 2048,
+    N00B_PROC_HANDLE_WIN_SIZE   = 4096,
 };
 
 typedef void (*n00b_post_fork_hook_t)(void *);
@@ -32,6 +33,8 @@ typedef struct {
     n00b_stream_t        *subproc_stderr;
     n00b_stream_t        *subproc_pid;
     n00b_exitinfo_t      *subproc_results;
+    n00b_list_t          *pending_stdout_subs;
+    n00b_list_t          *pending_stderr_subs;
     n00b_lock_t           run_lock;
     n00b_condition_t      cv;
     n00b_buf_t           *cap_in;
@@ -39,8 +42,10 @@ typedef struct {
     n00b_buf_t           *cap_err;
     n00b_post_fork_hook_t hook;
     void                 *thunk;
+    struct winsize        dimensions;
     struct termios       *parent_termcap;
-    struct termios       *subproc_termcap;
+    struct termios       *subproc_termcap_ptr;
+    struct termios        subproc_termcap;
     struct termios        initial_termcap;
     int                   exit_status;
     int                   term_signal;
@@ -66,6 +71,23 @@ typedef struct {
     }
 
 #define n00b_proc_post_check(p)
+
+static inline void
+n00b_proc_close(n00b_proc_t *proc)
+{
+    if (proc->subproc_stdin) {
+        n00b_close(proc->subproc_stdin);
+    }
+    if (proc->subproc_stdout) {
+        n00b_close(proc->subproc_stdout);
+    }
+    if (proc->subproc_stderr) {
+        n00b_close(proc->subproc_stderr);
+    }
+    if (proc->subproc_pid) {
+        n00b_close(proc->subproc_pid);
+    }
+}
 
 static inline void
 n00b_proc_set_command(n00b_proc_t *proc, n00b_string_t *cmd)

@@ -4,7 +4,6 @@
 #include "n00b.h"
 
 char              **n00b_stashed_argv;
-char              **n00b_stashed_envp;
 static n00b_list_t *exit_handlers           = NULL;
 static n00b_dict_t *cached_environment_vars = NULL;
 
@@ -83,10 +82,12 @@ find_env_value(char *c, char **next)
     return 0;
 }
 
+extern char **environ;
+
 static void
 load_env(n00b_dict_t *environment_vars)
 {
-    char **ptr = n00b_stashed_envp;
+    char **ptr = environ;
     char  *item;
     char  *val;
     int    len1;
@@ -121,7 +122,7 @@ n00b_get_env(n00b_string_t *name)
 void
 n00b_set_env(n00b_string_t *name, n00b_string_t *value)
 {
-    if (putenv(name->data)) {
+    if (setenv(name->data, value->data, 1)) {
         n00b_raise_errno();
     }
     hatrack_dict_put(cached_environment_vars, name, value);
@@ -379,7 +380,6 @@ n00b_init(int argc, char **argv, char **envp)
     if (!inited) {
         inited            = true;
         n00b_stashed_argv = argv;
-        n00b_stashed_envp = envp;
 
         // We need some basic thread data before starting the GC, but
         // the thread setup for thread initialization that uses the heap

@@ -13,11 +13,16 @@ typedef struct {
     void                      *trace_table; // really n00b_table_t
     n00b_heap_t               *thread_heap;
     n00b_heap_t               *string_heap;
+    void                      *locks; // n00b_generic_lock_t       *
     // When we call into system functions that we know are not
     // recursive, we can stash the user's heap here. For instance,
     // this is done when calling into the format module, which does a
     // lot of little allocations that we clean up all at once.
     n00b_heap_t               *stashed_heap;
+    int                        saved_lock_level;
+    n00b_lock_record_t         saved_lock_records[N00B_LOCK_DEBUG_RING];
+    n00b_lock_record_t         lock_wait_location;
+    n00b_lock_t               *lock_wait_target;
     int64_t                    thread_id;
     int                        kargs_next_entry;
     n00b_global_thread_state_t thread_state;
@@ -42,6 +47,9 @@ typedef struct {
     // This flag is used to prevent recursion when getting an
     // unformatted stack trace from libbacktrace().
     int                        u8_backtracing        : 1;
+    // This flag is used for critical sections with private
+    // data structures to suspend locking.
+    int                        suspend_locking       : 1;
 #if defined(N00B_ENABLE_ALLOC_DEBUG)
     int show_alloc_locations : 1;
 #endif
@@ -60,6 +68,31 @@ n00b_get_tsi_ptr(void)
     return pthread_getspecific(n00b_static_tsi_key);
 }
 
+static inline void
+n00b_thread_resume_locking(void)
+{
+    n00b_tsi_t *tsi      = n00b_get_tsi_ptr();
+    tsi->suspend_locking = false;
+}
+
+static inline void
+n00b_thread_suspend_locking(void)
+{
+    n00b_tsi_t *tsi      = n00b_get_tsi_ptr();
+    tsi->suspend_locking = true;
+}
+
+static inline void * // n00b_generic_lock_t *
+n00b_get_thread_locks(void)
+{
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+    if (!tsi) {
+        return NULL;
+    }
+
+    return tsi->locks;
+}
+
 static inline bool
 n00b_is_system_thread(void)
 {
@@ -76,6 +109,12 @@ static inline void
 n00b_set_system_thread(void)
 {
     n00b_get_tsi_ptr()->system_thread = true;
+}
+
+static inline void
+n00b_set_thread_locks(void *locks) // n00b_generic_lock_t *
+{
+    n00b_get_tsi_ptr()->locks = locks;
 }
 
 static inline void * /* n00b_vmthread_t * */

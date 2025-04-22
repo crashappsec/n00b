@@ -701,7 +701,7 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
             if (words_add_space) {
                 return n00b_cformat("«#» str*", s);
             }
-	    break;
+            break;
         case (int64_t)N00B_GOG_LPAREN:
             if (words_add_space) {
                 s = n00b_cformat("«#» (", s);
@@ -745,7 +745,7 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
     return s;
 }
 
-void
+n00b_parse_rule_t *
 _n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
                             n00b_gopt_cspec *cmd,
                             n00b_list_t     *items,
@@ -766,12 +766,11 @@ _n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
             n00b_list_append(rule, n00b_pitem_from_nt(cmd->context->nt_opts));
         }
 
-        _n00b_ruleset_add_rule(cmd->context->grammar,
-                               cmd->rule_nt,
-                               rule,
-                               0,
-                               doc);
-        return;
+        return _n00b_ruleset_add_rule(cmd->context->grammar,
+                                      cmd->rule_nt,
+                                      rule,
+                                      0,
+                                      doc);
     }
 
     gopt_rgen_ctx ctx = {
@@ -804,6 +803,8 @@ _n00b_gopt_command_add_rule(n00b_gopt_ctx   *gctx,
                                                    0,
                                                    doc);
     pr->short_doc         = create_summary_doc(gctx, cmd, items);
+
+    return pr;
 }
 
 static inline bool
@@ -915,10 +916,13 @@ n00b_gopt_finalize(n00b_gopt_ctx *gctx)
             continue;
         }
         for (uint64_t i = 0; i < n; i++) {
+            n00b_parse_rule_t *pr;
+
             if (!tops[i]->explicit_parent_rule) {
                 n00b_list_t *items = n00b_list(n00b_type_int());
                 n00b_list_append(items, (void *)tops[i]->token_id);
-                n00b_gopt_command_add_rule(gctx, one, items);
+                pr        = n00b_gopt_command_add_rule(gctx, one, items);
+                pr->thunk = (void *)~0ULL;
             }
 
             n00b_list_append(stack, tops[i]);
@@ -1206,7 +1210,7 @@ check_link:
             default:
                 break;
             }
-	    break;
+            break;
         default:
             n00b_unreachable();
         }

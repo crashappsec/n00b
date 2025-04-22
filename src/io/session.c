@@ -5,11 +5,14 @@ static void
 n00b_session_init(n00b_session_t *session, va_list args)
 {
     n00b_duration_t *max_time           = NULL;
-    n00b_duration_t *idle_timeout       = NULL;
+    n00b_duration_t *event_timeout      = NULL;
     n00b_string_t   *command            = NULL;
     n00b_list_t     *execv_args         = NULL;
     n00b_dict_t     *execv_env          = NULL;
     n00b_string_t   *pwd                = NULL;
+    n00b_stream_t   *capture_stream     = NULL; // No more than one option
+    n00b_string_t   *capture_filename   = NULL; // for capture is allowed.
+    bool             capture_tmpfile    = false;
     bool             pass_input         = true;
     bool             pass_output        = true;
     bool             merge_output       = true;
@@ -18,15 +21,16 @@ n00b_session_init(n00b_session_t *session, va_list args)
     bool             capture_commands   = true;
     bool             capture_injections = false;
     bool             pty                = true;
-    int64_t          backscroll         = 100;
+    int              capture_policy     = 0;
 
     n00b_karg_va_init(args);
     n00b_kw_ptr("max_time", max_time);
-    n00b_kw_ptr("idle_timeout", idle_timeout);
+    n00b_kw_ptr("timeout", event_timeout);
     n00b_kw_ptr("command", command);
     n00b_kw_ptr("execv_args", execv_args);
     n00b_kw_ptr("execv_env", execv_env);
     n00b_kw_ptr("pwd", pwd);
+    n00b_kw_bool("capture_tmpfile", capture_tmpfile);
     n00b_kw_bool("pass_input", pass_input);
     n00b_kw_bool("pass_output", pass_output);
     n00b_kw_bool("merge_output", merge_output);
@@ -34,18 +38,21 @@ n00b_session_init(n00b_session_t *session, va_list args)
     n00b_kw_bool("capture_input", capture_input);
     n00b_kw_bool("capture_injections", capture_injections);
     n00b_kw_bool("capture_commands", capture_commands);
+    n00b_kw_ptr("capture_stream", capture_stream);
+    n00b_kw_ptr("capture_filename", capture_filename);
+    n00b_kw_int32("capture_policy", capture_policy);
     n00b_kw_bool("pty", pty);
-    n00b_kw_int64("backscroll", backscroll);
 
-    session->end_time             = max_time;
-    session->idle_timeout         = idle_timeout;
-    session->launch_command       = command;
-    session->launch_args          = execv_args;
-    session->using_pty            = pty;
-    session->max_match_backscroll = backscroll;
-    session->merge_output         = merge_output;
-    session->pwd                  = pwd;
-    session->state                = N00B_SESSION_CLOSED;
+    session->end_time           = max_time;
+    session->launch_command     = command;
+    session->launch_args        = execv_args;
+    session->using_pty          = pty;
+    session->merge_output       = merge_output;
+    session->pwd                = pwd;
+    session->state              = N00B_SESSION_CLOSED;
+    session->passthrough_input  = pass_input;
+    session->passthrough_output = pass_output;
+    session->max_event_gap      = event_timeout;
 
     int policy = N00B_CAPTURE_SPAWN | N00B_CAPTURE_END;
 
@@ -73,6 +80,21 @@ n00b_session_init(n00b_session_t *session, va_list args)
     }
 
     session->capture_policy = policy;
+
+    if (capture_tmpfile) {
+        n00b_assert(!capture_stream);
+        capture_stream = n00b_tempfile(NULL, n00b_cstring(".cap10"));
+    }
+    if (capture_filename) {
+        n00b_assert(!capture_stream);
+        capture_stream = n00b_new(n00b_type_file(),
+                                  capture_filename,
+                                  n00b_fm_rw);
+    }
+
+    if (capture_stream) {
+        n00b_setup_capture(session, capture_stream, capture_policy);
+    }
 }
 
 static const char *bash_setup_string = N00B_SESSION_BASH_SETUP;
@@ -85,7 +107,7 @@ create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
     n00b_string_t *result  = n00b_stream_get_name(rc_file);
     n00b_buf_t    *buf     = n00b_new(n00b_type_buffer(),
                                n00b_kw("length",
-                                       (int64_t)sizeof(bash_setup_string),
+                                       (int64_t)strlen(bash_setup_string),
                                        "ptr",
                                        bash_setup_string));
 
@@ -95,11 +117,14 @@ create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
     return result;
 }
 
+extern void n00b_restart_io(void);
+#define capture(x, y, z) n00b_session_capture(x, y, z)
+
 static void
 post_fork_hook(n00b_session_t *s)
 {
     n00b_string_t *ctrl = n00b_stream_get_name(s->subproc_ctrl_stream);
-
+    n00b_restart_io();
     n00b_set_env(n00b_cstring("N00B_BASH_INFO_LOG"), ctrl);
 
     if (!s->likely_bash) {
@@ -109,22 +134,6 @@ post_fork_hook(n00b_session_t *s)
     if (s->pwd) {
         chdir(s->pwd->data);
     }
-}
-
-static inline n00b_cap_event_t *
-capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
-{
-    // TODO: add a lock around this.
-    n00b_cap_event_t *e = n00b_gc_alloc_mapped(n00b_cap_event_t,
-                                               N00B_GC_SCAN_ALL);
-
-    e->timestamp = n00b_duration_diff(n00b_now(),
-                                      s->capture_log->base_timestamp);
-    e->contents  = contents;
-    e->kind      = kind;
-
-    n00b_list_append(s->capture_log->events, e);
-    return e;
 }
 
 static n00b_list_t *
@@ -182,9 +191,9 @@ setup_shell_invocation(n00b_session_t *session)
     if (path) {
         session->likely_bash = true;
         n00b_list_append(result, path);
+        n00b_list_append(result, n00b_cstring(N00B_SESSION_SHELL_BASH));
+        n00b_list_append(result, session->rc_filename);
         n00b_list_append(result, n00b_cstring("-i"));
-        path = n00b_cformat(N00B_SESSION_SHELL_BASH, session->rc_filename);
-        n00b_list_append(result, path);
         return result;
     }
     session->likely_bash = false;
@@ -203,6 +212,7 @@ start_session_clock(n00b_session_t *session)
 {
     if (!session->start_time) {
         session->start_time = n00b_now();
+        session->skew       = NULL;
 
         if (session->end_time) {
             // Then it's the 'max' timeout, so translate to an abs time.
@@ -215,132 +225,12 @@ start_session_clock(n00b_session_t *session)
     return false;
 }
 
-static void
-control_cb(n00b_stream_t *s, void *msg, void *aux)
-{
-    // These come in line-buffered, but can come in multi-lined.
-    n00b_buf_t     *data    = msg;
-    n00b_session_t *session = aux;
-}
-
-static void
-user_read_cb(n00b_stream_t *s, void *msg, void *aux)
-{
-    n00b_buf_t     *data    = msg;
-    n00b_session_t *session = aux;
-}
-
-static void
-subproc_written_to_cb(n00b_stream_t *s, void *msg, void *aux)
-{
-    n00b_list_t    *ansi_nodes = msg;
-    n00b_session_t *session    = aux;
-}
-
-static void
-subproc_read_stdout(n00b_stream_t *s, void *msg, void *aux)
-{
-    n00b_list_t    *ansi_nodes = msg;
-    n00b_session_t *session    = aux;
-}
-
-static void
-subproc_read_stderr(n00b_stream_t *s, void *msg, void *aux)
-{
-    n00b_list_t    *ansi_nodes = msg;
-    n00b_session_t *session    = aux;
-}
-
 static inline void
-setup_control_stream(n00b_session_t *s)
+setup_user_command(n00b_session_t *s)
 {
-    n00b_stream_t *cb = n00b_callback_open(control_cb, s);
-    n00b_line_buffer_writes(cb);
-    n00b_io_subscribe_to_reads(s->subproc_ctrl_stream, cb, NULL);
-}
+    int64_t err_pty;
 
-static inline void
-setup_initial_passthrough(n00b_session_t *s)
-{
-    // This will get set up when we call n00b_proc_run().
-    if (s->passthrough_output) {
-        s->subprocess->flags |= N00B_PROC_STDOUT_PROXY;
-        s->subprocess->flags |= N00B_PROC_STDERR_PROXY;
-    }
-
-    if (s->passthrough_input) {
-        s->subprocess->flags |= N00B_PROC_STDIN_PROXY;
-    }
-}
-
-static void
-n00b_ansi_ctrl_parse_before_writing(n00b_stream_t *cb)
-{
-}
-
-static inline void
-setup_state_handlers(n00b_session_t *s)
-{
-    // The callbacks used here add to the capture IF we're capturing,
-    // and they handle matching / state transitions.
-
-    n00b_stream_t *cb;
-
-    if (s->passthrough_input) {
-        cb = n00b_callback_open(user_read_cb, s);
-        n00b_io_subscribe_to_reads(n00b_stdin(), cb, NULL);
-    }
-
-    cb = n00b_callback_open(subproc_written_to_cb, s);
-    n00b_ansi_ctrl_parse_before_writing(cb);
-    n00b_io_subscribe_to_delivery(s->subprocess->subproc_stdin, cb, NULL);
-
-    cb = n00b_callback_open(subproc_read_stdout, s);
-    n00b_ansi_ctrl_parse_before_writing(cb);
-    n00b_io_subscribe_to_reads(s->subprocess->subproc_stdout, cb, NULL);
-
-    if (!s->merge_output) {
-        cb = n00b_callback_open(subproc_read_stderr, s);
-        n00b_ansi_ctrl_parse_before_writing(cb);
-        n00b_io_subscribe_to_reads(s->subprocess->subproc_stderr, cb, NULL);
-    }
-
-    s->cur_user_state = s->start_state;
-}
-
-static inline void
-setup_capture(n00b_session_t *s, n00b_string_t *cmd, n00b_list_t *args)
-{
-    if (!s->capture_log) {
-        s->capture_log = n00b_gc_alloc_mapped(n00b_capture_log_t,
-                                              N00B_GC_SCAN_ALL);
-
-        s->capture_log->base_timestamp = s->start_time;
-        s->capture_log->events         = n00b_list(n00b_type_ref());
-    }
-
-    n00b_cap_spawn_info_t *info = n00b_gc_alloc_mapped(n00b_cap_spawn_info_t,
-                                                       N00B_GC_SCAN_ALL);
-
-    info->command = cmd;
-    info->args    = args;
-
-    capture(s, N00B_CAPTURE_SPAWN, info);
-}
-
-static inline void
-setup_replay(n00b_session_t *s)
-{
-    // This is TODO. The basic idea is that we will use the timestamps to
-    // (re-)inject input events onto the subprocess.
-    //
-    // We will ignore all other events.
-}
-
-static inline void
-launch_user_command(n00b_session_t *s)
-{
-    int64_t err_pty = s->using_pty & !s->merge_output;
+    err_pty = (int64_t)((bool)s->using_pty & (bool)!s->merge_output);
 
     s->subprocess = n00b_run_process(s->launch_command,
                                      s->launch_args,
@@ -348,23 +238,30 @@ launch_user_command(n00b_session_t *s)
                                      false,
                                      n00b_kw("pty",
                                              (int64_t)s->using_pty,
+                                             "stdout_subs",
+                                             s->stdout_cb,
+                                             "stderr_subs",
+                                             s->stderr_cb,
+                                             "run",
+                                             false,
                                              "merge",
                                              (int64_t)s->merge_output,
                                              "err_pty",
                                              err_pty));
 
-    setup_capture(s, s->launch_command, s->launch_args);
+    n00b_capture_launch(s, s->launch_command, s->launch_args);
 }
 
 static inline void
-launch_shell(n00b_session_t *s)
+setup_shell(n00b_session_t *s)
 {
     n00b_list_t   *argv    = setup_shell_invocation(s);
     n00b_string_t *cmd     = n00b_list_dequeue(argv);
-    int64_t        err_pty = s->using_pty & !s->merge_output;
+    int64_t        err_pty = (int64_t)((bool)s->using_pty & (bool)!s->merge_output);
 
+    n00b_capture_launch(s, cmd, argv);
     // We don't use the run_process capture facility because it doesn't
-    // record timestamps or worry about A
+    // record timestamps or worry about ansi, etc.
     s->subprocess = n00b_run_process(cmd,
                                      argv,
                                      false,
@@ -373,52 +270,124 @@ launch_shell(n00b_session_t *s)
                                              post_fork_hook,
                                              "hook_param",
                                              s,
+                                             "stdout_subs",
+                                             s->stdout_cb,
+                                             "stderr_subs",
+                                             s->stderr_cb,
+                                             "run",
+                                             false,
                                              "pty",
                                              (int64_t)s->using_pty,
                                              "merge",
                                              (int64_t)s->merge_output,
                                              "err_pty",
                                              err_pty));
-
-    setup_capture(s, cmd, argv);
 }
 
-static inline void
-n00b_session_run_control_loop(n00b_session_t *s)
+static inline bool
+session_cleanup(n00b_session_t *session)
 {
-    n00b_session_start_control(s);
-    // TODO:
-    // wait on a condition variable for events.
-    // scan the match buffers for matches.
+    n00b_string_t *s;
+    bool           result = !session->early_exit;
 
-    n00b_session_end_control(s);
+    // Reset session data to remove session-specific stuff that
+    // we shouldn't query afer the ression ends anyway.
+    //
+    // One needs to call session_reset() to properly reset.
+    // We don't clean up here:
+    // start / end, timeout and early_exit
+
+    if (session->end_time) {
+        session->end_time = n00b_duration_diff(session->start_time,
+                                               session->end_time);
+    }
+    session->last_event = NULL;
+    n00b_truncate_all_match_data(session, NULL, 0);
+    n00b_close(session->stdin_injection);
+    session->cur_user_state = NULL;
+    if (session->rc_filename) {
+        unlink(session->rc_filename->data);
+        session->rc_filename = NULL;
+    }
+    if (session->subproc_ctrl_stream) {
+        s = n00b_stream_get_name(session->subproc_ctrl_stream);
+        n00b_close(session->subproc_ctrl_stream);
+        unlink(s->data);
+        session->subproc_ctrl_stream = NULL;
+    }
+
+    session->capture_stream = NULL;
+    session->saved_capture  = NULL;
+
+    if (session->subprocess) {
+        n00b_proc_close(session->subprocess);
+        session->subprocess = NULL;
+    }
+    n00b_condition_init(&session->control_notify);
+    session->log_cursor = (n00b_log_cursor_t){
+        0,
+    };
+    session->next_capture_id = 0;
+    session->paused_clock    = false;
+
+    return result;
 }
 
-void
-n00b_session_start(n00b_session_t *session)
+bool
+n00b_session_run(n00b_session_t *session)
 {
+    if (n00b_session_is_active(session)) {
+        return false;
+    }
+    if (session->log_cursor.log && session->log_cursor.cinematic) {
+        return n00b_session_run_cinematic(session);
+    }
+
+    start_session_clock(session);
+    n00b_session_setup_state_handling(session);
+
     if (session->launch_command) {
-        launch_user_command(session);
+        setup_user_command(session);
     }
     else {
-        launch_shell(session);
-        setup_control_stream(session);
+        setup_shell(session);
+        n00b_session_setup_control_stream(session);
     }
 
-    setup_initial_passthrough(session);
-    setup_state_handlers(session);
-    start_session_clock(session);
-    setup_replay(session);
+    n00b_session_setup_replay(session);
     n00b_proc_spawn(session->subprocess);
     n00b_session_run_control_loop(session);
+    capture(session, N00B_CAPTURE_END, NULL);
+    n00b_session_finish_capture(session);
+    return session_cleanup(session);
 }
+
+bool
+n00b_session_run_cinematic(n00b_session_t *session)
+{
+    if (!session->log_cursor.log) {
+        N00B_CRAISE("No replay event stream added");
+    }
+    session->log_cursor.paused = false;
+    n00b_session_setup_user_read_cb(session);
+    start_session_clock(session);
+    n00b_session_run_replay_loop(session);
+    return session_cleanup(session);
+}
+
+const n00b_vtable_t n00b_session_vtable = {
+    .methods = {
+        [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_session_init,
+    },
+};
 
 // TODO:
 //
-// Filter to ansify stuff.
-// control loop.
-// pause.
-// reset.
-// replay.
+// Finish finish capture / all the WINCH stuff
 // When proxying, allow filters to choose what to deliver or not? If so, do
 // it w/ a custom callback filter, which you already wrote.
+// Custom filtering for recording.
+// Generate ascii-cinema JSONL
+// Generate Animated Gif
+// STATE Actions for injecting, closing, interacting, removing interaction,
+//                   breaking the pipes, changing speed, ...

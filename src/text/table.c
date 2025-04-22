@@ -115,7 +115,7 @@ n00b_table_init(n00b_table_t *table, va_list args)
         theme = n00b_get_current_theme();
     }
 
-    n00b_raw_lock_init(&table->lock);
+    n00b_lock_init(&table->lock);
     table->theme            = theme;
     table->outstream        = outstream;
     table->stored_cells     = n00b_list(n00b_type_ref());
@@ -230,6 +230,10 @@ bool
 _n00b_table_add_cell(n00b_table_t *table, void *contents, ...)
 {
     defer_on();
+
+    if (!contents) {
+        contents = n00b_cached_empty_string();
+    }
 
     int64_t           span;
     va_list           args;

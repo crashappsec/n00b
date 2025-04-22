@@ -44,6 +44,11 @@ n00b_filter_colorterm(n00b_stream_t *party, colorterm_ctx *ctx, void *msg)
 
     s = (n00b_string_t *)msg;
 
+    if (n00b_string_find(s, n00b_cached_escape()) != -1) {
+        n00b_list_append(l, s);
+        return l;
+    }
+
     if (!s->codepoints) {
         return NULL;
     }
@@ -54,8 +59,8 @@ n00b_filter_colorterm(n00b_stream_t *party, colorterm_ctx *ctx, void *msg)
         ctx->s = NULL;
     }
 
-    if (!n00b_string_ends_with(s, n00b_cached_newline())
-        && !n00b_string_ends_with(s, n00b_cached_cr())) {
+    if (!n00b_string_ends_with(s, n00b_cached_newline())) {
+        //        && !n00b_string_ends_with(s, n00b_cached_cr())) {
         partial_line = true;
     }
 

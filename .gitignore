@@ -7,3 +7,4 @@ subprojects/*/
 deps/local
 tags
 src/unicode
+tests/*/*.cap10

@@ -1,6 +1,10 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+#ifdef N00B_INTERNAL_DEBUG
+bool n00b_show_write_log = false;
+#endif
+
 static uint64_t                  msgs_per_page;
 static _Atomic(n00b_ioqueue_t *) in_queue;
 static n00b_ioqueue_t           *private_queue;
@@ -108,12 +112,34 @@ n00b_ioqueue_enqueue_callback(n00b_iocb_info_t *cb_info)
 }
 
 void
-n00b_write(n00b_stream_t *recipient, void *m)
+_n00b_write(n00b_stream_t *recipient,
+            void          *m
+#ifdef N00B_INTERNAL_DEBUG
+            ,
+            char *file,
+            int   line
+#endif
+)
 {
     n00b_ioqentry_t entry = {
         .recipient = recipient,
         .msg       = m,
+#ifdef N00B_INTERNAL_DEBUG
+        .file = file,
+        .line = line,
+#endif
     };
+
+#ifdef N00B_INTERNAL_DEBUG
+    if (n00b_show_write_log) {
+        fprintf(stderr,
+                "q: msg = %p; @%s:%d for %s\n",
+                m,
+                file,
+                line,
+                n00b_stream_full_repr(recipient)->data);
+    }
+#endif
 
     n00b_ioqueue_t *top         = atomic_read(&in_queue);
     n00b_ioqueue_t *cur         = top;
@@ -171,7 +197,12 @@ n00b_process_queue(void)
 {
     n00b_ioqueue_t *processing = atomic_read(&in_queue);
     n00b_ioqueue_t *cur        = private_queue;
-    n00b_ioqentry_t empty      = {NULL, NULL};
+    n00b_ioqentry_t empty      = {
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
     n00b_ioqentry_t entry;
 
     // Only the IO thread should change in_queue, so we can just

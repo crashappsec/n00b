@@ -29,7 +29,7 @@ _n00b_buffer_acquire_w(n00b_buf_t *b)
 static inline void
 _n00b_buffer_acquire_r(n00b_buf_t *b)
 {
-    n00b_rw_lock_acquire_for_read(&b->lock, true);
+    n00b_rw_lock_acquire_for_read(&b->lock);
 }
 
 static inline void
@@ -42,6 +42,13 @@ static inline n00b_string_t *
 n00b_buf_to_string(n00b_buf_t *b)
 {
     return n00b_utf8(b->data, b->byte_len);
+}
+
+static inline n00b_buf_t *
+n00b_string_to_buffer(n00b_string_t *s)
+{
+    return n00b_new(n00b_type_buffer(),
+                    n00b_kw("length", (int64_t)s->u8_bytes, "ptr", s->data));
 }
 
 #define n00b_buffer_acquire_w(b)       \

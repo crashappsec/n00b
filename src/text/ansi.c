@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 // Parse ANSI codes from a UTF-8 string, and be able to generate
@@ -23,7 +24,7 @@
 // do any up-leveling of codes, doesn't pull out parameters, etc.
 
 static inline n00b_ansi_node_t *
-ansi_node(n00b_ansi_ctx *ctx, n00b_ansi_kind kind, bool backup)
+ansi_node(n00b_ansi_ctx *ctx, n00b_ansi_kind kind, int backup)
 {
     n00b_ansi_node_t *result = n00b_gc_alloc_mapped(n00b_ansi_node_t,
                                                     N00B_GC_SCAN_ALL);
@@ -57,27 +58,31 @@ ansi_current(n00b_ansi_ctx *ctx, n00b_codepoint_t *ptr)
 static inline void
 c0_code(n00b_ansi_ctx *ctx, int l)
 {
-    n00b_ansi_node_t *n = ansi_node(ctx, N00B_ANSI_C0_CODE, false);
+    n00b_ansi_node_t *n = ansi_node(ctx, N00B_ANSI_C0_CODE, 0);
+    n->ctrl.ctrl_byte   = *ctx->cur;
     n->end              = ansi_advance(ctx, l);
 }
 
 static inline void
 c1_code(n00b_ansi_ctx *ctx, int l)
 {
-    n00b_ansi_node_t *n = ansi_node(ctx, N00B_ANSI_C1_CODE, false);
-    n->end              = ansi_advance(ctx, l);
+    n00b_ansi_node_t *n = ansi_node(ctx, N00B_ANSI_C1_CODE, 0);
+    n00b_codepoint_t  cp;
+    ansi_current(ctx, &cp);
+    n->ctrl.ctrl_byte = cp;
+    n->end            = ansi_advance(ctx, l);
 }
 
 static inline void
 printable_string(n00b_ansi_ctx *ctx, int l)
 {
-    n00b_ansi_node_t *n = ansi_node(ctx, N00B_ANSI_TEXT, false);
+    n00b_ansi_node_t *n = ansi_node(ctx, N00B_ANSI_TEXT, 0);
     n00b_codepoint_t  cp;
 
     while (ctx->cur < ctx->end) {
         ansi_advance(ctx, l);
         l = ansi_current(ctx, &cp);
-        if (l <= 0) {
+        if (l < 0) {
             n->kind = N00B_ANSI_PARTIAL;
             return;
         }
@@ -98,7 +103,7 @@ node_invalidate(n00b_ansi_ctx *ctx, n00b_ansi_node_t *n)
 }
 
 static inline void
-private_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool backup)
+private_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, int backup)
 {
     n00b_ansi_node_t *n   = ansi_node(ctx, N00B_ANSI_PRIVATE_CONTROL, backup);
     int               len = 0;
@@ -108,7 +113,7 @@ private_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool backup)
 
     while (ctx->cur < ctx->end) {
         l = ansi_current(ctx, &cp);
-        if (l <= 0) {
+        if (l < 0) {
             n->kind = N00B_ANSI_PARTIAL;
             return;
         }
@@ -130,7 +135,7 @@ private_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool backup)
         len++;
 
         l = ansi_current(ctx, &cp);
-        if (l <= 0) {
+        if (l < 0) {
             n->kind = N00B_ANSI_PARTIAL;
             return;
         }
@@ -155,7 +160,7 @@ private_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool backup)
 }
 
 static inline void
-normal_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool bu)
+normal_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, int bu)
 {
     n00b_ansi_node_t *n        = ansi_node(ctx, N00B_ANSI_CONTROL_SEQUENCE, bu);
     bool              colon_ok = true;
@@ -164,7 +169,7 @@ normal_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool bu)
     l              = ansi_current(ctx, &cp);
     n->ctrl.pstart = ctx->cur;
 
-    if (l <= 0) {
+    if (l < 0) {
         n->kind = N00B_ANSI_PARTIAL;
         return;
     }
@@ -174,7 +179,7 @@ normal_ctrl(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool bu)
 param_advance:
             ansi_advance(ctx, l);
             l = ansi_current(ctx, &cp);
-            if (l <= 0) {
+            if (l < 0) {
                 n->kind = N00B_ANSI_PARTIAL;
                 return;
             }
@@ -228,7 +233,7 @@ param_advance:
 }
 
 static inline void
-control_sequence(n00b_ansi_ctx *ctx, bool backup)
+control_sequence(n00b_ansi_ctx *ctx, int backup)
 {
     n00b_codepoint_t cp;
     int              l = ansi_current(ctx, &cp);
@@ -253,7 +258,7 @@ nf_sequence(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l)
     do {
         n->end = ansi_advance(ctx, l);
         l      = ansi_current(ctx, &cp);
-        if (l <= 0) {
+        if (l < 0) {
             n->kind = N00B_ANSI_PARTIAL;
             return;
         }
@@ -301,7 +306,7 @@ bad_sequence(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l)
 }
 
 static inline void
-command_string(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, bool backup)
+command_string(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l, int backup)
 {
     n00b_ansi_node_t *n       = ansi_node(ctx, N00B_ANSI_CTL_STR_CHAR, backup);
     bool              got_esc = false;
@@ -344,7 +349,7 @@ advance:
 }
 
 static inline void
-character_string(n00b_ansi_ctx *ctx, bool backup)
+character_string(n00b_ansi_ctx *ctx, int backup)
 {
     n00b_ansi_node_t *n = ansi_node(ctx, N00B_ANSI_CTL_STR_CHAR, backup);
     n00b_codepoint_t  cp;
@@ -386,42 +391,42 @@ control_start(n00b_ansi_ctx *ctx, n00b_codepoint_t cp, int l)
 {
     if (cp == 0x9b) {
         ansi_advance(ctx, l);
-        control_sequence(ctx, false);
+        control_sequence(ctx, 0);
         return;
     }
 
     if (cp == 0x98) {
         ansi_advance(ctx, l);
-        character_string(ctx, false);
+        character_string(ctx, 0);
         return;
     }
 
     if (cp == 0x90 || (cp >= 0x9d && cp <= 0x9f)) {
-        command_string(ctx, cp, l, false);
+        command_string(ctx, cp, l, 0);
         return;
     }
 
     if (cp == 0x1b) { // CSI
         ansi_advance(ctx, l);
         if (ctx->end == ctx->cur) {
-            ansi_node(ctx, N00B_ANSI_PARTIAL, true);
+            ansi_node(ctx, N00B_ANSI_PARTIAL, 1);
             return;
         }
         l = ansi_current(ctx, &cp);
         switch (cp) {
         case 0x5b:
             ansi_advance(ctx, l);
-            control_sequence(ctx, true);
+            control_sequence(ctx, 1);
             return;
         case 0x50:
         case 0x5d:
         case 0x5e:
         case 0x5f:
-            command_string(ctx, cp, l, true);
+            command_string(ctx, cp, l, 1);
             return;
         case 0x58:
             ansi_advance(ctx, l);
-            character_string(ctx, true);
+            character_string(ctx, 1);
             return;
         default:
             if (cp >= 0x20 && cp <= 0x2f) {
@@ -463,7 +468,6 @@ n00b_ansi_parser_create(void)
     return result;
 }
 
-// Returns false if we ended w/ a partial, true otherwise.
 static void
 n00b_ansi_parse_internal(n00b_ansi_ctx *ctx)
 {
@@ -471,7 +475,12 @@ n00b_ansi_parse_internal(n00b_ansi_ctx *ctx)
 
     while (ctx->cur < ctx->end) {
         int l = ansi_current(ctx, &cp);
-        n00b_assert(l > 0);
+        // We can end up past the end of the input in our accounting.
+        // Ideally, we won't have checked those bytes, we just add
+        // to the pointer optimistically.
+        if (l < 0) {
+            return;
+        }
 
         if (utf8proc_category(cp) == UTF8PROC_CATEGORY_CC) {
             control_start(ctx, cp, l);
@@ -486,6 +495,10 @@ static inline n00b_buf_t *
 combine_partial(n00b_ansi_ctx *ctx, n00b_buf_t *b)
 {
     n00b_ansi_node_t *n = n00b_list_pop(ctx->results);
+
+    while (*n->start != '\e') {
+        --n->start;
+    }
 
     // If there's room in the current buffer, we'll slide over the
     // contents and add in the partials from last time.
@@ -674,4 +687,85 @@ n00b_ansi_node_repr(n00b_ansi_node_t *node)
                             (int64_t)len,
                             n00b_bytes_to_hex(node->start, len));
     }
+}
+
+static inline n00b_string_t *
+one_node_to_string(n00b_ansi_node_t *node)
+{
+    char *p   = node->start;
+    char *end = node->end;
+
+    switch (node->kind) {
+    case N00B_ANSI_CONTROL_SEQUENCE:
+    case N00B_ANSI_PRIVATE_CONTROL:
+    case N00B_ANSI_NF_SEQUENCE:
+    case N00B_ANSI_FP_SEQUENCE:
+    case N00B_ANSI_FE_SEQUENCE:
+    case N00B_ANSI_FS_SEQUENCE:
+    case N00B_ANSI_CTL_STR_CHAR:
+    case N00B_ANSI_CRL_STR_CMD:
+        while (*p != '\e') {
+            p -= 1;
+        }
+        break;
+    case N00B_ANSI_C0_CODE:
+    case N00B_ANSI_C1_CODE:
+        // Always strip cr, we don 't really want them.
+        if (node->ctrl.ctrl_byte == '\r') {
+            return n00b_cached_empty_string();
+        }
+        return n00b_string_from_codepoint(node->ctrl.ctrl_byte);
+    default:
+        break;
+    }
+
+    return n00b_utf8(p, end - p);
+}
+
+n00b_string_t *
+n00b_ansi_nodes_to_string(n00b_list_t *nodes, bool keep_control)
+{
+    // Newlines always get kept, even if we're stripping control
+    // sequences.
+    n00b_list_t   *pieces = n00b_list(n00b_type_string());
+    int            n      = n00b_list_len(nodes);
+    n00b_string_t *s;
+
+    if (keep_control) {
+        for (int i = 0; i < n; i++) {
+            n00b_ansi_node_t *node = n00b_list_get(nodes, i, NULL);
+            s                      = one_node_to_string(node);
+            n00b_string_sanity_check(s);
+            n00b_list_append(pieces, s);
+        }
+    }
+    else {
+        for (int i = 0; i < n; i++) {
+            n00b_ansi_node_t *node = n00b_list_get(nodes, i, NULL);
+
+            switch (node->kind) {
+            case N00B_ANSI_TEXT:
+                break;
+            case N00B_ANSI_C0_CODE:
+                switch (node->ctrl.ctrl_byte) {
+                case '\n':
+                    n00b_list_append(pieces, n00b_cached_newline());
+                    continue;
+                case '\t':
+                    n00b_list_append(pieces, n00b_string_from_codepoint('\t'));
+                    continue;
+                default:
+                    continue;
+                }
+            default:
+                continue;
+            }
+
+            s = one_node_to_string(node);
+            n00b_string_sanity_check(s);
+            n00b_list_append(pieces, s);
+        }
+    }
+
+    return n00b_string_join(pieces, n00b_cached_empty_string());
 }

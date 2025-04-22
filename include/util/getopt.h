@@ -340,13 +340,13 @@ typedef struct {
     int             n; // Number of items stored.
 } n00b_rt_option_t;
 
-extern n00b_list_t *n00b_gopt_parse(n00b_gopt_ctx *,
-                                    n00b_string_t *,
-                                    n00b_list_t *);
-extern void         _n00b_gopt_command_add_rule(n00b_gopt_ctx *,
-                                                n00b_gopt_cspec *,
-                                                n00b_list_t *,
-                                                n00b_string_t *);
+extern n00b_list_t       *n00b_gopt_parse(n00b_gopt_ctx *,
+                                          n00b_string_t *,
+                                          n00b_list_t *);
+extern n00b_parse_rule_t *_n00b_gopt_command_add_rule(n00b_gopt_ctx *,
+                                                      n00b_gopt_cspec *,
+                                                      n00b_list_t *,
+                                                      n00b_string_t *);
 #define n00b_gopt_command_add_rule(x, y, z) \
     _n00b_gopt_command_add_rule(x, y, z, NULL)
 

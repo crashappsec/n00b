@@ -197,3 +197,5 @@ _n00b_kw_float(n00b_karg_info_t *provided, char *name, double *ptr)
 
 #define n00b_karg_va_init(list) \
     n00b_karg_info_t *_n00b_karg = va_arg(list, n00b_obj_t)
+
+#define N00B_OPT_KARGS n00b_karg_info_t *_n00b_karg, ...

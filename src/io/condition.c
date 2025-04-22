@@ -13,7 +13,7 @@ n00b_condition_open(n00b_condition_t *cv, void *aux)
                                           n00b_io_perm_w,
                                           n00b_io_ev_condition);
 
-    n00b_debug("cv", n00b_crich("«em6»Condition opened"));
+    n00b_printf("«em6»Condition [|#:p|] opened", cv);
 
     return res;
 }
@@ -23,12 +23,23 @@ n00b_io_condition_notify(n00b_stream_t *ev, void *msg)
 {
     n00b_cv_cookie_t *cookie = ev->cookie;
 
+    if (cookie->signaled) {
+        return NULL;
+    }
+
+    n00b_condition_lock_acquire(&cookie->condition);
+
+    n00b_printf("«em6»Signaling [|#:p|] ", cookie->condition);
+    cookie->signaled = true;
+
     if (cookie->aux) {
-        n00b_condition_notify_one(cookie->condition, cookie->aux);
+        n00b_condition_notify_aux(cookie->condition, cookie->aux);
     }
     else {
-        n00b_condition_notify_one(cookie->condition, msg);
+        n00b_condition_notify_aux(cookie->condition, msg);
     }
+
+    n00b_condition_lock_release(&cookie->condition);
 
     return NULL;
 }

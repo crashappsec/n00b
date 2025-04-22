@@ -57,6 +57,7 @@ n00b_init_common_string_cache(void)
         cache_cp_init(PIPE, '=');
         cache_cp_init(GT, '=');
         cache_cp_init(LT, '=');
+        cache_cp_init(ESC, '\e');
         cache_cp_init(QUESTION_MARK, '?');
         cache_cp_init(TILDE, '~');
         cache_cstr_init(ARROW, " -> ");
@@ -137,6 +138,10 @@ n00b_string_sanity_check(n00b_string_t *s)
         return;
     }
 
+    if (!s->data) {
+        s->data = "";
+    }
+
     if (!s->u8_bytes && !s->codepoints) {
         return;
     }
@@ -184,6 +189,8 @@ n00b_string_initialize_from_cstring(n00b_string_t *s, char *p)
     s->data       = p;
     s->codepoints = num_cp;
     s->u8_bytes   = num_bytes;
+
+    n00b_string_sanity_check(s);
 }
 
 static inline void
@@ -193,6 +200,11 @@ n00b_string_init_from_cstring_with_len(n00b_string_t *s,
 {
     int num_cp    = 0;
     int num_bytes = 0;
+
+    if (len <= 0) {
+        memcpy(s, n00b_cached_empty_string(), sizeof(n00b_string_t));
+        return;
+    }
 
     if (!n00b_cstring_validate_u8(p, &num_cp, &num_bytes, len)
         || len != num_bytes) {
@@ -208,15 +220,6 @@ n00b_string_init_from_cstring_with_len(n00b_string_t *s,
     s->data       = p;
     s->codepoints = num_cp;
     s->u8_bytes   = num_bytes;
-}
-
-static inline void
-n00b_string_initialize_from_prechecked_bytes(n00b_string_t *s, char *p, int l)
-{
-    assert(n00b_in_heap(p));
-    s->data       = p;
-    s->codepoints = l;
-    s->u8_bytes   = l;
 }
 
 n00b_codepoint_t *
@@ -332,12 +335,7 @@ n00b_string_init(n00b_string_t *s, va_list args)
     }
     if (cstr) {
         if (p) {
-            if (n00b_in_heap(p)) {
-                n00b_string_initialize_from_prechecked_bytes(s, p, len);
-            }
-            else {
-                n00b_string_init_from_cstring_with_len(s, p, len);
-            }
+            n00b_string_init_from_cstring_with_len(s, p, len);
             return;
         }
 
@@ -546,7 +544,7 @@ n00b_string_slice(n00b_string_t *s, int64_t start, int64_t end)
     }
 
     if (end < 0) {
-        end += s->codepoints;
+        end += s->codepoints + 1;
     }
     else {
         if (end > s->codepoints) {
@@ -683,10 +681,10 @@ n00b_string_concat(n00b_string_t *s1, n00b_string_t *s2)
     n00b_string_sanity_check(s1);
     n00b_string_sanity_check(s2);
 
-    if (!s1) {
+    if (!s1 || !s1->u8_bytes) {
         return s2;
     }
-    if (!s2) {
+    if (!s2 || !s2->u8_bytes) {
         return s1;
     }
 
@@ -1361,6 +1359,8 @@ n00b_string_lit(n00b_string_t        *s,
             }
         }
     default:
+        // TODO / FIXME: hook up the errors.
+        return n00b_string_unescape(s, (int *)err);
         break;
     }
     *err = n00b_err_parse_no_lit_mod_match;
@@ -1868,6 +1868,377 @@ n00b_cstring_copy(char *s)
     memcpy(result->data, s, n);
 
     return result;
+}
+
+// For now, I'm storing the masked byte so that we can avoid the
+// ugliness of the full array of 256 entries; the default 0'd out
+// entires will give 0xff when XOR'd when 0xff.
+
+const uint8_t n00b_inverse_hex[256] = {
+    ['0'] = 0xff,
+    ['1'] = 0xfe,
+    ['2'] = 0xfd,
+    ['3'] = 0xfc,
+    ['4'] = 0xfb,
+    ['5'] = 0xfa,
+    ['6'] = 0xf9,
+    ['7'] = 0xf8,
+    ['8'] = 0xf7,
+    ['9'] = 0xf6,
+    ['a'] = 0xf5,
+    ['b'] = 0xf4,
+    ['c'] = 0xf3,
+    ['d'] = 0xf2,
+    ['e'] = 0xf1,
+    ['f'] = 0xf0,
+    ['A'] = 0xf5,
+    ['B'] = 0xf4,
+    ['C'] = 0xf3,
+    ['D'] = 0xf2,
+    ['E'] = 0xf1,
+    ['F'] = 0xf0,
+};
+
+static inline uint8_t
+one_hex_digit(uint8_t c)
+{
+    return n00b_inverse_hex[c] ^ 0xff;
+}
+
+static inline bool
+should_escape(n00b_codepoint_t cp)
+{
+    if (!n00b_codepoint_is_printable(cp)) {
+        return true;
+    }
+    switch (cp) {
+    case '"':
+    case '\\':
+    case '\'':
+        return true;
+    default:
+        return false;
+    }
+}
+
+n00b_string_t *
+n00b_string_escape(n00b_string_t *s)
+{
+    // We don't know up-front how many codepoints we'll need to escape,
+    // so we'll take two passes through the source string.
+    // We will just go ahead and allocate (very conservatively) 8 extra
+    // bytes per escape needed.
+
+    n00b_codepoint_t cp;
+    uint8_t         *p           = (uint8_t *)s->data;
+    uint8_t         *end         = (uint8_t *)s->data + s->u8_bytes;
+    int              num_escapes = 0;
+
+    while (p < end) {
+        int l = utf8proc_iterate((uint8_t *)p, 4, &cp);
+        if (l <= 0) {
+            N00B_CRAISE("Invalid UTF-8 string");
+        }
+        p += l;
+        if (should_escape(cp)) {
+            num_escapes++;
+        }
+    }
+
+    if (!num_escapes) {
+        return s;
+    }
+
+    p = (uint8_t *)s->data;
+
+    int            num_cp = 0;
+    int            alen   = s->u8_bytes + 8 * num_escapes;
+    n00b_string_t *result = n00b_alloc_utf8_to_copy(alen);
+    uint8_t       *q      = (uint8_t *)result->data;
+
+    while (p < end) {
+        int l = utf8proc_iterate((uint8_t *)p, 4, &cp);
+        if (!should_escape(cp)) {
+            num_cp++;
+            for (int i = 0; i < l; i++) {
+                *q++ = *p++;
+            }
+        }
+        else {
+            p += l;
+            *q++ = '\\';
+            num_cp += 2; // Assume 2; add more as needed.
+
+            switch (cp) {
+            case '\\':
+                *q++ = '\\';
+                continue;
+            case '\a':
+                *q++ = 'a';
+                continue;
+            case '\b':
+                *q++ = 'b';
+                continue;
+            case '\e':
+                *q++ = 'e';
+                continue;
+            case '\f':
+                *q++ = 'f';
+                continue;
+            case '\n':
+                *q++ = 'n';
+                continue;
+            case '\r':
+                *q++ = 'r';
+                continue;
+            case '\t':
+                *q++ = 't';
+                continue;
+            case '\v':
+                *q++ = 'v';
+                continue;
+            default:
+                num_cp += 2;
+                if (cp <= 0x7f) {
+                    *q++ = 'x';
+                    *q++ = n00b_hex_map_lower[cp >> 4];
+                    *q++ = n00b_hex_map_lower[cp & 0x0f];
+                    continue;
+                }
+                num_cp += 2;
+                if (cp < 0x10000) {
+                    *q++ = 'u';
+                    *q++ = n00b_hex_map_lower[cp >> 12];
+                    *q++ = n00b_hex_map_lower[(cp >> 8) & 0x0f];
+                    *q++ = n00b_hex_map_lower[(cp >> 4) & 0x0f];
+                    *q++ = n00b_hex_map_lower[cp & 0x0f];
+                    continue;
+                }
+                num_cp += 2;
+                *q++ = 'U';
+                *q++ = n00b_hex_map_lower[cp >> 20];
+                *q++ = n00b_hex_map_lower[(cp >> 16) & 0x0f];
+                *q++ = n00b_hex_map_lower[(cp >> 12) & 0x0f];
+                *q++ = n00b_hex_map_lower[(cp >> 8) & 0x0f];
+                *q++ = n00b_hex_map_lower[(cp >> 4) & 0x0f];
+                *q++ = n00b_hex_map_lower[cp & 0x0f];
+                continue;
+            }
+        }
+    }
+
+    result->u8_bytes   = ((char *)q) - result->data;
+    result->codepoints = num_cp;
+
+    return result;
+}
+
+n00b_string_t *
+n00b_string_unescape(n00b_string_t *s, int *error)
+{
+    n00b_compile_error_t internal_errno = n00b_err_no_error;
+    uint8_t             *p              = (uint8_t *)s->data;
+    uint8_t             *end            = (uint8_t *)p + s->u8_bytes;
+    n00b_codepoint_t     cp;
+
+    if (*(end)) {
+        if (n00b_string_find(s, n00b_string_from_codepoint('\\')) == -1) {
+            return s;
+        }
+    }
+    else {
+        if (!index((char *)p, '\\')) {
+            return s;
+        }
+    }
+
+    n00b_string_t *res   = n00b_alloc_utf8_to_copy(s->u8_bytes);
+    uint8_t       *q     = (uint8_t *)res->data;
+    int            count = 0;
+
+    while (p < end) {
+        int l = utf8proc_iterate((uint8_t *)p, 4, &cp);
+        int n;
+
+        count++;
+        if (l <= 0) {
+            return NULL;
+        }
+        if (cp != '\\') {
+            while (l--) {
+                *q++ = *p++;
+            }
+            continue;
+        }
+        p++;
+        l = utf8proc_iterate((uint8_t *)p, 4, &cp);
+        if (l <= 0) {
+            return NULL;
+        }
+        switch (cp) {
+        case 'a':
+            *q++ = '\a';
+            p++;
+            continue;
+        case 'b':
+            *q++ = '\b';
+            p++;
+            continue;
+        case 'e':
+            *q++ = '\e';
+            p++;
+            continue;
+        case 'f':
+            *q++ = '\f';
+            p++;
+            continue;
+        case 'n':
+            *q++ = '\n';
+            p++;
+            continue;
+        case 'r':
+            *q++ = '\r';
+            p++;
+            continue;
+        case 't':
+            *q++ = '\t';
+            p++;
+            continue;
+        case 'v':
+            *q++ = '\v';
+            p++;
+            continue;
+        case 'u':
+            p++;
+            if (*p == '+') {
+                p++;
+            }
+            if (end - p < 4) {
+                internal_errno = n00b_err_hex_eos;
+                goto err;
+            }
+            cp = one_hex_digit(*p++);
+            if (cp == 0xff) {
+                internal_errno = n00b_err_hex_missing;
+                goto err;
+            }
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_u;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_u;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_u;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            q += utf8proc_encode_char(cp, q);
+            continue;
+        case 'U':
+            p++;
+            if (*p == '+') {
+                p++;
+            }
+            if (end - p < 6) {
+                internal_errno = n00b_err_hex_eos;
+                goto err;
+            }
+            cp = one_hex_digit(*p++);
+            if (cp == 0xff) {
+                internal_errno = n00b_err_hex_missing;
+                goto err;
+            }
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_U;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_U;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_U;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_U;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_U;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            q += utf8proc_encode_char(cp, q);
+            continue;
+        case 'x':
+        case 'X':
+            p++;
+            if (end - p < 2) {
+                internal_errno = n00b_err_hex_eos;
+                goto err;
+            }
+            cp = one_hex_digit(*p++);
+            if (cp == 0xff) {
+                internal_errno = n00b_err_hex_missing;
+                goto err;
+            }
+            n = one_hex_digit(*p++);
+            if (n == 0xff) {
+                internal_errno = n00b_err_hex_x;
+                goto err;
+            }
+            cp <<= 4;
+            cp |= n;
+            q += utf8proc_encode_char(cp, q);
+            continue;
+
+        default:
+            while (l--) {
+                *q++ = *p++;
+            }
+            continue;
+        }
+    }
+
+    *q = 0;
+
+    res->codepoints = count;
+    res->u8_bytes   = ((char *)q) - res->data;
+
+    return res;
+
+err:
+    if (error) {
+        *error = (int)internal_errno;
+        return NULL;
+    }
+    N00B_CRAISE("Improper escape sequence in string.");
 }
 
 const n00b_vtable_t n00b_string_vtable = {

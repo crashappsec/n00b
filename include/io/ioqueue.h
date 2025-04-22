@@ -7,6 +7,8 @@ typedef struct n00b_ioqueue_t n00b_ioqueue_t;
 typedef struct {
     n00b_stream_t  *recipient;
     n00b_message_t *msg;
+    char           *file;
+    int             line;
 } n00b_ioqentry_t;
 
 struct n00b_ioqueue_t {
@@ -17,4 +19,5 @@ struct n00b_ioqueue_t {
 
 #ifdef N00B_USE_INTERNAL_API
 extern bool n00b_process_queue(void);
+extern bool n00b_show_write_log;
 #endif

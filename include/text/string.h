@@ -55,8 +55,6 @@ extern bool              n00b_string_starts_with(n00b_string_t *,
                                                  n00b_string_t *);
 extern bool              n00b_string_ends_with(n00b_string_t *,
                                                n00b_string_t *);
-extern bool              n00b_string_ends_with(n00b_string_t *,
-                                               n00b_string_t *);
 extern bool              n00b_string_from_file(n00b_string_t *, int *);
 extern int64_t           _n00b_string_find(n00b_string_t *,
                                            n00b_string_t *,
@@ -87,6 +85,8 @@ extern n00b_string_t    *n00b_to_literal(void *item);
 extern n00b_codepoint_t  n00b_codepoint_title_case(n00b_codepoint_t, bool *);
 extern n00b_string_t    *n00b_string_to_hex(n00b_string_t *, bool);
 extern n00b_string_t    *n00b_cstring_copy(char *);
+extern n00b_string_t    *n00b_string_unescape(n00b_string_t *, int *);
+extern n00b_string_t    *n00b_string_escape(n00b_string_t *);
 
 #define n00b_string_strip(s, ...) \
     _n00b_string_strip(s, N00B_VA(__VA_ARGS__))
@@ -213,6 +213,7 @@ enum {
     N00B_STRCACHE_PIPE,
     N00B_STRCACHE_GT,
     N00B_STRCACHE_LT,
+    N00B_STRCACHE_ESC,
     N00B_STRCACHE_QUESTION_MARK,
     N00B_STRCACHE_TILDE,
     N00B_STRCACHE_ARROW,
@@ -427,6 +428,12 @@ static inline n00b_string_t *
 n00b_cached_lt(void)
 {
     return n00b_common_string_cache[N00B_STRCACHE_LT];
+}
+
+static inline n00b_string_t *
+n00b_cached_escape(void)
+{
+    return n00b_common_string_cache[N00B_STRCACHE_ESC];
 }
 
 static inline n00b_string_t *

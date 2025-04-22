@@ -21,8 +21,8 @@ typedef struct n00b_type_t n00b_type_t;
 #include "core/thread.h"
 #include "core/kargs.h"
 #include "core/dt_exceptions.h"
-#include "core/tsi.h" // Thread-specific info.
 #include "core/locks.h"
+#include "core/tsi.h" // Thread-specific info.
 
 #include "adts/dt_lists.h"
 #include "adts/dt_trees.h"

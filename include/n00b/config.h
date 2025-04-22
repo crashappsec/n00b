@@ -13,6 +13,8 @@
 #else
 #endif
 
+#define N00B_USE_LOCK_DEBUGGING
+
 #pragma once
 // Home of anything remotely configurable. Don't change this file;
 // update the meson config.
@@ -249,7 +251,7 @@
 #endif
 
 #ifndef N00B_CALLBACK_THREAD_POLL_INTERVAL
-#define N00B_CALLBACK_THREAD_POLL_INTERVAL 5000000
+#define N00B_CALLBACK_THREAD_POLL_INTERVAL 50000000
 #endif
 
 /*

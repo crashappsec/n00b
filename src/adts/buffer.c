@@ -31,9 +31,6 @@ buffer_init(n00b_buf_t *obj, va_list args)
     }
 
     n00b_static_rw_lock_init(obj->lock);
-    // Asserts the lock is never around code that would wait long
-    // enough to impair the GC.
-    n00b_rw_lock_set_nosleep(&obj->lock);
 
     if (length == 0) {
         obj->alloc_len = N00B_EMPTY_BUFFER_ALLOC;

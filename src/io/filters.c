@@ -245,6 +245,77 @@ n00b_add_custom_write_filter(n00b_stream_t *party, n00b_callback_filter fn)
 }
 
 static n00b_list_t *
+n00b_ansi_ctrl_xform(n00b_stream_t *s, void *ctx, void *msg)
+{
+    n00b_assert(n00b_type_is_buffer(n00b_get_my_type(msg)));
+    n00b_buf_t *b = msg;
+
+    n00b_ansi_ctx *saved  = ctx;
+    n00b_list_t   *result = n00b_list(n00b_type_list(n00b_type_ref()));
+    n00b_list_t   *nodes;
+
+    if (!saved->results) {
+        saved->results = n00b_list(n00b_type_ref());
+    }
+
+    n00b_ansi_parse(saved, b);
+
+    nodes = saved->results;
+
+    n00b_list_append(result, nodes);
+    saved->results         = n00b_list(n00b_type_ref());
+    n00b_ansi_node_t *last = n00b_list_pop(nodes);
+
+    if (last->kind != N00B_ANSI_PARTIAL) {
+        n00b_private_list_append(nodes, last);
+    }
+    else {
+        n00b_private_list_append(saved->results, last);
+    }
+
+    return result;
+}
+
+static n00b_list_t *
+n00b_ansi_ctrl_flush(n00b_stream_t *e, void *ctx, void *msg)
+{
+    n00b_ansi_ctx *saved = ctx;
+
+    if (!saved->results || !n00b_list_len(saved->results)) {
+        return NULL;
+    }
+
+    n00b_list_t *result = saved->results;
+    saved->results      = n00b_list(n00b_type_ref());
+
+    return result;
+}
+
+n00b_stream_filter_t *
+n00b_ansi_ctrl_parse_on_write(n00b_stream_t *party)
+{
+    n00b_stream_filter_t *result = n00b_new_filter(n00b_ansi_ctrl_xform,
+                                                   n00b_ansi_ctrl_flush,
+                                                   n00b_cstring("ansi ctrl"),
+                                                   sizeof(n00b_ansi_ctx));
+    n00b_add_filter(party, result, false);
+
+    return result;
+}
+
+n00b_stream_filter_t *
+n00b_ansi_ctrl_parse_on_read(n00b_stream_t *party)
+{
+    n00b_stream_filter_t *result = n00b_new_filter(n00b_ansi_ctrl_xform,
+                                                   n00b_ansi_ctrl_flush,
+                                                   n00b_cstring("ansi ctrl"),
+                                                   sizeof(n00b_ansi_ctx));
+    n00b_add_filter(party, result, true);
+
+    return result;
+}
+
+static n00b_list_t *
 n00b_to_json_xform(n00b_stream_t *e, void *ignore, void *msg)
 {
     n00b_string_t *s = n00b_to_json(msg);

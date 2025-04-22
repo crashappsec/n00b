@@ -10,6 +10,12 @@ n00b_get_current_directory(void)
     return n00b_cstring(getcwd(buf, MAXPATHLEN));
 }
 
+bool
+n00b_set_current_directory(n00b_string_t *s)
+{
+    return chdir(s->data) == 0;
+}
+
 static n00b_string_t *n00b_base_tmp_dir;
 static pthread_once_t tmpdir_setup = PTHREAD_ONCE_INIT;
 
@@ -75,7 +81,10 @@ void *
 n00b_tempfile(n00b_string_t *prefix, n00b_string_t *suffix)
 {
     n00b_string_t *filename = construct_random_name(prefix, suffix);
-    return n00b_new(n00b_type_file(), filename, n00b_fm_rw);
+    return n00b_new(n00b_type_file(),
+                    filename,
+                    n00b_fm_rw,
+                    n00b_kw("allow_file_creation", n00b_ka(true)));
 }
 
 // This is private; it mutates the string, which we don't normally
@@ -760,4 +769,182 @@ on_success:
     }
 
     return result;
+}
+
+n00b_string_t *
+n00b_rename(n00b_string_t *from, n00b_string_t *to)
+{
+    from = n00b_resolve_path(from);
+    to   = n00b_resolve_path(to);
+
+    if (!n00b_file_exists(from)) {
+        N00B_CRAISE("Source file cannot be found");
+    }
+    if (n00b_file_exists(to)) {
+        n00b_list_t *parts = n00b_path_parts(to);
+
+        n00b_eprint(parts);
+
+        n00b_string_t *ext  = n00b_list_pop(parts);
+        n00b_string_t *base = n00b_path_join(parts);
+        int            i    = 0;
+
+        if (n00b_string_codepoint_len(ext)) {
+            ext = n00b_string_concat(n00b_cached_period(), ext);
+        }
+        do {
+            to = n00b_cformat("[|#|].[|#|][|#|]", base, ++i, ext);
+        } while (n00b_file_exists(to));
+    }
+
+    if (rename(from->data, to->data)) {
+        n00b_raise_errno();
+    }
+
+    return to;
+}
+
+n00b_list_t *
+n00b_path_parts(n00b_string_t *p)
+{
+    if (!p || !p->u8_bytes) {
+        return NULL;
+    }
+
+    n00b_list_t   *result   = n00b_list(n00b_type_string());
+    n00b_string_t *resolved = n00b_resolve_path(p);
+    n00b_string_t *filename;
+    int            n;
+
+    // A directory.
+    if (p->data[p->u8_bytes - 1] == '/'
+        || resolved->data[resolved->u8_bytes - 1] == '/') {
+        n00b_list_append(result, resolved);
+        n00b_list_append(result, n00b_cached_empty_string());
+        n00b_list_append(result, n00b_cached_empty_string());
+
+        return result;
+    }
+
+    n = n00b_string_rfind(resolved, n00b_cached_slash());
+
+    n00b_list_append(result, n00b_string_slice(resolved, 0, n));
+    filename = n00b_string_slice(resolved, n + 1, -1);
+
+    n = n00b_string_rfind(filename, n00b_cached_period());
+
+    if (n == -1) {
+        n00b_list_append(result, filename);
+        n00b_list_append(result, n00b_cached_empty_string());
+        return result;
+    }
+
+    n00b_list_append(result, n00b_string_slice(filename, 0, n));
+    n00b_list_append(result, n00b_string_slice(filename, n + 1, -1));
+
+    return result;
+}
+
+n00b_list_t *
+_n00b_list_directory(n00b_string_t *dir, ...)
+{
+    n00b_string_t *extension   = NULL;
+    bool           files       = true;
+    bool           directories = true;
+    bool           links       = true;
+    bool           specials    = true;
+    bool           full_path   = false;
+    bool           dot_files   = true;
+
+    n00b_karg_only_init(dir);
+    n00b_kw_ptr("extension", extension);
+    n00b_kw_bool("files", files);
+    n00b_kw_bool("directories", directories);
+    n00b_kw_bool("links", links);
+    n00b_kw_bool("specials", specials);
+    n00b_kw_bool("full_path", full_path);
+    n00b_kw_bool("dot_files", dot_files);
+
+    dir         = n00b_resolve_path(dir);
+    DIR *dirent = opendir(dir->data);
+    if (!dirent) {
+        n00b_raise_errno();
+    }
+
+    if (extension && extension->codepoints && extension->data[0] != '.') {
+        extension = n00b_cformat(".[|#|]", extension);
+    }
+
+    n00b_list_t *result = n00b_list(n00b_type_string());
+
+    while (true) {
+        struct dirent *entry = readdir(dirent);
+
+        if (!entry) {
+            return result;
+        }
+
+        if (!strcmp(entry->d_name, "..")) {
+            continue;
+        }
+
+        if (!strcmp(entry->d_name, ".")) {
+            continue;
+        }
+
+        if (!dot_files && *entry->d_name == '.') {
+            continue;
+        }
+
+        n00b_string_t *name = n00b_cstring(entry->d_name);
+        n00b_string_t *full = n00b_path_simple_join(dir, name);
+        struct stat    file_info;
+        bool           add = false;
+
+        if (lstat(full->data, &file_info) != 0) {
+            continue; // Race condition.
+        }
+        switch (file_info.st_mode & S_IFMT) {
+        case S_IFREG:
+            add = files;
+            break;
+        case S_IFDIR:
+            add = directories;
+            break;
+        case S_IFLNK:
+            add = links;
+            break;
+        default:
+            add = specials;
+            break;
+        }
+
+        if (!add) {
+            continue;
+        }
+
+        if (extension && !n00b_string_ends_with(name, extension)) {
+            continue;
+        }
+
+        if (full_path) {
+            n00b_list_append(result, full);
+        }
+        else {
+            n00b_list_append(result, name);
+        }
+    }
+
+    return result;
+}
+
+n00b_string_t *
+n00b_path_remove_extension(n00b_string_t *s)
+{
+    int n = n00b_string_rfind(s, n00b_cached_period());
+    if (n == -1) {
+        return s;
+    }
+
+    return n00b_string_slice(s, 0, n);
 }
