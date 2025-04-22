@@ -8,6 +8,7 @@ extern n00b_duration_t *n00b_thread_cpu(void);
 extern n00b_duration_t *n00b_uptime(void);
 extern n00b_duration_t *n00b_program_clock(void);
 extern void             n00b_init_program_timestamp(void);
+extern n00b_string_t   *n00b_duration_repr(n00b_duration_t *);
 extern n00b_duration_t *n00b_duration_diff(n00b_duration_t *,
                                            n00b_duration_t *);
 extern n00b_duration_t *n00b_duration_add(n00b_duration_t *,
