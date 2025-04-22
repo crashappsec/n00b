@@ -1,6 +1,12 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+int
+n00b_lexical_sort_fn(const n00b_string_t **s1, const n00b_string_t **s2)
+{
+    return strcmp((*s1)->data, (*s2)->data);
+}
+
 void
 n00b_list_init(n00b_list_t *list, va_list args)
 {

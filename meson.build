@@ -339,6 +339,7 @@ n00b_cmd = [
     'src/cmd/compile.c',
     'src/cmd/run.c',
     'src/cmd/record.c',
+    'src/cmd/play.c',    
     'src/cmd/test.c',                        
     'src/cmd/debug.c',
 ]

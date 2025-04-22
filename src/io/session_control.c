@@ -267,6 +267,21 @@ check_for_total_timeout(n00b_session_t *s)
     }
 }
 
+static inline bool
+should_stop(n00b_session_t *s)
+{
+    if (s->subprocess && s->subprocess->exited) {
+        s->early_exit = true;
+        return true;
+    }
+
+    if (s->log_cursor.finished && s->log_cursor.cinematic) {
+        return true;
+    }
+
+    return s->early_exit;
+}
+
 void
 n00b_session_run_control_loop(n00b_session_t *s)
 {
@@ -279,7 +294,7 @@ n00b_session_run_control_loop(n00b_session_t *s)
 
     n00b_session_scan_for_matches(s);
 
-    while (!s->subprocess->exited && !s->early_exit) {
+    while (!should_stop(s)) {
         if (s->max_event_gap) {
             timeout = n00b_duration_add(now, s->max_event_gap);
         }
@@ -300,7 +315,7 @@ n00b_session_run_control_loop(n00b_session_t *s)
                         break;
                     }
                 }
-                if (s->subprocess->exited || s->early_exit) {
+                if (should_stop(s)) {
                     goto on_exit;
                 }
                 n00b_condition_lock_acquire(&s->control_notify);
