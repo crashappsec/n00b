@@ -35,7 +35,7 @@ n00b_io_socket_open(int64_t fd, n00b_io_impl_info_t *impl)
                                    result);
     cookie->write_event = event_new(base->event_ctx,
                                     handle,
-                                    EV_WRITE | EV_ET,
+                                    EV_WRITE,
                                     n00b_ev2_w,
                                     result);
     n00b_release_party(result);

@@ -12,11 +12,10 @@ n00b_list_init(n00b_list_t *list, va_list args)
 {
     int64_t length = 16;
 
-    list->noscan = N00B_NOSCAN;
-
     n00b_karg_va_init(args);
     n00b_kw_int64("length", length);
 
+    list->noscan    = N00B_NOSCAN;
     list->append_ix = 0;
     list->length    = n00b_max(length, 16);
 

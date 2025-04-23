@@ -86,7 +86,7 @@ add_file_info(n00b_stream_t *stream, n00b_io_permission_t perms)
     if (perms & n00b_io_perm_w) {
         cookie->write_event = event_new(base->event_ctx,
                                         cookie->id,
-                                        EV_WRITE | EV_ET,
+                                        EV_WRITE,
                                         n00b_ev2_w,
                                         stream);
     }
