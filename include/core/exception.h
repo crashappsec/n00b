@@ -141,6 +141,7 @@ extern n00b_table_t *n00b_get_c_backtrace(int);
 
 #define N00B_CRAISE(s, ...)                                      \
     n00b_thread_suspend_locking(),                               \
+      fprintf(stderr, "Exception: %s\n", s),			 \
         n00b_exception_raise(                                    \
             n00b_alloc_exception(s, __VA_OPT__(, ) __VA_ARGS__), \
             n00b_trace(),                                        \

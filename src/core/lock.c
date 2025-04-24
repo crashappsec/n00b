@@ -176,6 +176,7 @@ n00b_debug_all_locks(void)
         if (!t) {
             continue;
         }
+	printf("Got a thread %p\n", t);
         n00b_assert(t != prev);
         n00b_debug_locks(t);
         prev = t;
@@ -668,20 +669,21 @@ _n00b_condition_timed_wait(n00b_condition_t *c,
     }
 
     n00b_gts_suspend();
-    int result = pthread_cond_timedwait(&((c)->cv),
+      int result = pthread_cond_timedwait(&((c)->cv),
                                         (&(c)->mutex.lock),
                                         d);
-    n00b_gts_resume();
-    if (!result && result != ETIMEDOUT) {
+      n00b_gts_resume();
+    if (result && result != ETIMEDOUT) {
         errno = result;
         n00b_raise_errno();
     }
     //     lock_assert(!result || result == ETIMEDOUT);
 
+    n00b_condition_post_wait(c, f, l);
+    
     if (!result) {
         return false;
     }
-    n00b_condition_post_wait(c, f, l);
     return true;
 }
 

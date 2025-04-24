@@ -76,6 +76,16 @@ show_n00b_info(n00b_cmdline_ctx *ctx)
     }
 }
 
+void *
+show_me_locks(void *unused)
+{
+  while (true) {
+    n00b_nanosleep(5, 0);
+    printf("I'm awake\n");
+    n00b_debug_all_locks();
+  }
+}
+
 int
 main(int argc, char **argv, char **envp)
 {
@@ -134,6 +144,7 @@ main(int argc, char **argv, char **envp)
         n00b_exit(ctx->exit_code);
         break;
     case N00B_CMD_TEST:
+      n00b_thread_spawn((void *)show_me_locks, NULL);
         n00b_run_tests(ctx);
         n00b_exit(ctx->exit_code);
     case N00B_CMD_TEST_SHOW:
