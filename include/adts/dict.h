@@ -2,7 +2,8 @@
 
 #include "n00b.h"
 
-#define n00b_dict(x, y) n00b_new(n00b_type_dict(x, y))
+#define n00b_dict(x, y)                n00b_new(n00b_type_dict(x, y))
+#define n00b_dict_with_filter(x, y, d) n00b_new(n00b_type_dict(x, y), 1ULL, d)
 extern n00b_dict_t *n00b_dict_copy(n00b_dict_t *);
 extern n00b_list_t *n00b_dict_keys(n00b_dict_t *);
 extern n00b_list_t *n00b_dict_values(n00b_dict_t *);

@@ -40,6 +40,11 @@ typedef union {
     XXH128_hash_t  xhv;
 } hash_internal_conversion_t;
 
+typedef struct {
+    int32_t hash_offset;
+    int32_t cache_offset;
+} hatrack_offset_info_t;
+
 static inline hatrack_hash_t
 hash_cstr(char *key)
 {
@@ -79,3 +84,9 @@ hash_pointer(void *key)
 
     return u.lhv;
 }
+
+HATRACK_EXTERN hatrack_hash_t
+hatrack_hash_by_type(uint32_t,
+                     hatrack_hash_func_t,
+                     hatrack_offset_info_t *,
+                     void *);

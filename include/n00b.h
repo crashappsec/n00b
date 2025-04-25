@@ -28,6 +28,7 @@ typedef struct n00b_string_t n00b_string_t;
 
 // Core object.
 #include "core/object.h"
+#include "core/hash.h"
 
 #include "text/color.h"
 #include "adts/list.h"
@@ -56,6 +57,7 @@ typedef struct n00b_string_t n00b_string_t;
 #include "core/exception.h"
 
 // Other data types.
+#include "adts/bloom.h"
 #include "adts/dict.h"
 #include "adts/set.h"
 #include "adts/net_addr.h"

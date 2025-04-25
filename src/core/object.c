@@ -706,6 +706,15 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = false,
     },
+    [N00B_T_BLOOM] = {
+        .name      = "Bloom_filter",
+        .typeid    = N00B_T_BLOOM,
+        .alloc_len = sizeof(n00b_bloom_t),
+        .vtable    = &n00b_bloom_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = false,
+    },
 
 };
 

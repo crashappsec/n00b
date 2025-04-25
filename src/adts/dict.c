@@ -1,91 +1,5 @@
 #include "n00b.h"
 
-#ifndef NO___INT128_T
-
-static inline bool
-hatrack_bucket_unreserved(hatrack_hash_t hv)
-{
-    return !hv;
-}
-
-#else
-static inline bool
-hatrack_bucket_unreserved(hatrack_hash_t hv)
-{
-    return !hv.w1 && !hv.w2;
-}
-
-#endif
-
-static inline hatrack_hash_t
-new_string_hash(n00b_string_t *s)
-{
-    union {
-        hatrack_hash_t local_hv;
-        XXH128_hash_t  xxh_hv;
-    } hv;
-
-    if (!s || !s->codepoints) {
-        s = n00b_cached_empty_string();
-    }
-
-    hatrack_hash_t *cache = (void *)(((char *)s) + N00B_HASH_CACHE_OBJ_OFFSET);
-    hv.local_hv           = *cache;
-
-    // This isn't really testing a bucket, just seeing if the hash
-    // value is 0.
-    if (hatrack_bucket_unreserved(hv.local_hv)) {
-        hv.xxh_hv = XXH3_128bits(s->data, s->u8_bytes);
-        *cache    = hv.local_hv;
-    }
-
-    return *cache;
-}
-
-static inline hatrack_hash_t
-old_string_hash(n00b_string_t *s)
-{
-    union {
-        hatrack_hash_t local_hv;
-        XXH128_hash_t  xxh_hv;
-    } hv;
-
-    static n00b_string_t *n00b_null_string = NULL;
-
-    if (n00b_null_string == NULL) {
-        n00b_null_string = n00b_cached_empty_string();
-        n00b_gc_register_root(&n00b_null_string, 1);
-    }
-
-    hatrack_hash_t *cache = (void *)(((char *)s) + N00B_HASH_CACHE_OBJ_OFFSET);
-
-    hv.local_hv = *cache;
-
-    if (!n00b_string_codepoint_len(s)) {
-        s = n00b_null_string;
-    }
-
-    if (hatrack_bucket_unreserved(hv.local_hv)) {
-        hv.xxh_hv = XXH3_128bits(s->data, s->u8_bytes);
-
-        *cache = hv.local_hv;
-    }
-
-    return *cache;
-}
-
-hatrack_hash_t
-n00b_custom_string_hash(void *v)
-{
-    n00b_type_t *t = n00b_get_my_type(v);
-
-    if (t->base_index == N00B_T_STRING) {
-        return new_string_hash(v);
-    }
-
-    return old_string_hash(v);
-}
-
 void
 n00b_store_bits(uint64_t     *bitfield,
                 mmm_header_t *alloc)
@@ -193,6 +107,8 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
     n00b_type_t    *value_type;
     n00b_dt_info_t *info;
     n00b_type_t    *n00b_dict_type = n00b_get_my_type(dict);
+    bool            add_bloom      = false;
+    double          false_pct;
 
     if (n00b_dict_type != NULL) {
         type_params = n00b_type_get_params(n00b_dict_type);
@@ -200,6 +116,11 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
         value_type  = n00b_list_get(type_params, 1, NULL);
         info        = n00b_type_get_data_type_info(key_type);
         hash_fn     = info->hash_fn;
+
+        add_bloom = (bool)va_arg(args, int64_t);
+        if (add_bloom) {
+            false_pct = va_arg(args, double);
+        }
     }
     else {
         hash_fn = va_arg(args, size_t);
@@ -249,6 +170,13 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
     }
 
     dict->slow_views = false;
+
+    if (add_bloom) {
+        n00b_bloom_t *bf = n00b_new(n00b_type_bloom_filter(),
+                                    n00b_kw("false_pct",
+                                            false_pct));
+        hatrack_dict_add_bloom_filter(dict, bf);
+    }
 }
 
 static n00b_string_t *
