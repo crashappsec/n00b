@@ -209,7 +209,8 @@ n00b_core = [
     'src/core/thread.c',        # Basic thread interface
     'src/core/thread_tsi.c',    # Internal API; thread specific data
     'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
-    'src/core/lock.c',     
+    'src/core/lock.c',
+    'src/core/hash.c',
 ]
 
 n00b_runtime = [
@@ -256,6 +257,7 @@ n00b_adts = [
     'src/adts/flags.c',
     'src/adts/box.c',
     'src/adts/bytering.c',
+    'src/adts/bloom.c',
 ]
 
 n00b_io = [
@@ -357,6 +359,8 @@ hat_primary = [
     'src/hatrack/support/mmm.c',
     'src/hatrack/support/counters.c',
     'src/hatrack/support/malloc.c',
+    'src/hatrack/filter/bloom.c',
+    'src/hatrack/hash/hash.c',    
     'src/hatrack/hash/crown.c',
     'src/hatrack/hash/dict.c',
     'src/hatrack/hash/xxhash.c',

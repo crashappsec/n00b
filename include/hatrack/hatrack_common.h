@@ -174,6 +174,26 @@ hatrack_round_up_to_power_of_2(uint64_t n)
     return 0x8000000000000000ull >> (__builtin_clzll(n) - 1);
 }
 
+static inline uint64_t
+hatrack_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
+{
+    uint64_t modulus   = (power - 1);
+    uint64_t remainder = n & modulus;
+
+    if (!remainder) {
+        return n;
+    }
+    else {
+        return (n & ~modulus) + power;
+    }
+}
+
+static inline uint64_t
+hatrack_int_log2(uint64_t n)
+{
+    return 63 - __builtin_clzll(n);
+}
+
 typedef void (*hatrack_panic_func)(void *arg, const char *msg);
 
 [[noreturn]] HATRACK_EXTERN void

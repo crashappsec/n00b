@@ -231,4 +231,5 @@ extern const n00b_vtable_t n00b_regex_vtable;
 extern const n00b_vtable_t n00b_session_vtable;
 extern const n00b_vtable_t n00b_session_state_vtable;
 extern const n00b_vtable_t n00b_session_trigger_vtable;
+extern const n00b_vtable_t n00b_bloom_vtable;
 #endif

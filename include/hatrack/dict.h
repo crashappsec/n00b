@@ -24,6 +24,8 @@
 #include "base.h"
 #include "hatrack_common.h"
 #include "crown.h"
+#include "hash.h"
+#include "bloom.h"
 
 enum {
     HATRACK_DICT_KEY_TYPE_INT,
@@ -40,11 +42,6 @@ enum {
 enum {
     HATRACK_DICT_NO_CACHE = 0xffffffff
 };
-
-typedef struct {
-    int32_t hash_offset;
-    int32_t cache_offset;
-} hatrack_offset_info_t;
 
 typedef struct {
     void *key;
@@ -70,6 +67,7 @@ struct hatrack_dict_t {
     hatrack_mem_hook_t  free_handler;
     hatrack_mem_hook_t  key_return_hook;
     hatrack_mem_hook_t  val_return_hook;
+    hatrack_bloom_t    *bloom_filter;
 #ifdef HATRACK_PER_INSTANCE_AUX
     void *bucket_aux;
 #endif
@@ -100,6 +98,7 @@ HATRACK_EXTERN bool hatrack_dict_get_consistent_views(hatrack_dict_t *);
 HATRACK_EXTERN bool hatrack_dict_get_sorted_views    (hatrack_dict_t *);
 
 HATRACK_EXTERN void *hatrack_dict_get_mmm    (hatrack_dict_t *, mmm_thread_t *thread, void *, bool *);
+HATRACK_EXTERN bool hatrack_dict_contains_mmm (hatrack_dict_t *, mmm_thread_t *thread, void *);
 HATRACK_EXTERN void  hatrack_dict_put_mmm    (hatrack_dict_t *, mmm_thread_t *thread, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_replace_mmm(hatrack_dict_t *, mmm_thread_t *thread, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_add_mmm    (hatrack_dict_t *, mmm_thread_t *thread, void *, void *);
@@ -116,6 +115,7 @@ HATRACK_EXTERN hatrack_dict_value_t *hatrack_dict_values_nosort_mmm(hatrack_dict
 HATRACK_EXTERN hatrack_dict_item_t  *hatrack_dict_items_nosort_mmm (hatrack_dict_t *, mmm_thread_t *, uint64_t *);
 
 HATRACK_EXTERN void *hatrack_dict_get    (hatrack_dict_t *, void *, bool *);
+HATRACK_EXTERN bool hatrack_dict_contains(hatrack_dict_t *, void *);
 HATRACK_EXTERN void  hatrack_dict_put    (hatrack_dict_t *, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_replace(hatrack_dict_t *, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_add    (hatrack_dict_t *, void *, void *);
@@ -135,6 +135,13 @@ static inline uint64_t
 hatrack_dict_len(hatrack_dict_t *dict)
 {
     return crown_len(&dict->crown_instance);
+}
+
+// This is meant to be called before you start using the dictionary.
+static inline void
+hatrack_dict_add_bloom_filter(hatrack_dict_t *dict, hatrack_bloom_t *filter)
+{
+    dict->bloom_filter = filter;
 }
 
 #ifdef HATRACK_PER_INSTANCE_AUX

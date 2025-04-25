@@ -25,8 +25,15 @@
 #include "crown-internal.h"
 #include "../hatrack-internal.h"
 
-static hatrack_hash_t
-hatrack_dict_get_hash_value(hatrack_dict_t *, void *);
+static inline hatrack_hash_t
+hatrack_dict_get_hash_value(hatrack_dict_t *self, void *key)
+{
+    hatrack_hash_func_t custom = self->hash_info.custom_hash;
+    return hatrack_hash_by_type(self->key_type,
+                                custom,
+                                &self->hash_info.offsets,
+                                key);
+}
 
 static void
 hatrack_dict_record_eject(hatrack_dict_item_t *, hatrack_dict_t *);
@@ -212,7 +219,10 @@ hatrack_dict_get_sorted_views(hatrack_dict_t *self)
 }
 
 void *
-hatrack_dict_get_mmm(hatrack_dict_t *self, mmm_thread_t *thread, void *key, bool *found)
+hatrack_dict_get_mmm(hatrack_dict_t *self,
+                     mmm_thread_t   *thread,
+                     void           *key,
+                     bool           *found)
 {
     hatrack_hash_t       hv;
     hatrack_dict_item_t *item;
@@ -253,6 +263,34 @@ hatrack_dict_get(hatrack_dict_t *self, void *key, bool *found)
     return hatrack_dict_get_mmm(self, mmm_thread_acquire(), key, found);
 }
 
+bool
+hatrack_dict_contains_mmm(hatrack_dict_t *self,
+                          mmm_thread_t   *thread,
+                          void           *key)
+{
+    hatrack_hash_t hv;
+    crown_store_t *store;
+
+    hv = hatrack_dict_get_hash_value(self, key);
+
+    if (self->bloom_filter) {
+        return hatrack_bloom_contains(self->bloom_filter, &hv);
+    }
+
+    bool found;
+
+    mmm_start_basic_op(thread);
+    store = atomic_read(&self->crown_instance.store_current);
+    crown_store_get(store, hv, &found);
+    return found;
+}
+
+bool
+hatrack_dict_contains(hatrack_dict_t *self, void *key)
+{
+    return hatrack_dict_contains_mmm(self, mmm_thread_acquire(), key);
+}
+
 /*
  * Because we are going to protect our dict_item allocations with mmm,
  * and we don't want to double-call MMM: it will replace our
@@ -278,6 +316,17 @@ hatrack_dict_put_mmm(hatrack_dict_t *self,
     crown_store_t       *store;
 
     hv = hatrack_dict_get_hash_value(self, key);
+
+    // Bloom filters are allowed to have false positives, but not
+    // false negatives.
+    //
+    // And, we cannot remove from a bloom filter. So whenever we add
+    // something to a dict w/ a bloom filter, we'll add to the bloom
+    // filter first, to make sure we never get false negatives.
+
+    if (self->bloom_filter) {
+        hatrack_bloom_add(self->bloom_filter, &hv);
+    }
 
     mmm_start_basic_op(thread);
 
@@ -317,7 +366,10 @@ hatrack_dict_put(hatrack_dict_t *self, void *key, void *value)
 }
 
 bool
-hatrack_dict_replace_mmm(hatrack_dict_t *self, mmm_thread_t *thread, void *key, void *value)
+hatrack_dict_replace_mmm(hatrack_dict_t *self,
+                         mmm_thread_t   *thread,
+                         void           *key,
+                         void           *value)
 {
     hatrack_hash_t       hv;
     hatrack_dict_item_t *new_item;
@@ -325,6 +377,9 @@ hatrack_dict_replace_mmm(hatrack_dict_t *self, mmm_thread_t *thread, void *key, 
     crown_store_t       *store;
 
     hv = hatrack_dict_get_hash_value(self, key);
+
+    // Don't need to do the bloom filter add here; if the hash didn't
+    // previously exist, it's not going in via us.
 
     mmm_start_basic_op(thread);
 
@@ -367,13 +422,20 @@ hatrack_dict_replace(hatrack_dict_t *self, void *key, void *value)
 }
 
 bool
-hatrack_dict_add_mmm(hatrack_dict_t *self, mmm_thread_t *thread, void *key, void *value)
+hatrack_dict_add_mmm(hatrack_dict_t *self,
+                     mmm_thread_t   *thread,
+                     void           *key,
+                     void           *value)
 {
     hatrack_hash_t       hv;
     hatrack_dict_item_t *new_item;
     crown_store_t       *store;
 
     hv = hatrack_dict_get_hash_value(self, key);
+
+    if (self->bloom_filter) {
+        hatrack_bloom_add(self->bloom_filter, &hv);
+    }
 
     mmm_start_basic_op(thread);
 
@@ -440,7 +502,10 @@ hatrack_dict_remove(hatrack_dict_t *self, void *key)
 }
 
 static hatrack_dict_key_t *
-hatrack_dict_keys_base(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num, bool sort)
+hatrack_dict_keys_base(hatrack_dict_t *self,
+                       mmm_thread_t   *thread,
+                       uint64_t       *num,
+                       bool            sort)
 {
     hatrack_view_t      *view;
     hatrack_dict_key_t  *ret;
@@ -483,7 +548,10 @@ hatrack_dict_keys_base(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num
 }
 
 static hatrack_dict_value_t *
-hatrack_dict_values_base(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num, bool sort)
+hatrack_dict_values_base(hatrack_dict_t *self,
+                         mmm_thread_t   *thread,
+                         uint64_t       *num,
+                         bool            sort)
 {
     hatrack_view_t       *view;
     hatrack_dict_value_t *ret;
@@ -526,7 +594,10 @@ hatrack_dict_values_base(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *n
 }
 
 static hatrack_dict_item_t *
-hatrack_dict_items_base(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num, bool sort)
+hatrack_dict_items_base(hatrack_dict_t *self,
+                        mmm_thread_t   *thread,
+                        uint64_t       *num,
+                        bool            sort)
 {
     hatrack_view_t      *view;
     hatrack_dict_item_t *ret;
@@ -585,7 +656,9 @@ hatrack_dict_keys(hatrack_dict_t *self, uint64_t *num)
 }
 
 hatrack_dict_value_t *
-hatrack_dict_values_mmm(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num)
+hatrack_dict_values_mmm(hatrack_dict_t *self,
+                        mmm_thread_t   *thread,
+                        uint64_t       *num)
 {
     return hatrack_dict_values_base(self, thread, num, self->sorted_views);
 }
@@ -609,7 +682,9 @@ hatrack_dict_items(hatrack_dict_t *self, uint64_t *num)
 }
 
 hatrack_dict_key_t *
-hatrack_dict_keys_sort_mmm(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num)
+hatrack_dict_keys_sort_mmm(hatrack_dict_t *self,
+                           mmm_thread_t   *thread,
+                           uint64_t       *num)
 {
     return hatrack_dict_keys_base(self, thread, num, true);
 }
@@ -621,7 +696,9 @@ hatrack_dict_keys_sort(hatrack_dict_t *self, uint64_t *num)
 }
 
 hatrack_dict_value_t *
-hatrack_dict_values_sort_mmm(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num)
+hatrack_dict_values_sort_mmm(hatrack_dict_t *self,
+                             mmm_thread_t   *thread,
+                             uint64_t       *num)
 {
     return hatrack_dict_values_base(self, thread, num, true);
 }
@@ -633,7 +710,9 @@ hatrack_dict_values_sort(hatrack_dict_t *self, uint64_t *num)
 }
 
 hatrack_dict_item_t *
-hatrack_dict_items_sort_mmm(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num)
+hatrack_dict_items_sort_mmm(hatrack_dict_t *self,
+                            mmm_thread_t   *thread,
+                            uint64_t       *num)
 {
     return hatrack_dict_items_base(self, thread, num, true);
 }
@@ -645,7 +724,9 @@ hatrack_dict_items_sort(hatrack_dict_t *self, uint64_t *num)
 }
 
 hatrack_dict_key_t *
-hatrack_dict_keys_nosort_mmm(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num)
+hatrack_dict_keys_nosort_mmm(hatrack_dict_t *self,
+                             mmm_thread_t   *thread,
+                             uint64_t       *num)
 {
     return hatrack_dict_keys_base(self, thread, num, false);
 }
@@ -657,7 +738,9 @@ hatrack_dict_keys_nosort(hatrack_dict_t *self, uint64_t *num)
 }
 
 hatrack_dict_value_t *
-hatrack_dict_values_nosort_mmm(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num)
+hatrack_dict_values_nosort_mmm(hatrack_dict_t *self,
+                               mmm_thread_t   *thread,
+                               uint64_t       *num)
 {
     return hatrack_dict_values_base(self, thread, num, false);
 }
@@ -669,7 +752,9 @@ hatrack_dict_values_nosort(hatrack_dict_t *self, uint64_t *num)
 }
 
 hatrack_dict_item_t *
-hatrack_dict_items_nosort_mmm(hatrack_dict_t *self, mmm_thread_t *thread, uint64_t *num)
+hatrack_dict_items_nosort_mmm(hatrack_dict_t *self,
+                              mmm_thread_t   *thread,
+                              uint64_t       *num)
 {
     return hatrack_dict_items_base(self, thread, num, false);
 }
@@ -678,87 +763,6 @@ hatrack_dict_item_t *
 hatrack_dict_items_nosort(hatrack_dict_t *self, uint64_t *num)
 {
     return hatrack_dict_items_nosort_mmm(self, mmm_thread_acquire(), num);
-}
-
-static hatrack_hash_t
-hatrack_dict_get_hash_value(hatrack_dict_t *self, void *key)
-{
-    hatrack_hash_t hv;
-    int32_t        offset;
-    uint8_t       *loc_to_hash;
-
-    switch (self->key_type) {
-    case HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM:
-        return (*self->hash_info.custom_hash)(key);
-
-    case HATRACK_DICT_KEY_TYPE_INT:
-        return hash_int((uint64_t)key);
-
-    case HATRACK_DICT_KEY_TYPE_REAL:
-        return hash_double(*(double *)key);
-
-    case HATRACK_DICT_KEY_TYPE_CSTR:
-        return hash_cstr((char *)key);
-
-    case HATRACK_DICT_KEY_TYPE_PTR:
-        return hash_pointer(key);
-
-    default:
-        break;
-    }
-
-    if (!key) {
-        return hash_pointer(key);
-    }
-
-    offset = self->hash_info.offsets.cache_offset;
-
-    if (offset != (int32_t)HATRACK_DICT_NO_CACHE) {
-        hv = *(hatrack_hash_t *)(((uint8_t *)key) + offset);
-
-        if (!hatrack_bucket_unreserved(hv)) {
-            return hv;
-        }
-    }
-
-    loc_to_hash = (uint8_t *)key;
-
-    if (self->hash_info.offsets.hash_offset) {
-        loc_to_hash += self->hash_info.offsets.hash_offset;
-    }
-
-    switch (self->key_type) {
-    case HATRACK_DICT_KEY_TYPE_OBJ_INT:
-        hv = hash_int((uint64_t)loc_to_hash);
-        break;
-    case HATRACK_DICT_KEY_TYPE_OBJ_REAL:
-        hv = hash_double(*(double *)loc_to_hash);
-        break;
-    case HATRACK_DICT_KEY_TYPE_OBJ_CSTR:
-        if (!loc_to_hash) {
-            abort();
-        }
-        char *val = *(char **)loc_to_hash;
-
-        if (val) {
-            hv = hash_cstr(*(char **)loc_to_hash);
-        }
-        else {
-            hv = hash_cstr("\0");
-        }
-        break;
-    case HATRACK_DICT_KEY_TYPE_OBJ_PTR:
-        hv = hash_pointer(loc_to_hash);
-        break;
-    default:
-        hatrack_panic("invalid key type in hatrack_dict_get_hash_value");
-    }
-
-    if (offset != (int32_t)HATRACK_DICT_NO_CACHE) {
-        *(hatrack_hash_t *)(((uint8_t *)key) + offset) = hv;
-    }
-
-    return hv;
 }
 
 static void
