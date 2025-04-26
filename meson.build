@@ -493,7 +493,17 @@ executable(
 
 executable(
     'n00b',
-    n00b_src,
+    n00b_src,    
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)
+
+executable(
+    'ctest',
+    ['tests/c-tests/__cur.c'],
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,

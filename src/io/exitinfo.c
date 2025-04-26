@@ -45,6 +45,7 @@ launch_wait4(void *arg)
         if (r == -1) {
             n00b_gts_resume();
             n00b_post_errno(party);
+            break;
         }
 
         if (r) {

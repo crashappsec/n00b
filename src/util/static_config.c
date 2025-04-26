@@ -147,9 +147,9 @@
 #endif
 
 #ifdef HAVE_PTY_H
-#pragma message "HAVE_PTY_H is ON (forkpty is available)"
+#pragma message "HAVE_PTY_H is ON (forkpty is in pty.h)"
 #else
-#pragma message "HAVE_PTY_H is OFF (forkpty is NOT available)"
+#pragma message "HAVE_PTY_H is OFF (forkpty is hopefully in util.h)"
 #endif
 
 #endif

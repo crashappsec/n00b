@@ -686,6 +686,8 @@ n00b_ansi_node_repr(n00b_ansi_node_t *node)
         return n00b_cformat("invalid: [|#|] bytes: [|#|]",
                             (int64_t)len,
                             n00b_bytes_to_hex(node->start, len));
+    default:
+      n00b_unreachable();
     }
 }
 

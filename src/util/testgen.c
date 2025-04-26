@@ -382,7 +382,7 @@ add_size(n00b_string_t *line, n00b_list_t *out)
     if (!n00b_parse_int64(s_row, &row)) {
         goto err;
     }
-    if (s_col < 0 || s_row < 0) {
+    if (col < 0 || row < 0) {
         goto err;
     }
     cmd->payload.dims.ws_col = col;
@@ -407,7 +407,7 @@ add_timeout(n00b_string_t *line, n00b_test_t *test)
 
     if (!n00b_parse_int64(line,
                           (int64_t *)&test->timeout_sec)
-        || test->timeout_sec < 0) {
+        || ((int64_t)test->timeout_sec) < 0) {
         N00B_CRAISE("Timeout must be an integer number of seconds.");
     }
 

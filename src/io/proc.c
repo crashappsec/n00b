@@ -646,10 +646,9 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
         N00B_CRAISE("Cannot spawn; no command set.");
     }
 
-    n00b_condition_lock_acquire(&(ctx->cv));
     if (end) {
-        n00b_condition_pre_wait(&(ctx->cv));
-        n00b_proc_spawn(ctx);
+            n00b_proc_spawn(ctx);
+            n00b_condition_lock_acquire(&(ctx->cv));
         if (!_n00b_condition_timed_wait(&(ctx->cv), end, __FILE__, __LINE__)) {
             n00b_proc_close(ctx);
         }
@@ -732,7 +731,7 @@ _n00b_run_process(n00b_string_t *cmd,
         proc->subproc_termcap_ptr = NULL;
     }
 
-    n00b_condition_init(&proc->cv);
+    n00b_named_condition_init(&proc->cv, "process_exit_monitor");
 
     if (capture) {
         proc->flags = N00B_PROC_CAP_ALL;

@@ -51,6 +51,7 @@
 #if defined(__MACH__)
 #include <machine/endian.h>
 #include <libproc.h>
+#include <util.h>
 #endif
 
 #ifdef HAVE_MUSL
@@ -59,8 +60,6 @@
 
 #ifdef HAVE_PTY_H
 #include <pty.h>
-#else
-#include <util.h>
 #endif
 
 #define n00b_min(a, b) ({ __typeof__ (a) _a = (a), _b = (b); \

@@ -304,9 +304,9 @@ n00b_session_run_control_loop(n00b_session_t *s)
         // a timeout, it checks at each poll spot to see if it should
         // bail.
         while (true) {
-	    n00b_condition_lock_acquire(&s->control_notify);
+            n00b_condition_lock_acquire(&s->control_notify);
             if (n00b_condition_timed_wait(&s->control_notify, target)) {
-   	        n00b_condition_lock_release(&s->control_notify);
+                n00b_condition_lock_release(&s->control_notify);
                 if (timeout) {
                     now = n00b_now();
                     if (n00b_duration_gt(now, timeout)) {
@@ -320,9 +320,9 @@ n00b_session_run_control_loop(n00b_session_t *s)
                 }
                 n00b_session_scan_for_matches(s);
             }
-	    else {
-	      n00b_condition_lock_release(&s->control_notify);	
-	    }
+            else {
+                n00b_condition_lock_release(&s->control_notify);
+            }
         }
         n00b_session_scan_for_matches(s);
         check_for_total_timeout(s);

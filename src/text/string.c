@@ -1358,10 +1358,10 @@ n00b_string_lit(n00b_string_t        *s,
                 return NULL;
             }
         }
+	break;
     default:
         // TODO / FIXME: hook up the errors.
         return n00b_string_unescape(s, (int *)err);
-        break;
     }
     *err = n00b_err_parse_no_lit_mod_match;
     return NULL;
