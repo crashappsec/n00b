@@ -3,7 +3,7 @@
 
 #ifdef N00B_USE_INTERNAL_API
 
-#define N00B_TEST_TIMEOUT_SEC_DEFAULT 5
+#define N00B_TEST_TIMEOUT_SEC_DEFAULT 10
 #endif
 
 typedef enum {
@@ -74,6 +74,9 @@ typedef struct {
     int            tests_in_test_dir;
     int            enabled_in_test_dir;
     int            groups_in_use;
+    int            c1_width;
+    int            c2_width;
+    int            c3_width;
 } n00b_testing_ctx;
 
 extern void              n00b_testgen_record(n00b_string_t *, bool, bool, bool);

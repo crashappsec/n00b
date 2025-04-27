@@ -28,7 +28,6 @@ static void
 proc_exited(n00b_exitinfo_t *result, int64_t stats, n00b_proc_t *ctx)
 {
     n00b_condition_lock_acquire(&ctx->cv);
-
     ctx->subproc_results = result;
     ctx->exited          = true;
 
@@ -247,7 +246,6 @@ try_execve(n00b_proc_t *ctx, char *argv[], char *envp[])
     char *cmd = n00b_string_to_cstr(ctx->cmd);
 
     execve(cmd, argv, envp);
-
     n00b_raise_errno();
 }
 
@@ -632,7 +630,7 @@ n00b_proc_spawn(n00b_proc_t *ctx)
 void
 n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 {
-    n00b_duration_t *end;
+    n00b_duration_t *end = NULL;
     n00b_duration_t *now;
 
     if (timeout) {
@@ -647,14 +645,23 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
     }
 
     if (end) {
-            n00b_proc_spawn(ctx);
-            n00b_condition_lock_acquire(&(ctx->cv));
-        if (!_n00b_condition_timed_wait(&(ctx->cv), end, __FILE__, __LINE__)) {
+        n00b_proc_spawn(ctx);
+        n00b_condition_lock_acquire(&(ctx->cv));
+        if (!ctx->exited
+            && !_n00b_condition_timed_wait(&(ctx->cv),
+                                           end,
+                                           __FILE__,
+                                           __LINE__)) {
             n00b_proc_close(ctx);
         }
     }
     else {
-        n00b_condition_wait(&(ctx->cv), n00b_proc_spawn(ctx));
+        n00b_proc_spawn(ctx);
+        n00b_condition_lock_acquire(&(ctx->cv));
+        if (!ctx->exited) {
+            n00b_condition_wait(&(ctx->cv));
+        }
+        n00b_proc_close(ctx);
     }
     n00b_condition_lock_release(&(ctx->cv));
 }

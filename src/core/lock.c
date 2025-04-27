@@ -239,7 +239,12 @@ n00b_generic_on_lock_acquire(n00b_generic_lock_t *lock, char *file, int line)
     n00b_thread_t *self = n00b_thread_self();
 
     if (lock->thread && lock->thread != self) {
-        fprintf(stderr, "Lock at %p improperly acquired @%s:%d.\n", lock, file, line);
+        fprintf(stderr,
+                "Lock at %p improperly acquired @%s:%d.\n",
+                lock,
+                file,
+                line);
+        return;
         lock_assert((!lock->thread || lock->thread == self), lock);
     }
 
@@ -598,6 +603,7 @@ _n00b_rw_lock_release(n00b_rw_lock_t *l, bool full)
             return;
         }
     }
+    n00b_static_c_backtrace();
     N00B_CRAISE("Called release() on a rw lock you didn't hold");
 }
 

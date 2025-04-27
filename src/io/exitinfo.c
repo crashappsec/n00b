@@ -47,7 +47,6 @@ launch_wait4(void *arg)
             n00b_post_errno(party);
             break;
         }
-
         if (r) {
             n00b_gts_resume();
             break;
@@ -63,6 +62,8 @@ launch_wait4(void *arg)
         n00b_post_to_subscribers(party, item, n00b_io_sk_read);
         n00b_purge_subscription_list_on_boundary(party->read_subs);
     }
+
+    n00b_close(party);
 
     return NULL;
 }

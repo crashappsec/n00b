@@ -881,6 +881,7 @@ _n00b_list_directory(n00b_string_t *dir, ...)
         struct dirent *entry = readdir(dirent);
 
         if (!entry) {
+            n00b_private_list_sort(result, n00b_lexical_sort);
             return result;
         }
 
@@ -935,6 +936,7 @@ _n00b_list_directory(n00b_string_t *dir, ...)
         }
     }
 
+    n00b_private_list_sort(result, n00b_lexical_sort);
     return result;
 }
 

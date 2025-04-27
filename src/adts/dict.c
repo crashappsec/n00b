@@ -376,12 +376,12 @@ n00b_dict_keys(n00b_dict_t *dict)
 {
     uint64_t     view_len;
     n00b_type_t *dict_type = n00b_get_my_type(dict);
-    n00b_type_t *key_type  = n00b_list_get(dict_type->items, 0, NULL);
+    n00b_type_t *key_type  = n00b_private_list_get(dict_type->items, 0, NULL);
     void       **keys      = hatrack_dict_keys_sort(dict, &view_len);
     n00b_list_t *result    = n00b_list(key_type);
 
     for (unsigned int i = 0; i < view_len; i++) {
-        n00b_list_append(result, keys[i]);
+        n00b_private_list_append(result, keys[i]);
     }
 
     return result;
@@ -392,12 +392,12 @@ n00b_dict_values(n00b_dict_t *dict)
 {
     uint64_t     view_len;
     n00b_type_t *dict_type = n00b_get_my_type(dict);
-    n00b_type_t *val_type  = n00b_list_get(dict_type->items, 1, NULL);
+    n00b_type_t *val_type  = n00b_private_list_get(dict_type->items, 1, NULL);
     void       **values    = hatrack_dict_values_sort(dict, &view_len);
     n00b_list_t *result    = n00b_list(val_type);
 
     for (unsigned int i = 0; i < view_len; i++) {
-        n00b_list_append(result, values[i]);
+        n00b_private_list_append(result, values[i]);
     }
 
     return result;

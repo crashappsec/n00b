@@ -139,18 +139,10 @@ n00b_list_append(n00b_list_t *l, void *item)
     n00b_unlock_list(l);
 }
 
-void
-n00b_private_list_sort(n00b_list_t *list, n00b_sort_fn f)
+int
+n00b_lexical_sort(const n00b_string_t **s1, const n00b_string_t **s2)
 {
-    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
-}
-
-void
-n00b_list_sort(n00b_list_t *list, n00b_sort_fn f)
-{
-    lock_list(list);
-    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
-    unlock_list(list);
+    return strcmp((*s1)->data, (*s2)->data);
 }
 
 static inline void *

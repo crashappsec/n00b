@@ -642,6 +642,9 @@ static inline void
 n00b_session_exit(n00b_session_t *s)
 {
     s->early_exit = true;
+    if (s->subprocess) {
+        n00b_proc_close(s->subprocess);
+    }
 }
 
 static inline void
