@@ -17,7 +17,8 @@ _n00b_print(n00b_obj_t first, ...)
     va_list           args;
     n00b_obj_t        cur        = first;
     n00b_karg_info_t *_n00b_karg = NULL;
-    n00b_stream_t    *stream     = NULL;
+    n00b_stream_t    *old_stream = NULL;
+    n00b_channel_t   *stream     = NULL;
     n00b_codepoint_t  sep        = ' ';
     n00b_codepoint_t  end        = '\n';
     bool              flush      = false;
@@ -61,7 +62,7 @@ _n00b_print(n00b_obj_t first, ...)
 
     if (_n00b_karg != NULL) {
         if (!stream) {
-            n00b_kw_ptr("stream", stream);
+            n00b_kw_ptr("stream", old_stream);
         }
 
         n00b_kw_codepoint("sep", sep);

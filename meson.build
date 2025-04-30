@@ -288,6 +288,26 @@ n00b_io = [
     'src/io/session_states.c',
 ]
 
+n00b_channels = [
+    'src/channels/fd_events.c',
+    'src/channels/filter.c',    
+    'src/channels/observable.c',
+    'src/channels/channel.c',
+    'src/channels/chan_fd.c',
+    'src/channels/chan_callback.c',
+    'src/channels/chan_buffer.c',
+    'src/channels/chan_topic.c',
+    'src/channels/chan_listener.c',
+    'src/channels/chan_exit.c',
+    'src/channels/chan_proxy.c',    
+    'src/channels/terminal_io.c',
+]
+
+n00b_debug = [
+    'src/debug/workflow.c',
+    'src/debug/api.c',    
+]
+
 n00b_compiler = [
     'src/compiler/compile.c',
     'src/compiler/module.c',
@@ -349,6 +369,7 @@ n00b_log = ['src/cmd/n00b_debug.c']
 
 n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts + n00b_io 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
+n00b_base = n00b_base + n00b_channels + n00b_debug
 
 n00b_src = n00b_base + n00b_cmd
 log_src = n00b_base + n00b_log

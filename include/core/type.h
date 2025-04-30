@@ -231,6 +231,16 @@ n00b_type_is_stream(n00b_type_t *t)
 }
 
 static inline bool
+n00b_type_is_channel(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_CHANNEL;
+}
+
+static inline bool
 n00b_type_is_text_element(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {
@@ -676,6 +686,12 @@ static inline n00b_type_t *
 n00b_type_stream(void)
 {
     return n00b_bi_types[N00B_T_STREAM];
+}
+
+static inline n00b_type_t *
+n00b_type_channel(void)
+{
+    return n00b_bi_types[N00B_T_CHANNEL];
 }
 
 static inline n00b_type_t *

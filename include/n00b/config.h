@@ -140,7 +140,7 @@
 
 #ifndef N00B_DEFAULT_HEAP_SIZE
 // This is the size any test case that prints a thing grows to awfully fast.
-#define N00B_DEFAULT_HEAP_SIZE (1 << 28) // 30 == 1 g
+#define N00B_DEFAULT_HEAP_SIZE (1 << 26) // 30 == 1 g
 #endif
 
 #ifndef N00B_SYSTEM_HEAP_SIZE
@@ -254,6 +254,9 @@
 #define N00B_CALLBACK_THREAD_POLL_INTERVAL 50000000
 #endif
 
+#ifndef N00B_POLL_DEFAULT_MS
+#define N00B_POLL_DEFAULT_MS 1
+#endif
 /*
  * Since all our I/O is asynchonous by default, when someone chooses
  * to exit a process with n00b_exit(), they probably don't want to
@@ -328,4 +331,11 @@
 #undef N00B_GC_ALLOW_DEBUG_BIT
 #if defined(N00B_DEBUG) && defined(N00B_USE_GC_DEBUG_BIT)
 #define N00B_GC_ALLOW_DEBUG_BIT
+#endif
+
+#undef N00B_SOCK_LISTEN_BACKLOG_DEFAULT
+#if defined(N00B_DEFAULT_LISTEN_BACKLOG)
+#define N00B_SOCK_LISTEN_BACKLOG_DEFAULT N00B_DEFAULT_LISTEN_BACKLOG
+#else
+#define N00B_SOCK_LISTEN_BACKLOG_DEFAULT 32
 #endif

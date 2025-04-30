@@ -12,6 +12,7 @@ extern void         n00b_private_list_append(n00b_list_t *list, void *item);
 extern void         n00b_list_append(n00b_list_t *list, void *item);
 extern void        *n00b_private_list_get(n00b_list_t *, int64_t, bool *);
 extern void        *n00b_list_get(n00b_list_t *, int64_t, bool *);
+extern void        *n00b_private_list_pop(n00b_list_t *list);
 extern void        *n00b_list_pop(n00b_list_t *list);
 extern void         n00b_private_list_plus_eq(n00b_list_t *, n00b_list_t *);
 extern void         n00b_list_plus_eq(n00b_list_t *, n00b_list_t *);
@@ -41,15 +42,28 @@ extern bool         n00b_private_list_remove(n00b_list_t *list, int64_t);
 extern bool         n00b_list_remove(n00b_list_t *list, int64_t);
 extern bool         n00b_private_list_remove_item(n00b_list_t *, void *);
 extern bool         n00b_list_remove_item(n00b_list_t *, void *);
-extern void        *n00b_list_private_dequeue(n00b_list_t *);
+extern void        *n00b_private_list_dequeue(n00b_list_t *);
 extern void        *n00b_list_dequeue(n00b_list_t *);
-extern bool         n00b_private_list_contains(n00b_list_t *, n00b_obj_t);
-extern bool         n00b_list_contains(n00b_list_t *, n00b_obj_t);
+extern int64_t      n00b_list_find(n00b_list_t *list, void *item);
+extern int64_t      n00b_private_list_find(n00b_list_t *list, void *item);
 extern void        *n00b_list_view(n00b_list_t *, uint64_t *);
 extern void         n00b_private_list_reverse(n00b_list_t *);
 extern void         n00b_list_reverse(n00b_list_t *);
 extern n00b_list_t *_n00b_to_list(n00b_type_t *, int, ...);
-extern int          n00b_lexical_sort(const n00b_string_t **, const n00b_string_t **);
+extern int          n00b_lexical_sort(const n00b_string_t **,
+                                      const n00b_string_t **);
+
+static inline bool
+n00b_private_list_contains(n00b_list_t *list, void *item)
+{
+    return n00b_private_list_find(list, item) != -1;
+}
+
+static inline bool
+n00b_list_contains(n00b_list_t *list, void *item)
+{
+    return n00b_list_find(list, item) != -1;
+}
 
 #define n00b_to_list(t, ...) \
     _n00b_to_list(t, N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)

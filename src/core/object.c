@@ -1,6 +1,8 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+#define VARIABLE_ALLOC_SZ (~0U)
+
 static n00b_string_t *
 nil_repr(void *ignored)
 {
@@ -606,6 +608,16 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
+    // not alloc'd this way, right now.
+    [N00B_T_CHANNEL] = {
+        .name      = "stream",
+        .typeid    = N00B_T_CHANNEL,
+        .alloc_len = VARIABLE_ALLOC_SZ,
+        .vtable    = &n00b_channel_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
     [N00B_T_MESSAGE] = {
         .name      = "message",
         .typeid    = N00B_T_MESSAGE,
@@ -717,6 +729,9 @@ n00b_obj_t
 _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 #endif
 {
+    va_list args;
+    va_start(args, type);
+
     n00b_heap_t *__n00b_saved_heap           = NULL;
     bool         clear_thread_heap_reference = false;
 
@@ -734,10 +749,23 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 
     type = n00b_type_resolve(type);
 
-    n00b_obj_t      obj;
-    va_list         args;
+    n00b_obj_t obj;
+
     n00b_dt_info_t *tinfo     = n00b_type_get_data_type_info(type);
     uint64_t        alloc_len = tinfo->alloc_len;
+
+    if (alloc_len == VARIABLE_ALLOC_SZ) {
+        va_list              argcopy;
+        void                *param;
+        n00b_obj_size_helper helper;
+
+        va_copy(argcopy, args);
+        param = va_arg(argcopy, void *);
+        va_end(argcopy);
+
+        helper    = (void *)tinfo->vtable->methods[N00B_BI_ALLOC_SZ];
+        alloc_len = (*helper)(param);
+    }
 
     if (!tinfo->vtable) {
         obj = n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL);
@@ -745,6 +773,7 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
         if (clear_thread_heap_reference) {
             n00b_pop_heap();
         }
+        va_end(args);
         return obj;
     }
 
@@ -794,7 +823,6 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     case N00B_DT_KIND_object:
     case N00B_DT_KIND_box:
         if (init_fn != NULL) {
-            va_start(args, type);
             (*init_fn)(obj, args);
             va_end(args);
         }
@@ -813,6 +841,7 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
         n00b_pop_heap();
     }
 
+    va_end(args);
     return obj;
 }
 
@@ -1093,6 +1122,33 @@ bool
 n00b_eq(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
 {
     n00b_dt_info_t *info = n00b_type_get_data_type_info(t);
+    n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
+    n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_EQ];
+
+    if (!ptr) {
+        return o1 == o2;
+    }
+
+    return (*ptr)(o1, o2);
+}
+
+// Will mostly replace n00b_eq at some point soon.
+bool
+n00b_equals(void *o1, void *o2)
+{
+    n00b_type_t *t1 = n00b_get_my_type(o1);
+    n00b_type_t *t2 = n00b_get_my_type(o2);
+    int          warn;
+    n00b_type_t *m = n00b_merge_types(t1, t2, &warn);
+
+    if (n00b_type_is_error(m)) {
+        return false;
+    }
+    if (!n00b_in_heap(o1) || !n00b_in_heap(o2)) {
+        return o1 == o2;
+    }
+
+    n00b_dt_info_t *info = n00b_type_get_data_type_info(m);
     n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_EQ];
 
