@@ -567,6 +567,29 @@ n00b_duration_add(n00b_duration_t *t1, n00b_duration_t *t2)
     return result;
 }
 
+#define MS_PER_SEC 1000
+#define NS_PER_MS  1000000
+
+n00b_duration_t *
+n00b_new_ms_timeout(int ms)
+{
+    struct timeval addon = {
+        .tv_sec  = ms / MS_PER_SEC,
+        .tv_usec = (ms % MS_PER_SEC) * NS_PER_MS,
+    };
+
+    return n00b_duration_add(n00b_now(), (void *)&addon);
+}
+
+n00b_duration_t *
+n00b_duration_from_ms(int ms)
+{
+    int64_t sec  = ms / MS_PER_SEC;
+    int64_t nsec = (ms % MS_PER_SEC) * NS_PER_MS;
+
+    return n00b_new(n00b_type_duration(), n00b_kw("sec", sec, "nanosec", nsec));
+}
+
 n00b_duration_t *
 n00b_duration_multiply(n00b_duration_t *d, double m)
 {
