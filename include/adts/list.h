@@ -12,6 +12,7 @@ extern void         n00b_private_list_append(n00b_list_t *list, void *item);
 extern void         n00b_list_append(n00b_list_t *list, void *item);
 extern void        *n00b_private_list_get(n00b_list_t *, int64_t, bool *);
 extern void        *n00b_list_get(n00b_list_t *, int64_t, bool *);
+extern void        *n00b_private_list_pop(n00b_list_t *list);
 extern void        *n00b_list_pop(n00b_list_t *list);
 extern void         n00b_private_list_plus_eq(n00b_list_t *, n00b_list_t *);
 extern void         n00b_list_plus_eq(n00b_list_t *, n00b_list_t *);

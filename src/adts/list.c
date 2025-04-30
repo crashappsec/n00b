@@ -672,7 +672,7 @@ list_remove_base(n00b_list_t *list, int64_t index)
     --list->append_ix;
 
     if (index + 1 == nitems) {
-        list->data[0] = NULL;
+        list->data[index] = NULL;
         return;
     }
 

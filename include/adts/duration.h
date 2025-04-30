@@ -16,8 +16,8 @@ extern bool             n00b_duration_eq(n00b_duration_t *,
                                          n00b_duration_t *);
 extern bool             n00b_duration_gt(n00b_duration_t *,
                                          n00b_duration_t *);
-extern bool             n00b_duration_lit(n00b_duration_t *,
-                                          n00b_duration_t *);
+extern bool             n00b_duration_lt(n00b_duration_t *,
+                                         n00b_duration_t *);
 extern n00b_duration_t *n00b_duration_multiply(n00b_duration_t *, double);
 
 static inline n00b_duration_t *
