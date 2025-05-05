@@ -287,6 +287,8 @@ n00b_io = [
     'src/io/session_replay.c',
     'src/io/session_states.c',
     'src/io/fd3.c',
+    'src/io/observer.c',
+    'src/io/channel.c',
 ]
 
 n00b_compiler = [

@@ -153,6 +153,7 @@ extern n00b_obj_t   n00b_mul(n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_div(n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_mod(n00b_obj_t, n00b_obj_t);
 extern bool         n00b_eq(n00b_type_t *, n00b_obj_t, n00b_obj_t);
+extern bool         n00b_equals(n00b_obj_t, n00b_obj_t);
 extern bool         n00b_lt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
 extern bool         n00b_gt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
 extern int64_t      n00b_len(n00b_obj_t);

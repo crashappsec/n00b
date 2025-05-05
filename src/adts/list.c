@@ -774,7 +774,7 @@ n00b_list_remove_item(n00b_list_t *list, void *item)
 }
 
 void *
-n00b_list_private_dequeue(n00b_list_t *list)
+n00b_private_list_dequeue(n00b_list_t *list)
 {
     if (list->append_ix == 0) {
         return NULL;
@@ -803,33 +803,26 @@ n00b_list_dequeue(n00b_list_t *list)
     return ret;
 }
 
-bool
-n00b_private_list_contains(n00b_list_t *list, n00b_obj_t item)
+int64_t
+n00b_private_list_find(n00b_list_t *list, void *item)
 {
-    int64_t      len       = n00b_list_len(list);
-    n00b_type_t *list_type = n00b_get_my_type(list);
-    n00b_type_t *item_type = n00b_type_get_param(list_type, 0);
-
-    for (int i = 0; i < len; i++) {
-        if (n00b_type_is_ref(item_type)) {
-            return item == n00b_list_get_base(list, i, NULL);
-        }
-
-        if (n00b_eq(item_type, item, n00b_list_get_base(list, i, NULL))) {
-            return true;
+    int n = n00b_list_len(list);
+    for (int i = 0; i < n; i++) {
+        void *candidate = n00b_list_get(list, i, NULL);
+        if (n00b_equals(candidate, item)) {
+            return i;
         }
     }
 
-    return false;
+    return -1;
 }
 
-bool
-n00b_list_contains(n00b_list_t *list, n00b_obj_t item)
+int64_t
+n00b_list_find(n00b_list_t *list, void *item)
 {
+    int64_t result;
     read_start(list);
-
-    bool result = n00b_private_list_contains(list, item);
-
+    result = n00b_private_list_find(list, item);
     read_end(list);
     return result;
 }

@@ -192,7 +192,6 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
 #define n00b_static_condition_init(x) n00b_condition_init(&(x))
 #define n00b_static_rw_lock_init(x)   n00b_rw_lock_init(&(x))
 
-extern void
-            n00b_debug_all_locks(void);
+extern void n00b_debug_all_locks(void);
 extern void n00b_lock_release(void *);
 extern void n00b_lock_release_all(void *);

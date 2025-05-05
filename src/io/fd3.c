@@ -85,6 +85,9 @@ n00b_fd_get_size(n00b_fd_stream_t *s)
 n00b_string_t *
 n00b_fd_name(n00b_fd_stream_t *s)
 {
+    if (s->name) {
+        return s->name;
+    }
 #if defined(__APPLE__)
     char path[PATH_MAX];
     if (fcntl(s->fd, F_GETPATH, path) != -1) {
@@ -92,8 +95,7 @@ n00b_fd_name(n00b_fd_stream_t *s)
     }
 #endif
     // TODO: Linux support. readlink + proc
-
-    return s->name;
+    return NULL;
 }
 
 // When we add an entry for a file descriptor, we want to avoid adding
@@ -147,7 +149,7 @@ fd_cache_lookup(int fd, n00b_event_loop_t *loop)
 
     n00b_fd_stream_t *result = atomic_read(&entry->fd_info);
 
-    if (result->fd == -1) {
+    if (result->fd == N00B_FD_CLOSED) {
         return NULL;
     }
 
@@ -175,7 +177,7 @@ fd_cache_add(n00b_fd_stream_t *s)
     }
 
     result = atomic_read(&entry->fd_info);
-    if (result->fd != -1) {
+    if (result->fd != N00B_FD_CLOSED) {
         return result;
     }
 
@@ -236,9 +238,10 @@ n00b_fd_stream_from_fd(int                fd,
         return NULL; // Invalid FD
     }
 
-    result     = n00b_gc_alloc_mapped(n00b_fd_stream_t,
+    result          = n00b_gc_alloc_mapped(n00b_fd_stream_t,
                                   N00B_GC_SCAN_ALL);
-    result->fd = fd;
+    result->fd      = fd;
+    result->fd_mode = info.st_mode;
 
     if (dispatcher) {
         result->evloop = dispatcher;
@@ -249,16 +252,19 @@ n00b_fd_stream_from_fd(int                fd,
 
     result->socket      = S_ISSOCK(info.st_mode);
     result->newly_added = true;
+    result->fd_flags    = fcntl(fd, F_GETFL);
 
-    int lflags = fcntl(fd, F_GETFL);
-
-    if (lflags & O_RDONLY) {
+    if (result->fd_flags & O_RDONLY) {
         result->write_closed = true;
     }
     else {
-        if (lflags & O_WRONLY) {
+        if (result->fd_flags & O_WRONLY) {
             result->read_closed = true;
         }
+    }
+
+    if (isatty(fd)) {
+        result->tty = true;
     }
 
     if (!result->read_closed) {
@@ -273,7 +279,7 @@ n00b_fd_stream_from_fd(int                fd,
     result->err_subs   = n00b_list(n00b_type_ref());
     result->close_subs = n00b_list(n00b_type_ref());
 
-    apply_preferred_fdopts(result->fd, lflags);
+    apply_preferred_fdopts(result->fd, result->fd_flags);
 
     if (result->socket) {
         apply_preferred_sockopts(result->fd);
@@ -315,7 +321,7 @@ raw_fd_subscribe(n00b_fd_stream_t *s,
                  n00b_list_t      *subs,
                  va_list           args)
 {
-    if (!subs || s->fd == -1) {
+    if (!subs || s->fd == N00B_FD_CLOSED) {
         return NULL;
     }
     if (kind == N00B_FD_SUB_READ && s->read_closed) {
@@ -480,7 +486,7 @@ static void
 fd_post_close(n00b_fd_stream_t *s)
 {
     close(s->fd);
-    s->fd           = -1;
+    s->fd           = N00B_FD_CLOSED;
     s->read_closed  = true;
     s->write_closed = true;
 
@@ -684,7 +690,7 @@ handle_one_write(n00b_fd_stream_t *s)
 bool
 n00b_fd_send(n00b_fd_stream_t *s, char *bytes, int len)
 {
-    if (!s->write_queue || s->fd == -1) {
+    if (!s->write_queue || s->fd == N00B_FD_CLOSED) {
         return false;
     }
 
@@ -718,7 +724,7 @@ n00b_fd_send(n00b_fd_stream_t *s, char *bytes, int len)
 bool
 n00b_fd_write(n00b_fd_stream_t *s, char *bytes, int len)
 {
-    if (!s->write_queue || s->fd == -1) {
+    if (!s->write_queue || s->fd == N00B_FD_CLOSED) {
         return false;
     }
 
@@ -791,7 +797,7 @@ n00b_fd_write(n00b_fd_stream_t *s, char *bytes, int len)
 n00b_buf_t *
 n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full)
 {
-    if (!s->read_subs || s->fd == -1) {
+    if (!s->read_subs || s->fd == N00B_FD_CLOSED) {
         return NULL;
     }
 
@@ -801,6 +807,10 @@ n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full)
 
     become_worker(s);
     n00b_fd_stream_blocking(s);
+
+    if (len == -1) {
+        len = PIPE_BUF;
+    }
 
     char buf[len];
 
@@ -815,7 +825,6 @@ n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full)
             .revents = 0,
         },
     };
-    ;
 
     while (true) {
         if (ms_timeout) {
@@ -979,24 +988,24 @@ process_pending_changes(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
 static inline void
 process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
 {
-    int                n    = ploop->pollset_last;
-    struct pollfd     *slot = ploop->pollset;
-    n00b_thread_t     *self = n00b_thread_self();
+    int                n         = ploop->pollset_last;
+    struct pollfd     *slot_list = ploop->pollset;
+    n00b_thread_t     *self      = n00b_thread_self();
     n00b_thread_t     *worker;
     n00b_fd_stream_t **fd_ptrs = ploop->monitored_fds;
     n00b_fd_stream_t  *s;
 
     for (int i = 0; i < n; i++) {
-        s      = *fd_ptrs;
-        worker = NULL;
-
+        s                   = fd_ptrs[i];
+        worker              = NULL;
+        struct pollfd *slot = slot_list + i;
         if (!s || atomic_read(&s->evloop->owner) != self) {
-            goto next;
+            continue;
         }
         if (!CAS(&s->worker, &worker, self)) {
             // Someone's either adding to it or doing their own r/w
             // so leave it alone until the next polling cycle.
-            goto next;
+            continue;
         }
 
         if (slot->revents & POLLIN) {
@@ -1041,7 +1050,7 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
         }
 
         // Take back closed slots.
-        if (s->fd == -1) {
+        if (s->fd == N00B_FD_CLOSED) {
             *fd_ptrs = NULL;
             n00b_list_append(ploop->empty_slots, (void *)(int64_t)i);
             s->read_closed  = true;
@@ -1060,10 +1069,6 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
 
         atomic_store(&s->worker, NULL);
     }
-
-next:
-    fd_ptrs++;
-    slot++;
 }
 
 static inline void

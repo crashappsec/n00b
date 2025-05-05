@@ -34,6 +34,7 @@ typedef void (*n00b_err_cb)(n00b_fd_err_t *, void *);
 typedef void (*n00b_close_cb)(n00b_fd_stream_t *, void *);
 typedef void (*n00b_timer_cb)(n00b_timer_t *, n00b_duration_t *, void *);
 typedef void (*n00b_evloop_impl)(n00b_event_loop_t *l);
+typedef n00b_list_t *(*n00b_chan_filter_fn)(void *, void *, bool);
 
 struct n00b_fd_stream_t {
     int                      fd;
@@ -53,8 +54,9 @@ struct n00b_fd_stream_t {
     unsigned int             needs_r          : 1;
     unsigned int             r_added          : 1;
     unsigned int             w_added          : 1;
-    // This is set externally if the dispatcher should not do the r/w itself for a stream.
-    // In that case, you probably set the notify callback.
+    // This is set externally if the dispatcher should not do the r/w
+    // itself for a stream.  In that case, you probably set the notify
+    // callback.
     //
     // This flag causes read_ready and/or write_ready to get set, and
     // then no further action happens until the flags are cleared.
@@ -62,6 +64,9 @@ struct n00b_fd_stream_t {
     unsigned int             read_ready       : 1;
     unsigned int             write_ready      : 1;
     unsigned int             plain_file       : 1;
+    unsigned int             tty              : 1;
+    int                      fd_mode;
+    int                      fd_flags;
     int                      internal_ix;
     int64_t                  total_read;
     int64_t                  total_written;
@@ -120,6 +125,7 @@ struct n00b_timer_t {
     n00b_duration_t   *stop_time;
     n00b_timer_cb      action;
     n00b_event_loop_t *loop;
+    void (*pre_poll_callback)(n00b_event_loop_t *);
 };
 
 struct n00b_event_loop_t {
@@ -180,3 +186,28 @@ extern n00b_timer_t      *n00b_add_raw_timer(n00b_duration_t *,
                                              n00b_event_loop_t *,
                                              void *);
 extern void               n00b_remove_raw_timer(n00b_timer_t *);
+
+static inline bool
+n00b_fd_is_regular_file(n00b_fd_stream_t *s)
+{
+    return S_ISREG(s->fd_mode);
+}
+
+static inline bool
+n00b_fd_is_directory(n00b_fd_stream_t *s)
+{
+    return S_ISDIR(s->fd_mode);
+}
+
+static inline bool
+n00b_fd_is_link(n00b_fd_stream_t *s)
+{
+    return S_ISLNK(s->fd_mode);
+}
+
+static inline bool
+n00b_fd_is_other(n00b_fd_stream_t *s)
+{
+    return (!(n00b_fd_is_regular_file(s) || n00b_fd_is_directory(s)
+              || n00b_fd_is_link(s)));
+}

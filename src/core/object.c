@@ -1103,6 +1103,33 @@ n00b_eq(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
     return (*ptr)(o1, o2);
 }
 
+// Will mostly replace n00b_eq at some point soon.
+bool
+n00b_equals(void *o1, void *o2)
+{
+    n00b_type_t *t1 = n00b_get_my_type(o1);
+    n00b_type_t *t2 = n00b_get_my_type(o2);
+    int          warn;
+    n00b_type_t *m = n00b_merge_types(t1, t2, &warn);
+
+    if (n00b_type_is_error(m)) {
+        return false;
+    }
+    if (!n00b_in_heap(o1) || !n00b_in_heap(o2)) {
+        return o1 == o2;
+    }
+
+    n00b_dt_info_t *info = n00b_type_get_data_type_info(m);
+    n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
+    n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_EQ];
+
+    if (!ptr) {
+        return o1 == o2;
+    }
+
+    return (*ptr)(o1, o2);
+}
+
 bool
 n00b_lt(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
 {

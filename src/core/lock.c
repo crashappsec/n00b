@@ -226,6 +226,7 @@ n00b_generic_lock_init(n00b_generic_lock_t *lock,
     }
 
     memset(lock, 0, sizeof(n00b_generic_lock_t));
+
     lock->debug_name      = debug_name;
     lock->alloc_info.file = alloc_file;
     lock->alloc_info.line = alloc_line;
@@ -358,6 +359,8 @@ _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
         n00b_generic_on_lock_acquire(&l->info, file, line);
         return true;
     case EINVAL:
+        while (1)
+            ;
         n00b_abort();
     default:
         n00b_raise_errno();
@@ -624,6 +627,7 @@ n00b_condition_pre_wait(n00b_condition_t *c)
         N00B_CRAISE("Must hold lock before calling wait()");
     }
     if (c->mutex.info.next_held || c->mutex.info.prev_held) {
+        n00b_debug_locks(n00b_thread_self());
         N00B_CRAISE("Can't wait until all other locks are released.");
     }
 
@@ -745,7 +749,7 @@ n00b_lock_release_all(void *l)
 static void
 n00b_lock_constructor(n00b_lock_t *lock, va_list args)
 {
-    n00b_generic_lock_init(&lock->info, NULL, NULL, 0, N00B_LK_MUTEX);
+    _n00b_lock_init(lock, "obj-lock", NULL, 0);
 }
 
 static void
