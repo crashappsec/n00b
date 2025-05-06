@@ -183,11 +183,10 @@ extern bool               n00b_fd_run_evloop_once(n00b_event_loop_t *);
 extern bool               n00b_fd_run_evloop(n00b_event_loop_t *,
                                              n00b_duration_t *);
 extern n00b_event_loop_t *n00b_new_event_context(n00b_event_impl_kind);
-extern n00b_timer_t      *n00b_add_raw_timer(n00b_duration_t *,
-                                             n00b_timer_cb,
-                                             n00b_event_loop_t *,
-                                             void *);
-extern void               n00b_remove_raw_timer(n00b_timer_t *);
+extern n00b_timer_t      *_n00b_add_timer(n00b_duration_t *,
+                                          n00b_timer_cb,
+                                          ...);
+extern void               n00b_remove_timer(n00b_timer_t *);
 
 static inline bool
 n00b_fd_is_regular_file(n00b_fd_stream_t *s)
@@ -218,3 +217,8 @@ n00b_fd_is_other(n00b_fd_stream_t *s)
 typedef bool (*n00b_condition_test_fn)(void *);
 extern bool n00b_condition_poll(n00b_condition_test_fn, void *, int to);
 #endif
+
+#define n00b_add_timer(time, action, ...) \
+    _n00b_add_timer(time,                 \
+                    action,               \
+                    N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)
