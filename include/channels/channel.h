@@ -1,7 +1,5 @@
 #pragma once
 #include "n00b.h"
-#include "io/observers.h"
-#include "io/fd3.h"
 
 typedef struct n00b_channel_t     n00b_channel_t;
 typedef struct n00b_filter_step_t n00b_filter_step_t;
@@ -177,12 +175,6 @@ struct n00b_channel_t {
     // channels.
     n00b_mutex_t *info[];
 };
-typedef struct {
-    n00b_fd_stream_t *stream;
-    n00b_fd_sub_t    *sub;
-    bool              have_read_subscribers;
-    n00b_buf_t       *read_cache;
-} n00b_fd_cookie_t;
 
 enum {
     N00B_CT_R,
@@ -300,11 +292,22 @@ extern void _n00b_channel_queue(n00b_channel_t *, void *, char *, int);
 extern void *n00b_channel_read(n00b_channel_t *channel, int ms_timeout);
 extern void  n00b_io_dispatcher_process_read_queue(n00b_channel_t *);
 
-// This is probably moving to channel_fd.h
-extern n00b_channel_t *_n00b_new_fd_channel(n00b_fd_stream_t *fd, ...);
-extern n00b_channel_t *_n00b_channel_open_file(n00b_string_t *filename, ...);
-
 extern int  n00b_channel_get_position(n00b_channel_t *);
 extern bool n00b_channel_set_relative_position(n00b_channel_t *, int);
 extern bool n00b_channel_set_absolute_position(n00b_channel_t *, int);
 extern void n00b_channel_close(n00b_channel_t *);
+
+#ifdef N00B_USE_INTERNAL_API
+extern void *
+n00b_perform_channel_read(n00b_channel_t *,
+                          n00b_channel_t *,
+                          bool,
+                          int);
+
+static inline void *
+n00b_get_channel_cookie(n00b_channel_t *core)
+{
+    return (void *)&core->info[N00B_CTHUNK_IX];
+}
+
+#endif

@@ -1,5 +1,4 @@
 #include "n00b.h"
-#include "io/observers.h"
 
 void
 n00b_observable_init(n00b_observable_t *o, n00b_list_t *topics)

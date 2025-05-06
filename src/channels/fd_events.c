@@ -1,10 +1,8 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
-#include "io/fd3.h"
 
 // This is a LOW-LEVEL interface. The callbacks are expected to return
 // quickly, so should not be user callbacks.
-
-#define N00B_USE_INTERNAL_API
 
 n00b_event_loop_t    *n00b_system_dispatcher = NULL;
 static n00b_dict_t   *fd_cache               = NULL;
@@ -15,6 +13,64 @@ setup_io(void)
 {
     fd_cache               = n00b_dict(n00b_type_int(), n00b_type_ref());
     n00b_system_dispatcher = n00b_new_event_context(N00B_EV_POLL);
+}
+
+typedef struct {
+    n00b_condition_test_fn fn;
+    void                  *thunk;
+    n00b_condition_t      *condition;
+} cond_info_t;
+
+static void
+process_conditions(n00b_event_loop_t *ctx)
+{
+    // We *should* be the only thread changing out the list.
+    n00b_list_t *new_list = n00b_list(n00b_type_ref());
+    n00b_list_t *old      = atomic_read(&ctx->conditions);
+
+    while (!(CAS(&ctx->conditions, &old, new_list))) {
+        // Nothing.
+    }
+
+    cond_info_t *info = n00b_list_pop(old);
+
+    while (info) {
+        if ((*info->fn)(info->thunk)) {
+            n00b_condition_lock_acquire(info->condition);
+            n00b_condition_notify_one(info->condition);
+            n00b_lock_release(info->condition);
+        }
+        n00b_list_append(new_list, info);
+    }
+    info = n00b_list_pop(old);
+}
+
+bool
+n00b_condition_poll(n00b_condition_test_fn fn, void *thunk, int to_ms)
+{
+    cond_info_t     *info = n00b_gc_alloc_mapped(cond_info_t, N00B_GC_SCAN_ALL);
+    n00b_duration_t *to   = NULL;
+    info->fn              = fn;
+    info->thunk           = thunk;
+    info->condition       = n00b_new(n00b_type_condition());
+
+    if (to_ms > 0) {
+        to = n00b_now();
+        to->tv_sec += to_ms / 1000;
+        to->tv_nsec += (to_ms % 1000) * 1000000;
+    }
+
+    n00b_condition_lock_acquire(info->condition);
+
+    n00b_list_t *dl = atomic_read(&n00b_system_dispatcher->conditions);
+    n00b_list_append(dl, info);
+
+    if (to) {
+        return n00b_condition_timed_wait(info->condition, to);
+    }
+
+    n00b_condition_wait(info->condition);
+    return true;
 }
 
 void
@@ -466,7 +522,7 @@ n00b_fd_unsubscribe(n00b_fd_stream_t *s, n00b_fd_sub_t *sub)
 }
 
 static void
-fd_post(n00b_fd_stream_t *s, n00b_list_t *subs, n00b_buf_t *b)
+fd_post(n00b_fd_stream_t *s, n00b_list_t *subs, void *msg)
 {
     if (!s) {
         return;
@@ -475,7 +531,7 @@ fd_post(n00b_fd_stream_t *s, n00b_list_t *subs, n00b_buf_t *b)
 
     while (n--) {
         n00b_fd_sub_t *sub = n00b_private_list_get(subs, n, NULL);
-        (*sub->action.msg)(s, sub, b, sub->thunk);
+        (*sub->action.msg)(s, sub, msg, sub->thunk);
         if (sub->oneshot) {
             n00b_private_list_remove_item(subs, sub);
         }
@@ -492,7 +548,12 @@ fd_post_close(n00b_fd_stream_t *s)
 
     while (s->close_subs) {
         n00b_fd_sub_t *sub = n00b_list_pop(s->close_subs);
-        (*sub->action.close)(s, sub->thunk);
+        if (!sub) {
+            continue;
+        }
+        if (sub->action.close) {
+            (*sub->action.close)(s, sub->thunk);
+        }
     }
 
     s->read_subs   = NULL;
@@ -508,6 +569,17 @@ fd_discovered_read_close(n00b_fd_stream_t *s)
     if (s->write_closed) {
         fd_post_close(s);
     }
+}
+
+static inline bool
+fd_discovered_write_close(n00b_fd_stream_t *s)
+{
+    s->write_closed = true;
+    if (s->read_closed) {
+        fd_post_close(s);
+        return true;
+    }
+    return false;
 }
 
 static void
@@ -629,6 +701,35 @@ handle_one_read(n00b_fd_stream_t *s)
     n00b_rdbuf_t *last  = NULL;
     n00b_buf_t   *msg   = NULL;
     int           total = 0;
+
+    if (s->listener) {
+        struct sockaddr addr;
+        socklen_t       addr_len;
+
+        int sock = accept(s->fd, &addr, &addr_len);
+
+        if (sock == -1) {
+            int e = errno;
+            fd_post_error(s, NULL, e, false, true);
+            switch (errno) {
+            case EBADF:
+            case EINVAL:
+                fd_discovered_read_close(s);
+                return true;
+            }
+            return false;
+        }
+
+        n00b_net_addr_t  *saddr  = n00b_new(n00b_type_net_addr(),
+                                          n00b_kw("sockaddr", &addr));
+        n00b_fd_stream_t *fd     = n00b_fd_stream_from_fd(sock, NULL, NULL);
+        n00b_channel_t   *chan   = n00b_new_fd_channel(fd);
+        n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(chan);
+        cookie->addr             = saddr;
+
+        fd_post(s, s->read_subs, chan);
+        return false;
+    }
 
     while (true) {
         int val = read(s->fd, tmpbuf, PIPE_BUF);
@@ -1048,6 +1149,19 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
                 }
             }
         }
+        if (slot->revents & POLLHUP) {
+            // Might still have reading to do; but consider the fd
+            // closed for writes in any circumstances.
+            //
+            // And if nothing is subscribed for reads, go ahead and
+            // close the read side as well.
+
+            if (!fd_discovered_write_close(s)) {
+                if (!(slot->events & POLLIN)) {
+                    fd_discovered_read_close(s);
+                }
+            }
+        }
 
         // Take back closed slots.
         if (s->fd == N00B_FD_CLOSED) {
@@ -1098,6 +1212,8 @@ n00b_fd_run_poll_dispatcher_once(n00b_event_loop_t *loop,
 
     check_timers(loop, now);
     check_eof_list(loop, ploop);
+    process_conditions(loop);
+
     process_pending_changes(loop, ploop);
 
     if (!ploop->ops_in_pollset) {
@@ -1194,6 +1310,7 @@ n00b_new_event_context(n00b_event_impl_kind kind)
     ctx->kind              = kind;
     ctx->timers            = n00b_list(n00b_type_ref());
     ctx->pending           = n00b_list(n00b_type_ref());
+    atomic_store(&ctx->conditions, n00b_list(n00b_type_ref()));
 
     (*event_impls[kind])(ctx);
 

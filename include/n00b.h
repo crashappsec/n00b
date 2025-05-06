@@ -141,3 +141,11 @@ extern bool n00b_startup_complete;
 
 #include "io/session.h"
 #include "util/testgen.h"
+
+#include "channels/fd_event.h"
+#include "channels/observable.h"
+#include "channels/channel.h"
+#include "channels/channel_fd.h"
+#include "channels/channel_cb.h"
+#include "channels/channel_buffer.h"
+#include "channels/channel_topic.h"

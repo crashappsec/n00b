@@ -65,13 +65,14 @@ struct n00b_fd_stream_t {
     unsigned int             write_ready      : 1;
     unsigned int             plain_file       : 1;
     unsigned int             tty              : 1;
-    int                      fd_mode;
-    int                      fd_flags;
-    int                      internal_ix;
-    int64_t                  total_read;
-    int64_t                  total_written;
-    n00b_ev_ready_cb         notify;
-    n00b_string_t           *name;
+
+    int              fd_mode;
+    int              fd_flags;
+    int              internal_ix;
+    int64_t          total_read;
+    int64_t          total_written;
+    n00b_ev_ready_cb notify;
+    n00b_string_t   *name;
 };
 
 struct n00b_fd_sub_t {
@@ -136,6 +137,7 @@ struct n00b_event_loop_t {
     int64_t                  heap_key;
     bool                     exit_loop;
     _Atomic(n00b_thread_t *) owner;
+    _Atomic(n00b_list_t *)   conditions;
 
     union {
         n00b_pevent_loop_t poll;
@@ -211,3 +213,8 @@ n00b_fd_is_other(n00b_fd_stream_t *s)
     return (!(n00b_fd_is_regular_file(s) || n00b_fd_is_directory(s)
               || n00b_fd_is_link(s)));
 }
+
+#ifdef N00B_USE_INTERNAL_API
+typedef bool (*n00b_condition_test_fn)(void *);
+extern bool n00b_condition_poll(n00b_condition_test_fn, void *, int to);
+#endif

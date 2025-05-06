@@ -1,4 +1,5 @@
 #pragma once
+#include "n00b.h"
 
 typedef void *(*n00b_channel_cb_t)(void *, void *);
 
