@@ -39,6 +39,7 @@ fdchan_on_first_subscriber(n00b_channel_t *c, n00b_fd_cookie_t *p)
                                      2,
                                      (int)(false),
                                      c);
+    _n00b_fd_close_subscribe(p->stream, (void *)on_fd_close, 2, (int)false, c);
 }
 
 void
@@ -151,7 +152,6 @@ _n00b_new_fd_channel(n00b_fd_stream_t *fd, ...)
     va_end(args);
 
     result = n00b_channel_create(&n00b_fdchan_impl, fd, filters);
-    _n00b_fd_close_subscribe(fd, (void *)on_fd_close, 2, (int)false, result);
 
     return result;
 }
@@ -406,4 +406,34 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
     }
 
     return n00b_new_fd_channel(fds, filters);
+}
+
+n00b_channel_t *
+_n00b_channel_connect(n00b_net_addr_t *addr, ...)
+{
+    n00b_list_t *filters;
+    va_list      args;
+
+    va_start(args, filename);
+    filters = va_arg(args, n00b_list_t *);
+    va_end(args);
+
+    int sock = socket(addr->family, SOCK_STREAM, 0);
+
+    if (sock < 0) {
+        n00b_raise_errno();
+    }
+
+    if (connect(sock, (void *)&addr->addr, n00b_get_sockaddr_len(addr))) {
+        return NULL;
+    }
+
+    n00b_fd_stream_t *fd     = n00b_fd_stream_from_fd(sock, NULL, NULL);
+    n00b_channel_t   *result = n00b_channel_create(&n00b_fdchan_impl,
+                                                 fd,
+                                                 filters);
+    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(result);
+    cookie->addr             = addr;
+
+    return result;
 }
