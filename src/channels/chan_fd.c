@@ -19,7 +19,7 @@ on_fd_close(n00b_fd_stream_t *s, n00b_channel_t *c)
 // The low-level event scheduler calls this when there's a read; we
 // need to call the dispatcher to pass it through any filtering and
 // hand it out to readers.
-static void
+void
 fdchan_on_read_event(n00b_fd_stream_t *s,
                      n00b_fd_sub_t    *sub,
                      void             *msg,

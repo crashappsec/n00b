@@ -150,3 +150,6 @@ extern bool n00b_startup_complete;
 #include "channels/channel_cb.h"
 #include "channels/channel_buffer.h"
 #include "channels/channel_topic.h"
+#include "channels/channel_exit.h"
+
+#include "debug/workflow.h"

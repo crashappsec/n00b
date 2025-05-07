@@ -297,7 +297,8 @@ n00b_channels = [
     'src/channels/chan_callback.c',
     'src/channels/chan_buffer.c',
     'src/channels/chan_topic.c',
-    'src/channels/chan_listener.c',        
+    'src/channels/chan_listener.c',
+    'src/channels/chan_exit.c',            
 ]
 
 n00b_compiler = [
