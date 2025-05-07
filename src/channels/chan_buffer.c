@@ -18,25 +18,9 @@ bufchan_init(n00b_buffer_channel_t *c, n00b_list_t *args)
     return ret;
 }
 
-static bool
-bufchan_write_ready(n00b_buffer_channel_t *c)
-{
-    n00b_buf_t *src = c->buffer;
-
-    _n00b_buffer_acquire_r(src);
-    if (src->byte_len < c->position) {
-        n00b_buffer_release(src);
-        return true;
-    }
-    n00b_buffer_release(src);
-    return false;
-}
-
 static n00b_buf_t *
 bufchan_read(n00b_buffer_channel_t *c,
-             bool                   block,
-             bool                  *success,
-             int                    ms_timeout)
+             bool                  *success)
 {
     n00b_buf_t *src = c->buffer;
     n00b_buf_t *result;
@@ -55,24 +39,17 @@ bufchan_read(n00b_buffer_channel_t *c,
 
         n00b_buffer_release(src);
 
-        if (!block) {
-            *success = false;
-            return NULL;
-        }
-
-        if (!n00b_condition_poll((void *)bufchan_write_ready, c, ms_timeout)) {
-            *success = false;
-            return NULL;
-        }
+        *success = false;
+        return NULL;
     }
 }
 
 static void
-bufchan_write(n00b_buffer_channel_t *c, n00b_cmsg_t *msg, bool blocking)
+bufchan_write(n00b_buffer_channel_t *c, void *msg, bool blocking)
 {
     defer_on();
     n00b_buffer_acquire_w(c->buffer);
-    n00b_buf_t *b = msg->payload;
+    n00b_buf_t *b = msg;
     n00b_buffer_acquire_r(b);
 
     if (c->position > c->buffer->byte_len) {
@@ -141,12 +118,13 @@ bufchan_get_pos(n00b_buffer_channel_t *c)
 }
 
 static n00b_chan_impl n00b_bufchan_impl = {
-    .cookie_size = sizeof(n00b_buffer_channel_t),
-    .init_impl   = (void *)bufchan_init,
-    .read_impl   = (void *)bufchan_read,
-    .write_impl  = (void *)bufchan_write,
-    .spos_impl   = (void *)bufchan_set_pos,
-    .gpos_impl   = (void *)bufchan_get_pos,
+    .cookie_size             = sizeof(n00b_buffer_channel_t),
+    .init_impl               = (void *)bufchan_init,
+    .read_impl               = (void *)bufchan_read,
+    .write_impl              = (void *)bufchan_write,
+    .spos_impl               = (void *)bufchan_set_pos,
+    .gpos_impl               = (void *)bufchan_get_pos,
+    .poll_for_blocking_reads = true,
 };
 
 n00b_channel_t *
@@ -166,7 +144,12 @@ n00b_channel_from_buffer(n00b_buf_t *b, int64_t mode, va_list alist)
 
     va_end(alist);
 
-    return n00b_channel_create(&n00b_bufchan_impl, args, filters);
+    n00b_channel_t *result = n00b_channel_create(&n00b_bufchan_impl,
+                                                 args,
+                                                 filters);
+    result->name           = n00b_cformat("Buffer @[|#:p|]", b);
+
+    return result;
 }
 
 n00b_channel_t *

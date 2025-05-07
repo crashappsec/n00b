@@ -29,12 +29,12 @@ dispatch_first_subscriber(n00b_observable_t *obs,
         return;
     }
 
-    if (!c->impl.channel->read_subscribe_cb) {
+    if (!c->impl->read_subscribe_cb) {
         return;
     }
 
     if (notify) {
-        (*c->impl.channel->read_subscribe_cb)(c, n00b_get_channel_cookie(c));
+        (*c->impl->read_subscribe_cb)(c, n00b_get_channel_cookie(c));
     }
 }
 
@@ -59,63 +59,13 @@ dispatch_no_subscriber(n00b_observable_t *obs,
         return;
     }
 
-    if (!c->impl.channel->read_unsubscribe_cb) {
+    if (!c->impl->read_unsubscribe_cb) {
         return;
     }
 
     if (!c->has_rsubs && !c->has_rawsubs) {
-        (*c->impl.channel->read_unsubscribe_cb)(c, n00b_get_channel_cookie(c));
+        (*c->impl->read_unsubscribe_cb)(c, n00b_get_channel_cookie(c));
     }
-}
-
-n00b_channel_t *
-n00b_channel_filter_add(n00b_channel_t     *c,
-                        n00b_filter_spec_t *filter_spec)
-{
-    int                 sz        = filter_spec->filter_impl->cookie_size;
-    n00b_channel_t     *result    = n00b_gc_alloc(sizeof(n00b_channel_t) + sz);
-    n00b_filter_step_t *step_info = n00b_gc_alloc_mapped(n00b_filter_step_t,
-                                                         N00B_GC_SCAN_ALL);
-
-    n00b_channel_t *core = n00b_channel_core(c);
-
-    result->kind               = N00B_CHAN_FILTER;
-    result->impl.filter        = filter_spec->filter_impl;
-    step_info->core            = core;
-    step_info->next_read_step  = core->stack.read_top;
-    core->stack.read_top       = result;
-    step_info->next_write_step = c;
-
-    result->stack.filter = step_info;
-
-    n00b_observable_init(&result->pub_info, NULL);
-
-    result->pub_info.max_topics = -1; // Not used right now.
-
-    if (filter_spec->policy <= 0 || filter_spec->policy > N00B_FILTER_MAX) {
-        N00B_CRAISE("Invalid operation policy for filter.");
-    }
-
-    if ((filter_spec->policy & N00B_FILTER_READ) && !core->r) {
-        // Cannot add; not enabled for reads.
-        return NULL;
-    }
-    if ((filter_spec->policy & N00B_FILTER_WRITE) && !core->w) {
-        return NULL;
-    }
-
-    if (core->r && !(filter_spec->policy & N00B_FILTER_READ)) {
-        step_info->r_skip = true;
-    }
-    if (core->w && !(filter_spec->policy & N00B_FILTER_WRITE)) {
-        step_info->w_skip = true;
-    }
-
-    if (step_info->w_skip && step_info->r_skip) {
-        return NULL;
-    }
-
-    return result;
 }
 
 // We expect the natural way for people to give us a list of filters is
@@ -130,61 +80,57 @@ n00b_channel_create(n00b_chan_impl *impl,
     // which are variable since we don't alloc them for filter layers.
     // The start of the thunk is found via indexing into the lock array,
     // so the number of lock pointers is equal to that index (currently 3).
-    int sz = sizeof(n00b_channel_t) + impl->cookie_size
-           + sizeof(void *) * N00B_CTHUNK_IX;
-
-    n00b_channel_t *core = n00b_gc_alloc(sz);
-    n00b_channel_t *cur  = core;
+    int             sz  = sizeof(n00b_channel_t) + impl->cookie_size;
+    n00b_channel_t *cur = n00b_gc_alloc(sz);
 
     // Async writes get enqueued and the event-thread processes.
     // Sync writes grab the lock.
-    n00b_observable_init(&core->pub_info, NULL);
-    n00b_observable_set_subscribe_callback(&core->pub_info,
+    n00b_observable_init(&cur->pub_info, NULL);
+    n00b_observable_set_subscribe_callback(&cur->pub_info,
                                            dispatch_first_subscriber,
                                            false);
-    n00b_observable_set_unsubscribe_callback(&core->pub_info,
+    n00b_observable_set_unsubscribe_callback(&cur->pub_info,
                                              dispatch_no_subscriber,
                                              false);
-    core->pub_info.max_topics = N00B_CT_NUM_TOPICS;
+    cur->pub_info.max_topics = N00B_CT_NUM_TOPICS;
 
-    core->impl.channel = impl;
-    core->is_core      = true;
+    cur->impl = impl;
 
     if (filter_specs) {
         int n = n00b_list_len(filter_specs);
+
         while (n--) {
             n00b_filter_spec_t *spec = n00b_list_get(filter_specs, n, NULL);
-            cur                      = n00b_channel_filter_add(cur, spec);
-            if (!cur) {
-                return NULL; // Some error.
+            if (!n00b_filter_add(cur, spec->impl, spec->policy)) {
+                return NULL;
             }
         }
     }
 
-    int mode = (*impl->init_impl)(n00b_get_channel_cookie(core), init_args);
+    int mode = (*impl->init_impl)(n00b_get_channel_cookie(cur), init_args);
 
     switch (mode) {
     case O_RDONLY:
-        core->r = true;
+        cur->r = true;
         break;
     case O_WRONLY:
-        core->w = true;
+        cur->w = true;
         break;
     case O_RDWR:
-        core->r = true;
-        core->w = true;
+        cur->r = true;
+        cur->w = true;
         break;
     default:
         return NULL;
     }
 
-    if (core->r) {
-        core->info[N00B_LOCKRD_IX] = n00b_new(n00b_type_lock());
+    if (cur->r) {
+        cur->locks[N00B_LOCKRD_IX] = n00b_new(n00b_type_lock());
     }
-    if (core->w) {
-        core->info[N00B_LOCKWR_IX] = n00b_new(n00b_type_lock());
+    if (cur->w) {
+        cur->locks[N00B_LOCKWR_IX] = n00b_new(n00b_type_lock());
     }
-    core->info[N00B_LOCKSUB_IX] = n00b_new(n00b_type_lock());
+    cur->locks[N00B_LOCKSUB_IX] = n00b_new(n00b_type_lock());
 
     return cur;
 }
@@ -194,28 +140,23 @@ n00b_channel_subscribe_read(n00b_channel_t *channel,
                             n00b_channel_t *dst,
                             bool            oneshot)
 {
-    n00b_observer_t *result;
-    n00b_channel_t  *core = n00b_channel_core(channel);
+    return n00b_observable_subscribe(&channel->pub_info,
+                                     (void *)(int64_t)N00B_CT_R,
+                                     route_channel_message,
+                                     oneshot,
+                                     dst);
+}
 
-    if (channel->is_core && core->stack.read_top) {
-        // This doesn't impact notifying the implementation about subscribers;
-        // raw subscriptions sit there until there is a blocking read() or
-        // until a non-raw subscription is made.
-        return n00b_observable_subscribe(&core->pub_info,
-                                         (void *)(int64_t)N00B_CT_RAW,
-                                         route_channel_message,
-                                         oneshot,
-                                         dst);
-    }
-    else {
-        return n00b_observable_subscribe(&core->pub_info,
-                                         (void *)(int64_t)N00B_CT_R,
-                                         route_channel_message,
-                                         oneshot,
-                                         dst);
-    }
-
-    return result;
+n00b_observer_t *
+n00b_channel_subscribe_raw(n00b_channel_t *channel,
+                           n00b_channel_t *dst,
+                           bool            oneshot)
+{
+    return n00b_observable_subscribe(&channel->pub_info,
+                                     (void *)(int64_t)N00B_CT_RAW,
+                                     route_channel_message,
+                                     oneshot,
+                                     dst);
 }
 
 n00b_observer_t *
@@ -223,9 +164,7 @@ n00b_channel_subscribe_queue(n00b_channel_t *channel,
                              n00b_channel_t *dst,
                              bool            oneshot)
 {
-    n00b_channel_t *core = n00b_channel_core(channel);
-
-    return n00b_observable_subscribe(&core->pub_info,
+    return n00b_observable_subscribe(&channel->pub_info,
                                      (void *)(int64_t)N00B_CT_Q,
                                      route_channel_message,
                                      oneshot,
@@ -237,9 +176,7 @@ n00b_channel_subscribe_write(n00b_channel_t *channel,
                              n00b_channel_t *dst,
                              bool            oneshot)
 {
-    n00b_channel_t *core = n00b_channel_core(channel);
-
-    return n00b_observable_subscribe(&core->pub_info,
+    return n00b_observable_subscribe(&channel->pub_info,
                                      (void *)(int64_t)N00B_CT_W,
                                      route_channel_message,
                                      oneshot,
@@ -250,9 +187,7 @@ n00b_observer_t *
 n00b_channel_subscribe_close(n00b_channel_t *channel,
                              n00b_channel_t *dst)
 {
-    n00b_channel_t *core = n00b_channel_core(channel);
-
-    return n00b_observable_subscribe(&core->pub_info,
+    return n00b_observable_subscribe(&channel->pub_info,
                                      (void *)(int64_t)N00B_CT_CLOSE,
                                      route_channel_message,
                                      true,
@@ -264,9 +199,7 @@ n00b_channel_subscribe_error(n00b_channel_t *channel,
                              n00b_channel_t *dst,
                              bool            oneshot)
 {
-    n00b_channel_t *core = n00b_channel_core(channel);
-
-    return n00b_observable_subscribe(&core->pub_info,
+    return n00b_observable_subscribe(&channel->pub_info,
                                      (void *)(int64_t)N00B_CT_ERROR,
                                      route_channel_message,
                                      oneshot,
@@ -288,37 +221,6 @@ package_message(void *m, int nitems, char *f, int l)
 }
 
 static void
-n00b_next_w(n00b_channel_t *channel, n00b_cmsg_t *msg, bool blocking)
-{
-    n00b_channel_t *core = n00b_channel_core(channel);
-    n00b_list_t    *pass;
-    void           *cookie;
-    int             n;
-
-    while (channel != core && channel->stack.filter->w_skip) {
-        channel = channel->stack.filter->next_write_step;
-    }
-
-    if (channel == core) {
-        cookie = n00b_get_channel_cookie(channel);
-        // Notify BEFORE sending. If you want to be confident it sent,
-        // do the blocking write yourself.
-        n00b_cnotify_w(core, msg);
-        (*channel->impl.channel->write_impl)(cookie, msg, blocking);
-    }
-    else {
-        cookie = n00b_get_channel_cookie(core);
-        pass   = (*channel->impl.filter->write_fn)(cookie, msg, blocking);
-        n      = n00b_list_len(pass);
-        for (int i = 0; i < n; i++) {
-            n00b_next_w(channel->stack.filter->next_write_step,
-                        n00b_list_get(pass, n, NULL),
-                        blocking);
-        }
-    }
-}
-
-static void
 internal_write(n00b_channel_t *channel,
                void           *msg,
                int             nitems,
@@ -326,24 +228,32 @@ internal_write(n00b_channel_t *channel,
                int             line,
                bool            blocking)
 {
-    n00b_channel_t *core;
-
-    if (!channel->is_core) {
-        core = channel->stack.filter->core;
-    }
-    else {
-        core = channel;
-    }
-
-    if (!core->w) {
-        N00B_CRAISE("Channel is not open for writing.");
+    if (!channel->w) {
+        n00b_cnotify_error(channel,
+                           n00b_cstring("Channel is not open for writing."));
+        return;
     }
 
     n00b_cmsg_t *pkg = package_message(msg, nitems, file, line);
-    n00b_lock_acquire(core->info[N00B_LOCKWR_IX]);
-    n00b_cnotify_q(core, pkg);
-    n00b_lock_release(core->info[N00B_LOCKWR_IX]);
-    n00b_next_w(channel, pkg, blocking);
+    n00b_lock_acquire(channel->locks[N00B_LOCKWR_IX]);
+    n00b_cnotify_q(channel, pkg);
+    n00b_lock_release(channel->locks[N00B_LOCKWR_IX]);
+    n00b_list_t *to_deliver = n00b_filter_writes(channel, pkg);
+
+    if (!to_deliver) {
+        return;
+    }
+
+    void *cookie = n00b_get_channel_cookie(channel);
+    void *out_msg;
+
+    int n = n00b_list_len(to_deliver);
+
+    for (int i = 0; i < n; i++) {
+        out_msg = n00b_list_get(to_deliver, i, NULL);
+        n00b_cnotify_w(channel, out_msg);
+        (*channel->impl->write_impl)(cookie, out_msg, blocking);
+    }
 }
 
 // BLOCKING
@@ -372,107 +282,200 @@ route_channel_message(void *msg, void *dst)
     _n00b_channel_queue(dst, msg, __FILE__, __LINE__);
 }
 
-static bool
-apply_read_filter_layer(n00b_channel_t *cur, n00b_list_t *input)
-{
-    void *cookie    = (void *)cur->info;
-    cur->read_cache = (*cur->impl.filter->read_fn)(cookie, input, true);
-
-    if (!cur->read_cache || !n00b_list_len(cur->read_cache)) {
-        return false;
-    }
-
-    return true;
-}
-
-// The 'top' parameter here is how we can allow for us to
-// short-circuit some of the filter stack.
-//
-// For instance, we could have a read-filter stack on stdin that will
-// read, line-buffer and then strip out ansi codes. But if we want to
-// read and get the ansi codes, we can request the read from the
-// line-buffer filter, or from the core channel if we don't even want
-// buffering.
-
-void *
-n00b_perform_channel_read(n00b_channel_t *core,
-                          n00b_channel_t *top,
-                          bool            block,
-                          int             tout)
+// Attempt to read from the source until it fails.
+// TODO: Handle fatal errors.
+static inline bool
+nonblocking_channel_read(n00b_channel_t *channel)
 {
     bool           ok = true;
-    void          *result;
-    n00b_list_t   *cache = top->read_cache;
     n00b_chan_r_fn fn;
     void          *v;
 
-    if (cache && n00b_list_len(cache)) {
-        result = n00b_list_dequeue(cache);
-        if (core == top) {
-            n00b_cnotify_raw(core, result);
-        }
-        n00b_cnotify_r(core, result);
-        return result;
-    }
-
-raw_read_required:
-
-    fn = core->impl.channel->read_impl;
-    v  = (*fn)(n00b_get_channel_cookie(core), block, &ok, tout);
-
-    if (!ok) {
-        return NULL;
-    }
-
-    n00b_cnotify_raw(core, v);
-    n00b_channel_t *cur  = core->stack.read_top;
-    n00b_channel_t *prev = core;
-
-    if (!cur) {
-        n00b_cnotify_r(core, v);
-        return v;
-    }
-
-    n00b_list_t *input = n00b_list(n00b_type_ref());
-    n00b_list_append(input, v);
-
     while (true) {
-        // If filter layers are one-way only, and we skip them, we go
-        // down to the previous active r filter's output once we reach
-        // the end. And if there turned out to be filters but no read
-        // filters, v was still intact...
-        if (cur == top || cur->stack.filter->r_skip) {
-            if (cur == top) {
-                if (prev == core) {
-                    n00b_cnotify_r(core, v);
-                    return v;
-                }
-                v = n00b_list_dequeue(input);
-                n00b_cnotify_r(core, v);
-                return v;
-            }
-            cur = cur->stack.filter->next_read_step;
-            continue;
+        fn = channel->impl->read_impl;
+        v  = (*fn)(n00b_get_channel_cookie(channel), &ok);
+
+        if (!ok) {
+            return false;
         }
 
-        // This layer is not to be skipped; the return value is
-        // true if it successfully yielded a message, and false
-        // if it's buffering or dropped, in which case we need
-        // to go to the underlying core and get more input.
-        //
-        // But either way, the new filter is expected to completely
-        // clear the cache of the previous layer.
-        if (prev != core) {
-            input            = prev->read_cache;
-            prev->read_cache = NULL;
+        n00b_cnotify_raw(channel, v);
+        n00b_cmsg_t *pkg    = package_message(v, 1, __FILE__, __LINE__);
+        channel->read_cache = n00b_filter_reads(channel, pkg);
+        if (channel->read_cache) {
+            return true;
         }
-        if (!apply_read_filter_layer(cur, input)) {
-            goto raw_read_required;
-        }
-
-        prev = cur;
-        cur  = cur->stack.filter->next_read_step;
     }
+}
+
+static inline void *
+wait_for_read(n00b_channel_t  *channel,
+              n00b_lock_t     *lock,
+              n00b_duration_t *end,
+              int             *err)
+{
+    void *result;
+
+    pthread_cond_t *cond = n00b_gc_alloc_mapped(pthread_cond_t,
+                                                N00B_GC_SCAN_NONE);
+    pthread_cond_t *check;
+
+    pthread_cond_init(cond, NULL);
+
+    if (!channel->blocked_readers) {
+        channel->blocked_readers = n00b_list(n00b_type_ref());
+    }
+    n00b_list_append(channel->blocked_readers, cond);
+
+    // Here, we need to make sure that, if there are no read subscribers,
+    // the polling loop associated w/ the fd is still going to be polling
+    // for reads.
+
+    if (channel->fd_backed) {
+        n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(channel);
+        n00b_fd_stream_t *s      = cookie->stream;
+
+        if (!s->r_added) {
+            while (!s->needs_r) {
+                s->needs_r = true;
+            }
+            n00b_list_append(s->evloop->pending, s);
+        }
+    }
+
+    if (end) {
+        int res = pthread_cond_timedwait(cond,
+                                         &lock->lock,
+                                         end);
+        if (res) {
+            *err = true;
+            n00b_private_list_remove_item(channel->blocked_readers,
+                                          cond);
+            n00b_lock_release(lock);
+            return NULL;
+        }
+    }
+    else {
+        int res = pthread_cond_wait(cond, &lock->lock);
+        if (res) {
+            *err = true;
+            return NULL;
+        }
+    }
+
+    *err = false;
+
+    result = n00b_private_list_dequeue(channel->read_cache);
+    check  = n00b_private_list_dequeue(channel->blocked_readers);
+    assert(check == cond);
+
+    // If there are leftover messages and others are waiting, signal
+    // the next waiter in line.
+
+    if (n00b_list_len(channel->blocked_readers)
+        && n00b_list_len(channel->read_cache)) {
+        cond = n00b_list_get(channel->blocked_readers, 0, NULL);
+        pthread_cond_signal(cond);
+    }
+
+    n00b_lock_release(lock);
+
+    return result;
+}
+
+static void *
+n00b_perform_channel_read(n00b_channel_t *channel,
+                          bool            blocking,
+                          int             tout,
+                          int            *err)
+{
+    n00b_mutex_t    *lock   = channel->locks[N00B_LOCKRD_IX];
+    void            *result = NULL;
+    pthread_cond_t  *cond;
+    n00b_duration_t *end;
+
+    if (tout) {
+        end = n00b_new_ms_timeout(tout);
+    }
+    else {
+        end = NULL;
+    }
+
+    n00b_lock_acquire(lock);
+
+    // 1. If there aren't enough available queued messages for us
+    //    (behind any pending waiters) then call the raw non-blocking
+    //    channel read until it fails.
+    //
+    // 2. If we DO at any point have enough messages, take our message
+    //    from its place in the queue (letting earlier readers have
+    //    earlier messages), signal the first waiter (if any), and
+    //    then exit.
+    //
+    // 3. If instead, we fail before getting enough messages,
+    //    if we're blocking, we call `wait_for_read`. Otherwise,
+    //    we keep going.
+
+    // We don't need a message at all if this is called non-blocking,
+    // and there are no blocked readers.
+    //
+    // However, we will need to dequeue the message.
+    int n = 1;
+
+    if (channel->blocked_readers) {
+        n += n00b_list_len(channel->blocked_readers);
+    }
+
+    while (!channel->read_cache || n00b_list_len(channel->read_cache) < n) {
+        if (!nonblocking_channel_read(channel)) {
+            if (!blocking || channel->impl->disallow_blocking_reads) {
+                n00b_lock_release(lock);
+                *err = true;
+                return NULL;
+            }
+
+            // Some channel types may not give us asynchronous notification.
+            // In that case, we just poll.
+            //
+            // Specifically, buffer objects are mutable, and can be
+            // added to whenever. But since they're usually not
+            // monitored in an event loop, there's no built-in
+            // notification mechanism.
+            //
+            // So first we see if we're passed any timeout.  And if
+            // we're not, we wait for the default poll interval.  Hope
+            // you know what you're doing if you're making a
+            // non-blocking read on a buffer...
+            if (channel->impl->poll_for_blocking_reads) {
+                if (end && n00b_duration_lt(end, n00b_now())) {
+                    *err = true;
+                    return NULL;
+                }
+
+                n00b_nanosleep(0, N00B_POLL_DEFAULT_MS * 1000000);
+            }
+            else {
+                // For most things, we can just hang to see if a poll
+                // comes in.
+                return wait_for_read(channel, lock, end, err);
+            }
+        }
+    }
+
+    result = n00b_list_get(channel->read_cache, n - 1, NULL);
+    n00b_private_list_remove(channel->read_cache, n - 1);
+    n00b_cnotify_r(channel, result);
+
+    if (channel->blocked_readers && n00b_list_len(channel->blocked_readers)
+        && n00b_list_len(channel->read_cache)) {
+        cond = n00b_list_get(channel->blocked_readers, 0, NULL);
+        pthread_cond_signal(cond);
+    }
+
+    *err = false;
+
+    n00b_lock_release(lock);
+    return result;
 }
 
 // This always blocks. Subscribe to reads if you want async.  Also,
@@ -487,74 +490,62 @@ raw_read_required:
 void *
 n00b_channel_read(n00b_channel_t *channel, int ms_timeout)
 {
-    n00b_channel_t *core = n00b_channel_core(channel);
-
-    if (!core->r) {
-        N00B_CRAISE("Channel is not open for reading.");
+    if (!channel->r) {
+        n00b_cnotify_error(channel,
+                           n00b_cstring("Channel is not open for reading."));
+        return NULL;
     }
 
-    n00b_lock_acquire(core->info[N00B_LOCKRD_IX]);
-    void *result = n00b_perform_channel_read(core, channel, true, ms_timeout);
-    n00b_lock_release(core->info[N00B_LOCKRD_IX]);
-    return result;
+    int err;
+
+    return n00b_perform_channel_read(channel, true, ms_timeout, &err);
 }
+
 void
 n00b_io_dispatcher_process_read_queue(n00b_channel_t *channel)
 {
-    n00b_channel_t *core = n00b_channel_core(channel);
-
-    if (!core->r) {
+    if (!channel->r) {
         return;
     }
 
-    n00b_perform_channel_read(core, channel, false, 0);
+    int err;
+    n00b_perform_channel_read(channel, false, 0, &err);
 }
 
 int
 n00b_channel_get_position(n00b_channel_t *c)
 {
-    n00b_channel_t *core = n00b_channel_core(c);
-    if (!core->impl.channel->gpos_impl) {
+    if (!c->impl->gpos_impl) {
         return -1;
     }
-    return (*core->impl.channel->gpos_impl)(n00b_get_channel_cookie(c));
+    return (*c->impl->gpos_impl)(n00b_get_channel_cookie(c));
 }
 
 bool
 n00b_channel_set_relative_position(n00b_channel_t *c, int pos)
 {
-    n00b_channel_t *core = n00b_channel_core(c);
-    if (!core->impl.channel->spos_impl) {
+    if (!c->impl->spos_impl) {
         return false;
     }
 
-    return (*core->impl.channel->spos_impl)(n00b_get_channel_cookie(c),
-                                            pos,
-                                            true);
+    return (*c->impl->spos_impl)(n00b_get_channel_cookie(c), pos, true);
 }
 
 extern bool
-n00b_channel_set_absolute_position(n00b_channel_t *c,
-                                   int             pos)
+n00b_channel_set_absolute_position(n00b_channel_t *c, int pos)
 {
-    n00b_channel_t *core = n00b_channel_core(c);
-
-    if (!core->impl.channel->spos_impl) {
+    if (!c->impl->spos_impl) {
         return false;
     }
 
-    return (*core->impl.channel->spos_impl)(n00b_get_channel_cookie(c),
-                                            pos,
-                                            false);
+    return (*c->impl->spos_impl)(n00b_get_channel_cookie(c), pos, false);
 }
 
 extern void
 n00b_channel_close(n00b_channel_t *c)
 {
-    n00b_channel_t *core = n00b_channel_core(c);
-
-    if (core->impl.channel->close_impl) {
-        (*core->impl.channel->close_impl)(n00b_get_channel_cookie(c));
+    if (c->impl->close_impl) {
+        (*c->impl->close_impl)(n00b_get_channel_cookie(c));
     }
 
     c->r = false;

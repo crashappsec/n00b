@@ -1,31 +1,7 @@
 #pragma once
 #include "n00b.h"
 
-typedef struct n00b_channel_t     n00b_channel_t;
-typedef struct n00b_filter_step_t n00b_filter_step_t;
-
-typedef enum {
-    // Filter whenever a read operation occurs. This occurs whenever
-    // the read implementation function is invoked, which is either
-    // when the user explicitly calls a read() function, or when the
-    // base implementation is event-driven and has read subscribers.
-    N00B_CHAN_FILTER_READS,
-    // For the other two, any underlying implementation requires
-    // something calling n00b_chan_write() or n00b_chan_read().
-    // The filtering occurs before the underlying implementation is called.
-    N00B_CHAN_FILTER_WRITES,
-} n00b_chan_filter_policy;
-
-typedef enum {
-    N00B_CHAN_FD,
-    N00B_CHAN_CALLBACK,
-    N00B_CHAN_PROXY,
-    N00B_CHAN_BUFFER,
-    N00B_CHAN_STRING,
-    N00B_CHAN_TOPIC,
-    N00B_CHAN_CUSTOM,
-    N00B_CHAN_FILTER,
-} n00b_chan_kind;
+typedef struct n00b_channel_t n00b_channel_t;
 
 typedef struct {
     void   *payload;
@@ -36,7 +12,7 @@ typedef struct {
 } n00b_cmsg_t;
 
 typedef int (*n00b_chan_init_fn)(void *, void *);
-typedef void *(*n00b_chan_r_fn)(void *, bool, bool *, int);
+typedef void *(*n00b_chan_r_fn)(void *, bool *);
 typedef void (*n00b_chan_w_fn)(void *, n00b_cmsg_t *, bool);
 typedef bool (*n00b_chan_spos_fn)(void *, int, bool);
 typedef int (*n00b_chan_gpos_fn)(void *);
@@ -55,59 +31,16 @@ typedef struct {
     n00b_chan_repr_fn  repr_impl;
     n00b_chan_sub_fn   read_subscribe_cb;
     n00b_chan_sub_fn   read_unsubscribe_cb;
+    bool               poll_for_blocking_reads;
+    // This should only be set for data objects that are non-mutable,
+    // such as strings.
+    bool               disallow_blocking_reads;
 } n00b_chan_impl;
 
-enum {
-    N00B_FILTER_READ  = 1,
-    N00B_FILTER_WRITE = 2,
-    N00B_FILTER_MAX   = 3,
-};
-
-typedef struct {
-    int                 cookie_size;
-    n00b_chan_filter_fn read_fn;
-    n00b_chan_filter_fn write_fn;
-    n00b_string_t      *name;
-    n00b_type_t        *output_type;
-
-    // If `polymorphic_w` is true, it indicates that filter WRITES to
-    // a channel may accept multiple types. They must always go to the
-    // underlying channel implementation as a buffer. And, any
-    // individual filter must produce a single output type, even if
-    // it's not intended to go to the channel without first going
-    // through a conversion filter.
-    //
-    // The same thing happens for reads in reverse w
-    // `polymorphic_r`... the first filter must accept the raw buffer
-    // of the channel, and *should* produce a single type, but it is
-    // not required (e.g., marshalling can produce any
-    // type). Subsequent layers of filtering may also be flexible both
-    // in and out, but in that case they will be type checked with
-    // every message, instead of just when setting up the pipeline.
-    unsigned int polymorphic_r : 1;
-    unsigned int polymorphic_w : 1;
-
-    /* Type checking to be done.
-        union {
-            n00b_type_t      *type;
-            n00b_chan_type_fn validator;
-        } input_type;
-    */
-
-} n00b_filter_impl;
-
-typedef struct {
-    n00b_filter_impl *filter_impl;
-    int               policy;
-} n00b_filter_spec_t;
-
-struct n00b_filter_step_t {
-    n00b_channel_t *next_write_step;
-    n00b_channel_t *next_read_step;
-    n00b_channel_t *core;
-    unsigned int    w_skip : 1;
-    unsigned int    r_skip : 1;
-};
+#define N00B_LOCKRD_IX      0
+#define N00B_LOCKWR_IX      1
+#define N00B_LOCKSUB_IX     2
+#define N00B_CHAN_LOCKSLOTS 3
 
 struct n00b_channel_t {
     // This is in both raw channels and filters in case we want to do
@@ -115,17 +48,9 @@ struct n00b_channel_t {
     n00b_observable_t pub_info;
     n00b_string_t    *name;
     n00b_list_t      *read_cache;
-    n00b_chan_kind    kind;
-
-    union {
-        n00b_chan_impl   *channel;
-        n00b_filter_impl *filter;
-    } impl;
-
-    union {
-        n00b_filter_step_t *filter;
-        n00b_channel_t     *read_top;
-    } stack;
+    n00b_chan_impl   *impl;
+    n00b_filter_t    *write_top;
+    n00b_filter_t    *read_top;
 
     // Note that individual r/w requests may be 'blocking'; for a
     // read, the block lasts until the end channel operates, AND the
@@ -167,13 +92,13 @@ struct n00b_channel_t {
     // the caller.
     unsigned int w           : 1;
     unsigned int r           : 1;
-    unsigned int is_core     : 1;
     unsigned int has_rsubs   : 1;
     unsigned int has_rawsubs : 1;
+    unsigned int fd_backed   : 1;
 
-    // Channel-specific data.  Must start with *3* lock slots for base
-    // channels.
-    n00b_mutex_t *info[];
+    n00b_list_t  *blocked_readers;
+    n00b_mutex_t *locks[N00B_CHAN_LOCKSLOTS];
+    char          cookie[];
 };
 
 enum {
@@ -185,20 +110,6 @@ enum {
     N00B_CT_ERROR,
     N00B_CT_NUM_TOPICS,
 };
-
-#define N00B_LOCKRD_IX  0
-#define N00B_LOCKWR_IX  1
-#define N00B_LOCKSUB_IX 2
-#define N00B_CTHUNK_IX  3
-
-static inline n00b_channel_t *
-n00b_channel_core(n00b_channel_t *c)
-{
-    if (c->is_core) {
-        return c;
-    }
-    return c->stack.filter->core;
-}
 
 // Channels will proxy the topic name that are read / written to its
 // observers the topic information on a write always gets passed to
@@ -216,7 +127,6 @@ n00b_channel_core(n00b_channel_t *c)
 static inline void
 n00b_channel_notify(n00b_channel_t *channel, void *msg, int64_t n)
 {
-    assert(channel->is_core);
     n00b_observable_post(&channel->pub_info, (void *)n, msg);
 }
 
@@ -261,6 +171,9 @@ n00b_cnotify_error(n00b_channel_t *channel, void *msg)
 extern n00b_observer_t *n00b_channel_subscribe_read(n00b_channel_t *,
                                                     n00b_channel_t *,
                                                     bool);
+extern n00b_observer_t *n00b_channel_subscribe_raw(n00b_channel_t *,
+                                                   n00b_channel_t *,
+                                                   bool);
 extern n00b_observer_t *n00b_channel_subscribe_queue(n00b_channel_t *,
                                                      n00b_channel_t *,
                                                      bool);
@@ -274,8 +187,6 @@ extern n00b_observer_t *n00b_channel_subscribe_error(n00b_channel_t *,
                                                      bool);
 #define n00b_channel_unsubscribe(x) n00b_observer_unsubscribe(x)
 
-extern n00b_channel_t *n00b_channel_filter_add(n00b_channel_t *,
-                                               n00b_filter_spec_t *);
 extern n00b_channel_t *n00b_channel_create(n00b_chan_impl *,
                                            void *,
                                            n00b_list_t *);
@@ -298,16 +209,16 @@ extern bool n00b_channel_set_absolute_position(n00b_channel_t *, int);
 extern void n00b_channel_close(n00b_channel_t *);
 
 #ifdef N00B_USE_INTERNAL_API
-extern void *
-n00b_perform_channel_read(n00b_channel_t *,
-                          n00b_channel_t *,
-                          bool,
-                          int);
-
 static inline void *
-n00b_get_channel_cookie(n00b_channel_t *core)
+n00b_get_channel_cookie(n00b_channel_t *channel)
 {
-    return (void *)&core->info[N00B_CTHUNK_IX];
+    return (void *)channel->cookie;
 }
 
 #endif
+
+// Implementations live in filter.c, but since they take channel_t
+// parameters, these come after the above.
+extern bool         n00b_filter_add(n00b_channel_t *, n00b_filter_impl *, int);
+extern n00b_list_t *n00b_filter_writes(n00b_channel_t *, n00b_cmsg_t *);
+extern n00b_list_t *n00b_filter_reads(n00b_channel_t *, n00b_cmsg_t *);

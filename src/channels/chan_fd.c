@@ -16,10 +16,13 @@ on_fd_close(n00b_fd_stream_t *s, n00b_channel_t *c)
     n00b_cnotify_close(c, NULL);
 }
 
+// The low-level event scheduler calls this when there's a read; we
+// need to call the dispatcher to pass it through any filtering and
+// hand it out to readers.
 static void
 fdchan_on_read_event(n00b_fd_stream_t *s,
                      n00b_fd_sub_t    *sub,
-                     n00b_buf_t       *buf,
+                     void             *msg,
                      void             *thunk)
 {
     n00b_channel_t *channel = thunk;
@@ -27,7 +30,7 @@ fdchan_on_read_event(n00b_fd_stream_t *s,
     if (!channel->read_cache) {
         channel->read_cache = n00b_list(n00b_type_ref());
     }
-    n00b_list_append(channel->read_cache, buf);
+    n00b_list_append(channel->read_cache, msg);
     n00b_io_dispatcher_process_read_queue(channel);
 }
 
@@ -35,7 +38,7 @@ void
 fdchan_on_first_subscriber(n00b_channel_t *c, n00b_fd_cookie_t *p)
 {
     p->sub = _n00b_fd_read_subscribe(p->stream,
-                                     fdchan_on_read_event,
+                                     (void *)fdchan_on_read_event,
                                      2,
                                      (int)(false),
                                      c);
@@ -64,32 +67,47 @@ fdchan_close(n00b_fd_cookie_t *p)
 }
 
 static void *
-fdchan_read(n00b_fd_cookie_t *p, bool block, bool *success, int ms_timeout)
+fdchan_read(n00b_fd_cookie_t *p, bool *success)
 {
-    n00b_buf_t *data;
-
-    // In the first case, we were called via the user.  In the second,
-    // we will have been poll'd via the event loop, which is also the
-    // current thread.
+    // Since all reads, including blocking reads, have the IO started
+    // via the file descriptor polling loop, we know that, if this is
+    // getting called, we're being asked to return more data, probably
+    // due to some sort of filter, like line buffering, that is trying
+    // to yield a full message.
     //
-    // We will have just stuck the value read into the cookie already,
-    // and will not have contention.
+    // Here, we want to return anything we can without blocking. If
+    // there is some data, we can just read it all in one shot.  But
+    // we need to make sure the read can't block.
+    //
+    // Since this would have been dispatched from within the polling
+    // loop, we are expecting exclusive access to this file
+    // descriptor, so we can solve this easily with a poll().
 
-    if (block) {
-        data     = n00b_fd_read(p->stream, -1, ms_timeout, false);
-        *success = (data != NULL);
+    struct pollfd fds[1] = {
+        {
+            .fd      = p->stream->fd,
+            .events  = POLLIN,
+            .revents = 0,
+        },
+    };
+
+    if (poll(fds, 1, 0) != 1) {
+        *success = false;
+        return NULL;
     }
-    else {
-        data          = p->read_cache;
-        p->read_cache = NULL;
-    }
+
+    // Last parameter keeps it from trying to drain the fd and
+    // potentially blocking.
+    n00b_buf_t *data = n00b_fd_read(p->stream, -1, 0, false);
+    *success         = (data != NULL);
+
     return data;
 }
 
 static void
-fdchan_write(n00b_fd_cookie_t *p, n00b_cmsg_t *msg, bool block)
+fdchan_write(n00b_fd_cookie_t *p, void *msg, bool block)
 {
-    n00b_buf_t *b = msg->payload;
+    n00b_buf_t *b = msg;
 
     if (block) {
         n00b_fd_write(p->stream, b->data, b->byte_len);
@@ -110,7 +128,7 @@ fdchan_set_position(n00b_fd_cookie_t *p, int pos, bool relative)
 }
 
 static n00b_chan_impl n00b_fdchan_impl = {
-    .cookie_size         = sizeof(n00b_fd_stream_t **),
+    .cookie_size         = sizeof(n00b_fd_cookie_t),
     .init_impl           = (void *)fdchan_init,
     .read_impl           = (void *)fdchan_read,
     .write_impl          = (void *)fdchan_write,
@@ -151,7 +169,9 @@ _n00b_new_fd_channel(n00b_fd_stream_t *fd, ...)
     }
     va_end(args);
 
-    result = n00b_channel_create(&n00b_fdchan_impl, fd, filters);
+    result            = n00b_channel_create(&n00b_fdchan_impl, fd, filters);
+    result->fd_backed = true;
+    result->name      = n00b_fd_name(fd);
 
     return result;
 }
@@ -405,7 +425,10 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
         N00B_CRAISE("Not a special file.");
     }
 
-    return n00b_new_fd_channel(fds, filters);
+    n00b_channel_t *result = n00b_new_fd_channel(fds, filters);
+    result->name           = filename;
+
+    return result;
 }
 
 n00b_channel_t *
@@ -434,6 +457,8 @@ _n00b_channel_connect(n00b_net_addr_t *addr, ...)
                                                  filters);
     n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(result);
     cookie->addr             = addr;
+    result->fd_backed        = true;
+    result->name             = n00b_to_string(addr);
 
     return result;
 }

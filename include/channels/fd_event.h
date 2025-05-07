@@ -34,7 +34,6 @@ typedef void (*n00b_err_cb)(n00b_fd_err_t *, void *);
 typedef void (*n00b_close_cb)(n00b_fd_stream_t *, void *);
 typedef void (*n00b_timer_cb)(n00b_timer_t *, n00b_duration_t *, void *);
 typedef void (*n00b_evloop_impl)(n00b_event_loop_t *l);
-typedef n00b_list_t *(*n00b_chan_filter_fn)(void *, void *, bool);
 
 struct n00b_fd_stream_t {
     int                      fd;

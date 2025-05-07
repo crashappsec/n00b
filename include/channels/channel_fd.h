@@ -3,8 +3,6 @@
 typedef struct {
     n00b_fd_stream_t *stream;
     n00b_fd_sub_t    *sub;
-    bool              have_read_subscribers;
-    n00b_buf_t       *read_cache;
     n00b_net_addr_t  *addr;
 } n00b_fd_cookie_t;
 

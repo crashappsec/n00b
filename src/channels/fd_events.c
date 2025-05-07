@@ -308,7 +308,6 @@ n00b_fd_stream_from_fd(int                fd,
 
     result->socket      = S_ISSOCK(info.st_mode);
     result->newly_added = true;
-    result->fd_flags    = fcntl(fd, F_GETFL);
 
     if (result->fd_flags & O_RDONLY) {
         result->write_closed = true;
@@ -727,11 +726,15 @@ handle_one_read(n00b_fd_stream_t *s)
         n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(chan);
         cookie->addr             = saddr;
 
+        n00b_fd_stream_nonblocking(fd);
         fd_post(s, s->read_subs, chan);
         return false;
     }
 
     while (true) {
+        // If the fd's been set back to blocking, we'd like to undo that;
+        // ideally we have exclusive access here.
+        n00b_fd_stream_nonblocking(s);
         int val = read(s->fd, tmpbuf, PIPE_BUF);
         if (val == 0) {
             // If it's a socket, reading EOF tells us it's closed.
@@ -1085,6 +1088,8 @@ process_pending_changes(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
         s = n00b_private_list_pop(loop->pending);
     }
 }
+
+bool fd_debug_on = false;
 
 static inline void
 process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)

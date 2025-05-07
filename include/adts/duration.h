@@ -19,6 +19,7 @@ extern bool             n00b_duration_gt(n00b_duration_t *,
 extern bool             n00b_duration_lt(n00b_duration_t *,
                                          n00b_duration_t *);
 extern n00b_duration_t *n00b_duration_multiply(n00b_duration_t *, double);
+extern n00b_duration_t *n00b_new_ms_timeout(int ms);
 
 static inline n00b_duration_t *
 n00b_duration_divide(n00b_duration_t *dur, double f)

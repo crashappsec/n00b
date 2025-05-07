@@ -76,7 +76,9 @@ _n00b_create_listener(n00b_net_addr_t *addr, ...)
     n00b_channel_t   *result = n00b_channel_create(&listener_impl, fd, NULL);
     n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(result);
 
-    cookie->addr = addr;
+    cookie->addr      = addr;
+    result->fd_backed = true;
+    result->name      = n00b_cformat("listen @[|#|]", addr);
 
     return result;
 }

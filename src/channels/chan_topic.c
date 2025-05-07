@@ -20,64 +20,41 @@ topics_init(void)
 static int
 topic_chan_init(n00b_topic_info_t *topic, n00b_list_t *args)
 {
-    topic->thunk           = n00b_list_pop(args);
-    topic->cb              = n00b_list_pop(args);
-    topic->namespace       = n00b_list_pop(args);
-    topic->name            = n00b_list_pop(args);
-    topic->blocked_readers = n00b_list(n00b_type_ref());
+    topic->thunk     = n00b_list_pop(args);
+    topic->cb        = n00b_list_pop(args);
+    topic->namespace = n00b_list_pop(args);
+    topic->name      = n00b_list_pop(args);
 
     return O_RDWR;
 }
 
 static void *
-topic_read(n00b_topic_info_t *topic, bool block, bool *success, int ms_timeout)
+topic_read(n00b_topic_info_t *topic, bool *success)
 {
-    if (!block) {
-        *success = false;
-        return NULL;
-    }
-
-    n00b_condition_t *cond = n00b_new(n00b_type_condition());
-    n00b_list_append(topic->blocked_readers, cond);
-
-    if (!ms_timeout) {
-        n00b_condition_lock_acquire(cond);
-        n00b_condition_wait(cond);
-        *success = true;
-        return cond->aux;
-    }
-
-    struct timespec ts = {
-        .tv_sec  = ms_timeout / 1000,
-        .tv_nsec = (ms_timeout % 1000) * 1000000,
-    };
-
-    if (n00b_condition_timed_wait(cond, &ts)) {
-        *success = true;
-        return cond->aux;
-    }
+    // The only way to generate a read from a topic is to write
+    // something to it.
     *success = false;
     return NULL;
 }
 
 static void
-topic_write(n00b_topic_info_t *topic, n00b_cmsg_t *msg, bool block)
+topic_write(n00b_topic_info_t *topic, void *msg, bool block)
 {
-    if (topic->cb) {
-        (*topic->cb)(topic, msg->payload, topic->thunk);
+    void *val = msg;
+
+    if (!topic->cb) {
+        val = (*topic->cb)(topic, msg, topic->thunk);
     }
 
-    n00b_lock_list(topic->blocked_readers);
-    n00b_condition_t *cond = n00b_private_list_pop(topic->blocked_readers);
-
-    while (cond) {
-        n00b_condition_lock_acquire(cond);
-        n00b_condition_notify_aux(cond, msg->payload);
-        n00b_condition_lock_release(cond);
-        cond = n00b_private_list_pop(topic->blocked_readers);
+    if (!topic->cref->read_cache) {
+        topic->cref->read_cache = n00b_list(n00b_type_ref());
     }
 
-    n00b_unlock_list(topic->blocked_readers);
+    // Generally, this is how the pub/sub bus gets messages to publish
+    // to readers.  Without this, we will hang in certain situations where
+    // we've subscribed an fd to read a callback.
+    n00b_list_append(topic->cref->read_cache, val);
+    n00b_io_dispatcher_process_read_queue(topic->cref);
 }
 
 static n00b_chan_impl topic_impl = {
@@ -119,9 +96,10 @@ _n00b_create_topic_channel(n00b_string_t *name,
     va_end(alist);
 
     n00b_channel_t    *result = n00b_channel_create(&topic_impl, args, filters);
-    n00b_topic_info_t *ti     = n00b_get_channel_cookie(n00b_channel_core(result));
+    n00b_topic_info_t *ti     = n00b_get_channel_cookie(result);
 
-    ti->cref = result;
+    ti->cref     = result;
+    result->name = name;
 
     if (hatrack_dict_add(ns, name, result)) {
         return result;

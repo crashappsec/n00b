@@ -144,6 +144,7 @@ extern bool n00b_startup_complete;
 
 #include "channels/fd_event.h"
 #include "channels/observable.h"
+#include "channels/filter.h"
 #include "channels/channel.h"
 #include "channels/channel_fd.h"
 #include "channels/channel_cb.h"
