@@ -1,14 +1,7 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static int
-fdchan_init(n00b_fd_cookie_t *p, n00b_fd_stream_t *s)
-{
-    p->stream = s;
-    return s->fd_flags & O_ACCMODE;
-}
-
-static void
+void
 on_fd_close(n00b_fd_stream_t *s, n00b_channel_t *c)
 {
     c->r = false;
@@ -28,15 +21,13 @@ fdchan_on_read_event(n00b_fd_stream_t *s,
     bool            err;
     n00b_channel_t *channel = thunk;
 
-    if (!channel->read_cache) {
-        channel->read_cache = n00b_list(n00b_type_ref());
-    }
     n00b_list_append(channel->read_cache, msg);
     n00b_io_dispatcher_process_read_queue(channel, &err);
 }
 
+// Not static; reused by chan_listener
 void
-fdchan_on_first_subscriber(n00b_channel_t *c, n00b_fd_cookie_t *p)
+n00b_fdchan_on_first_subscriber(n00b_channel_t *c, n00b_fd_cookie_t *p)
 {
     p->sub = _n00b_fd_read_subscribe(p->stream,
                                      (void *)fdchan_on_read_event,
@@ -46,8 +37,9 @@ fdchan_on_first_subscriber(n00b_channel_t *c, n00b_fd_cookie_t *p)
     _n00b_fd_close_subscribe(p->stream, (void *)on_fd_close, 2, (int)false, c);
 }
 
+// Not static; reused by chan_listener
 void
-fdchan_on_no_subscribers(n00b_channel_t *c, n00b_fd_cookie_t *p)
+n00b_fdchan_on_no_subscribers(n00b_channel_t *c, n00b_fd_cookie_t *p)
 {
     if (p->sub) {
         n00b_fd_unsubscribe(p->stream, p->sub);
@@ -55,21 +47,55 @@ fdchan_on_no_subscribers(n00b_channel_t *c, n00b_fd_cookie_t *p)
     }
 }
 
-bool
-fdchan_close(n00b_fd_cookie_t *p)
-{
-    close(p->stream->fd);
+enum {
+    FD_FILE,
+    FD_CONNECT,
+    FD_OTHER,
+};
 
-    if (p->sub) {
-        n00b_fd_unsubscribe(p->stream, p->sub);
+static int
+fdchan_init(n00b_channel_t *stream, n00b_list_t *l)
+{
+    stream->fd_backed   = true;
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+
+    c->stream = n00b_list_pop(l);
+
+    switch ((int64_t)n00b_list_pop(l)) {
+    case FD_FILE:
+        stream->name = n00b_list_pop(l);
+        break;
+    case FD_CONNECT:
+        c->addr      = n00b_list_pop(l);
+        stream->name = n00b_to_string(c->addr);
+        break;
+    case FD_OTHER:
+        stream->name = n00b_fd_name(c->stream);
+        break;
+    }
+
+    return c->stream->fd_flags & O_ACCMODE;
+}
+
+// Can't be static; reused by listener.
+bool
+n00b_fdchan_close(n00b_channel_t *stream)
+{
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+
+    close(c->stream->fd);
+
+    if (c->sub) {
+        n00b_fd_unsubscribe(c->stream, c->sub);
     }
 
     return true;
 }
 
 static void *
-fdchan_read(n00b_fd_cookie_t *p, bool *err)
+fdchan_read(n00b_channel_t *stream, bool *err)
 {
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
     // Since all reads, including blocking reads, have the IO started
     // via the file descriptor polling loop, we know that, if this is
     // getting called, we're being asked to return more data, probably
@@ -86,7 +112,7 @@ fdchan_read(n00b_fd_cookie_t *p, bool *err)
 
     struct pollfd fds[1] = {
         {
-            .fd      = p->stream->fd,
+            .fd      = c->stream->fd,
             .events  = POLLIN,
             .revents = 0,
         },
@@ -99,81 +125,61 @@ fdchan_read(n00b_fd_cookie_t *p, bool *err)
 
     // Last parameter keeps it from trying to drain the fd and
     // potentially blocking.
-    n00b_buf_t *data = n00b_fd_read(p->stream, -1, 0, false, err);
+    n00b_buf_t *data = n00b_fd_read(c->stream, -1, 0, false, err);
 
     return data;
 }
 
 static void
-fdchan_write(n00b_fd_cookie_t *p, void *msg, bool block)
+fdchan_write(n00b_channel_t *stream, void *msg, bool block)
 {
-    n00b_buf_t *b = msg;
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_buf_t       *b = msg;
 
     if (block) {
-        n00b_fd_write(p->stream, b->data, b->byte_len);
+        n00b_fd_write(c->stream, b->data, b->byte_len);
     }
     else {
-        n00b_fd_send(p->stream, b->data, b->byte_len);
+        n00b_fd_send(c->stream, b->data, b->byte_len);
     }
 }
 
 static bool
-fdchan_set_position(n00b_fd_cookie_t *p, int pos, bool relative)
+fdchan_set_position(n00b_channel_t *stream, int pos, bool relative)
 {
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+
     if (relative) {
-        return n00b_fd_set_relative_position(p->stream, pos);
+        return n00b_fd_set_relative_position(c->stream, pos);
     }
 
-    return n00b_fd_set_absolute_position(p->stream, pos);
+    return n00b_fd_set_absolute_position(c->stream, pos);
 }
 
-static n00b_chan_impl n00b_fdchan_impl = {
+static n00b_chan_impl fdchan_impl = {
     .cookie_size         = sizeof(n00b_fd_cookie_t),
     .init_impl           = (void *)fdchan_init,
     .read_impl           = (void *)fdchan_read,
     .write_impl          = (void *)fdchan_write,
     .spos_impl           = (void *)fdchan_set_position,
     .gpos_impl           = (void *)n00b_fd_get_position,
-    .close_impl          = (void *)fdchan_close,
-    .read_subscribe_cb   = (void *)fdchan_on_first_subscriber,
-    .read_unsubscribe_cb = (void *)fdchan_on_no_subscribers,
+    .close_impl          = (void *)n00b_fdchan_close,
+    .read_subscribe_cb   = (void *)n00b_fdchan_on_first_subscriber,
+    .read_unsubscribe_cb = (void *)n00b_fdchan_on_no_subscribers,
 };
 
 n00b_channel_t *
 _n00b_new_fd_channel(n00b_fd_stream_t *fd, ...)
 {
-    n00b_list_t    *filters = NULL;
-    n00b_channel_t *result;
+    n00b_list_t *args = n00b_list(n00b_type_ref());
+    n00b_list_t *filters;
 
-    int nargs;
+    n00b_build_filter_list(filters, fd);
 
-    va_list args;
-    va_start(args, fd);
-    nargs = va_arg(args, int) - 1;
+    n00b_list_append(args, (void *)(int64_t)FD_OTHER);
+    n00b_list_append(args, fd);
 
-    if (nargs == 1) {
-        void *item = va_arg(args, void *);
-        if (n00b_type_is_list(n00b_get_my_type(item))) {
-            filters = item;
-        }
-        else {
-            filters = n00b_list(n00b_type_ref());
-            n00b_list_append(filters, item);
-        }
-    }
-    else {
-        filters = n00b_list(n00b_type_ref());
-        while (nargs--) {
-            n00b_list_append(filters, va_arg(args, n00b_filter_spec_t *));
-        }
-    }
-    va_end(args);
-
-    result            = n00b_channel_create(&n00b_fdchan_impl, fd, filters);
-    result->fd_backed = true;
-    result->name      = n00b_fd_name(fd);
-
-    return result;
+    return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
 }
 
 n00b_channel_t *
@@ -425,21 +431,18 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
         N00B_CRAISE("Not a special file.");
     }
 
-    n00b_channel_t *result = n00b_new_fd_channel(fds, filters);
-    result->name           = filename;
+    n00b_list_t *stream_args = n00b_list(n00b_type_ref());
+    n00b_list_append(stream_args, filename);
+    n00b_list_append(stream_args, (void *)(int64_t)FD_FILE);
+    n00b_list_append(stream_args, fds);
 
-    return result;
+    return n00b_new(n00b_type_channel(), &fdchan_impl, stream_args, filters);
 }
 
 n00b_channel_t *
 _n00b_channel_connect(n00b_net_addr_t *addr, ...)
 {
     n00b_list_t *filters;
-    va_list      args;
-
-    va_start(args, filename);
-    filters = va_arg(args, n00b_list_t *);
-    va_end(args);
 
     int sock = socket(addr->family, SOCK_STREAM, 0);
 
@@ -451,14 +454,13 @@ _n00b_channel_connect(n00b_net_addr_t *addr, ...)
         return NULL;
     }
 
-    n00b_fd_stream_t *fd     = n00b_fd_stream_from_fd(sock, NULL, NULL);
-    n00b_channel_t   *result = n00b_channel_create(&n00b_fdchan_impl,
-                                                 fd,
-                                                 filters);
-    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(result);
-    cookie->addr             = addr;
-    result->fd_backed        = true;
-    result->name             = n00b_to_string(addr);
+    n00b_build_filter_list(filters, addr);
 
-    return result;
+    n00b_list_t *args = n00b_list(n00b_type_ref());
+
+    n00b_list_append(args, addr);
+    n00b_list_append(args, (void *)(int64_t)FD_CONNECT);
+    n00b_list_append(args, n00b_fd_stream_from_fd(sock, NULL, NULL));
+
+    return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
 }

@@ -2,28 +2,28 @@
 #include "n00b.h"
 
 static int
-bufchan_init(n00b_buffer_channel_t *c, n00b_list_t *args)
+bufchan_init(n00b_channel_t *stream, n00b_list_t *args)
 {
-    int ret = O_RDWR;
-    int n   = n00b_list_len(args);
+    n00b_buffer_channel_t *c   = n00b_get_channel_cookie(stream);
+    int                    ret = (int64_t)n00b_list_pop(args);
 
-    if (n == 2) {
-        ret = (int64_t)n00b_list_get(args, 1, NULL);
-    }
+    c->buffer = n00b_list_pop(args);
 
-    if (n > 2 || n == 0 || ret < 0 || ret > O_RDWR) {
+    if (ret < 0 || ret > O_RDWR) {
         N00B_CRAISE("Invalid parameters for buffer");
     }
+
+    stream->name = n00b_cformat("Buffer @[|#:p|]", c->buffer);
 
     return ret;
 }
 
 static n00b_buf_t *
-bufchan_read(n00b_buffer_channel_t *c,
-             bool                  *err)
+bufchan_read(n00b_channel_t *stream, bool *err)
 {
-    n00b_buf_t *src = c->buffer;
-    n00b_buf_t *result;
+    n00b_buffer_channel_t *c   = n00b_get_channel_cookie(stream);
+    n00b_buf_t            *src = c->buffer;
+    n00b_buf_t            *result;
 
     while (true) {
         _n00b_buffer_acquire_r(src);
@@ -45,11 +45,13 @@ bufchan_read(n00b_buffer_channel_t *c,
 }
 
 static void
-bufchan_write(n00b_buffer_channel_t *c, void *msg, bool blocking)
+bufchan_write(n00b_channel_t *stream, void *msg, bool blocking)
 {
+    n00b_buffer_channel_t *c = n00b_get_channel_cookie(stream);
+    n00b_buf_t            *b = msg;
+
     defer_on();
     n00b_buffer_acquire_w(c->buffer);
-    n00b_buf_t *b = msg;
     n00b_buffer_acquire_r(b);
 
     if (c->position > c->buffer->byte_len) {
@@ -80,8 +82,10 @@ bufchan_write(n00b_buffer_channel_t *c, void *msg, bool blocking)
 }
 
 static bool
-bufchan_set_pos(n00b_buffer_channel_t *c, int pos, bool relative)
+bufchan_set_pos(n00b_channel_t *stream, int pos, bool relative)
 {
+    n00b_buffer_channel_t *c = n00b_get_channel_cookie(stream);
+
     defer_on();
     n00b_buffer_acquire_r(c->buffer);
 
@@ -112,8 +116,10 @@ bufchan_set_pos(n00b_buffer_channel_t *c, int pos, bool relative)
 }
 
 static int
-bufchan_get_pos(n00b_buffer_channel_t *c)
+bufchan_get_pos(n00b_channel_t *stream)
 {
+    n00b_buffer_channel_t *c = n00b_get_channel_cookie(stream);
+
     return c->position;
 }
 
@@ -128,53 +134,39 @@ static n00b_chan_impl n00b_bufchan_impl = {
 };
 
 n00b_channel_t *
-n00b_channel_from_buffer(n00b_buf_t *b, int64_t mode, va_list alist)
+n00b_channel_from_buffer(n00b_buf_t *b, int64_t mode, n00b_list_t *filters)
 {
-    n00b_list_t *args    = n00b_list(n00b_type_ref());
-    n00b_list_t *filters = n00b_list(n00b_type_ref());
+    n00b_list_t *args = n00b_list(n00b_type_ref());
 
     n00b_list_append(args, b);
     n00b_list_append(args, (void *)mode);
 
-    int nargs = va_arg(alist, int) - 1;
-
-    while (nargs--) {
-        n00b_list_append(filters, va_arg(alist, void *));
-    }
-
-    va_end(alist);
-
-    n00b_channel_t *result = n00b_channel_create(&n00b_bufchan_impl,
-                                                 args,
-                                                 filters);
-    result->name           = n00b_cformat("Buffer @[|#:p|]", b);
-
-    return result;
+    return n00b_new(n00b_type_channel(), &n00b_bufchan_impl, args, filters);
 }
 
 n00b_channel_t *
 _n00b_in_buf_channel(n00b_buf_t *b, ...)
 {
-    va_list alist;
-    va_start(alist, b);
+    n00b_list_t *filters;
+    n00b_build_filter_list(filters, b);
 
-    return n00b_channel_from_buffer(b, O_RDONLY, alist);
+    return n00b_channel_from_buffer(b, O_RDONLY, filters);
 }
 
 n00b_channel_t *
 _n00b_out_buf_channel(n00b_buf_t *b, ...)
 {
-    va_list alist;
-    va_start(alist, b);
+    n00b_list_t *filters;
+    n00b_build_filter_list(filters, b);
 
-    return n00b_channel_from_buffer(b, O_WRONLY, alist);
+    return n00b_channel_from_buffer(b, O_WRONLY, filters);
 }
 
 n00b_channel_t *
 _n00b_io_buf_channel(n00b_buf_t *b, ...)
 {
-    va_list alist;
-    va_start(alist, b);
+    n00b_list_t *filters;
+    n00b_build_filter_list(filters, b);
 
-    return n00b_channel_from_buffer(b, O_RDWR, alist);
+    return n00b_channel_from_buffer(b, O_RDWR, filters);
 }

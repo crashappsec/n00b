@@ -11,26 +11,6 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static int
-listener_open(n00b_fd_cookie_t *p, n00b_fd_stream_t *s)
-{
-    p->stream   = s;
-    s->listener = true;
-    return O_RDONLY;
-}
-
-extern bool fdchan_close(n00b_fd_cookie_t *p);
-extern void fdchan_on_first_subscriber(n00b_channel_t *c, n00b_fd_cookie_t *p);
-extern void fdchan_on_no_subscribers(n00b_channel_t *c, n00b_fd_cookie_t *p);
-
-static n00b_chan_impl listener_impl = {
-    .cookie_size         = sizeof(n00b_fd_cookie_t),
-    .init_impl           = (void *)listener_open,
-    .close_impl          = (void *)fdchan_close,
-    .read_subscribe_cb   = (void *)fdchan_on_first_subscriber,
-    .read_unsubscribe_cb = (void *)fdchan_on_no_subscribers,
-};
-
 static inline void
 enable_opt(int socket, int opt)
 {
@@ -40,19 +20,16 @@ enable_opt(int socket, int opt)
     }
 }
 
-n00b_channel_t *
-_n00b_create_listener(n00b_net_addr_t *addr, ...)
+static int
+listener_open(n00b_channel_t *stream, n00b_list_t *args)
 {
-    int len  = n00b_get_sockaddr_len(addr);
-    int sock = socket(n00b_get_net_addr_family(addr), SOCK_STREAM, 0);
+    int               sock;
+    n00b_net_addr_t  *addr    = n00b_list_pop(args);
+    int               backlog = (int64_t)n00b_list_pop(args);
+    n00b_fd_cookie_t *c       = n00b_get_channel_cookie(stream);
+    int               len     = n00b_get_sockaddr_len(addr);
 
-    va_list args;
-    va_start(args, addr);
-    int backlog = va_arg(args, int);
-
-    if (backlog <= 0) {
-        backlog = N00B_SOCK_LISTEN_BACKLOG_DEFAULT;
-    }
+    sock = socket(n00b_get_net_addr_family(addr), SOCK_STREAM, 0);
 
     if (sock == -1) {
         n00b_raise_errno();
@@ -72,13 +49,40 @@ _n00b_create_listener(n00b_net_addr_t *addr, ...)
         n00b_raise_errno();
     }
 
-    n00b_fd_stream_t *fd     = n00b_fd_stream_from_fd(sock, NULL, NULL);
-    n00b_channel_t   *result = n00b_channel_create(&listener_impl, fd, NULL);
-    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(result);
+    c->addr             = addr;
+    c->stream           = n00b_fd_stream_from_fd(sock, NULL, NULL);
+    c->stream->listener = true;
 
-    cookie->addr      = addr;
-    result->fd_backed = true;
-    result->name      = n00b_cformat("listen @[|#|]", addr);
+    stream->fd_backed = true;
+    stream->name      = n00b_cformat("listen @[|#|]", n00b_list_pop(args));
 
-    return result;
+    return O_RDONLY;
+}
+
+static n00b_chan_impl listener_impl = {
+    .cookie_size         = sizeof(n00b_fd_cookie_t),
+    .init_impl           = (void *)listener_open,
+    .close_impl          = (void *)n00b_fdchan_close,
+    .read_subscribe_cb   = (void *)n00b_fdchan_on_first_subscriber,
+    .read_unsubscribe_cb = (void *)n00b_fdchan_on_no_subscribers,
+};
+
+n00b_channel_t *
+_n00b_create_listener(n00b_net_addr_t *addr, ...)
+{
+    int          backlog;
+    n00b_list_t *params = n00b_list(n00b_type_ref());
+
+    va_list args;
+    va_start(args, addr);
+    backlog = va_arg(args, int);
+
+    if (backlog <= 0) {
+        backlog = N00B_SOCK_LISTEN_BACKLOG_DEFAULT;
+    }
+
+    n00b_list_append(params, (void *)(int64_t)backlog);
+    n00b_list_append(params, addr);
+
+    return n00b_new(n00b_type_channel(), &listener_impl, params);
 }

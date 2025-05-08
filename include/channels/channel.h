@@ -11,13 +11,13 @@ typedef struct {
     int32_t line;
 } n00b_cmsg_t;
 
-typedef int (*n00b_chan_init_fn)(void *, void *);
-typedef void *(*n00b_chan_r_fn)(void *, bool *);
-typedef void (*n00b_chan_w_fn)(void *, n00b_cmsg_t *, bool);
-typedef bool (*n00b_chan_spos_fn)(void *, int, bool);
-typedef int (*n00b_chan_gpos_fn)(void *);
-typedef void (*n00b_chan_close_fn)(void *);
-typedef n00b_string_t *(*n00b_chan_repr_fn)(void *);
+typedef int (*n00b_chan_init_fn)(n00b_channel_t *, void *);
+typedef void *(*n00b_chan_r_fn)(n00b_channel_t *, bool *);
+typedef void (*n00b_chan_w_fn)(n00b_channel_t *, n00b_cmsg_t *, bool);
+typedef bool (*n00b_chan_spos_fn)(n00b_channel_t *, int, bool);
+typedef int (*n00b_chan_gpos_fn)(n00b_channel_t *);
+typedef void (*n00b_chan_close_fn)(n00b_channel_t *);
+typedef n00b_string_t *(*n00b_chan_repr_fn)(n00b_channel_t *);
 typedef void (*n00b_chan_sub_fn)(n00b_channel_t *, void *);
 
 typedef struct {
@@ -187,10 +187,6 @@ extern n00b_observer_t *n00b_channel_subscribe_error(n00b_channel_t *,
                                                      bool);
 #define n00b_channel_unsubscribe(x) n00b_observer_unsubscribe(x)
 
-extern n00b_channel_t *n00b_channel_create(n00b_chan_impl *,
-                                           void *,
-                                           n00b_list_t *);
-
 extern void _n00b_channel_write(n00b_channel_t *, void *, char *, int);
 extern void _n00b_channel_queue(n00b_channel_t *, void *, char *, int);
 
@@ -217,6 +213,31 @@ n00b_get_channel_cookie(n00b_channel_t *channel)
 {
     return (void *)channel->cookie;
 }
+
+#define n00b_build_filter_list(output, last)         \
+    {                                                \
+        output = NULL;                               \
+                                                     \
+        va_list args;                                \
+        void   *item;                                \
+                                                     \
+        va_start(args, last);                        \
+                                                     \
+        item = va_arg(args, void *);                 \
+        if (item) {                                  \
+            if (n00b_type_is_list(item)) {           \
+                output = item;                       \
+            }                                        \
+            else {                                   \
+                output = n00b_list(n00b_type_ref()); \
+                while (item) {                       \
+                    n00b_list_append(output, item);  \
+                    item = va_arg(args, void *);     \
+                }                                    \
+            }                                        \
+        }                                            \
+        va_end(args);                                \
+    }
 
 #endif
 

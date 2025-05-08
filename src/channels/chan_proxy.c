@@ -1,4 +1,4 @@
-
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 // Since, when we subscribe to something, our 'write' path gets triggered,
@@ -17,7 +17,7 @@ on_target_read(void *msg, n00b_channel_t *proxy)
 static void *
 on_target_close(n00b_channel_t *target, n00b_channel_t *proxy)
 {
-    n00b_proxy_info_t *info = (void *)proxy->cookie;
+    n00b_proxy_info_t *info = n00b_get_channel_cookie(proxy);
 
     if (info->read_cb) {
         n00b_channel_close(info->read_cb);
@@ -32,8 +32,9 @@ on_target_close(n00b_channel_t *target, n00b_channel_t *proxy)
 }
 
 static int
-proxy_init(n00b_proxy_info_t *info, n00b_channel_t *target)
+proxy_init(n00b_channel_t *stream, n00b_channel_t *target)
 {
+    n00b_proxy_info_t *info = n00b_get_channel_cookie(stream);
     // Since we don't have a pointer to our parent object here, given
     // we will need to reference it to set up the callbacks (since the
     // callback needs our top-level object to enqueue stuff or to
@@ -41,6 +42,17 @@ proxy_init(n00b_proxy_info_t *info, n00b_channel_t *target)
     // function, instead of scanning back for our memory allocation.
     // Probably these init functions should be refactored to give you
     // the top-level object instead.
+
+    stream->name = n00b_cformat("proxy:[|#|]", target->name);
+
+    if (target->r) {
+        info->read_cb = n00b_new_callback_channel(on_target_read, stream);
+        n00b_channel_subscribe_read(target, info->read_cb, false);
+    }
+
+    info->close_cb = n00b_new_callback_channel(on_target_close, stream);
+
+    n00b_channel_subscribe_close(target, info->close_cb);
 
     info->target = target;
 
@@ -62,15 +74,16 @@ proxy_init(n00b_proxy_info_t *info, n00b_channel_t *target)
 }
 
 static void *
-proxy_read(n00b_proxy_info_t *info, bool *err)
+proxy_read(n00b_channel_t *stream, bool *err)
 {
-    void *result = n00b_io_dispatcher_process_read_queue(info->target, err);
-    return result;
+    n00b_proxy_info_t *info = n00b_get_channel_cookie(stream);
+    return n00b_io_dispatcher_process_read_queue(info->target, err);
 }
 
 static void
-proxy_write(n00b_proxy_info_t *info, void *msg, bool block)
+proxy_write(n00b_channel_t *stream, void *msg, bool block)
 {
+    n00b_proxy_info_t *info = n00b_get_channel_cookie(stream);
     if (block) {
         n00b_channel_write(info->target, msg);
     }
@@ -89,38 +102,8 @@ static n00b_chan_impl proxy_impl = {
 n00b_channel_t *
 _n00b_new_channel_proxy(n00b_channel_t *target, ...)
 {
-    va_list      args;
-    void        *item;
-    n00b_list_t *filters = NULL;
+    n00b_list_t *filters;
+    n00b_build_filter_list(filters, target);
 
-    va_start(args, target);
-    item = va_arg(args, n00b_list_t *);
-    if (item) {
-        filters = n00b_list(n00b_type_ref());
-        while (item) {
-            n00b_list_append(filters, item);
-            item = va_arg(args, n00b_list_t *);
-        }
-    }
-    va_end(args);
-
-    n00b_channel_t *result = n00b_channel_create(&proxy_impl,
-                                                 target,
-                                                 filters);
-    result->name           = n00b_cformat("proxy:[|#|]", target->name);
-    result->read_cache     = n00b_list(n00b_type_ref());
-
-    n00b_proxy_info_t *info = (void *)result->cookie;
-
-    if (target->r) {
-        info->read_cb = n00b_new_callback_channel(on_target_read, result);
-        n00b_channel_subscribe_read(target, info->read_cb, false);
-    }
-
-    info->close_cb = n00b_new_callback_channel(on_target_close, result);
-    info->self     = result;
-
-    n00b_channel_subscribe_close(target, info->close_cb);
-
-    return result;
+    return n00b_new(n00b_type_channel(), &proxy_impl, target, filters);
 }

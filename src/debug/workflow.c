@@ -220,8 +220,9 @@ attempt_connection(void)
     server_connection = n00b_channel_connect(get_debug_server_addr());
 
     if (server_connection) {
-        n00b_channel_subscribe_close(server_connection,
-                                     n00b_new_callback_channel(on_server_close));
+        n00b_channel_subscribe_close(
+            server_connection,
+            n00b_new_callback_channel(on_server_close, NULL));
     }
 }
 
@@ -239,8 +240,9 @@ attempt_log_open(void)
                                            n00b_ka(true));
 
     if (debug_logfile) {
-        n00b_channel_subscribe_close(server_connection,
-                                     n00b_new_callback_channel(on_log_close));
+        n00b_channel_subscribe_close(
+            server_connection,
+            n00b_new_callback_channel(on_log_close, NULL));
     }
 }
 

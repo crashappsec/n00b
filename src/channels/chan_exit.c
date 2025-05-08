@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 static void *
@@ -28,16 +29,21 @@ launch_wait(n00b_exit_info_t *c)
 }
 
 static int
-exitchan_init(n00b_exit_info_t *c, n00b_list_t *args)
+exitchan_init(n00b_channel_t *stream, n00b_list_t *args)
 {
-    c->pid    = (int64_t)n00b_private_list_pop(args);
-    c->waiter = n00b_thread_spawn((void *)launch_wait, c);
+    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_channel_cookie(stream);
+    c->pid              = (int64_t)n00b_private_list_pop(args);
+    c->waiter           = n00b_thread_spawn((void *)launch_wait, c);
+    stream->name        = n00b_cformat("pid(exit): [|#|]", c->pid);
+
     return O_RDONLY;
 }
 
 static void *
-exitchan_read(n00b_exit_info_t *c, bool *err)
+exitchan_read(n00b_channel_t *stream, bool *err)
 {
+    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_channel_cookie(stream);
+
     if (!c->exited) {
         *err = true;
         return NULL;
@@ -48,8 +54,10 @@ exitchan_read(n00b_exit_info_t *c, bool *err)
 }
 
 static bool
-exitchan_close(n00b_exit_info_t *c)
+exitchan_close(n00b_channel_t *stream)
 {
+    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_channel_cookie(stream);
+
     if (!c->exited) {
         kill(c->pid, SIGKILL);
     }
@@ -85,8 +93,5 @@ n00b_new_exit_channel(int64_t pid)
     n00b_list_t *args = n00b_list(n00b_type_ref());
     n00b_list_append(args, (void *)(int64_t)pid);
 
-    n00b_channel_t *result = n00b_channel_create(&exitchan_impl, args, NULL);
-    result->name           = n00b_cformat("pid(exit): [|#|]", pid);
-
-    return result;
+    return n00b_new(n00b_type_channel(), &exitchan_impl, args);
 }

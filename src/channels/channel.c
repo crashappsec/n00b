@@ -68,73 +68,6 @@ dispatch_no_subscriber(n00b_observable_t *obs,
     }
 }
 
-// We expect the natural way for people to give us a list of filters is
-// based on write transformations, first transformation first in the list.
-// So we actually want to build the chain from the back of the array...
-n00b_channel_t *
-n00b_channel_create(n00b_chan_impl *impl,
-                    void           *init_args,
-                    n00b_list_t    *filter_specs)
-{
-    // Alloc the channl, the cookie (thunk), and slots for locks,
-    // which are variable since we don't alloc them for filter layers.
-    // The start of the thunk is found via indexing into the lock array,
-    // so the number of lock pointers is equal to that index (currently 3).
-    int             sz  = sizeof(n00b_channel_t) + impl->cookie_size;
-    n00b_channel_t *cur = n00b_gc_alloc(sz);
-
-    // Async writes get enqueued and the event-thread processes.
-    // Sync writes grab the lock.
-    n00b_observable_init(&cur->pub_info, NULL);
-    n00b_observable_set_subscribe_callback(&cur->pub_info,
-                                           dispatch_first_subscriber,
-                                           false);
-    n00b_observable_set_unsubscribe_callback(&cur->pub_info,
-                                             dispatch_no_subscriber,
-                                             false);
-    cur->pub_info.max_topics = N00B_CT_NUM_TOPICS;
-
-    cur->impl = impl;
-
-    if (filter_specs) {
-        int n = n00b_list_len(filter_specs);
-
-        while (n--) {
-            n00b_filter_spec_t *spec = n00b_list_get(filter_specs, n, NULL);
-            if (!n00b_filter_add(cur, spec->impl, spec->policy)) {
-                return NULL;
-            }
-        }
-    }
-
-    int mode = (*impl->init_impl)(n00b_get_channel_cookie(cur), init_args);
-
-    switch (mode) {
-    case O_RDONLY:
-        cur->r = true;
-        break;
-    case O_WRONLY:
-        cur->w = true;
-        break;
-    case O_RDWR:
-        cur->r = true;
-        cur->w = true;
-        break;
-    default:
-        return NULL;
-    }
-
-    if (cur->r) {
-        cur->locks[N00B_LOCKRD_IX] = n00b_new(n00b_type_lock());
-    }
-    if (cur->w) {
-        cur->locks[N00B_LOCKWR_IX] = n00b_new(n00b_type_lock());
-    }
-    cur->locks[N00B_LOCKSUB_IX] = n00b_new(n00b_type_lock());
-
-    return cur;
-}
-
 n00b_observer_t *
 n00b_channel_subscribe_read(n00b_channel_t *channel,
                             n00b_channel_t *dst,
@@ -244,7 +177,6 @@ internal_write(n00b_channel_t *channel,
         return;
     }
 
-    void *cookie = n00b_get_channel_cookie(channel);
     void *out_msg;
 
     int n = n00b_list_len(to_deliver);
@@ -252,7 +184,7 @@ internal_write(n00b_channel_t *channel,
     for (int i = 0; i < n; i++) {
         out_msg = n00b_list_get(to_deliver, i, NULL);
         n00b_cnotify_w(channel, out_msg);
-        (*channel->impl->write_impl)(cookie, out_msg, blocking);
+        (*channel->impl->write_impl)(channel, out_msg, blocking);
     }
 }
 
@@ -293,7 +225,7 @@ nonblocking_channel_read(n00b_channel_t *channel)
 
     while (true) {
         fn = channel->impl->read_impl;
-        v  = (*fn)(n00b_get_channel_cookie(channel), &err);
+        v  = (*fn)(channel, &err);
 
         if (err) {
             return false;
@@ -303,8 +235,10 @@ nonblocking_channel_read(n00b_channel_t *channel)
         n00b_cmsg_t *pkg    = package_message(v, 1, __FILE__, __LINE__);
         channel->read_cache = n00b_filter_reads(channel, pkg);
         if (channel->read_cache) {
-            return true;
+            return n00b_list_len(channel->read_cache) != 0;
         }
+        channel->read_cache = n00b_list(n00b_type_ref());
+        return false;
     }
 }
 
@@ -426,7 +360,7 @@ n00b_perform_channel_read(n00b_channel_t *channel,
         n += n00b_list_len(channel->blocked_readers);
     }
 
-    while (!channel->read_cache || n00b_list_len(channel->read_cache) < n) {
+    while (n00b_list_len(channel->read_cache) < n) {
         if (!nonblocking_channel_read(channel)) {
             if (!blocking || channel->impl->disallow_blocking_reads) {
                 n00b_lock_release(lock);
@@ -528,7 +462,7 @@ n00b_channel_get_position(n00b_channel_t *c)
     if (!c->impl->gpos_impl) {
         return -1;
     }
-    return (*c->impl->gpos_impl)(n00b_get_channel_cookie(c));
+    return (*c->impl->gpos_impl)(c);
 }
 
 bool
@@ -538,7 +472,7 @@ n00b_channel_set_relative_position(n00b_channel_t *c, int pos)
         return false;
     }
 
-    return (*c->impl->spos_impl)(n00b_get_channel_cookie(c), pos, true);
+    return (*c->impl->spos_impl)(c, pos, true);
 }
 
 extern bool
@@ -548,17 +482,108 @@ n00b_channel_set_absolute_position(n00b_channel_t *c, int pos)
         return false;
     }
 
-    return (*c->impl->spos_impl)(n00b_get_channel_cookie(c), pos, false);
+    return (*c->impl->spos_impl)(c, pos, false);
 }
 
 extern void
 n00b_channel_close(n00b_channel_t *c)
 {
     if (c->impl->close_impl) {
-        (*c->impl->close_impl)(n00b_get_channel_cookie(c));
+        (*c->impl->close_impl)(c);
     }
 
     c->r = false;
     c->w = false;
     n00b_cnotify_close(c, (void *)~0ULL);
 }
+
+static n00b_string_t *
+n00b_channel_to_string(n00b_channel_t *c)
+{
+    if (c->impl->repr_impl) {
+        return (*c->impl->repr_impl)(c);
+    }
+    return c->name;
+}
+
+// We expect the natural way for people to give us a list of filters is
+// based on write transformations, first transformation first in the list.
+// So we actually want to build the chain from the back of the array...
+
+static void
+n00b_channel_init(n00b_channel_t *stream, va_list args)
+{
+    n00b_chan_impl *impl         = va_arg(args, n00b_chan_impl *);
+    void           *init_args    = va_arg(args, void *);
+    n00b_list_t    *filter_specs = va_arg(args, n00b_list_t *);
+
+    // Async writes get enqueued and the event-thread processes.
+    // Sync writes grab the lock.
+    n00b_observable_init(&stream->pub_info, NULL);
+    n00b_observable_set_subscribe_callback(&stream->pub_info,
+                                           dispatch_first_subscriber,
+                                           false);
+    n00b_observable_set_unsubscribe_callback(&stream->pub_info,
+                                             dispatch_no_subscriber,
+                                             false);
+    stream->pub_info.max_topics = N00B_CT_NUM_TOPICS;
+
+    stream->impl       = impl;
+    stream->read_cache = n00b_list(n00b_type_ref());
+
+    n00b_alloc_hdr *h = ((n00b_alloc_hdr *)stream) - 1;
+    h->type           = n00b_type_channel();
+
+    if (filter_specs) {
+        int n = n00b_list_len(filter_specs);
+
+        while (n--) {
+            n00b_filter_spec_t *spec = n00b_list_get(filter_specs, n, NULL);
+            if (!n00b_filter_add(stream, spec->impl, spec->policy)) {
+                stream->r = stream->w = false;
+                return;
+            }
+        }
+    }
+
+    int mode = (*impl->init_impl)(stream, init_args);
+
+    switch (mode) {
+    case O_RDONLY:
+        stream->r = true;
+        break;
+    case O_WRONLY:
+        stream->w = true;
+        break;
+    case O_RDWR:
+        stream->r = true;
+        stream->w = true;
+        break;
+    default:
+        stream->r = stream->w = false;
+        return;
+    }
+
+    if (stream->r) {
+        stream->locks[N00B_LOCKRD_IX] = n00b_new(n00b_type_lock());
+    }
+    if (stream->w) {
+        stream->locks[N00B_LOCKWR_IX] = n00b_new(n00b_type_lock());
+    }
+    stream->locks[N00B_LOCKSUB_IX] = n00b_new(n00b_type_lock());
+}
+
+static uint64_t
+n00b_channel_alloc_sz(n00b_chan_impl *impl)
+{
+    return sizeof(n00b_channel_t) + impl->cookie_size;
+}
+
+const n00b_vtable_t n00b_channel_vtable = {
+    .methods = {
+        [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_channel_init,
+        [N00B_BI_ALLOC_SZ]    = (n00b_vtable_entry)n00b_channel_alloc_sz,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_channel_to_string,
+        [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
+    },
+};

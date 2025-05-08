@@ -57,8 +57,8 @@ sock_rcv(n00b_buf_t *b, void *ignore)
 void *
 my_accept(n00b_channel_t *chan, void *ignore)
 {
-    n00b_channel_t *rcv   = n00b_new_callback_channel(sock_rcv);
-    n00b_channel_t *close = n00b_new_callback_channel(sock_close);
+    n00b_channel_t *rcv   = n00b_new_callback_channel(sock_rcv, NULL);
+    n00b_channel_t *close = n00b_new_callback_channel(sock_close, NULL);
     n00b_channel_subscribe_read(chan, rcv, false);
     n00b_channel_subscribe_close(chan, close);
     n00b_printf("Got connection.");
@@ -99,12 +99,12 @@ main(void)
                                                           (int64_t) true));
 
     log                = n00b_new_channel_proxy(log);
-    n00b_channel_t *cb = n00b_new_callback_channel(callback_test);
+    n00b_channel_t *cb = n00b_new_callback_channel(callback_test, NULL);
     n00b_channel_subscribe_read(inchan, log, false);
     n00b_channel_subscribe_read(inchan, cb, false);
     n00b_channel_subscribe_read(cb, log, false);
 
-    n00b_channel_t *accept_cb = n00b_new_callback_channel(my_accept);
+    n00b_channel_t *accept_cb = n00b_new_callback_channel(my_accept, NULL);
     n00b_channel_subscribe_read(srv, accept_cb, false);
 
     n00b_fd_run_evloop(n00b_system_dispatcher, (n00b_duration_t *)&d);

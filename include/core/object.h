@@ -220,6 +220,7 @@ extern const n00b_vtable_t n00b_gopt_option_vtable;
 extern const n00b_vtable_t n00b_lock_vtable;
 extern const n00b_vtable_t n00b_condition_vtable;
 extern const n00b_vtable_t n00b_stream_vtable;
+extern const n00b_vtable_t n00b_channel_vtable;
 extern const n00b_vtable_t n00b_message_vtable;
 extern const n00b_vtable_t n00b_bytering_vtable;
 extern const n00b_vtable_t n00b_file_vtable;

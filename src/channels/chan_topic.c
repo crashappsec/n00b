@@ -18,9 +18,11 @@ topics_init(void)
 }
 
 static int
-topic_chan_init(n00b_topic_info_t *topic, n00b_list_t *args)
+topic_chan_init(n00b_channel_t *stream, n00b_list_t *args)
 {
-    topic->thunk     = n00b_list_pop(args);
+    n00b_topic_info_t *topic = n00b_get_channel_cookie(stream);
+
+    topic->param     = n00b_list_pop(args);
     topic->cb        = n00b_list_pop(args);
     topic->namespace = n00b_list_pop(args);
     topic->name      = n00b_list_pop(args);
@@ -29,7 +31,7 @@ topic_chan_init(n00b_topic_info_t *topic, n00b_list_t *args)
 }
 
 static void *
-topic_read(n00b_topic_info_t *topic, bool *err)
+topic_read(n00b_channel_t *stream, bool *err)
 {
     // The only way to generate a read from a topic is to write
     // something to it.
@@ -38,26 +40,23 @@ topic_read(n00b_topic_info_t *topic, bool *err)
 }
 
 static void
-topic_write(n00b_topic_info_t *topic, void *msg, bool block)
+topic_write(n00b_channel_t *stream, void *msg, bool block)
 {
-    void *val = msg;
-    bool  err;
+    n00b_topic_info_t *topic = n00b_get_channel_cookie(stream);
+    void              *val   = msg;
+    bool               err;
 
     if (topic->cb) {
-        val = (*topic->cb)(topic, msg, topic->thunk);
-    }
-
-    if (!topic->cref->read_cache) {
-        topic->cref->read_cache = n00b_list(n00b_type_ref());
+        val = (*topic->cb)(topic, msg, topic->param);
     }
 
     // Generally, this is how the pub/sub bus gets messages to publish
     // to readers.  Without this, we will hang in certain situations where
     // we've subscribed an fd to read a callback.
-    n00b_list_append(topic->cref->read_cache, val);
+    n00b_list_append(stream->read_cache, val);
 
     // Don't care about the result of err, just need to pass it.
-    n00b_io_dispatcher_process_read_queue(topic->cref, &err);
+    n00b_io_dispatcher_process_read_queue(stream, &err);
 }
 
 static n00b_chan_impl topic_impl = {
@@ -71,17 +70,16 @@ n00b_channel_t *
 _n00b_create_topic_channel(n00b_string_t *name,
                            n00b_dict_t   *ns,
                            n00b_topic_cb  cb,
-                           void          *thunk,
+                           void          *param,
                            ...)
 {
+    n00b_list_t    *args = n00b_list(n00b_type_ref());
+    n00b_list_t    *filters;
+    n00b_channel_t *result;
+
     topics_init();
 
-    va_list alist;
-    va_start(alist, cb);
-
-    n00b_list_t *args    = n00b_list(n00b_type_ref());
-    n00b_list_t *filters = n00b_list(n00b_type_ref());
-    int          nargs   = va_arg(alist, int);
+    n00b_build_filter_list(filters, param);
 
     if (!ns) {
         ns = n00b_default_namespace;
@@ -90,19 +88,9 @@ _n00b_create_topic_channel(n00b_string_t *name,
     n00b_list_append(args, name);
     n00b_list_append(args, ns);
     n00b_list_append(args, cb);
-    n00b_list_append(args, thunk);
+    n00b_list_append(args, param);
 
-    while (nargs--) {
-        n00b_list_append(filters, va_arg(alist, void *));
-    }
-
-    va_end(alist);
-
-    n00b_channel_t    *result = n00b_channel_create(&topic_impl, args, filters);
-    n00b_topic_info_t *ti     = n00b_get_channel_cookie(result);
-
-    ti->cref     = result;
-    result->name = name;
+    result = n00b_new(n00b_type_channel(), &topic_impl, args, filters);
 
     if (hatrack_dict_add(ns, name, result)) {
         return result;
@@ -127,7 +115,7 @@ _n00b_get_topic_channel(n00b_string_t *name, ...)
     n00b_channel_t *res = hatrack_dict_get(ns, name, NULL);
 
     if (!res) {
-        return _n00b_create_topic_channel(name, ns, NULL, NULL, 0);
+        return _n00b_create_topic_channel(name, ns, NULL, NULL, 0ULL);
     }
 
     return res;
