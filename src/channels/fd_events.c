@@ -8,11 +8,14 @@ n00b_event_loop_t    *n00b_system_dispatcher = NULL;
 static n00b_dict_t   *fd_cache               = NULL;
 static pthread_once_t io_inited              = PTHREAD_ONCE_INIT;
 
+extern void n00b_setup_term_channels(void);
+
 static void
 setup_io(void)
 {
     fd_cache               = n00b_dict(n00b_type_int(), n00b_type_ref());
     n00b_system_dispatcher = n00b_new_event_context(N00B_EV_POLL);
+    n00b_setup_term_channels();
 }
 
 typedef struct {
@@ -308,6 +311,8 @@ n00b_fd_stream_from_fd(int                fd,
 
     result->socket      = S_ISSOCK(info.st_mode);
     result->newly_added = true;
+
+    result->fd_flags = fcntl(result->fd, F_GETFL);
 
     if (result->fd_flags & O_RDONLY) {
         result->write_closed = true;

@@ -32,7 +32,6 @@ typedef struct {
         n00b_debug_fmt_fn     formatter;
     } cb;
     void        *params;
-    void        *user_props;
     n00b_list_t *next;
 } n00b_db_rule_t;
 
@@ -42,11 +41,12 @@ struct n00b_debug_msg_t {
     n00b_db_rule_t   *workflow;
     void             *payload;
     n00b_debug_fmt_fn formatter;
-    void             *last_output;
+    int               last_output;
 };
 
-extern n00b_db_rule_t n00b_debug_set_workflow(n00b_string_t  *topic,
-                                              n00b_db_rule_t *rule);
+extern void n00b_set_debug_topic_flow(n00b_string_t *,
+                                      n00b_db_rule_t *);
+extern void n00b_set_default_debug_flow(n00b_db_rule_t *);
 
 // All of these start with the previous node to link to, and return
 // the new node.
@@ -59,4 +59,8 @@ extern n00b_db_rule_t *n00b_drule_test(n00b_db_rule_t *,
 extern n00b_db_rule_t *n00b_drule_set_formatter(n00b_db_rule_t *,
                                                 n00b_debug_fmt_fn);
 extern n00b_db_rule_t *n00b_drule_end(n00b_db_rule_t *);
-extern void            n00b_set_debug_workflow(n00b_string_t *, n00b_db_rule_t *);
+
+#ifdef N00B_USE_INTERNAL_API
+extern n00b_db_rule_t *n00b_get_topic_workflow(n00b_string_t *);
+extern void            n00b_apply_debug_workflow(n00b_debug_msg_t *);
+#endif

@@ -42,7 +42,7 @@ topic_write(n00b_topic_info_t *topic, void *msg, bool block)
 {
     void *val = msg;
 
-    if (!topic->cb) {
+    if (topic->cb) {
         val = (*topic->cb)(topic, msg, topic->thunk);
     }
 

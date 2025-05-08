@@ -18,7 +18,7 @@ extern n00b_channel_t *_n00b_channel_connect(n00b_net_addr_t *, ...);
                              __VA_OPT__(, ) __VA_ARGS__)
 
 #define n00b_channel_open_file(fname, ...) \
-    _n00b_channel_open_file(fname, __VA_OPT__(n00b_ka(__VA_ARGS__), ) 0ULL)
+    _n00b_channel_open_file(fname, n00b_kw(__VA_ARGS__))
 #define n00b_create_listener(addr, ...) \
     _n00b_create_listener(addr, __VA_ARGS__ __VA_OPT__(, ) 0)
 #define n00b_channel_connect(addr, ...) \

@@ -582,6 +582,15 @@ n00b_new_ms_timeout(int ms)
 }
 
 n00b_duration_t *
+n00b_duration_from_ms(int ms)
+{
+    int64_t sec  = ms / MS_PER_SEC;
+    int64_t nsec = (ms % MS_PER_SEC) * NS_PER_MS;
+
+    return n00b_new(n00b_type_duration(), n00b_kw("sec", sec, "nanosec", nsec));
+}
+
+n00b_duration_t *
 n00b_duration_multiply(n00b_duration_t *d, double m)
 {
     n00b_duration_t *result = n00b_new(n00b_type_duration());

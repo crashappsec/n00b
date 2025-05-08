@@ -78,18 +78,19 @@ main(void)
                                              "port",
                                              7878ULL));
 
+    n00b_debugf("test", "Address: [|#|]", addr);
     n00b_channel_t *srv = n00b_create_listener(addr);
 
-    my_stdin          = n00b_fd_stream_from_fd(0, NULL, NULL);
-    my_stdout         = n00b_fd_stream_from_fd(1, NULL, NULL);
-    struct timespec d = {.tv_sec = 200, .tv_nsec = 0};
-
+    my_stdin           = n00b_fd_stream_from_fd(0, NULL, NULL);
+    my_stdout          = n00b_fd_stream_from_fd(1, NULL, NULL);
+    struct timespec d  = {.tv_sec = 200, .tv_nsec = 0};
     struct timespec t  = {.tv_sec = 5, .tv_nsec = 0};
     struct timespec t2 = {.tv_sec = 10, .tv_nsec = 0};
+
     _n00b_fd_read_subscribe(my_stdin, echo_it, 0);
     n00b_add_timer(&t, test_timer, n00b_add_timer(&t2, timer_2));
 
-    n00b_channel_t *inchan = n00b_new_fd_channel(my_stdin);
+    n00b_channel_t *inchan = n00b_chan_stdin();
     n00b_channel_t *log    = _n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
                                                   n00b_kw("write_only",
                                                           (int64_t) true,
