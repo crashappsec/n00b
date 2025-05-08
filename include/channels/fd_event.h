@@ -177,7 +177,11 @@ extern bool               n00b_fd_unsubscribe(n00b_fd_stream_t *,
                                               n00b_fd_sub_t *);
 extern bool               n00b_fd_send(n00b_fd_stream_t *, char *, int);
 extern bool               n00b_fd_write(n00b_fd_stream_t *, char *, int);
-extern n00b_buf_t        *n00b_fd_read(n00b_fd_stream_t *, int, int, bool);
+extern n00b_buf_t        *n00b_fd_read(n00b_fd_stream_t *,
+                                       int,
+                                       int,
+                                       bool,
+                                       bool *);
 extern bool               n00b_fd_run_evloop_once(n00b_event_loop_t *);
 extern bool               n00b_fd_run_evloop(n00b_event_loop_t *,
                                              n00b_duration_t *);

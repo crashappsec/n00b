@@ -20,7 +20,7 @@ bufchan_init(n00b_buffer_channel_t *c, n00b_list_t *args)
 
 static n00b_buf_t *
 bufchan_read(n00b_buffer_channel_t *c,
-             bool                  *success)
+             bool                  *err)
 {
     n00b_buf_t *src = c->buffer;
     n00b_buf_t *result;
@@ -33,13 +33,13 @@ bufchan_read(n00b_buffer_channel_t *c,
                                             src->byte_len - c->position);
             c->position = src->byte_len;
             n00b_buffer_release(src);
-            *success = true;
+            *err = false;
             return result;
         }
 
         n00b_buffer_release(src);
 
-        *success = false;
+        *err = true;
         return NULL;
     }
 }

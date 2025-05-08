@@ -1,4 +1,5 @@
 #pragma once
+#include "n00b.h"
 
 typedef struct {
     n00b_fd_stream_t *stream;

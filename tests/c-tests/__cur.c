@@ -86,17 +86,19 @@ main(void)
     struct timespec d  = {.tv_sec = 200, .tv_nsec = 0};
     struct timespec t  = {.tv_sec = 5, .tv_nsec = 0};
     struct timespec t2 = {.tv_sec = 10, .tv_nsec = 0};
+    bool            err;
 
-    _n00b_fd_read_subscribe(my_stdin, echo_it, 0);
+    _n00b_fd_read_subscribe(my_stdin, echo_it, 0, &err);
     n00b_add_timer(&t, test_timer, n00b_add_timer(&t2, timer_2));
 
-    n00b_channel_t *inchan = n00b_chan_stdin();
+    n00b_channel_t *inchan = n00b_new_channel_proxy(n00b_chan_stdin());
     n00b_channel_t *log    = _n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
                                                   n00b_kw("write_only",
                                                           (int64_t) true,
                                                           "allow_file_creation",
                                                           (int64_t) true));
 
+    log                = n00b_new_channel_proxy(log);
     n00b_channel_t *cb = n00b_new_callback_channel(callback_test);
     n00b_channel_subscribe_read(inchan, log, false);
     n00b_channel_subscribe_read(inchan, cb, false);

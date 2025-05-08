@@ -16,9 +16,9 @@ cbchan_init(n00b_callback_channel_t *c, n00b_list_t *args)
 //
 // We don't want to yield any more messages.
 static void *
-cbchan_read(n00b_callback_channel_t *c, bool *success)
+cbchan_read(n00b_callback_channel_t *c, bool *err)
 {
-    *success = false;
+    *err = true;
     return NULL;
 }
 
@@ -59,8 +59,10 @@ cbchan_write(n00b_callback_channel_t *c, void *msg, bool block)
     // Generally, this is how the pub/sub bus gets messages to publish
     // to readers.  Without this, we will hang in certain situations where
     // we've subscribed an fd to read a callback.
+    bool err;
+
     n00b_list_append(c->cref->read_cache, cb_res);
-    n00b_io_dispatcher_process_read_queue(c->cref);
+    n00b_io_dispatcher_process_read_queue(c->cref, &err);
 }
 
 static n00b_chan_impl n00b_cbchan_impl = {
@@ -78,7 +80,6 @@ _n00b_new_callback_channel(n00b_channel_cb_t *cb, ...)
     void        *thunk   = NULL;
 
     n00b_list_append(args, cb);
-    n00b_list_append(args, thunk);
 
     va_list alist;
 
@@ -93,6 +94,8 @@ _n00b_new_callback_channel(n00b_channel_cb_t *cb, ...)
     }
 
     va_end(alist);
+
+    n00b_list_append(args, thunk);
 
     n00b_channel_t          *result = n00b_channel_create(&n00b_cbchan_impl,
                                                  args,

@@ -29,11 +29,11 @@ topic_chan_init(n00b_topic_info_t *topic, n00b_list_t *args)
 }
 
 static void *
-topic_read(n00b_topic_info_t *topic, bool *success)
+topic_read(n00b_topic_info_t *topic, bool *err)
 {
     // The only way to generate a read from a topic is to write
     // something to it.
-    *success = false;
+    *err = true;
     return NULL;
 }
 
@@ -41,6 +41,7 @@ static void
 topic_write(n00b_topic_info_t *topic, void *msg, bool block)
 {
     void *val = msg;
+    bool  err;
 
     if (topic->cb) {
         val = (*topic->cb)(topic, msg, topic->thunk);
@@ -54,7 +55,9 @@ topic_write(n00b_topic_info_t *topic, void *msg, bool block)
     // to readers.  Without this, we will hang in certain situations where
     // we've subscribed an fd to read a callback.
     n00b_list_append(topic->cref->read_cache, val);
-    n00b_io_dispatcher_process_read_queue(topic->cref);
+
+    // Don't care about the result of err, just need to pass it.
+    n00b_io_dispatcher_process_read_queue(topic->cref, &err);
 }
 
 static n00b_chan_impl topic_impl = {

@@ -25,13 +25,14 @@ fdchan_on_read_event(n00b_fd_stream_t *s,
                      void             *msg,
                      void             *thunk)
 {
+    bool            err;
     n00b_channel_t *channel = thunk;
 
     if (!channel->read_cache) {
         channel->read_cache = n00b_list(n00b_type_ref());
     }
     n00b_list_append(channel->read_cache, msg);
-    n00b_io_dispatcher_process_read_queue(channel);
+    n00b_io_dispatcher_process_read_queue(channel, &err);
 }
 
 void
@@ -67,7 +68,7 @@ fdchan_close(n00b_fd_cookie_t *p)
 }
 
 static void *
-fdchan_read(n00b_fd_cookie_t *p, bool *success)
+fdchan_read(n00b_fd_cookie_t *p, bool *err)
 {
     // Since all reads, including blocking reads, have the IO started
     // via the file descriptor polling loop, we know that, if this is
@@ -92,14 +93,13 @@ fdchan_read(n00b_fd_cookie_t *p, bool *success)
     };
 
     if (poll(fds, 1, 0) != 1) {
-        *success = false;
+        *err = true;
         return NULL;
     }
 
     // Last parameter keeps it from trying to drain the fd and
     // potentially blocking.
-    n00b_buf_t *data = n00b_fd_read(p->stream, -1, 0, false);
-    *success         = (data != NULL);
+    n00b_buf_t *data = n00b_fd_read(p->stream, -1, 0, false, err);
 
     return data;
 }

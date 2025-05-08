@@ -200,8 +200,11 @@ extern void _n00b_channel_queue(n00b_channel_t *, void *, char *, int);
 #define n00b_channel_queue(chan, msg) \
     _n00b_channel_queue(chan, msg, __FILE__, __LINE__)
 
-extern void *n00b_channel_read(n00b_channel_t *channel, int ms_timeout);
-extern void  n00b_io_dispatcher_process_read_queue(n00b_channel_t *);
+// Blocking read
+extern void *n00b_channel_read(n00b_channel_t *, int, bool *);
+// This is really a non-blocking read that returns a message IF
+// one is available.
+extern void *n00b_io_dispatcher_process_read_queue(n00b_channel_t *, bool *);
 
 extern int  n00b_channel_get_position(n00b_channel_t *);
 extern bool n00b_channel_set_relative_position(n00b_channel_t *, int);

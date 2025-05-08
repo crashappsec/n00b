@@ -287,15 +287,15 @@ route_channel_message(void *msg, void *dst)
 static inline bool
 nonblocking_channel_read(n00b_channel_t *channel)
 {
-    bool           ok = true;
+    bool           err = false;
     n00b_chan_r_fn fn;
     void          *v;
 
     while (true) {
         fn = channel->impl->read_impl;
-        v  = (*fn)(n00b_get_channel_cookie(channel), &ok);
+        v  = (*fn)(n00b_get_channel_cookie(channel), &err);
 
-        if (!ok) {
+        if (err) {
             return false;
         }
 
@@ -312,7 +312,7 @@ static inline void *
 wait_for_read(n00b_channel_t  *channel,
               n00b_lock_t     *lock,
               n00b_duration_t *end,
-              int             *err)
+              bool            *err)
 {
     void *result;
 
@@ -387,7 +387,7 @@ static void *
 n00b_perform_channel_read(n00b_channel_t *channel,
                           bool            blocking,
                           int             tout,
-                          int            *err)
+                          bool           *err)
 {
     n00b_mutex_t    *lock   = channel->locks[N00B_LOCKRD_IX];
     void            *result = NULL;
@@ -488,7 +488,7 @@ n00b_perform_channel_read(n00b_channel_t *channel,
 // as much data is available without blocking.
 
 void *
-n00b_channel_read(n00b_channel_t *channel, int ms_timeout)
+n00b_channel_read(n00b_channel_t *channel, int ms_timeout, bool *err)
 {
     if (!channel->r) {
         n00b_cnotify_error(channel,
@@ -496,20 +496,30 @@ n00b_channel_read(n00b_channel_t *channel, int ms_timeout)
         return NULL;
     }
 
-    int err;
+    // the lower-level stuff requires the error parameter, but we
+    // don't want to force the user to provide it, esp if the channel
+    // can't fail.
+    bool  e;
+    bool *ep = err ? err : &e;
 
-    return n00b_perform_channel_read(channel, true, ms_timeout, &err);
-}
+    void *result = n00b_perform_channel_read(channel, true, ms_timeout, ep);
 
-void
-n00b_io_dispatcher_process_read_queue(n00b_channel_t *channel)
-{
-    if (!channel->r) {
-        return;
+    if (err) {
+        N00B_CRAISE("Error in read.");
     }
 
-    int err;
-    n00b_perform_channel_read(channel, false, 0, &err);
+    return result;
+}
+
+// This is our obtusely named non-blocking read.
+void *
+n00b_io_dispatcher_process_read_queue(n00b_channel_t *channel, bool *err)
+{
+    if (!channel->r) {
+        return NULL;
+    }
+
+    return n00b_perform_channel_read(channel, false, 0, err);
 }
 
 int

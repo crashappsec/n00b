@@ -299,6 +299,7 @@ n00b_channels = [
     'src/channels/chan_topic.c',
     'src/channels/chan_listener.c',
     'src/channels/chan_exit.c',
+    'src/channels/chan_proxy.c',    
     'src/channels/terminal_io.c',
 ]
 

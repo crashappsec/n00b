@@ -3,6 +3,8 @@
 static void *
 launch_wait(n00b_exit_info_t *c)
 {
+    bool err;
+
     if (!c->cref->read_cache) {
         c->cref->read_cache = n00b_list(n00b_type_ref());
     }
@@ -18,7 +20,9 @@ launch_wait(n00b_exit_info_t *c)
     c->exited = true;
 
     n00b_list_append(c->cref->read_cache, c);
-    n00b_io_dispatcher_process_read_queue(c->cref);
+
+    // Don't care about the result of err, just need to pass it.
+    n00b_io_dispatcher_process_read_queue(c->cref, &err);
 
     return NULL;
 }
@@ -32,14 +36,14 @@ exitchan_init(n00b_exit_info_t *c, n00b_list_t *args)
 }
 
 static void *
-exitchan_read(n00b_exit_info_t *c, bool *success)
+exitchan_read(n00b_exit_info_t *c, bool *err)
 {
     if (!c->exited) {
-        *success = false;
+        *err = true;
         return NULL;
     }
 
-    *success = true;
+    *err = false;
     return c;
 }
 
@@ -58,9 +62,11 @@ exitchan_close(n00b_exit_info_t *c)
 void
 exitchan_on_first_subscriber(n00b_channel_t *c, n00b_exit_info_t *info)
 {
+    bool err;
+
     if (info->exited) {
         n00b_list_append(c->read_cache, info);
-        n00b_io_dispatcher_process_read_queue(c);
+        n00b_io_dispatcher_process_read_queue(c, &err);
     }
 }
 

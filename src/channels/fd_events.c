@@ -904,13 +904,15 @@ n00b_fd_write(n00b_fd_stream_t *s, char *bytes, int len)
 // 'full' parameter will block until either `len` bytes are available,
 // or the timeout is reached (if one was given).
 n00b_buf_t *
-n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full)
+n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full, bool *err)
 {
     if (!s->read_subs || s->fd == N00B_FD_CLOSED) {
+        *err = true;
         return NULL;
     }
 
     if (!len) {
+        *err = true;
         return NULL;
     }
 
@@ -953,6 +955,7 @@ finish:
 
                 n00b_fd_stream_nonblocking(s);
                 worker_yield(s);
+                *err = false;
                 return b;
             case -1:
                 switch (errno) {
