@@ -20,6 +20,15 @@ enable_opt(int socket, int opt)
     }
 }
 
+extern void
+fdchan_on_read_event(n00b_fd_stream_t *s,
+                     n00b_fd_sub_t    *sub,
+                     void             *msg,
+                     void             *thunk);
+
+extern void
+on_fd_close(n00b_fd_stream_t *s, n00b_channel_t *c);
+
 static int
 listener_open(n00b_channel_t *stream, n00b_list_t *args)
 {
@@ -56,17 +65,28 @@ listener_open(n00b_channel_t *stream, n00b_list_t *args)
     c->stream->listener = true;
 
     stream->fd_backed = true;
-    stream->name      = n00b_cformat("listen @[|#|]", n00b_list_pop(args));
+    stream->name      = n00b_cformat("listen: [|#|] (fd [|#|])",
+                                addr,
+                                (int64_t)sock);
+
+    c->sub = _n00b_fd_read_subscribe(c->stream,
+                                     (void *)fdchan_on_read_event,
+                                     2,
+                                     (int)(false),
+                                     stream);
+    _n00b_fd_close_subscribe(c->stream,
+                             (void *)on_fd_close,
+                             2,
+                             (int)false,
+                             stream);
 
     return O_RDONLY;
 }
 
 static n00b_chan_impl listener_impl = {
-    .cookie_size         = sizeof(n00b_fd_cookie_t),
-    .init_impl           = (void *)listener_open,
-    .close_impl          = (void *)n00b_fdchan_close,
-    .read_subscribe_cb   = (void *)n00b_fdchan_on_first_subscriber,
-    .read_unsubscribe_cb = (void *)n00b_fdchan_on_no_subscribers,
+    .cookie_size = sizeof(n00b_fd_cookie_t),
+    .init_impl   = (void *)listener_open,
+    .close_impl  = (void *)n00b_fdchan_close,
 };
 
 n00b_channel_t *

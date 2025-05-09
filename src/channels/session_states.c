@@ -389,7 +389,7 @@ handle_input_matching(n00b_session_t *s)
         return trigger != NULL;
     }
     if (!trigger || !trigger->quiet) {
-        n00b_write(s->subprocess->subproc_stdin, to_write);
+        n00b_channel_queue(s->subprocess->subproc_stdin, to_write);
         s->got_user_input = false;
         return true;
     }
@@ -412,11 +412,11 @@ handle_input_matching(n00b_session_t *s)
     if (mstart != 0) {
         assert(mstart != -1);
         slice = n00b_string_slice(to_write, 0, mstart);
-        n00b_write(s->subprocess->subproc_stdin, slice);
+        n00b_channel_queue(s->subprocess->subproc_stdin, slice);
     }
     if (mend != to_write->codepoints) {
         slice = n00b_string_slice(to_write, mend, -1);
-        n00b_write(s->subprocess->subproc_stdin, slice);
+        n00b_channel_queue(s->subprocess->subproc_stdin, slice);
     }
 
     return true;

@@ -388,6 +388,49 @@ crown_replace(crown_t *self, hatrack_hash_t hv, void *item, bool *found)
     return crown_replace_mmm(self, mmm_thread_acquire(), hv, item, found);
 }
 
+void *
+crown_cas_mmm(crown_t       *self,
+              mmm_thread_t  *thread,
+              hatrack_hash_t hv,
+              void          *item,
+              void          *expected,
+              bool          *found)
+{
+    void          *ret;
+    crown_store_t *store;
+
+    mmm_start_basic_op(thread);
+
+    store = atomic_read(&self->store_current);
+    ret   = crown_store_cas(store,
+                          thread,
+                          self,
+                          hv,
+                          item,
+                          expected,
+                          found,
+                          0);
+
+    mmm_end_op(thread);
+
+    return ret;
+}
+
+void *
+crown_cas(crown_t       *self,
+          hatrack_hash_t hv,
+          void          *item,
+          void          *expected,
+          bool          *found)
+{
+    return crown_cas_mmm(self,
+                         mmm_thread_acquire(),
+                         hv,
+                         item,
+                         expected,
+                         found);
+}
+
 bool
 crown_add_mmm(crown_t *self, mmm_thread_t *thread, hatrack_hash_t hv, void *item)
 {
@@ -1094,6 +1137,148 @@ migrate_and_retry:
 
     candidate.item = item;
     candidate.info = record.info;
+
+    if (!CAS(&bucket->record, &record, candidate)) {
+        if (record.info & CROWN_F_MOVING) {
+            goto migrate_and_retry;
+        }
+
+        goto not_found;
+    }
+
+    if (found) {
+        *found = true;
+    }
+
+    if (atomic_read(&self->used_count) >= self->threshold) {
+        crown_store_migrate(self, thread, top);
+    }
+
+    return record.item;
+}
+
+#if defined(__clang__)
+__attribute__((no_sanitize("all")))
+#endif
+// This is like 'replace' but ensures that the item we're ejecting is
+// the expected item (compare by value).
+//
+// It does currently require the item to be present.
+
+void *
+crown_store_cas(crown_store_t *self,
+                mmm_thread_t  *thread,
+                crown_t       *top,
+                hatrack_hash_t hv1,
+                void          *item,
+                void          *expected_item,
+                bool          *found,
+                uint64_t       count)
+{
+    void           *ret;
+    uint64_t        bix;
+    uint64_t        i;
+    hatrack_hash_t  hv2;
+    crown_bucket_t *bucket;
+    crown_record_t  record;
+    crown_record_t  candidate;
+    hop_t           map;
+
+    bix = hatrack_bucket_index(hv1, self->last_slot);
+    map = atomic_read(&self->buckets[bix].neighbor_map);
+    i   = -1;
+
+    /* Since replace never acquires a bucket, it is not subject to the
+     * potential race condition that the put and add operations must
+     * deal with.
+     *
+     * Therefore, the algorithm for finding a bucket is basically the
+     * same as with the get operation.
+     */
+    while (map) {
+        i      = CLZ(map);
+        bucket = &self->buckets[(bix + i) & self->last_slot];
+        hv2    = atomic_read(&bucket->hv);
+
+        if (hatrack_hashes_eq(hv1, hv2)) {
+            goto found_bucket;
+        }
+
+        map &= ~(CROWN_HOME_BIT >> i);
+    }
+
+    i++;
+    bix = (bix + i) & self->last_slot;
+
+    for (; i <= self->last_slot; i++) {
+        bucket = &self->buckets[bix];
+        hv2    = atomic_read(&bucket->hv);
+
+        if (hatrack_bucket_unreserved(hv2)) {
+            goto not_found;
+        }
+
+        if (hatrack_hashes_eq(hv1, hv2)) {
+            goto found_bucket;
+        }
+
+        bix = (bix + 1) & self->last_slot;
+        continue;
+    }
+
+not_found:
+    if (found) {
+        *found = false;
+    }
+    return NULL;
+
+found_bucket:
+    record = atomic_read(&bucket->record);
+
+    if (record.info & CROWN_F_MOVING) {
+migrate_and_retry:
+        count = count + 1;
+
+        if (crown_help_required(count)) {
+            HATRACK_CTR(HATRACK_CTR_WH_HELP_REQUESTS);
+
+            atomic_fetch_add(&top->help_needed, 1);
+            self = crown_store_migrate(self, thread, top);
+            ret  = crown_store_cas(self,
+                                  thread,
+                                  top,
+                                  hv1,
+                                  item,
+                                  expected_item,
+                                  found,
+                                  count);
+
+            atomic_fetch_sub(&top->help_needed, 1);
+
+            return ret;
+        }
+
+        self = crown_store_migrate(self, thread, top);
+        return crown_store_cas(self,
+                               thread,
+                               top,
+                               hv1,
+                               item,
+                               expected_item,
+                               found,
+                               count);
+    }
+
+    if (!(record.info & CROWN_EPOCH_MASK)) {
+        goto not_found;
+    }
+
+    candidate.item = item;
+    candidate.info = record.info;
+
+    if (record.item != expected_item) {
+        goto not_found;
+    }
 
     if (!CAS(&bucket->record, &record, candidate)) {
         if (record.info & CROWN_F_MOVING) {

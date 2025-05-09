@@ -21,6 +21,7 @@ extern bool             n00b_duration_lt(n00b_duration_t *,
 extern n00b_duration_t *n00b_duration_multiply(n00b_duration_t *, double);
 extern n00b_duration_t *n00b_new_ms_timeout(int);
 extern n00b_duration_t *n00b_duration_from_ms(int);
+extern int64_t          n00b_duration_to_ms(n00b_duration_t *);
 
 static inline n00b_duration_t *
 n00b_duration_divide(n00b_duration_t *dur, double f)

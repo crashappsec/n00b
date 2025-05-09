@@ -4,17 +4,17 @@
 typedef struct n00b_observer_t   n00b_observer_t;
 typedef struct n00b_observable_t n00b_observable_t;
 
-// message, thunk
+// message, param, which should generally be the subscriber..
 typedef void (*n00b_observer_cb)(void *, void *);
 // Observable, subscription.
 typedef void (*n00b_subscribe_cb)(n00b_observable_t *, n00b_observer_t *);
 
 struct n00b_observer_t {
-    n00b_observer_cb   callback;
-    void              *thunk;
-    n00b_string_t     *topic;
-    int64_t            topic_ix;
     n00b_observable_t *target;
+    void              *subscriber;
+    n00b_string_t     *topic;
+    n00b_observer_cb   callback;
+    int64_t            topic_ix;
     bool               oneshot;
 };
 
@@ -61,4 +61,10 @@ n00b_observable_set_unsubscribe_callback(n00b_observable_t *o,
 {
     o->on_unsubscribe = cb;
     o->lt_unsub       = level_triggered;
+}
+
+static inline void
+n00b_observable_remove_all_subscriptions(n00b_observable_t *o)
+{
+    o->observers = n00b_list(n00b_type_ref());
 }

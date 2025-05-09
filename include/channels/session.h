@@ -42,10 +42,10 @@ typedef struct {
 
 // For replaying capture logs.
 typedef struct {
-    n00b_stream_t    *log;
-    n00b_stream_t    *stdin_dst;
-    n00b_stream_t    *stdout_dst;
-    n00b_stream_t    *stderr_dst;
+    n00b_channel_t   *log;
+    n00b_channel_t   *stdin_dst;
+    n00b_channel_t   *stdout_dst;
+    n00b_channel_t   *stderr_dst;
     n00b_duration_t  *cursor;
     n00b_duration_t  *absolute_start;
     n00b_duration_t  *max_gap;
@@ -104,54 +104,54 @@ struct n00b_session_t {
     // Until we select a start time, 'end_time' holds the 'max_time'
     // field from the constructor. If we end or reset, we subtract
     // to get the 'max_time' back.
-    n00b_duration_t         *start_time;
-    n00b_duration_t         *skew;                // Time lost to pausing.
-    n00b_duration_t         *last_event;
-    n00b_duration_t         *end_time;            // If  abs max time is given.
-    n00b_duration_t         *max_event_gap;
-    n00b_stream_t           *subproc_ctrl_stream; // Local interface
-    n00b_stream_t           *stdin_injection;
-    n00b_list_t             *stdout_cb;
-    n00b_list_t             *stderr_cb;
-    n00b_string_t           *input_match_buffer;
-    n00b_string_t           *injection_match_buffer;
-    n00b_string_t           *stdout_match_buffer;
-    n00b_string_t           *stderr_match_buffer;
-    n00b_string_t           *start_state;
-    n00b_session_state_t    *cur_user_state;
-    n00b_string_t           *cur_state_name;
-    n00b_string_t           *rc_filename;
-    n00b_string_t           *pwd;
-    n00b_dict_t             *user_states;
-    n00b_session_state_t    *global_actions;
-    _Atomic(n00b_stream_t *) capture_stream;
-    n00b_stream_t           *saved_capture; // For pausing.
-    n00b_stream_t           *unproxied_capture;
-    n00b_string_t           *cap_filename;
-    n00b_string_t           *launch_command;
-    n00b_list_t             *launch_args;
-    n00b_proc_t             *subprocess;
-    n00b_condition_t         control_notify;
-    n00b_log_cursor_t        log_cursor; // replay state
-    int                      capture_policy;
-    uint32_t                 next_capture_id;
-    uint32_t                 passthrough_output : 1; // Can be toggled.
-    uint32_t                 passthrough_input  : 1; // Can be toggled.
-    uint32_t                 using_pty          : 1;
-    uint32_t                 merge_output       : 1;
-    uint32_t                 likely_bash        : 1;
-    uint32_t                 paused_clock       : 1;
-    uint32_t                 got_user_input     : 1;
-    uint32_t                 got_injection      : 1;
-    uint32_t                 got_stdout         : 1;
-    uint32_t                 got_stderr         : 1;
-    uint32_t                 got_prompt         : 1;
-    uint32_t                 got_run            : 1;
-    uint32_t                 got_timeout        : 1;
-    uint32_t                 got_winch          : 1;
-    uint32_t                 early_exit         : 1;
-    uint32_t                 match_ansi         : 1;
-    n00b_session_state_type  state;
+    n00b_duration_t          *start_time;
+    n00b_duration_t          *skew;                // Time lost to pausing.
+    n00b_duration_t          *last_event;
+    n00b_duration_t          *end_time;            // If  abs max time is given.
+    n00b_duration_t          *max_event_gap;
+    n00b_channel_t           *subproc_ctrl_stream; // Local interface
+    n00b_channel_t           *stdin_injection;
+    n00b_list_t              *stdout_cb;
+    n00b_list_t              *stderr_cb;
+    n00b_string_t            *input_match_buffer;
+    n00b_string_t            *injection_match_buffer;
+    n00b_string_t            *stdout_match_buffer;
+    n00b_string_t            *stderr_match_buffer;
+    n00b_string_t            *start_state;
+    n00b_session_state_t     *cur_user_state;
+    n00b_string_t            *cur_state_name;
+    n00b_string_t            *rc_filename;
+    n00b_string_t            *pwd;
+    n00b_dict_t              *user_states;
+    n00b_session_state_t     *global_actions;
+    _Atomic(n00b_channel_t *) capture_stream;
+    n00b_channel_t           *saved_capture; // For pausing.
+    n00b_channel_t           *unproxied_capture;
+    n00b_string_t            *cap_filename;
+    n00b_string_t            *launch_command;
+    n00b_list_t              *launch_args;
+    n00b_proc_t              *subprocess;
+    n00b_condition_t          control_notify;
+    n00b_log_cursor_t         log_cursor; // replay state
+    int                       capture_policy;
+    uint32_t                  next_capture_id;
+    uint32_t                  passthrough_output : 1; // Can be toggled.
+    uint32_t                  passthrough_input  : 1; // Can be toggled.
+    uint32_t                  using_pty          : 1;
+    uint32_t                  merge_output       : 1;
+    uint32_t                  likely_bash        : 1;
+    uint32_t                  paused_clock       : 1;
+    uint32_t                  got_user_input     : 1;
+    uint32_t                  got_injection      : 1;
+    uint32_t                  got_stdout         : 1;
+    uint32_t                  got_stderr         : 1;
+    uint32_t                  got_prompt         : 1;
+    uint32_t                  got_run            : 1;
+    uint32_t                  got_timeout        : 1;
+    uint32_t                  got_winch          : 1;
+    uint32_t                  early_exit         : 1;
+    uint32_t                  match_ansi         : 1;
+    n00b_session_state_type   state;
 };
 
 static inline bool
@@ -161,17 +161,17 @@ n00b_session_is_active(n00b_session_t *s)
 }
 
 extern void            n00b_setup_capture(n00b_session_t *,
-                                          n00b_stream_t *,
+                                          n00b_channel_t *,
                                           int);
 extern bool            n00b_session_run(n00b_session_t *);
 extern void            n00b_session_pause_recording(n00b_session_t *);
 extern void            n00b_session_continue_recording(n00b_session_t *);
 extern void            n00b_enable_replay(n00b_session_t *, bool);
 extern void            n00b_enable_command_replay(n00b_session_t *, bool);
-extern n00b_session_t *n00b_cinematic_replay_setup(n00b_stream_t *);
+extern n00b_session_t *n00b_cinematic_replay_setup(n00b_channel_t *);
 extern bool            n00b_session_run_cinematic(n00b_session_t *);
 extern void            n00b_session_set_replay_stream(n00b_session_t *,
-                                                      n00b_stream_t *);
+                                                      n00b_channel_t *);
 extern n00b_table_t   *n00b_session_state_repr(n00b_session_t *);
 extern void            n00b_session_start_replay(n00b_session_t *);
 
@@ -194,7 +194,7 @@ n00b_session_stop(n00b_session_t *s)
 }
 
 static inline void
-n00b_session_inject(n00b_session_t *s, n00b_string_t *data)
+n00b_session_inject(n00b_session_t *s, void *data)
 {
     if (!s->stdin_injection) {
         N00B_CRAISE("Session does not support input injection.");
@@ -206,33 +206,32 @@ n00b_session_inject(n00b_session_t *s, n00b_string_t *data)
 
     assert(!n00b_type_is_list(n00b_get_my_type(data)));
 
-    n00b_write_blocking(s->stdin_injection, data, NULL);
+    n00b_channel_write(s->stdin_injection, data);
 }
 
 static inline void
 n00b_session_write_to_user(n00b_session_t *s, void *data, bool stdout)
 {
-    n00b_stream_t *stream;
+    n00b_channel_t *stream;
 
     if (stdout) {
-        stream = n00b_stdout();
+        stream = n00b_chan_stdout();
     }
     else {
-        stream = n00b_stderr();
+        stream = n00b_chan_stderr();
     }
 
     if (n00b_type_is_string(n00b_get_my_type(data))) {
         data = (void *)n00b_string_to_buffer((void *)data);
     }
-    assert(!n00b_type_is_list(n00b_get_my_type(data)));
 
-    n00b_write_blocking(stream, data, NULL);
+    n00b_channel_write(stream, data);
 }
 
 static inline void
-n00b_set_replay_stream(n00b_session_t *session, n00b_stream_t *stream)
+n00b_set_replay_stream(n00b_session_t *session, n00b_channel_t *stream)
 {
-    if (!n00b_stream_can_read(stream)) {
+    if (!n00b_channel_can_read(stream)) {
         N00B_CRAISE("Capture stream must be open and readable.");
     }
 
@@ -330,16 +329,16 @@ n00b_session_capture_filename(n00b_session_t *session)
     return session->cap_filename;
 }
 
-extern n00b_list_t *n00b_capture_stream_extractor(n00b_stream_t *, int);
+extern n00b_list_t *n00b_capture_stream_extractor(n00b_channel_t *, int);
 
 static inline n00b_list_t *
 n00b_session_capture_extractor(n00b_session_t *session, int events)
 {
-    n00b_stream_t *stream = session->unproxied_capture;
-    n00b_string_t *fname  = n00b_session_capture_filename(session);
-    n00b_close(stream);
+    n00b_channel_t *stream = session->unproxied_capture;
+    n00b_string_t  *fname  = n00b_session_capture_filename(session);
+    n00b_channel_close(stream);
 
-    stream = n00b_new(n00b_type_file(), fname, n00b_fm_read_only);
+    stream = n00b_channel_open_file(fname, "read_only", n00b_ka(true));
 
     session->unproxied_capture = stream;
 
@@ -727,8 +726,12 @@ extern void                  n00b_capture_launch(n00b_session_t *,
                                                  n00b_list_t *);
 extern void                  n00b_session_finish_capture(n00b_session_t *);
 extern void                  n00b_session_setup_user_read_cb(n00b_session_t *s);
-extern void                  n00b_subproc_read_stdout(n00b_stream_t *, void *, void *);
-extern void                  n00b_subproc_read_stderr(n00b_stream_t *, void *, void *);
+extern void                  n00b_subproc_read_stdout(n00b_channel_t *,
+                                                      void *,
+                                                      void *);
+extern void                  n00b_subproc_read_stderr(n00b_channel_t *,
+                                                      void *,
+                                                      void *);
 extern void                  n00b_truncate_all_match_data(n00b_session_t *,
                                                           n00b_string_t *,
                                                           n00b_capture_t);

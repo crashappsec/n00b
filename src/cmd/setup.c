@@ -24,7 +24,7 @@ const char *n00b_cmd_doc =
     "This is the long doc, but its contents are yet to be written.\n";
 
 static void
-exit_gracefully(n00b_stream_t *e, int64_t signal, void *aux)
+exit_gracefully(n00b_channel_t *e, int64_t signal, void *aux)
 {
     n00b_eprintf("[|em|]Shutting down[|/|] due to signal: [|em|][|#|]",
                  n00b_get_signal_name(signal));

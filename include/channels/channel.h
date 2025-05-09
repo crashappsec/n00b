@@ -19,6 +19,7 @@ typedef int (*n00b_chan_gpos_fn)(n00b_channel_t *);
 typedef void (*n00b_chan_close_fn)(n00b_channel_t *);
 typedef n00b_string_t *(*n00b_chan_repr_fn)(n00b_channel_t *);
 typedef void (*n00b_chan_sub_fn)(n00b_channel_t *, void *);
+typedef bool (*n00b_chan_eof_fn)(n00b_channel_t *);
 
 typedef struct {
     int                cookie_size;
@@ -29,6 +30,7 @@ typedef struct {
     n00b_chan_gpos_fn  gpos_impl; // Get position
     n00b_chan_close_fn close_impl;
     n00b_chan_repr_fn  repr_impl;
+    n00b_chan_eof_fn   eof_impl;
     n00b_chan_sub_fn   read_subscribe_cb;
     n00b_chan_sub_fn   read_unsubscribe_cb;
     bool               poll_for_blocking_reads;
@@ -46,11 +48,13 @@ struct n00b_channel_t {
     // This is in both raw channels and filters in case we want to do
     // notifications per filter level.
     n00b_observable_t pub_info;
+    n00b_list_t      *my_subscriptions;
     n00b_string_t    *name;
     n00b_list_t      *read_cache;
     n00b_chan_impl   *impl;
     n00b_filter_t    *write_top;
     n00b_filter_t    *read_top;
+    int               channel_id; // unique number for debugging.
 
     // Note that individual r/w requests may be 'blocking'; for a
     // read, the block lasts until the end channel operates, AND the
@@ -87,7 +91,7 @@ struct n00b_channel_t {
     // the 'implementation'.
 
     // These bits indicate whether the user can make a
-    // channel_write(), chanel_read()The channel might be closed, but
+    // channel_write(), chanel_read() The channel might be closed, but
     // the implementation should detect and return the indication to
     // the caller.
     unsigned int w           : 1;
@@ -166,6 +170,17 @@ n00b_cnotify_error(n00b_channel_t *channel, void *msg)
     n00b_channel_notify(channel, msg, N00B_CT_ERROR);
 }
 
+static inline bool
+n00b_channel_is_tty(n00b_channel_t *channel)
+{
+    if (!channel->fd_backed) {
+        return false;
+    }
+    n00b_fd_stream_t *cookie = (void *)channel->cookie;
+
+    return cookie->tty;
+}
+
 #endif
 
 extern n00b_observer_t *n00b_channel_subscribe_read(n00b_channel_t *,
@@ -187,6 +202,7 @@ extern n00b_observer_t *n00b_channel_subscribe_error(n00b_channel_t *,
                                                      bool);
 #define n00b_channel_unsubscribe(x) n00b_observer_unsubscribe(x)
 
+extern bool n00b_channel_eof(n00b_channel_t *);
 extern void _n00b_channel_write(n00b_channel_t *, void *, char *, int);
 extern void _n00b_channel_queue(n00b_channel_t *, void *, char *, int);
 
@@ -196,22 +212,50 @@ extern void _n00b_channel_queue(n00b_channel_t *, void *, char *, int);
 #define n00b_channel_queue(chan, msg) \
     _n00b_channel_queue(chan, msg, __FILE__, __LINE__)
 
+extern void n00b_channel_putc(n00b_channel_t *, n00b_codepoint_t);
+
 // Blocking read
 extern void *n00b_channel_read(n00b_channel_t *, int, bool *);
 // This is really a non-blocking read that returns a message IF
 // one is available.
 extern void *n00b_io_dispatcher_process_read_queue(n00b_channel_t *, bool *);
 
-extern int  n00b_channel_get_position(n00b_channel_t *);
-extern bool n00b_channel_set_relative_position(n00b_channel_t *, int);
-extern bool n00b_channel_set_absolute_position(n00b_channel_t *, int);
-extern void n00b_channel_close(n00b_channel_t *);
+extern int         n00b_channel_get_position(n00b_channel_t *);
+extern bool        n00b_channel_set_relative_position(n00b_channel_t *, int);
+extern bool        n00b_channel_set_absolute_position(n00b_channel_t *, int);
+extern void        n00b_channel_close(n00b_channel_t *);
+extern n00b_buf_t *n00b_channel_unfiltered_read(n00b_channel_t *, int);
+extern bool        n00b_channel_unfiltered_write(n00b_channel_t *, n00b_buf_t *);
+
+static inline void
+n00b_channel_set_name(n00b_channel_t *stream, n00b_string_t *s)
+{
+    stream->name = s;
+}
+
+static inline n00b_string_t *
+n00b_channel_get_name(n00b_channel_t *stream)
+{
+    return stream->name;
+}
+
+static inline bool
+n00b_channel_can_read(n00b_channel_t *stream)
+{
+    return stream->r;
+}
+
+static inline bool
+n00b_channel_can_write(n00b_channel_t *stream)
+{
+    return stream->w;
+}
 
 #ifdef N00B_USE_INTERNAL_API
 static inline void *
-n00b_get_channel_cookie(n00b_channel_t *channel)
+n00b_get_channel_cookie(n00b_channel_t *stream)
 {
-    return (void *)channel->cookie;
+    return (void *)stream->cookie;
 }
 
 #define n00b_build_filter_list(output, last)         \
@@ -224,7 +268,7 @@ n00b_get_channel_cookie(n00b_channel_t *channel)
         va_start(args, last);                        \
                                                      \
         item = va_arg(args, void *);                 \
-        if (item) {                                  \
+        if (item && n00b_in_heap(item)) {            \
             if (n00b_type_is_list(item)) {           \
                 output = item;                       \
             }                                        \

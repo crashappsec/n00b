@@ -31,7 +31,7 @@ n00b_is_directory(n00b_stream_t *stream)
 {
     n00b_ev2_cookie_t *cookie = stream->cookie;
 
-    if (n00b_type_is_file(n00b_get_my_type(stream))) {
+    if (n00b_type_is_channel(n00b_get_my_type(stream))) {
         n00b_file_data_t *fd = cookie->aux;
         return fd->kind == n00b_fk_directory;
     }
@@ -48,7 +48,7 @@ n00b_is_regular_file(n00b_stream_t *stream)
 {
     n00b_ev2_cookie_t *cookie = stream->cookie;
 
-    if (n00b_type_is_file(n00b_get_my_type(stream))) {
+    if (n00b_type_is_channel(n00b_get_my_type(stream))) {
         n00b_file_data_t *fd = cookie->aux;
         return fd->kind == n00b_fk_regular;
     }
@@ -65,7 +65,7 @@ n00b_is_link(n00b_stream_t *stream)
 {
     n00b_ev2_cookie_t *cookie = stream->cookie;
 
-    if (n00b_type_is_file(n00b_get_my_type(stream))) {
+    if (n00b_type_is_channel(n00b_get_my_type(stream))) {
         n00b_file_data_t *fd = cookie->aux;
         return fd->kind == n00b_fk_link;
     }
@@ -82,7 +82,7 @@ n00b_is_special_file(n00b_stream_t *stream)
 {
     n00b_ev2_cookie_t *cookie = stream->cookie;
 
-    if (n00b_type_is_file(n00b_get_my_type(stream))) {
+    if (n00b_type_is_channel(n00b_get_my_type(stream))) {
         n00b_file_data_t *fd = cookie->aux;
         return fd->kind == n00b_fk_link;
     }

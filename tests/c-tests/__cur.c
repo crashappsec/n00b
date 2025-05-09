@@ -5,6 +5,8 @@
 // This being here just avoids some meson complexity for us.
 
 n00b_fd_stream_t *my_stdin, *my_stdout;
+n00b_buf_t       *capture;
+n00b_string_t    *test_file;
 
 void
 echo_it(n00b_fd_stream_t *s, n00b_fd_sub_t *sub, n00b_buf_t *buf, void *thunk)
@@ -16,27 +18,42 @@ echo_it(n00b_fd_stream_t *s, n00b_fd_sub_t *sub, n00b_buf_t *buf, void *thunk)
 void
 test_timer(n00b_timer_t *t, n00b_duration_t *time, void *thunk)
 {
-    printf("Hey you.\nGoing to save you from the 10 sec timer.\n");
+    // n00b_show_channels();
     n00b_timer_t *t2 = thunk;
-
     n00b_remove_timer(t2);
 }
 
 void
 timer_2(n00b_timer_t *t, n00b_duration_t *time, void *thunk)
 {
-    printf("PSYCHE!!!\n");
+    n00b_show_channels();
 }
-
-extern void n00b_fd_init_io(void);
 
 void *
 callback_test(n00b_buf_t *b, void *thunk)
 {
-    n00b_printf("subscribed callback got: [|#|]", b);
-    if (b->data[0] == '\e') {
+    switch (b->data[0]) {
+    case '\e':
         n00b_exit(0);
+    case '!':
+        printf("\n");
+        n00b_show_channels();
+        break;
+    case '@':
+        n00b_channel_write(n00b_chan_stderr(), capture);
+        break;
+    case '%':
+        printf("Test that file.\n");
+        n00b_channel_write(n00b_chan_stderr(), test_file);
+        break;
+    case '\r':
+        n00b_channel_write(n00b_chan_stderr(),
+                           n00b_string_to_buffer(n00b_cached_newline()));
+        break;
+    default:
+        break;
     }
+
     return n00b_string_to_buffer(n00b_cstring("\nLOLOL\n"));
 }
 
@@ -70,20 +87,33 @@ int
 main(void)
 {
     n00b_terminal_app_setup();
-    n00b_fd_init_io();
+
+    n00b_list_t   *args = n00b_list(n00b_type_string());
+    n00b_string_t *ls   = n00b_cstring("/bin/ls");
+
+    n00b_list_append(args, n00b_cstring("--color"));
+    n00b_list_append(args, n00b_cstring("/"));
+
+    n00b_gc_register_root(&capture, 1);
+    n00b_gc_register_root(&test_file, 1);
+
+    test_file         = n00b_read_file(n00b_cstring("meson.build"));
+    n00b_proc_t *proc = n00b_run_process(ls, args, true, true);
+    capture           = n00b_proc_get_stdout_capture(proc);
+
+    n00b_show_channels();
 
     n00b_net_addr_t *addr = n00b_new(n00b_type_net_addr(),
                                      n00b_kw("address",
                                              n00b_cstring("127.0.0.1"),
                                              "port",
-                                             7878ULL));
+                                             7879ULL));
 
     n00b_debugf("test", "Address: [|#|]", addr);
     n00b_channel_t *srv = n00b_create_listener(addr);
 
     my_stdin           = n00b_fd_stream_from_fd(0, NULL, NULL);
     my_stdout          = n00b_fd_stream_from_fd(1, NULL, NULL);
-    struct timespec d  = {.tv_sec = 200, .tv_nsec = 0};
     struct timespec t  = {.tv_sec = 5, .tv_nsec = 0};
     struct timespec t2 = {.tv_sec = 10, .tv_nsec = 0};
     bool            err;
@@ -92,11 +122,13 @@ main(void)
     n00b_add_timer(&t, test_timer, n00b_add_timer(&t2, timer_2));
 
     n00b_channel_t *inchan = n00b_new_channel_proxy(n00b_chan_stdin());
-    n00b_channel_t *log    = _n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
-                                                  n00b_kw("write_only",
-                                                          (int64_t) true,
-                                                          "allow_file_creation",
-                                                          (int64_t) true));
+
+    printf("Time to open the log file.\n");
+    n00b_channel_t *log = n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
+                                                 "write_only",
+                                                 (int64_t) true,
+                                                 "allow_file_creation",
+                                                 (int64_t) true);
 
     log                = n00b_new_channel_proxy(log);
     n00b_channel_t *cb = n00b_new_callback_channel(callback_test, NULL);
@@ -107,8 +139,15 @@ main(void)
     n00b_channel_t *accept_cb = n00b_new_callback_channel(my_accept, NULL);
     n00b_channel_subscribe_read(srv, accept_cb, false);
 
-    n00b_fd_run_evloop(n00b_system_dispatcher, (n00b_duration_t *)&d);
-
-    printf("Timeout completed.\n");
-    return 0;
+    n00b_printf("Your two minutes begins on the first tick.");
+    n00b_printf("ESC exits early; ! shows subscriptions.");
+    for (int i = 0; i < 120; i++) {
+        n00b_sleep_ms(1000);
+        if (!(i % 15)) {
+            printf("tick\n");
+        }
+    }
+    printf("Boom!\n");
+    n00b_exit(0);
+    //    n00b_fd_run_evloop(n00b_system_dispatcher, );
 }

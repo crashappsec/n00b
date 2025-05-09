@@ -53,6 +53,8 @@ struct n00b_fd_stream_t {
     unsigned int             needs_r          : 1;
     unsigned int             r_added          : 1;
     unsigned int             w_added          : 1;
+    unsigned int             pause_req        : 1; // request pause.
+    unsigned int             is_paused        : 1; // Paused.
     // This is set externally if the dispatcher should not do the r/w
     // itself for a stream.  In that case, you probably set the notify
     // callback.
@@ -102,9 +104,9 @@ typedef struct {
 typedef struct n00b_rdbuf_t n00b_rdbuf_t;
 
 struct n00b_rdbuf_t {
+    char          segment[PIPE_BUF];
     n00b_rdbuf_t *next;
     int           len;
-    char          segment[PIPE_BUF];
 };
 
 typedef struct {
@@ -142,10 +144,6 @@ struct n00b_event_loop_t {
         n00b_pevent_loop_t poll;
     } algo;
 };
-
-typedef struct n00b_fd_cache_entry_t {
-    _Atomic(n00b_fd_stream_t *) fd_info;
-} n00b_fd_cache_entry_t;
 
 extern n00b_event_loop_t *n00b_system_dispatcher;
 extern bool               n00b_fd_set_absolute_position(n00b_fd_stream_t *,
@@ -216,6 +214,28 @@ n00b_fd_is_other(n00b_fd_stream_t *s)
               || n00b_fd_is_link(s)));
 }
 
+// This is potentially racy, but ideally shouldn't be good design to
+// use willy nilly, so didn't work to get it fully safe.
+static inline void
+n00b_fd_pause_reads(n00b_fd_stream_t *s)
+{
+    if (!s->is_paused) {
+        s->pause_req = true;
+    }
+
+    n00b_list_append(s->evloop->pending, s);
+}
+
+static inline void
+n00b_fd_unpause_reads(n00b_fd_stream_t *s)
+{
+    if (s->is_paused) {
+        s->pause_req = true;
+    }
+
+    n00b_list_append(s->evloop->pending, s);
+}
+
 #ifdef N00B_USE_INTERNAL_API
 typedef bool (*n00b_condition_test_fn)(void *);
 extern bool n00b_condition_poll(n00b_condition_test_fn, void *, int to);
@@ -224,4 +244,4 @@ extern bool n00b_condition_poll(n00b_condition_test_fn, void *, int to);
 #define n00b_add_timer(time, action, ...) \
     _n00b_add_timer(time,                 \
                     action,               \
-                    N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)
+                    N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, __VA_ARGS__))

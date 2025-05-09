@@ -3,10 +3,12 @@
 
 #define capture(x, y, z) n00b_session_capture(x, y, z)
 
+#warning "port n00b_capture_encoder()"
 /*
 static inline n00b_stream_filter_t *
 n00b_capture_encoder(void)
 {
+    return NULL;
     return n00b_new_filter(n00b_capture_encode,
                            NULL,
                            n00b_cstring("capture-encoder"),
@@ -15,7 +17,7 @@ n00b_capture_encoder(void)
 */
 
 static inline void
-write_capture_header(n00b_stream_t *s)
+write_capture_header(n00b_channel_t *s)
 {
     const int64_t    len = sizeof(int64_t) + sizeof(n00b_duration_t);
     n00b_buf_t      *b   = n00b_new(n00b_type_buffer(), n00b_kw("length", len));
@@ -25,11 +27,11 @@ write_capture_header(n00b_stream_t *s)
 
     *mp = (int64_t)N00B_SESSION_MAGIC;
     memcpy(p, d, sizeof(n00b_duration_t));
-    n00b_stream_raw_fd_write(s, b);
+    n00b_channel_unfiltered_write(s, b);
 }
 
 static inline void
-add_record_header(n00b_cap_event_t *event, n00b_stream_t *s)
+add_record_header(n00b_cap_event_t *event, n00b_channel_t *s)
 {
     const int64_t len = sizeof(n00b_duration_t) + sizeof(uint32_t) + 2;
 
@@ -41,11 +43,11 @@ add_record_header(n00b_cap_event_t *event, n00b_stream_t *s)
     p += sizeof(n00b_duration_t);
     *(int16_t *)p = (int16_t)event->kind;
 
-    n00b_stream_raw_fd_write(s, b);
+    n00b_channel_unfiltered_write(s, b);
 }
 
 static inline void
-add_capture_payload_str(n00b_string_t *s, n00b_stream_t *strm)
+add_capture_payload_str(n00b_string_t *s, n00b_channel_t *strm)
 {
     if (!s) {
         s = n00b_cached_empty_string();
@@ -58,12 +60,13 @@ add_capture_payload_str(n00b_string_t *s, n00b_stream_t *strm)
                                       (int64_t)s->u8_bytes,
                                       "ptr",
                                       s->data));
-    n00b_stream_raw_fd_write(strm, b1);
-    n00b_stream_raw_fd_write(strm, b2);
+
+    n00b_channel_unfiltered_write(strm, b1);
+    n00b_channel_unfiltered_write(strm, b2);
 }
 
 static inline void
-add_capture_payload_ansi(n00b_list_t *anodes, n00b_stream_t *strm)
+add_capture_payload_ansi(n00b_list_t *anodes, n00b_channel_t *strm)
 {
     n00b_string_t *s = n00b_ansi_nodes_to_string(anodes, true);
 
@@ -71,18 +74,18 @@ add_capture_payload_ansi(n00b_list_t *anodes, n00b_stream_t *strm)
 }
 
 static inline void
-add_capture_winch(struct winsize *dims, n00b_stream_t *strm)
+add_capture_winch(struct winsize *dims, n00b_channel_t *strm)
 {
     n00b_buf_t *b = n00b_new(n00b_type_buffer(),
                              n00b_kw("length",
                                      (int64_t)sizeof(struct winsize),
                                      "ptr",
                                      dims));
-    n00b_stream_raw_fd_write(strm, b);
+    n00b_channel_unfiltered_write(strm, b);
 }
 
 static inline void
-add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
+add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_channel_t *strm)
 {
     add_capture_payload_str(si->command, strm);
 
@@ -91,7 +94,7 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
                              n00b_kw("length", sizeof(uint32_t)));
 
     *(int32_t *)b->data = n;
-    n00b_stream_raw_fd_write(strm, b);
+    n00b_channel_unfiltered_write(strm, b);
 
     for (int i = 0; i < n; i++) {
         n00b_string_t *s = n00b_list_get(si->args, i, NULL);
@@ -100,7 +103,7 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
 }
 
 static void
-n00b_capture_encode(n00b_stream_t *strm, void *ignore, void *msg)
+n00b_capture_encode(n00b_channel_t *strm, void *ignore, void *msg)
 {
     n00b_cap_event_t *event = msg;
 
@@ -166,8 +169,7 @@ n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
     e->contents = contents;
     e->kind     = kind;
 
-    // TODO: Something isn't working???
-    // n00b_write(s->capture_stream, e);
+    n00b_channel_write(s->capture_stream, e);
     n00b_capture_encode(s->unproxied_capture, NULL, e);
 }
 
@@ -177,7 +179,7 @@ n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
 // ourselves when capture is on.
 
 static void
-record_winch(n00b_stream_t *sig, int64_t signal, n00b_session_t *session)
+record_winch(n00b_channel_t *sig, int64_t signal, n00b_session_t *session)
 {
     struct winsize *dims = n00b_gc_alloc_mapped(struct winsize,
                                                 N00B_GC_SCAN_ALL);
@@ -186,7 +188,7 @@ record_winch(n00b_stream_t *sig, int64_t signal, n00b_session_t *session)
 }
 
 void
-n00b_setup_capture(n00b_session_t *s, n00b_stream_t *target, int policy)
+n00b_setup_capture(n00b_session_t *s, n00b_channel_t *target, int policy)
 {
     if (!policy) {
         policy = ~0;
@@ -196,16 +198,14 @@ n00b_setup_capture(n00b_session_t *s, n00b_stream_t *target, int policy)
         N00B_CRAISE("Currently sessions support only one capture stream");
     }
 
-    if (!n00b_stream_can_write(target)) {
+    if (!n00b_channel_can_write(target)) {
         N00B_CRAISE("Capture stream must be open and writable.");
     }
 
-    s->cap_filename      = n00b_stream_get_name(target);
+    s->cap_filename      = n00b_channel_get_name(target);
     s->unproxied_capture = target;
 
-    n00b_stream_t *p = n00b_new_subscription_proxy();
-
-    n00b_io_subscribe_to_delivery(p, target, NULL);
+    n00b_channel_t *p = n00b_new_channel_proxy(target);
 
     s->capture_stream = p;
     s->capture_policy = policy;
@@ -233,7 +233,7 @@ void
 n00b_session_finish_capture(n00b_session_t *session)
 {
     if (session->saved_capture) {
-        n00b_close(session->saved_capture);
+        n00b_channel_close(session->saved_capture);
     }
 }
 
@@ -253,7 +253,7 @@ n00b_session_pause_recording(n00b_session_t *s)
 void
 n00b_session_continue_recording(n00b_session_t *s)
 {
-    n00b_stream_t *expected = NULL;
+    n00b_channel_t *expected = NULL;
 
     if (!s->saved_capture) {
         return;

@@ -102,7 +102,7 @@ n00b_process_control_buffer(n00b_session_t *session, n00b_string_t *s)
 }
 
 static void
-control_cb(n00b_stream_t *stream, void *msg, void *aux)
+control_cb(n00b_channel_t *stream, void *msg, void *aux)
 {
     n00b_buf_t     *buf     = msg;
     n00b_session_t *session = aux;
@@ -117,14 +117,12 @@ control_cb(n00b_stream_t *stream, void *msg, void *aux)
 void
 n00b_session_setup_control_stream(n00b_session_t *s)
 {
-    n00b_stream_t *cb = n00b_callback_open(control_cb,
-                                           s,
-                                           n00b_cstring("control stream"));
+    n00b_channel_t *cb = n00b_new_callback_channel(control_cb, s);
     n00b_line_buffer_writes(cb);
-    n00b_io_subscribe_to_reads(s->subproc_ctrl_stream, cb, NULL);
+    n00b_channel_subscribe_read(s->subproc_ctrl_stream, cb, false);
 }
 static void
-user_read_cb(n00b_stream_t *stream, void *msg, void *aux)
+user_read_cb(n00b_channel_t *stream, void *msg, void *aux)
 {
     n00b_buf_t     *data    = msg;
     n00b_session_t *session = aux;
@@ -139,7 +137,7 @@ user_read_cb(n00b_stream_t *stream, void *msg, void *aux)
 }
 
 static void
-subproc_injection_cb(n00b_stream_t *stream, void *msg, void *aux)
+subproc_injection_cb(n00b_channel_t *stream, void *msg, void *aux)
 {
     if (n00b_type_is_list(n00b_get_my_type(msg))) {
         msg = n00b_ansi_nodes_to_string(msg, true);
@@ -151,14 +149,14 @@ subproc_injection_cb(n00b_stream_t *stream, void *msg, void *aux)
     n00b_condition_lock_acquire(&session->control_notify);
     capture(session, N00B_CAPTURE_INJECTED, input);
     session->got_injection = true;
-    n00b_write(session->subprocess->subproc_stdin, input);
+    n00b_channel_queue(session->subprocess->subproc_stdin, input);
     add_buf_to_match_buffer(session, N00B_CAPTURE_INJECTED, input);
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
 }
 
 void
-n00b_subproc_read_stdout(n00b_stream_t *stream, void *msg, void *aux)
+n00b_subproc_read_stdout(n00b_channel_t *stream, void *msg, void *aux)
 {
     n00b_list_t    *ansi_nodes = msg;
     n00b_session_t *session    = aux;
@@ -169,17 +167,14 @@ n00b_subproc_read_stdout(n00b_stream_t *stream, void *msg, void *aux)
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDOUT, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-        // Can't use n00b_write until we add a way to cut through filters,
-        // or send parameters to them anyway.
-        // n00b_write(n00b_stdout(), s);
-        write(1, s->data, s->u8_bytes);
+        n00b_channel_queue(n00b_chan_stdout(), s);
     }
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
 }
 
 void
-n00b_subproc_read_stderr(n00b_stream_t *stream, void *msg, void *aux)
+n00b_subproc_read_stderr(n00b_channel_t *stream, void *msg, void *aux)
 {
     n00b_list_t    *ansi_nodes = msg;
     n00b_session_t *session    = aux;
@@ -190,10 +185,7 @@ n00b_subproc_read_stderr(n00b_stream_t *stream, void *msg, void *aux)
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDERR, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-
-        //  Per above.
-        // n00b_write(n00b_stdout(), s);
-        write(2, s->data, s->u8_bytes);
+        n00b_channel_queue(n00b_chan_stderr(), s);
     }
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
@@ -202,10 +194,8 @@ n00b_subproc_read_stderr(n00b_stream_t *stream, void *msg, void *aux)
 void
 n00b_session_setup_user_read_cb(n00b_session_t *s)
 {
-    n00b_stream_t *cb = n00b_callback_open(user_read_cb,
-                                           s,
-                                           n00b_cstring("user input"));
-    n00b_io_subscribe_to_reads(n00b_stdin(), cb, NULL);
+    n00b_channel_t *cb = n00b_new_callback_channel(user_read_cb, s);
+    n00b_channel_subscribe_read(n00b_chan_stdin(), cb, false);
 }
 
 void
@@ -218,28 +208,22 @@ n00b_session_setup_state_handling(n00b_session_t *s)
     n00b_unbuffer_stdout();
     n00b_unbuffer_stderr();
 
-    n00b_stream_t *cb;
+    n00b_channel_t *cb;
     n00b_session_setup_user_read_cb(s);
 
-    cb = n00b_callback_open(subproc_injection_cb,
-                            s,
-                            n00b_cstring("terminal injector"));
+    cb = n00b_new_callback_channel(subproc_injection_cb, s);
     n00b_ansi_ctrl_parse_on_write(cb);
     s->stdin_injection = cb;
 
-    cb = n00b_callback_open(n00b_subproc_read_stdout,
-                            s,
-                            n00b_cstring("terminal stdout"));
+    cb = n00b_new_callback_channel(n00b_subproc_read_stdout, s);
     n00b_ansi_ctrl_parse_on_write(cb);
-    s->stdout_cb = n00b_list(n00b_type_stream());
+    s->stdout_cb = n00b_list(n00b_type_channel());
     n00b_list_append(s->stdout_cb, cb);
 
     if (!s->merge_output) {
-        cb = n00b_callback_open(n00b_subproc_read_stderr,
-                                s,
-                                n00b_cstring("terminal stderr"));
+        cb = n00b_new_callback_channel(n00b_subproc_read_stderr, s);
         n00b_ansi_ctrl_parse_on_write(cb);
-        s->stderr_cb = n00b_list(n00b_type_stream());
+        s->stderr_cb = n00b_list(n00b_type_channel());
         n00b_list_append(s->stderr_cb, cb);
     }
 

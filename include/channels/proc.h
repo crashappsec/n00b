@@ -29,11 +29,11 @@ typedef struct {
     n00b_string_t        *seeded_stdin;
     n00b_list_t          *args;
     n00b_list_t          *env;
-    n00b_stream_t        *subproc_stdin;
-    n00b_stream_t        *subproc_stdout;
-    n00b_stream_t        *subproc_stderr;
-    n00b_stream_t        *subproc_pid;
-    n00b_exitinfo_t      *subproc_results;
+    n00b_channel_t       *subproc_stdin;
+    n00b_channel_t       *subproc_stdout;
+    n00b_channel_t       *subproc_stderr;
+    n00b_channel_t       *subproc_pid;
+    n00b_exit_info_t     *subproc_results;
     n00b_list_t          *pending_stdout_subs;
     n00b_list_t          *pending_stderr_subs;
     n00b_lock_t           run_lock;
@@ -42,7 +42,7 @@ typedef struct {
     n00b_buf_t           *cap_out;
     n00b_buf_t           *cap_err;
     n00b_post_fork_hook_t hook;
-    void                 *thunk;
+    void                 *param;
     struct winsize        dimensions;
     struct termios       *parent_termcap;
     struct termios       *subproc_termcap_ptr;
@@ -77,16 +77,16 @@ static inline void
 n00b_proc_close(n00b_proc_t *proc)
 {
     if (proc->subproc_stdin) {
-        n00b_close(proc->subproc_stdin);
+        n00b_channel_close(proc->subproc_stdin);
     }
     if (proc->subproc_stdout) {
-        n00b_close(proc->subproc_stdout);
+        n00b_channel_close(proc->subproc_stdout);
     }
     if (proc->subproc_stderr) {
-        n00b_close(proc->subproc_stderr);
+        n00b_channel_close(proc->subproc_stderr);
     }
     if (proc->subproc_pid) {
-        n00b_close(proc->subproc_pid);
+        n00b_channel_close(proc->subproc_pid);
     }
 }
 

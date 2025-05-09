@@ -10,7 +10,7 @@ n00b_extract_fd(void *obj)
 
     n00b_type_t *t = n00b_get_my_type(obj);
 
-    if (!n00b_type_is_file(t) && !n00b_type_is_stream(t)) {
+    if (!n00b_type_is_channel(t)) {
         return 0;
     }
 
@@ -365,7 +365,7 @@ n00b_new_file_init(n00b_stream_t *stream, va_list args)
 n00b_stream_t *
 n00b_instream_file(n00b_string_t *fname)
 {
-    return n00b_new(n00b_type_file(), fname, n00b_fm_read_only);
+    return n00b_new(n00b_type_channel(), fname, n00b_fm_read_only);
 }
 
 n00b_stream_t *
@@ -378,7 +378,7 @@ n00b_outstream_file(n00b_string_t *s,
         N00B_CRAISE("Can't set new_only and exists_only");
     }
 
-    return n00b_new(n00b_type_file(),
+    return n00b_new(n00b_type_channel(),
                     s,
                     n00b_fm_write_only,
                     n00b_kw("error_if_exists",
@@ -392,7 +392,7 @@ n00b_outstream_file(n00b_string_t *s,
 n00b_stream_t *
 n00b_iostream_file(n00b_string_t *s, bool new_only)
 {
-    return n00b_new(n00b_type_file(),
+    return n00b_new(n00b_type_channel(),
                     s,
                     n00b_fm_rw,
                     n00b_kw("error_if_exists",
@@ -956,7 +956,7 @@ n00b_read_binary_file(n00b_string_t *path, bool lock)
 
     N00B_TRY
     {
-        f = n00b_new(n00b_type_file(),
+        f = n00b_new(n00b_type_channel(),
                      path,
                      n00b_fm_read_only,
                      n00b_kw("exclusive_lock",

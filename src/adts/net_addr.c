@@ -97,7 +97,7 @@ ipaddr_init(n00b_net_addr_t *obj, va_list args)
     int32_t          port     = -1;
     bool             ipv6     = false;
     bool             unix     = false;
-    bool             resolve  = true;
+    bool             resolve  = false;
     struct sockaddr *sockaddr = NULL;
 
     n00b_karg_va_init(args);
@@ -203,15 +203,17 @@ n00b_net_addr_repr(n00b_net_addr_t *obj)
 static n00b_string_t *
 ipaddr_repr(n00b_net_addr_t *obj)
 {
-    if (obj->resolved_name) {
-        int64_t port = n00b_get_net_addr_port(obj);
-        if (port) {
-            return n00b_cformat("«#»:«#»", obj->resolved_name, port);
-        }
-        return obj->resolved_name;
+    n00b_string_t *base = obj->resolved_name;
+    int64_t        port = n00b_get_net_addr_port(obj);
+
+    if (!base) {
+        base = n00b_net_addr_repr(obj);
     }
 
-    return n00b_net_addr_repr(obj);
+    if (port) {
+        return n00b_cformat("«#»:«#»", base, port);
+    }
+    return base;
 }
 
 n00b_string_t *

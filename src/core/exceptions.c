@@ -176,7 +176,7 @@ n00b_exception_uncaught(n00b_exception_t *exception)
         fprintf(stderr, "%s\n", msg->data);
     }
     else {
-        n00b_print(n00b_stderr(),
+        n00b_print(n00b_chan_stderr(),
                    msg,
                    NULL);
     }

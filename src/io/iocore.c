@@ -97,19 +97,19 @@ n00b_initialize_event(n00b_stream_t       *event,
     event->perms  = (unsigned int)perms;
     event->etype  = et;
 
-    event->close_subs = n00b_dict(n00b_type_stream(), n00b_type_ref());
-    event->error_subs = n00b_dict(n00b_type_stream(), n00b_type_ref());
+    event->close_subs = n00b_dict(n00b_type_channel(), n00b_type_ref());
+    event->error_subs = n00b_dict(n00b_type_channel(), n00b_type_ref());
 
     if (event->perms & n00b_io_perm_r) {
         event->read_filters = n00b_list(n00b_type_ref());
-        event->read_subs    = n00b_dict(n00b_type_stream(),
+        event->read_subs    = n00b_dict(n00b_type_channel(),
                                      n00b_type_ref());
     }
     if (event->perms & n00b_io_perm_w) {
         event->write_filters    = n00b_list(n00b_type_ref());
-        event->write_start_subs = n00b_dict(n00b_type_stream(),
+        event->write_start_subs = n00b_dict(n00b_type_channel(),
                                             n00b_type_ref());
-        event->write_subs       = n00b_dict(n00b_type_stream(),
+        event->write_subs       = n00b_dict(n00b_type_channel(),
                                       n00b_type_ref());
     }
 
@@ -167,7 +167,7 @@ build_filter_list(n00b_list_t *from)
     if (!from || !n00b_list_len(from)) {
         return n00b_crich("«i»None.");
     }
-    n00b_list_t *l = n00b_list(n00b_type_string());
+    n00b_list_t *l = n00b_list(n00b_type_channel());
     int          n = n00b_list_len(from);
     for (int i = 0; i < n; i++) {
         n00b_stream_filter_t *f = n00b_list_get(from, i, NULL);
@@ -199,7 +199,7 @@ one_subscription_repr(n00b_stream_t *s, n00b_io_subscription_kind k)
         return NULL;
     }
     n00b_list_t *subs = n00b_dict_keys(d);
-    n00b_list_t *l    = n00b_list(n00b_type_string());
+    n00b_list_t *l    = n00b_list(n00b_type_channel());
     int          n    = n00b_list_len(subs);
 
     if (!n) {
@@ -1567,7 +1567,7 @@ n00b_internal_io_setup(void)
 {
     n00b_named_lock_init(&event_loop_lock, "event loop");
 
-    impls = n00b_dict(n00b_type_string(), n00b_type_ref());
+    impls = n00b_dict(n00b_type_channel(), n00b_type_ref());
     setup_libevent();
     n00b_system_event_base->system = true;
 

@@ -6,7 +6,7 @@
 #define DEFAULT_SERVER_HOST "127.0.0.1"
 #define SERVER_LOGFILE_ENV  "N00B_DEBUG_LOG"
 
-#define DEFAULT_SERVER_PORT 7878
+#define DEFAULT_SERVER_PORT 7877
 #define RETRY_STARTING_MS   500
 
 static void           attempt_connection(void);

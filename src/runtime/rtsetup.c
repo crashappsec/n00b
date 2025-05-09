@@ -164,8 +164,8 @@ n00b_vm_global_run_state_init(n00b_vm_t *vm)
 
 #ifdef N00B_DEV
     vm->run_state->print_buf    = n00b_buffer_empty();
-    vm->run_state->print_stream = n00b_outstream_buffer(vm->run_state->print_buf,
-                                                        false);
+    vm->run_state->print_stream = n00b_out_buf_channel(vm->run_state->print_buf,
+                                                       false);
 #endif
 }
 

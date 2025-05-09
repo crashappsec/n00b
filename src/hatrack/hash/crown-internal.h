@@ -37,13 +37,45 @@ extern void *
 crown_store_get(crown_store_t *, hatrack_hash_t, bool *);
 
 extern void *
-crown_store_put(crown_store_t *, mmm_thread_t *, crown_t *, hatrack_hash_t, void *, bool *, uint64_t);
+crown_store_put(crown_store_t *,
+                mmm_thread_t *,
+                crown_t *,
+                hatrack_hash_t,
+                void *,
+                bool *,
+                uint64_t);
 
 extern void *
-crown_store_replace(crown_store_t *, mmm_thread_t *, crown_t *, hatrack_hash_t, void *, bool *, uint64_t);
+crown_store_replace(crown_store_t *,
+                    mmm_thread_t *,
+                    crown_t *,
+                    hatrack_hash_t,
+                    void *,
+                    bool *,
+                    uint64_t);
+
+extern void *
+crown_store_cas(crown_store_t *,
+                mmm_thread_t *,
+                crown_t *,
+                hatrack_hash_t,
+                void *,
+                void *,
+                bool *,
+                uint64_t);
 
 extern bool
-crown_store_add(crown_store_t *, mmm_thread_t *, crown_t *, hatrack_hash_t, void *, uint64_t);
+crown_store_add(crown_store_t *,
+                mmm_thread_t *,
+                crown_t *,
+                hatrack_hash_t,
+                void *,
+                uint64_t);
 
 extern void *
-crown_store_remove(crown_store_t *, mmm_thread_t *, crown_t *, hatrack_hash_t, bool *, uint64_t);
+crown_store_remove(crown_store_t *,
+                   mmm_thread_t *,
+                   crown_t *,
+                   hatrack_hash_t,
+                   bool *,
+                   uint64_t);
