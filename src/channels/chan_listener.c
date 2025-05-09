@@ -39,7 +39,9 @@ listener_open(n00b_channel_t *stream, n00b_list_t *args)
 
     enable_opt(sock, SO_REUSEADDR);
     enable_opt(sock, SO_KEEPALIVE);
+#if defined(__APPLE__) || defined(__FreeBSD__)
     enable_opt(sock, SO_NOSIGPIPE);
+#endif
 
     if (bind(sock, (void *)&addr->addr, len)) {
         n00b_raise_errno();

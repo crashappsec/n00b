@@ -274,8 +274,16 @@ apply_preferred_sockopts(int fd)
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &true_val, sizeof(int));
+#if defined(__APPLE__) || defined(__FreeBSD__)
     setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_LINGER_SEC, &linger, sizeof(int));
+#elif defined(__linux__)
+    struct linger linger_opt = {
+        .l_onoff = 1,
+        .l_linger = N00B_SOCKET_LINGER_SEC
+    };
+    setsockopt(fd, SOL_SOCKET, SO_LINGER, &linger_opt, sizeof(struct linger));
+#endif
 }
 
 n00b_fd_stream_t *
