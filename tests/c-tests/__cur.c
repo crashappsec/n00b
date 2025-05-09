@@ -72,6 +72,19 @@ main(void)
     n00b_terminal_app_setup();
     n00b_fd_init_io();
 
+    n00b_list_t   *args = n00b_list(n00b_type_string());
+    n00b_string_t *ls   = n00b_cstring("/bin/ls");
+
+    n00b_list_append(args, ls);
+    n00b_list_append(args, n00b_cstring("--color"));
+    n00b_list_append(args, n00b_cstring("/"));
+#if 0
+    n00b_proc_t *proc = n00b_run_process(ls, args, true, true);
+    n00b_buf_t  *cap  = n00b_proc_get_stdout_capture(proc);
+
+    n00b_printf("Command done. Cap: \n[|#|]\n",
+                n00b_buf_to_string(cap));
+#endif
     n00b_net_addr_t *addr = n00b_new(n00b_type_net_addr(),
                                      n00b_kw("address",
                                              n00b_cstring("127.0.0.1"),

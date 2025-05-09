@@ -69,10 +69,29 @@ extern bool n00b_startup_complete;
 #include "util/notify.h"
 
 // IO primitives.
-#include "io/term.h"
+#include "channels/print.h"
+#include "util/hex.h"
+#include "text/layout.h"
+#include "text/ansi.h"
+#include "text/regex.h"
+
+#include "channels/fd_event.h"
+#include "channels/observable.h"
+#include "channels/filter.h"
+#include "channels/channel.h"
+#include "channels/channel_fd.h"
+#include "channels/channel_cb.h"
+#include "channels/channel_buffer.h"
+#include "channels/channel_topic.h"
+#include "channels/channel_exit.h"
+#include "channels/channel_proxy.h"
+#include "channels/terminal_io.h"
+
+#include "channels/proc.h"
+#include "channels/session.h"
+
 #include "io/iocore.h"
 #include "io/ioqueue.h"
-#include "io/proc.h" // To replace subproc.h
 
 // Mixed data type API.
 #include "adts/mixed.h"
@@ -132,27 +151,10 @@ extern bool n00b_startup_complete;
 
 // Helper functions for object marshal implementations to
 // marshal primitive values.
-#include "util/hex.h"
+
 #include "io/debug.h"
 
-#include "text/layout.h"
-#include "text/ansi.h"
-#include "text/regex.h"
-
-#include "io/session.h"
 #include "util/testgen.h"
-
-#include "channels/fd_event.h"
-#include "channels/observable.h"
-#include "channels/filter.h"
-#include "channels/channel.h"
-#include "channels/channel_fd.h"
-#include "channels/channel_cb.h"
-#include "channels/channel_buffer.h"
-#include "channels/channel_topic.h"
-#include "channels/channel_exit.h"
-#include "channels/channel_proxy.h"
-#include "channels/terminal_io.h"
 
 #include "debug/workflow.h"
 #include "debug/debug.h"

@@ -134,7 +134,14 @@ static void
 fdchan_write(n00b_channel_t *stream, void *msg, bool block)
 {
     n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
-    n00b_buf_t       *b = msg;
+    n00b_buf_t       *b;
+
+    if (n00b_type_is_string(n00b_get_my_type(msg))) {
+        b = n00b_string_to_buffer(msg);
+    }
+    else {
+        b = msg;
+    }
 
     if (block) {
         n00b_fd_write(c->stream, b->data, b->byte_len);
@@ -180,6 +187,12 @@ _n00b_new_fd_channel(n00b_fd_stream_t *fd, ...)
     n00b_list_append(args, fd);
 
     return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
+}
+
+n00b_channel_t *
+n00b_channel_fd_open(int fd)
+{
+    return n00b_new_fd_channel(n00b_fd_stream_from_fd(fd, NULL, NULL));
 }
 
 n00b_channel_t *
@@ -463,4 +476,18 @@ _n00b_channel_connect(n00b_net_addr_t *addr, ...)
     n00b_list_append(args, n00b_fd_stream_from_fd(sock, NULL, NULL));
 
     return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
+}
+
+void
+n00b_channel_fd_pause_reads(n00b_channel_t *stream)
+{
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_pause_reads(c->stream);
+}
+
+void
+n00b_channel_fd_unpause_reads(n00b_channel_t *stream)
+{
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_unpause_reads(c->stream);
 }

@@ -702,29 +702,6 @@ extern n00b_stream_t *n00b_outstream_file(n00b_string_t *, bool, bool, bool);
 extern n00b_stream_t *n00b_iostream_file(n00b_string_t *, bool);
 extern void           n00b_ignore_uncaught_io_errors(void);
 extern void          *n00b_stream_read_all(n00b_stream_t *);
-extern void           _n00b_print(n00b_obj_t, ...);
-
-#define n00b_print(s, ...) _n00b_print(s, N00B_VA(__VA_ARGS__))
-#define n00b_eprint(...)   _n00b_print(n00b_stderr(), N00B_VA(__VA_ARGS__))
-
-#define n00b_printf(fmt, ...)                                  \
-    {                                                          \
-        n00b_string_t *__str = n00b_cformat(fmt, __VA_ARGS__); \
-        _n00b_print(__str, NULL);                              \
-    }
-
-#define n00b_eprintf(fmt, ...)                                 \
-    {                                                          \
-        n00b_string_t *__str = n00b_cformat(fmt, __VA_ARGS__); \
-        _n00b_print(n00b_stderr(), __str, NULL);               \
-    }
-
-#ifdef N00B_DEBUG
-void _n00b_cprintf(char *, int64_t, ...);
-
-#define cprintf(fmt, ...) \
-    _n00b_cprintf(fmt, N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)
-#endif
 
 #ifdef N00B_USE_INTERNAL_API
 #define n00b_event_add(x, y) \

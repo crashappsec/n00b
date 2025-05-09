@@ -2,13 +2,11 @@
 #include "n00b.h"
 
 static void *
-launch_wait(n00b_exit_info_t *c)
+launch_wait(n00b_channel_t *stream)
 {
     bool err;
 
-    if (!c->cref->read_cache) {
-        c->cref->read_cache = n00b_list(n00b_type_ref());
-    }
+    n00b_exit_info_t *c = n00b_get_channel_cookie(stream);
 
     n00b_thread_async_cancelable();
     n00b_gts_suspend();
@@ -20,10 +18,10 @@ launch_wait(n00b_exit_info_t *c)
 
     c->exited = true;
 
-    n00b_list_append(c->cref->read_cache, c);
+    n00b_list_append(stream->read_cache, c);
 
     // Don't care about the result of err, just need to pass it.
-    n00b_io_dispatcher_process_read_queue(c->cref, &err);
+    n00b_io_dispatcher_process_read_queue(stream, &err);
 
     return NULL;
 }
@@ -33,7 +31,7 @@ exitchan_init(n00b_channel_t *stream, n00b_list_t *args)
 {
     n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_channel_cookie(stream);
     c->pid              = (int64_t)n00b_private_list_pop(args);
-    c->waiter           = n00b_thread_spawn((void *)launch_wait, c);
+    c->waiter           = n00b_thread_spawn((void *)launch_wait, stream);
     stream->name        = n00b_cformat("pid(exit): [|#|]", c->pid);
 
     return O_RDONLY;

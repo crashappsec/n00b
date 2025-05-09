@@ -207,11 +207,29 @@ extern bool n00b_channel_set_relative_position(n00b_channel_t *, int);
 extern bool n00b_channel_set_absolute_position(n00b_channel_t *, int);
 extern void n00b_channel_close(n00b_channel_t *);
 
+static inline void
+n00b_channel_set_name(n00b_channel_t *stream, n00b_string_t *s)
+{
+    stream->name = s;
+}
+
+static inline bool
+n00b_channel_can_read(n00b_channel_t *stream)
+{
+    return stream->r;
+}
+
+static inline bool
+n00b_channel_can_write(n00b_channel_t *stream)
+{
+    return stream->w;
+}
+
 #ifdef N00B_USE_INTERNAL_API
 static inline void *
-n00b_get_channel_cookie(n00b_channel_t *channel)
+n00b_get_channel_cookie(n00b_channel_t *stream)
 {
-    return (void *)channel->cookie;
+    return (void *)stream->cookie;
 }
 
 #define n00b_build_filter_list(output, last)         \

@@ -558,7 +558,7 @@ fd_post_close(n00b_fd_stream_t *s)
     s->read_closed  = true;
     s->write_closed = true;
 
-    while (s->close_subs) {
+    while (n00b_list_len(s->close_subs)) {
         n00b_fd_sub_t *sub = n00b_list_pop(s->close_subs);
         if (!sub) {
             continue;
@@ -1087,8 +1087,31 @@ process_pending_changes(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
 
         struct pollfd *entry = &ploop->pollset[s->internal_ix];
 
-        if (s->needs_r) {
+        if (s->pause_req) {
+            if (s->is_paused) {
+                s->r_added   = true;
+                s->is_paused = false;
+
+                // Should never be false, but be safe.
+                if (entry->events & POLLIN) {
+                    entry->events &= ~POLLIN;
+                    ploop->ops_in_pollset--;
+                }
+            }
+            else {
+                s->r_added   = false;
+                s->is_paused = true;
+                if (!(entry->events & POLLIN)) {
+                    entry->events |= POLLIN;
+                    ploop->ops_in_pollset++;
+                }
+            }
+            s->pause_req = false;
+        }
+
+        if (s->needs_r && !s->is_paused) {
             s->r_added = true;
+
             if (!(entry->events & POLLIN)) {
                 entry->events |= POLLIN;
                 ploop->ops_in_pollset++;
@@ -1104,8 +1127,6 @@ process_pending_changes(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
         s = n00b_private_list_pop(loop->pending);
     }
 }
-
-bool fd_debug_on = false;
 
 static inline void
 process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
@@ -1380,4 +1401,40 @@ void
 n00b_remove_timer(n00b_timer_t *timer)
 {
     n00b_list_remove_item(timer->loop->timers, timer);
+}
+
+void
+n00b_dump_read_subscriptions(n00b_event_loop_t *hll)
+{
+    if (!hll) {
+        hll = n00b_system_dispatcher;
+    }
+
+    n00b_pevent_loop_t *l = &hll->algo.poll;
+
+    for (int i = 0; i < l->pollset_last; i++) {
+        n00b_fd_stream_t *s = l->monitored_fds[i];
+        if (!s) {
+            continue;
+        }
+
+        int nr = 0;
+
+        if (s->read_subs) {
+            nr = n00b_list_len(s->read_subs);
+        }
+
+        n00b_string_t *cstr;
+        cstr = n00b_cformat("fd [|#|] has [|#|] read subs\n",
+                            (int64_t)s->fd,
+                            (int64_t)nr,
+                            0);
+        printf("%s", cstr->data);
+
+        for (int j = 0; j < nr; j++) {
+            n00b_fd_sub_t *sub = n00b_list_get(s->read_subs, j, NULL);
+            cstr               = n00b_cformat("Subscriber param: [|#|]\n", sub->thunk);
+            printf("%s", cstr->data);
+        }
+    }
 }

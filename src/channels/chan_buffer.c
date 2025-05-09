@@ -15,6 +15,10 @@ bufchan_init(n00b_channel_t *stream, n00b_list_t *args)
 
     stream->name = n00b_cformat("Buffer @[|#:p|]", c->buffer);
 
+    if (n00b_list_pop(args)) {
+        c->position = c->buffer->byte_len;
+    }
+
     return ret;
 }
 
@@ -134,10 +138,11 @@ static n00b_chan_impl n00b_bufchan_impl = {
 };
 
 n00b_channel_t *
-n00b_channel_from_buffer(n00b_buf_t *b, int64_t mode, n00b_list_t *filters)
+n00b_channel_from_buffer(n00b_buf_t *b, int64_t mode, n00b_list_t *filters, bool end)
 {
     n00b_list_t *args = n00b_list(n00b_type_ref());
 
+    n00b_list_append(args, (void *)(int64_t)end);
     n00b_list_append(args, b);
     n00b_list_append(args, (void *)mode);
 
@@ -150,23 +155,23 @@ _n00b_in_buf_channel(n00b_buf_t *b, ...)
     n00b_list_t *filters;
     n00b_build_filter_list(filters, b);
 
-    return n00b_channel_from_buffer(b, O_RDONLY, filters);
+    return n00b_channel_from_buffer(b, O_RDONLY, filters, false);
 }
 
 n00b_channel_t *
-_n00b_out_buf_channel(n00b_buf_t *b, ...)
+_n00b_out_buf_channel(n00b_buf_t *b, bool end, ...)
 {
     n00b_list_t *filters;
     n00b_build_filter_list(filters, b);
 
-    return n00b_channel_from_buffer(b, O_WRONLY, filters);
+    return n00b_channel_from_buffer(b, O_WRONLY, filters, end);
 }
 
 n00b_channel_t *
-_n00b_io_buf_channel(n00b_buf_t *b, ...)
+_n00b_io_buf_channel(n00b_buf_t *b, bool end, ...)
 {
     n00b_list_t *filters;
     n00b_build_filter_list(filters, b);
 
-    return n00b_channel_from_buffer(b, O_RDWR, filters);
+    return n00b_channel_from_buffer(b, O_RDWR, filters, end);
 }

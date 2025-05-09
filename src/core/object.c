@@ -691,6 +691,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
         .mutable   = true,
     },
+    /*
     [N00B_T_SESSION] = {
         .name      = "session",
         .typeid    = N00B_T_SESSION,
@@ -717,7 +718,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = false,
-    },
+        },*/
 
 };
 

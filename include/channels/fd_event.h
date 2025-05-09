@@ -53,6 +53,8 @@ struct n00b_fd_stream_t {
     unsigned int             needs_r          : 1;
     unsigned int             r_added          : 1;
     unsigned int             w_added          : 1;
+    unsigned int             pause_req        : 1; // request pause.
+    unsigned int             is_paused        : 1; // Paused.
     // This is set externally if the dispatcher should not do the r/w
     // itself for a stream.  In that case, you probably set the notify
     // callback.
@@ -214,6 +216,28 @@ n00b_fd_is_other(n00b_fd_stream_t *s)
 {
     return (!(n00b_fd_is_regular_file(s) || n00b_fd_is_directory(s)
               || n00b_fd_is_link(s)));
+}
+
+// This is potentially racy, but ideally shouldn't be good design to
+// use willy nilly, so didn't work to get it fully safe.
+static inline void
+n00b_fd_pause_reads(n00b_fd_stream_t *s)
+{
+    if (!s->is_paused) {
+        s->pause_req = true;
+    }
+
+    n00b_list_append(s->evloop->pending, s);
+}
+
+static inline void
+n00b_fd_unpause_reads(n00b_fd_stream_t *s)
+{
+    if (s->is_paused) {
+        s->pause_req = true;
+    }
+
+    n00b_list_append(s->evloop->pending, s);
 }
 
 #ifdef N00B_USE_INTERNAL_API

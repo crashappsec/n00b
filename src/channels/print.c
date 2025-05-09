@@ -1,23 +1,22 @@
 #include "n00b.h"
 
 static inline void
-n00b_do_write(n00b_stream_t *stream, void *data, bool noblock)
+n00b_do_write(n00b_channel_t *stream, void *data, bool noblock)
 {
     if (noblock) {
-        n00b_write(stream, data);
+        n00b_channel_queue(stream, data);
     }
     else {
-        n00b_write_blocking(stream, data, NULL);
+        n00b_channel_write(stream, data);
     }
 }
 
 void
-_n00b_print(n00b_obj_t first, ...)
+_n00b_print(void *first, ...)
 {
     va_list           args;
-    n00b_obj_t        cur        = first;
+    void             *cur        = first;
     n00b_karg_info_t *_n00b_karg = NULL;
-    n00b_stream_t    *old_stream = NULL;
     n00b_channel_t   *stream     = NULL;
     n00b_codepoint_t  sep        = ' ';
     n00b_codepoint_t  end        = '\n';
@@ -29,18 +28,18 @@ _n00b_print(n00b_obj_t first, ...)
     va_start(args, first);
 
     if (first == NULL) {
-        n00b_do_write(n00b_stdout(), n00b_cached_newline(), true);
+        n00b_do_write(n00b_chan_stdout(), n00b_cached_newline(), true);
         return;
     }
 
     n00b_type_t *t = n00b_get_my_type(first);
 
-    if (n00b_type_is_stream(t) || n00b_type_is_file(t)) {
+    if (n00b_type_is_channel(t)) {
         stream = first;
-        first  = va_arg(args, n00b_obj_t);
+        first  = va_arg(args, void *);
         cur    = first;
         if (!first) {
-            n00b_do_write(n00b_stdout(), n00b_cached_newline(), true);
+            n00b_do_write(n00b_chan_stdout(), n00b_cached_newline(), true);
             return;
         }
     }
@@ -53,7 +52,7 @@ _n00b_print(n00b_obj_t first, ...)
         if (numargs < 0) {
             numargs = 0;
         }
-        cur = va_arg(args, n00b_obj_t);
+        cur = va_arg(args, void *);
     }
     else {
         _n00b_karg = n00b_get_kargs_and_count(args, &numargs);
@@ -62,7 +61,7 @@ _n00b_print(n00b_obj_t first, ...)
 
     if (_n00b_karg != NULL) {
         if (!stream) {
-            n00b_kw_ptr("stream", old_stream);
+            n00b_kw_ptr("stream", stream);
         }
 
         n00b_kw_codepoint("sep", sep);
@@ -73,7 +72,7 @@ _n00b_print(n00b_obj_t first, ...)
     }
 
     if (stream == NULL) {
-        stream = n00b_stdout();
+        stream = n00b_chan_stdout();
     }
 
     n00b_string_t *s;
@@ -93,20 +92,13 @@ _n00b_print(n00b_obj_t first, ...)
         }
 
         n00b_do_write(stream, s, noblock);
-        cur = va_arg(args, n00b_obj_t);
+        cur = va_arg(args, void *);
     }
 
     if (end) {
         s = n00b_string_from_codepoint(end);
         n00b_do_write(stream, s, noblock);
     }
-
-#if 0
-// CURRENTLY needs implementing
-    if (flush) {
-        n00b_flush(stream);
-    }
-#endif
 
     va_end(args);
 }
