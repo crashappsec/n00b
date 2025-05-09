@@ -169,7 +169,7 @@ _n00b_write(n00b_stream_t *recipient,
         }
     }
 
-    n00b_assert(n00b_type_is_stream(n00b_get_my_type(entry.recipient)));
+    n00b_assert(n00b_type_is_channel(n00b_get_my_type(entry.recipient)));
 
     cur->q[offset] = entry;
 
@@ -226,7 +226,7 @@ n00b_process_queue(void)
             } while (!entry.recipient);
             delivered++;
             processing->q[j] = empty;
-            n00b_assert(n00b_type_is_stream(n00b_get_my_type(entry.recipient)));
+            n00b_assert(n00b_type_is_channel(n00b_get_my_type(entry.recipient)));
             n00b_handle_one_delivery(entry.recipient, entry.msg, true);
 #ifdef N00B_INTERNAL_DEBUG
             printf("\nq-> deliver msg slot %llu to recipient %s (%p); msg was:\n%s\n",

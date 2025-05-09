@@ -2,16 +2,16 @@
 #include "n00b.h"
 
 static inline bool
-read_capture_magic(n00b_stream_t *s)
+read_capture_magic(n00b_channel_t *s)
 {
-    char               buf[8];
-    n00b_ev2_cookie_t *cookie   = s->cookie;
-    const int64_t      expected = N00B_SESSION_MAGIC;
-    int                r        = 0;
-    int64_t           *magic    = (int64_t *)&buf[0];
+    char              buf[8];
+    n00b_fd_cookie_t *cookie   = n00b_get_channel_cookie(s);
+    const int64_t     expected = N00B_SESSION_MAGIC;
+    int               r        = 0;
+    int64_t          *magic    = (int64_t *)&buf[0];
 
     while (r < 8) {
-        int x = read(cookie->id, buf + r, sizeof(int64_t));
+        int x = read(cookie->stream->fd, buf + r, sizeof(int64_t));
         if (x == -1) {
             n00b_raise_errno();
         }
@@ -22,23 +22,22 @@ read_capture_magic(n00b_stream_t *s)
 }
 
 static inline n00b_duration_t *
-read_timestamp(n00b_stream_t *s, double scale)
+read_timestamp(n00b_channel_t *s, double scale)
 {
-    n00b_ev2_cookie_t *cookie = s->cookie;
-    char               buf[sizeof(n00b_duration_t)];
+    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(s);
+    char              buf[sizeof(n00b_duration_t)];
 
-    read(cookie->id, buf, sizeof(n00b_duration_t));
+    read(cookie->stream->fd, buf, sizeof(n00b_duration_t));
 
     return n00b_duration_multiply((n00b_duration_t *)&buf[0], scale);
 }
 
 static inline int32_t
-read_capture_int32(n00b_stream_t *s)
+read_capture_int32(n00b_channel_t *s)
 {
-    n00b_ev2_cookie_t *cookie = s->cookie;
-
-    char buf[sizeof(int32_t)];
-    read(cookie->id, buf, sizeof(int32_t));
+    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(s);
+    char              buf[sizeof(int32_t)];
+    read(cookie->stream->fd, buf, sizeof(int32_t));
 
     int32_t result = *(int32_t *)&buf[0];
 
@@ -46,50 +45,47 @@ read_capture_int32(n00b_stream_t *s)
 }
 
 static inline int
-read_event_type(n00b_stream_t *s)
+read_event_type(n00b_channel_t *s)
 {
-    n00b_ev2_cookie_t *cookie = s->cookie;
-    uint16_t           result;
+    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(s);
+    uint16_t          result;
 
-    read(cookie->id, &result, 2);
+    read(cookie->stream->fd, &result, 2);
 
     return result;
 }
 
 static inline n00b_string_t *
-read_capture_payload_str(n00b_stream_t *s)
+read_capture_payload_str(n00b_channel_t *s)
 {
-    n00b_buf_t *sbuf = n00b_new(n00b_type_buffer(), n00b_kw("length", 4ULL));
+    n00b_buf_t *sbuf;
     int64_t     len;
 
-    n00b_stream_raw_fd_read(s, sbuf);
-    len = *(int32_t *)sbuf->data;
-
-    sbuf = n00b_new(n00b_type_buffer(), n00b_kw("length", len));
-    n00b_stream_raw_fd_read(s, sbuf);
+    sbuf = n00b_channel_unfiltered_read(s, 4);
+    len  = *(int32_t *)sbuf->data;
+    sbuf = n00b_channel_unfiltered_read(s, len);
 
     return n00b_buf_to_string(sbuf);
 }
 
 static inline n00b_list_t *
-read_ansi_payload_str(n00b_stream_t *s)
+read_ansi_payload_str(n00b_channel_t *s)
 {
     n00b_string_t *str = read_capture_payload_str(s);
     return n00b_string_to_ansi_node_list(str);
 }
 
 static inline struct winsize *
-read_winch_payload(n00b_stream_t *s)
+read_winch_payload(n00b_channel_t *s)
 {
     const int64_t len  = sizeof(struct winsize *);
-    n00b_buf_t   *sbuf = n00b_new(n00b_type_buffer(), n00b_kw("length", len));
+    n00b_buf_t   *sbuf = n00b_channel_unfiltered_read(s, len);
 
-    n00b_stream_raw_fd_read(s, sbuf);
     return (struct winsize *)sbuf->data;
 }
 
 static inline n00b_cap_spawn_info_t *
-read_spawn_payload(n00b_stream_t *s)
+read_spawn_payload(n00b_channel_t *s)
 {
     n00b_cap_spawn_info_t *result = n00b_gc_alloc_mapped(n00b_cap_spawn_info_t,
                                                          N00B_GC_SCAN_ALL);
@@ -120,7 +116,7 @@ make_gap_adjustment(n00b_log_cursor_t *cap, n00b_cap_event_t *cur)
 }
 
 static void
-write_event(n00b_cap_event_t *event, n00b_stream_t *loc)
+write_event(n00b_cap_event_t *event, n00b_channel_t *loc)
 {
     n00b_string_t *s = NULL;
     if (n00b_type_is_string(n00b_get_my_type(event->contents))) {
@@ -130,7 +126,7 @@ write_event(n00b_cap_event_t *event, n00b_stream_t *loc)
         s = n00b_ansi_nodes_to_string(event->contents, true);
     }
 
-    n00b_stream_raw_fd_write(loc, n00b_string_to_buffer(s));
+    n00b_channel_write(loc, s);
 }
 
 static inline void
@@ -164,9 +160,9 @@ replay_one_event(n00b_session_t *session, n00b_cap_event_t *event)
 }
 
 static inline n00b_cap_event_t *
-get_next_event(n00b_stream_t *s, double scale)
+get_next_event(n00b_channel_t *s, double scale)
 {
-    if (n00b_at_eof(s)) {
+    if (n00b_channel_eof(s)) {
         return NULL;
     }
     n00b_cap_event_t *result = n00b_gc_alloc_mapped(n00b_cap_event_t,
@@ -290,15 +286,15 @@ void *
 n00b_session_run_replay_loop(n00b_session_t *session)
 {
     n00b_log_cursor_t *cap = &session->log_cursor;
-    n00b_stream_t     *log = cap->log;
+    n00b_channel_t    *log = cap->log;
 
-    n00b_stream_set_position(log, 0);
+    n00b_channel_set_absolute_position(log, 0);
 
     if (!read_capture_magic(log)) {
         n00b_string_t *err;
 
         err = n00b_cformat("Stream [|em|][|#|][|/|] is not a capture file.",
-                           n00b_stream_get_name(log));
+                           n00b_channel_get_name(log));
         N00B_RAISE(err);
     }
 
@@ -415,7 +411,7 @@ n00b_session_replay_setup_default_controls(n00b_session_t *session)
 // types.
 
 n00b_session_t *
-n00b_cinematic_replay_setup(n00b_stream_t *stream)
+n00b_cinematic_replay_setup(n00b_channel_t *stream)
 {
     n00b_session_t    *result = n00b_gc_alloc_mapped(n00b_session_t,
                                                   N00B_GC_SCAN_ALL);
@@ -427,9 +423,9 @@ n00b_cinematic_replay_setup(n00b_stream_t *stream)
     c->time_scale = 1.0;
     c->channels   = N00B_CAPTURE_STDIN | N00B_CAPTURE_STDOUT
                 | N00B_CAPTURE_STDERR | N00B_CAPTURE_WINCH;
-    c->stdin_dst  = n00b_stdout();
-    c->stdout_dst = n00b_stdout();
-    c->stderr_dst = n00b_stderr();
+    c->stdin_dst  = n00b_chan_stdout();
+    c->stdout_dst = n00b_chan_stdout();
+    c->stderr_dst = n00b_chan_stderr();
     c->log        = stream;
 
     n00b_session_replay_setup_default_controls(result);
@@ -463,14 +459,14 @@ n00b_enable_command_replay(n00b_session_t *s, bool start_paused)
 }
 
 n00b_list_t *
-n00b_capture_stream_extractor(n00b_stream_t *stream, int events)
+n00b_capture_stream_extractor(n00b_channel_t *stream, int events)
 {
-    if (!n00b_stream_can_read(stream)) {
+    if (!n00b_channel_can_read(stream)) {
         N00B_CRAISE("Capture stream must be open and readable.");
     }
 
-    n00b_ev2_cookie_t *cookie = stream->cookie;
-    lseek(cookie->id, 0, SEEK_SET);
+    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(stream);
+    lseek(cookie->stream->fd, 0, SEEK_SET);
 
     if (!read_capture_magic(stream)) {
         N00B_CRAISE("Stream is not a capture file.");
@@ -493,7 +489,7 @@ n00b_capture_stream_extractor(n00b_stream_t *stream, int events)
 }
 
 void
-n00b_session_set_replay_stream(n00b_session_t *session, n00b_stream_t *s)
+n00b_session_set_replay_stream(n00b_session_t *session, n00b_channel_t *s)
 {
     n00b_enable_replay(session, false);
     session->log_cursor.log = s;

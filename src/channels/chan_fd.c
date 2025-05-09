@@ -1,6 +1,108 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+#if 0
+// This was useful; will keep it around.
+void
+n00b_describe_open_flags(int f)
+{
+    switch (f & O_ACCMODE) {
+    case O_WRONLY:
+        printf("O_WRONLY ");
+        break;
+    case O_RDONLY:
+        printf("O_RDONLY ");
+        break;
+    default:
+        printf("O_RDWR ");
+        break;
+    }
+
+    f = f & ~O_ACCMODE;
+
+    if (f & O_EXEC) {
+        printf("O_EXEC ");
+        f = f & ~O_EXEC;
+    }
+
+    if (f & O_NONBLOCK) {
+        printf("O_NONBLOCK ");
+        f = f & ~O_NONBLOCK;
+    }
+
+    if (f & O_APPEND) {
+        printf("O_APPEND ");
+        f = f & ~O_APPEND;
+    }
+
+    if (f & O_CREAT) {
+        printf("O_CREAT ");
+        f = f & ~O_CREAT;
+    }
+
+    if (f & O_TRUNC) {
+        printf("O_TRUNC ");
+        f = f & ~O_TRUNC;
+    }
+
+    if (f & O_EXCL) {
+        printf("O_EXCL ");
+        f = f & ~O_EXCL;
+    }
+
+    if (f & O_SHLOCK) {
+        printf("O_SHLOCK ");
+        f = f & ~O_SHLOCK;
+    }
+
+    if (f & O_EXLOCK) {
+        printf("O_EXLOCK ");
+        f = f & ~O_EXLOCK;
+    }
+
+    if (f & O_DIRECTORY) {
+        printf("O_DIRECTORY ");
+        f = f & ~O_DIRECTORY;
+    }
+
+    if (f & O_NOFOLLOW) {
+        printf("O_NOFOLLOW ");
+        f = f & ~O_NOFOLLOW;
+    }
+
+    if (f & O_SYMLINK) {
+        printf("O_SYMLINK ");
+        f = f & ~O_SYMLINK;
+    }
+
+    if (f & O_EVTONLY) {
+        printf("O_EVTONLY ");
+        f = f & ~O_EVTONLY;
+    }
+
+    if (f & O_CLOEXEC) {
+        printf("O_CLOEXEC ");
+        f = f & ~O_CLOEXEC;
+    }
+
+    if (f & O_NOFOLLOW_ANY) {
+        printf("O_NOFOLLOW_ANY ");
+        f = f & ~O_NOFOLLOW_ANY;
+    }
+
+    if (f & O_NOCTTY) {
+        printf("O_NOCTTY ");
+        f = f & ~O_NOCTTY;
+    }
+
+    if (f) {
+        printf(" +%x", f);
+    }
+
+    printf("\n");
+}
+#endif
+
 void
 on_fd_close(n00b_fd_stream_t *s, n00b_channel_t *c)
 {
@@ -60,17 +162,24 @@ fdchan_init(n00b_channel_t *stream, n00b_list_t *l)
     n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
 
     c->stream = n00b_list_pop(l);
+    fcntl(c->stream->fd, F_GETFL, &c->stream->fd_flags);
 
     switch ((int64_t)n00b_list_pop(l)) {
     case FD_FILE:
-        stream->name = n00b_list_pop(l);
+        stream->name = n00b_cformat("[|#|]: (fd [|#|])",
+                                    n00b_list_pop(l),
+                                    (int64_t)c->stream->fd);
         break;
     case FD_CONNECT:
         c->addr      = n00b_list_pop(l);
-        stream->name = n00b_to_string(c->addr);
+        stream->name = n00b_cformat("connect: [|#|] (fd [|#|])",
+                                    c->addr,
+                                    (int64_t)c->stream->fd);
         break;
-    case FD_OTHER:
-        stream->name = n00b_fd_name(c->stream);
+    default:
+        stream->name = n00b_cformat("[|#|]: (fd [|#|])",
+                                    n00b_fd_name(c->stream),
+                                    (int64_t)c->stream->fd);
         break;
     }
 
@@ -83,13 +192,46 @@ n00b_fdchan_close(n00b_channel_t *stream)
 {
     n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
 
-    close(c->stream->fd);
+    n00b_raw_fd_close(c->stream->fd);
 
     if (c->sub) {
         n00b_fd_unsubscribe(c->stream, c->sub);
     }
 
     return true;
+}
+
+bool
+n00b_fdchan_eof(n00b_channel_t *stream)
+{
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    if (c->stream->read_closed && c->stream->write_closed) {
+        return true;
+    }
+    if (!c->stream->socket) {
+        int n = lseek(c->stream->fd, 0, SEEK_CUR);
+        if (n == lseek(c->stream->fd, 0, SEEK_END)) {
+            return true;
+        }
+        lseek(c->stream->fd, n, SEEK_SET);
+    }
+    else {
+        struct pollfd fds[1] = {
+            {
+                .fd      = c->stream->fd,
+                .events  = POLLIN | POLLOUT,
+                .revents = 0,
+            },
+        };
+
+        poll(fds, 1, 0);
+
+        if (fds[0].events & POLLHUP) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static void *
@@ -134,7 +276,14 @@ static void
 fdchan_write(n00b_channel_t *stream, void *msg, bool block)
 {
     n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
-    n00b_buf_t       *b = msg;
+    n00b_buf_t       *b;
+
+    if (n00b_type_is_string(n00b_get_my_type(msg))) {
+        b = n00b_string_to_buffer(msg);
+    }
+    else {
+        b = msg;
+    }
 
     if (block) {
         n00b_fd_write(c->stream, b->data, b->byte_len);
@@ -164,6 +313,7 @@ static n00b_chan_impl fdchan_impl = {
     .spos_impl           = (void *)fdchan_set_position,
     .gpos_impl           = (void *)n00b_fd_get_position,
     .close_impl          = (void *)n00b_fdchan_close,
+    .eof_impl            = (void *)n00b_fdchan_eof,
     .read_subscribe_cb   = (void *)n00b_fdchan_on_first_subscriber,
     .read_unsubscribe_cb = (void *)n00b_fdchan_on_no_subscribers,
 };
@@ -176,11 +326,44 @@ _n00b_new_fd_channel(n00b_fd_stream_t *fd, ...)
 
     n00b_build_filter_list(filters, fd);
 
-    n00b_list_append(args, (void *)(int64_t)FD_OTHER);
+    if (n00b_list_len(filters)) {
+        void *item = n00b_list_get(filters, 0, NULL);
+        if (n00b_type_is_net_addr(n00b_get_my_type(item))) {
+            n00b_list_append(args, item); // Network address.
+            n00b_list_append(args, (void *)(int64_t)FD_CONNECT);
+            n00b_list_dequeue(filters);
+        }
+        else {
+            abort();
+        }
+    }
+
+    if (!n00b_list_len(args)) {
+        n00b_list_append(args, (void *)(int64_t)FD_OTHER);
+    }
+
     n00b_list_append(args, fd);
 
     return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
 }
+
+n00b_channel_t *
+n00b_channel_fd_open(int fd)
+{
+    return n00b_new_fd_channel(n00b_fd_stream_from_fd(fd, NULL, NULL));
+}
+
+#define FERR(x)                \
+    {                          \
+        err = n00b_cstring(x); \
+        if (error_ptr) {       \
+            *error_ptr = err;  \
+            return NULL;       \
+        }                      \
+        else {                 \
+            N00B_RAISE(err);   \
+        }                      \
+    }
 
 n00b_channel_t *
 _n00b_channel_open_file(n00b_string_t *filename, ...)
@@ -191,32 +374,36 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
     // o0744
     int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
-    n00b_list_t *filters                     = NULL;
-    bool         read_only                   = false;
-    bool         write_only                  = false;
-    bool         allow_relative_paths        = true;
-    bool         allow_backtracking          = true;
-    bool         normalize_paths             = true;
-    bool         allow_file_creation         = false;
-    bool         error_if_exists             = false;
-    bool         truncate_on_open            = false;
-    bool         writes_always_append        = false;
-    bool         shared_lock                 = false;
-    bool         exclusive_lock              = false;
-    bool         keep_open_on_exec           = false;
-    bool         allow_tty_assumption        = false;
-    bool         open_symlink_not_target     = false;
-    bool         allow_symlinked_targets     = true;
-    bool         follow_symlinks_in_path     = true;
-    bool         target_must_be_regular_file = false;
-    bool         target_must_be_directory    = false;
-    bool         target_must_be_link         = false;
-    bool         target_must_be_special_file = false;
+    n00b_list_t    *filters                     = NULL;
+    bool            read_only                   = false;
+    bool            write_only                  = false;
+    bool            allow_relative_paths        = true;
+    bool            allow_backtracking          = true;
+    bool            normalize_paths             = true;
+    bool            allow_file_creation         = false;
+    bool            error_if_exists             = false;
+    bool            truncate_on_open            = false;
+    bool            writes_always_append        = false;
+    bool            shared_lock                 = false;
+    bool            exclusive_lock              = false;
+    bool            keep_open_on_exec           = false;
+    bool            allow_tty_assumption        = false;
+    bool            open_symlink_not_target     = false;
+    bool            allow_symlinked_targets     = true;
+    bool            follow_symlinks_in_path     = true;
+    bool            target_must_be_regular_file = false;
+    bool            target_must_be_directory    = false;
+    bool            target_must_be_link         = false;
+    bool            target_must_be_special_file = false;
+    n00b_string_t **error_ptr                   = NULL;
+    n00b_string_t  *err;
 
     n00b_karg_only_init(args);
     n00b_kw_ptr("filters", filters);
+    n00b_kw_ptr("error_ptr", error_ptr);
     n00b_kw_int32("permissions", permissions);
     n00b_kw_bool("allow_relative_paths", allow_relative_paths);
+    n00b_kw_bool("write_only", write_only);
     n00b_kw_bool("allow_backtracking", allow_backtracking);
     n00b_kw_bool("normalize_paths", normalize_paths);
     n00b_kw_bool("error_if_exists", error_if_exists);
@@ -240,7 +427,7 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
     int mode;
 
     if (!n00b_string_codepoint_len(filename)) {
-        N00B_CRAISE("Must provide a filename.");
+        FERR("Must provide a filename.");
     }
 
     if (read_only ^ write_only) {
@@ -258,7 +445,7 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
     mode = flags;
 
     if (permissions < 0 || permissions > 07777) {
-        N00B_CRAISE("Invalid file permissions.");
+        FERR("Invalid file permissions.");
     }
 
     // Implies creation.
@@ -277,17 +464,17 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
 
     if (truncate_on_open) {
         if (flags & O_EXCL) {
-            N00B_CRAISE("Cannot truncate when requiring a new file.");
+            FERR("Cannot truncate when requiring a new file.");
         }
         flags |= O_TRUNC;
     }
 
     if (mode == O_RDONLY) {
         if (flags & O_CREAT) {
-            N00B_CRAISE("Cannot specify creation for read-only files.");
+            FERR("Cannot specify creation for read-only files.");
         }
         if (flags & O_APPEND) {
-            N00B_CRAISE("Cannot append without write permissions");
+            FERR("Cannot append without write permissions");
         }
     }
 
@@ -320,13 +507,13 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
 #endif
     if (exclusive_lock) {
         if (shared_lock) {
-            N00B_CRAISE("Cannot select both locking styles");
+            FERR("Cannot select both locking styles");
         }
         sl_flags++;
     }
 
     if (sl_flags > 1) {
-        N00B_CRAISE("Cannot select both locking styles");
+        FERR("Cannot select both locking styles");
     }
 
     sl_flags = 0;
@@ -351,7 +538,7 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
 #endif
 
     if (sl_flags > 1) {
-        N00B_CRAISE("Conflicting symbolic linking policies provided.");
+        FERR("Conflicting symbolic linking policies provided.");
     }
 
     bool             path_is_relative;
@@ -375,7 +562,7 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
     }
 
     if (!allow_relative_paths && path_is_relative) {
-        N00B_CRAISE("Relative paths are disallowed.");
+        FERR("Relative paths are disallowed.");
     }
 
     if (!allow_backtracking) {
@@ -385,12 +572,12 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
         for (int i = 0; i < n; i++) {
             n00b_string_t *s = n00b_list_get(parts, i, NULL);
             if (!strcmp(s->data, "..")) {
-                N00B_CRAISE("Path backtracking is disabled.");
+                FERR("Path backtracking is disabled.");
             }
         }
     }
 
-    int fd;
+    int fd = -1;
 
     if (relative_fd) {
         if (flags & O_CREAT) {
@@ -404,6 +591,7 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
         if (normalize_paths) {
             filename = n00b_resolve_path(filename);
         }
+
         if (flags & O_CREAT) {
             fd = open(filename->data, flags, permissions);
         }
@@ -420,15 +608,15 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
     fds->name             = filename;
 
     if (target_must_be_regular_file && !n00b_fd_is_regular_file(fds)) {
-        N00B_CRAISE("Not a regular file.");
+        FERR("Not a regular file.");
     }
 
     if (target_must_be_link && !n00b_fd_is_link(fds)) {
-        N00B_CRAISE("Not a symbolic link.");
+        FERR("Not a symbolic link.");
     }
 
     if (target_must_be_special_file && !n00b_fd_is_other(fds)) {
-        N00B_CRAISE("Not a special file.");
+        FERR("Not a special file.");
     }
 
     n00b_list_t *stream_args = n00b_list(n00b_type_ref());
@@ -463,4 +651,71 @@ _n00b_channel_connect(n00b_net_addr_t *addr, ...)
     n00b_list_append(args, n00b_fd_stream_from_fd(sock, NULL, NULL));
 
     return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
+}
+
+void
+n00b_channel_fd_pause_reads(n00b_channel_t *stream)
+{
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_pause_reads(c->stream);
+}
+
+void
+n00b_channel_fd_unpause_reads(n00b_channel_t *stream)
+{
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_unpause_reads(c->stream);
+}
+
+void *
+_n00b_read_file(n00b_string_t *path, ...)
+{
+    va_list args;
+    va_start(args, path);
+
+    bool            buffer    = false;
+    bool            lock      = false;
+    n00b_string_t **error_ptr = NULL;
+
+    n00b_karg_only_init(args);
+    n00b_kw_bool("buffer", buffer);
+    n00b_kw_bool("lock", lock);
+    n00b_kw_ptr("error_ptr", error_ptr);
+
+    n00b_channel_t *f = n00b_channel_open_file(path,
+                                               "exclusive_lock",
+                                               n00b_ka(lock),
+                                               "read_only",
+                                               n00b_ka(true),
+                                               "target_must_be_regular_file",
+                                               n00b_ka(true),
+                                               "error_ptr",
+                                               error_ptr);
+
+    if (!f) {
+        return NULL;
+    }
+
+    bool        err = false;
+    n00b_buf_t *b   = n00b_channel_read(f, 0, NULL);
+
+    n00b_channel_close(f);
+
+    if (err) {
+        n00b_string_t *msg = n00b_cstring("Error when reading file.");
+
+        if (error_ptr) {
+            *error_ptr = msg;
+            return NULL;
+        }
+        else {
+            N00B_RAISE(msg);
+        }
+    }
+
+    if (buffer) {
+        return b;
+    }
+
+    return n00b_buf_to_string(b);
 }

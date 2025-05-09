@@ -10,6 +10,7 @@ extern n00b_string_t *n00b_buf_to_utf8_string(n00b_buf_t *);
 extern n00b_string_t *n00b_buffer_to_hex_str(n00b_buf_t *buf);
 extern int64_t        _n00b_buffer_find(n00b_buf_t *, n00b_buf_t *, ...);
 extern char          *n00b_buffer_to_c(n00b_buf_t *, int64_t *);
+extern n00b_buf_t    *n00b_buffer_from_codepoint(n00b_codepoint_t);
 
 #define n00b_buffer_find(buf_main, sub, ...) \
     _n00b_buffer_find(buf_main, sub, N00B_VA(__VA_ARGS__))

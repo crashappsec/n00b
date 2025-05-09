@@ -42,13 +42,13 @@ setup_cmd_line(void)
 }
 #endif
 
-n00b_stream_t *test_sin  = NULL;
-n00b_stream_t *test_sout = NULL;
-n00b_stream_t *test_scb  = NULL;
-n00b_stream_t *test_srv  = NULL;
+n00b_channel_t *test_sin  = NULL;
+n00b_channel_t *test_sout = NULL;
+n00b_channel_t *test_scb  = NULL;
+n00b_channel_t *test_srv  = NULL;
 
 void
-iotest(n00b_stream_t *p1, void *s)
+iotest(n00b_channel_t *p1, void *s)
 {
     static int i = 0;
 
@@ -76,7 +76,7 @@ iotest(n00b_stream_t *p1, void *s)
         n00b_exit(0);
     }
 
-    n00b_write(n00b_stderr(), s);
+    n00b_channel_write(n00b_stderr(), s);
 
     n00b_debug("iteration", (void *)(uint64_t)i++);
     n00b_debug("testing", s);
@@ -112,7 +112,7 @@ setup_io_test(void)
     test_sout = n00b_fd_open(fileno(stderr));
     test_srv  = n00b_fd_open(fd);
 
-    n00b_stream_t *sout = n00b_fd_open(fileno(stdout));
+    n00b_channel_t *sout = n00b_fd_open(fileno(stdout));
 
     n00b_io_set_repr(test_sin, n00b_cstring("[stdin]"));
     n00b_io_set_repr(test_sout, n00b_cstring("[stderr]"));
@@ -123,7 +123,7 @@ setup_io_test(void)
 }
 
 static void
-exit_gracefully(n00b_stream_t *e, int64_t signal, void *aux)
+exit_gracefully(n00b_channel_t *e, int64_t signal, void *aux)
 {
     n00b_printf("«em»Shutting down«/» due to signal: «em»«#»",
                 n00b_get_signal_name(signal));
@@ -132,7 +132,7 @@ exit_gracefully(n00b_stream_t *e, int64_t signal, void *aux)
 
 #if 0
 static void
-report_signal(n00b_stream_t *e, int64_t signal, void *aux)
+report_signal(n00b_channel_t *e, int64_t signal, void *aux)
 {
     n00b_printf("«#»Got«/» signal: «em»«#»", n00b_get_signal_name(signal));
 }
@@ -159,7 +159,7 @@ main(int argc, char **argv, char **envp)
 
     n00b_debug("testing", test_str);
 
-    n00b_stream_t *t = n00b_add_debug_topic("jtest");
+    n00b_channel_t *t = n00b_add_debug_topic("jtest");
     n00b_add_to_json_xform_on_write(t);
 
     n00b_debug("jtest", r);
@@ -186,7 +186,7 @@ main(int argc, char **argv, char **envp)
 
 #if 1
     setup_io_test();
-    n00b_stream_t *cb = n00b_callback_open((void *)iotest, NULL);
+    n00b_channel_t *cb = n00b_callback_open((void *)iotest, NULL);
     n00b_io_set_repr(cb, n00b_cstring("[input cb]"));
 
     /*n00b_stream_sub_t *sub =*/
@@ -202,7 +202,7 @@ main(int argc, char **argv, char **envp)
 #endif
 
 #if 1
-    n00b_stream_t *tst = n00b_get_topic(n00b_cstring("test"), NULL);
+    n00b_channel_t *tst = n00b_get_topic(n00b_cstring("test"), NULL);
     n00b_add_marshaling(tst);
     n00b_add_unmarshaling(tst);
 
