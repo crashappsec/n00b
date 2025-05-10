@@ -11,7 +11,7 @@ static int  saved_exit_code = 0;
 #endif
 
 // Most of the work happens in tsi by the pthread destructor (n00b_tsi_cleanup)
-void
+_Noreturn void
 n00b_thread_exit(void *result)
 {
     if (!exiting) {
@@ -29,7 +29,7 @@ n00b_thread_exit(void *result)
     pthread_exit(result);
 }
 
-void
+_Noreturn void
 n00b_exit(int code)
 {
     saved_exit_code = code;
@@ -39,7 +39,7 @@ n00b_exit(int code)
     n00b_thread_exit(NULL);
 }
 
-void
+_Noreturn void
 n00b_abort(void)
 {
     saved_exit_code = 139;

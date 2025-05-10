@@ -355,11 +355,22 @@ n00b_add_static_symbols(void)
     FSTAT(n00b_list_contains);
 }
 
+extern void      n00b_fd_init_io(void);
+struct timespec *n00b_io_duration = NULL;
+
+static void *
+start_io(void *ignore)
+{
+    n00b_fd_init_io();
+    n00b_fd_run_evloop(n00b_system_dispatcher, n00b_io_duration);
+    return NULL;
+}
+
 static void
 n00b_initialize_library(void)
 {
     n00b_init_program_timestamp();
-    n00b_io_init();
+    n00b_thread_spawn((void *)start_io, NULL);
 }
 
 extern void n00b_crash_init(void);
@@ -404,11 +415,9 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_theme_initialization();
         n00b_assertion_init();
         n00b_long_term_pin(n00b_internal_heap);
-        n00b_internal_io_setup();
+        // n00b_internal_io_setup();
         n00b_initialize_library();
 
         n00b_startup_complete = true;
-
-        n00b_launch_io_loop();
     }
 }

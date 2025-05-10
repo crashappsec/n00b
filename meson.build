@@ -276,16 +276,36 @@ n00b_io = [
     'src/io/buffer.c',
     'src/io/strstream.c',
     'src/io/colorterm.c',
-    'src/io/print.c',
-    'src/io/term.c',
     'src/io/http.c',
-    'src/io/proc.c',
     'src/io/debug.c',
-    'src/io/session.c',
-    'src/io/session_control.c',
-    'src/io/session_capture.c',
-    'src/io/session_replay.c',
-    'src/io/session_states.c',
+]
+
+n00b_channels = [
+    'src/channels/fd_events.c',
+    'src/channels/filter.c',    
+    'src/channels/observable.c',
+    'src/channels/channel.c',
+    'src/channels/chan_fd.c',
+    'src/channels/chan_callback.c',
+    'src/channels/chan_buffer.c',
+    'src/channels/chan_topic.c',
+    'src/channels/chan_listener.c',
+    'src/channels/chan_exit.c',
+    'src/channels/chan_proxy.c',    
+    'src/channels/terminal_io.c',
+    'src/channels/print.c',
+    'src/channels/proc.c',
+    'src/channels/debug.c',    
+    # 'src/channels/session.c',
+    # 'src/channels/session_control.c',
+    # 'src/channels/session_capture.c',
+    # 'src/channels/session_replay.c',
+    # 'src/channels/session_states.c',
+]
+
+n00b_debug = [
+    'src/debug/workflow.c',
+    'src/debug/api.c',    
 ]
 
 n00b_compiler = [
@@ -339,6 +359,7 @@ n00b_cmd = [
     'src/cmd/compile.c',
     'src/cmd/run.c',
     'src/cmd/record.c',
+    'src/cmd/play.c',    
     'src/cmd/test.c',                        
     'src/cmd/debug.c',
 ]
@@ -348,6 +369,7 @@ n00b_log = ['src/cmd/n00b_debug.c']
 
 n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts + n00b_io 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
+n00b_base = n00b_base + n00b_channels + n00b_debug
 
 n00b_src = n00b_base + n00b_cmd
 log_src = n00b_base + n00b_log
@@ -480,9 +502,29 @@ if get_option('build_n00b_dll').enabled()
     )
 endif
 
+# executable(
+#    'n00btest',
+#    test_src,
+#    include_directories: incdir,
+#    dependencies: deps,
+#    c_args: c_args,
+#    link_args: exe_link_args,
+#    link_with: link_with,
+#)
+
+# executable(
+#    'n00b',
+#    n00b_src,    
+#    include_directories: incdir,
+#    dependencies: deps,
+#    c_args: c_args,
+#    link_args: exe_link_args,
+#    link_with: link_with,
+#)
+
 executable(
-    'n00btest',
-    test_src,
+    'ctest',
+    ['tests/c-tests/__cur.c'],
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,
@@ -490,25 +532,15 @@ executable(
     link_with: link_with,
 )
 
-executable(
-    'n00b',
-    n00b_src,
-    include_directories: incdir,
-    dependencies: deps,
-    c_args: c_args,
-    link_args: exe_link_args,
-    link_with: link_with,
-)
-
-executable(
- 'n00blog',
- log_src,
-    include_directories: incdir,
-    dependencies: deps,
-    c_args: c_args,
-    link_args: exe_link_args,
-    link_with: link_with,
-)
+# executable(
+# 'n00blog',
+# log_src,
+#    include_directories: incdir,
+#    dependencies: deps,
+#    c_args: c_args,
+#    link_args: exe_link_args,
+#    link_with: link_with,
+# )
 
 if get_option('build_hatrack').enabled()
     libhat = static_library(

@@ -13,6 +13,10 @@ N00B_TEST_EXE=n00btest
 N00B_EXE=n00b
 N00B_LOG_EXE=n00blog
 
+if [[ ! -f tests/c-tests/__cur.c ]] ; then
+    cp tests/c-tests/__cur.c.in tests/c-tests/__cur.c
+fi
+
 function color {
     case $1 in
         black) CODE=0 ;;

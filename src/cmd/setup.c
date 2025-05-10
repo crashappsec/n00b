@@ -17,6 +17,7 @@ const char *n00b_fl_quiet              = "quiet";
 const char *n00b_fl_verbose            = "verbose";
 const char *n00b_fl_merge              = "ansi";
 const char *n00b_fl_ansi               = "merge-output";
+const char *n00b_fl_bright             = "bright";
 
 const char *n00b_cmd_doc =
     "### The n00b compiler.\n\n"
@@ -83,7 +84,16 @@ n00b_setup_cmd_line(void)
                              "starting test case file."),
                 "parent",
                 n00b_ka(top)));
-
+    n00b_gopt_cspec *play = n00b_new(
+        n00b_type_gopt_command(),
+        n00b_kw("context",
+                n00b_ka(gopt),
+                "name",
+                n00b_ka(n00b_cstring("play")),
+                "short_doc",
+                n00b_cstring("Play back a terminal capture (.cap10) file"),
+                "parent",
+                n00b_ka(top)));
     n00b_gopt_cspec *test = n00b_new(
         n00b_type_gopt_command(),
         n00b_kw("context",
@@ -95,7 +105,7 @@ n00b_setup_cmd_line(void)
                 "parent",
                 n00b_ka(top)));
 
-    n00b_gopt_cspec *test_show = n00b_new(
+    /*    n00b_gopt_cspec *test_show =*/n00b_new(
         n00b_type_gopt_command(),
         n00b_kw("context",
                 n00b_ka(gopt),
@@ -190,6 +200,13 @@ n00b_setup_cmd_line(void)
                      top,
                      "opt_type",
                      n00b_ka(N00B_GOAT_BOOL_T_DEFAULT)));
+    n00b_new(n00b_type_gopt_option(),
+             n00b_kw("name",
+                     n00b_cstring((char *)n00b_fl_bright),
+                     "linked_command",
+                     top,
+                     "opt_type",
+                     n00b_ka(N00B_GOAT_BOOL_T_DEFAULT)));
 
     n00b_gopt_add_subcommand(gopt, compile, n00b_cstring("(str)+"));
     n00b_gopt_add_subcommand(gopt, build, n00b_cstring("(str)+"));
@@ -199,7 +216,7 @@ n00b_setup_cmd_line(void)
                               n00b_cstring("str"),
                               n00b_cstring("Record a test case, specifing the "
                                            "test name"));
-
+    n00b_gopt_add_subcommand(gopt, play, n00b_cstring("str"));
     n00b_new(n00b_type_gopt_option(),
              n00b_kw("name",
                      n00b_cstring((char *)n00b_fl_merge),
@@ -207,12 +224,6 @@ n00b_setup_cmd_line(void)
                      record,
                      "opt_type",
                      n00b_ka(N00B_GOAT_BOOL_F_DEFAULT)));
-
-    _n00b_gopt_add_subcommand(gopt,
-                              record,
-                              n00b_cstring("str str"),
-                              n00b_cstring("Record a test case, specifying "
-                                           "test name and group"));
 
     _n00b_gopt_add_subcommand(gopt,
                               test,

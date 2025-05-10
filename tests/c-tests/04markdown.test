@@ -1,0 +1,27 @@
+# The capture merged stdout/stderr. This command ensures replays do too.
+MERGE
+ANSI
+# @2025-04-26 07:06:39 PM--0400
+#SIZE 52:10
+PROMPT
+INJECT . ./setup.sh markdown.c\n
+# This only looks for some of the expected ansi stuff
+EXPECT \e[1;48;2;035;041;055;38;2;191;255;051mThis Is A Title.
+EXPECT \e[1;48;2;011;018;033;38;2;117;097;179mThis Is A Subtitle.
+EXPECT \e[48;2;011;018;033;38;2;230;226;220mHere's a block of \e[0m
+EXPECT \e[1;48;2;011;018;033;38;2;191;255;051mnormal\e[0m
+EXPECT \e[48;2;011;018;033;38;2;230;226;220m text with some \e[0m
+EXPECT \e[1;48;2;011;018;033;38;2;191;255;051mhighlights\e[0m
+EXPECT \e[48;2;011;018;033;38;2;230;226;220mIt runs a couple of lines, but not
+EXPECT \e[0m\e[1;48;2;011;018;033;38;2;230;226;220mtoo\e[0m
+EXPECT \e[48;2;011;018;033;38;2;230;226;220m long.
+EXPECT \e[48;2;011;018;033;38;2;255;089;161m 1.\e[0m
+EXPECT \e[48;2;011;018;033;38;2;230;226;220mHello
+EXPECT \e[48;2;011;018;033;38;2;255;089;161m 2.\e[0m
+EXPECT \e[48;2;011;018;033;38;2;230;226;220mSailor
+EXPECT \e[48;2;011;018;033;38;2;255;089;161m •\e[0m
+EXPECT \e[48;2;011;018;033;38;2;230;226;220mHi
+EXPECT \e[48;2;011;018;033;38;2;255;089;161m •\e[0m
+EXPECT \e[48;2;011;018;033;38;2;230;226;220mMom
+EXPECT \e[1;48;2;011;018;033;38;2;255;089;161mBye!
+PROMPT

@@ -20,17 +20,11 @@ n00b_buffer_empty()
     return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
 }
 
-static inline void
-_n00b_buffer_acquire_w(n00b_buf_t *b)
-{
-    n00b_rw_lock_acquire_for_write(&b->lock);
-}
+#define _n00b_buffer_acquire_w(b) \
+    n00b_rw_lock_acquire_for_write(&b->lock)
 
-static inline void
-_n00b_buffer_acquire_r(n00b_buf_t *b)
-{
-    n00b_rw_lock_acquire_for_read(&b->lock);
-}
+#define _n00b_buffer_acquire_r(b) \
+    n00b_rw_lock_acquire_for_read(&b->lock)
 
 static inline void
 n00b_buffer_release(n00b_buf_t *b)
@@ -49,6 +43,13 @@ n00b_string_to_buffer(n00b_string_t *s)
 {
     return n00b_new(n00b_type_buffer(),
                     n00b_kw("length", (int64_t)s->u8_bytes, "ptr", s->data));
+}
+
+static inline n00b_buf_t *
+n00b_buffer_from_bytes(char *bytes, int64_t len)
+{
+    return n00b_new(n00b_type_buffer(),
+                    n00b_kw("length", bytes, "ptr", len));
 }
 
 #define n00b_buffer_acquire_w(b)       \

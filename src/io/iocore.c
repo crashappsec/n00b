@@ -390,7 +390,7 @@ n00b_new_base(void)
 {
     n00b_stream_base_t *result = n00b_gc_alloc_mapped(n00b_stream_base_t,
                                                       N00B_GC_SCAN_ALL);
-    n00b_static_lock_init(result->lock);
+    n00b_named_lock_init(&result->lock, "event base");
 
     return result;
 }

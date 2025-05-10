@@ -212,7 +212,10 @@ hatrack_dict_get_sorted_views(hatrack_dict_t *self)
 }
 
 void *
-hatrack_dict_get_mmm(hatrack_dict_t *self, mmm_thread_t *thread, void *key, bool *found)
+hatrack_dict_get_mmm(hatrack_dict_t *self,
+                     mmm_thread_t   *thread,
+                     void           *key,
+                     bool           *found)
 {
     hatrack_hash_t       hv;
     hatrack_dict_item_t *item;
@@ -364,6 +367,116 @@ bool
 hatrack_dict_replace(hatrack_dict_t *self, void *key, void *value)
 {
     return hatrack_dict_replace_mmm(self, mmm_thread_acquire(), key, value);
+}
+
+// Our dict abstraction stores the pre-hashed key and the value
+// both, but the user just gives us the 'value'. So we:
+//
+// 1. Look up the current record, and see if it's what we expect.
+// 2. If it is, we then try to swap it in, expecting the current record.
+//
+// The underlying crown uses simpler ops; we use multiple ops to cover
+// all semantics, like properly handling
+
+bool
+hatrack_dict_cas_mmm(hatrack_dict_t *self,
+                     mmm_thread_t   *thread,
+                     void           *key,
+                     void           *value,
+                     void           *expected,
+                     bool            null_means_missing)
+{
+    hatrack_hash_t       hv;
+    hatrack_dict_item_t *new_item;
+    hatrack_dict_item_t *old_item;
+    crown_store_t       *store;
+    bool                 present;
+
+    hv = hatrack_dict_get_hash_value(self, key);
+
+    mmm_start_basic_op(thread);
+
+    store    = atomic_read(&self->crown_instance.store_current);
+    old_item = crown_store_get(store, hv, &present);
+
+    if (!old_item && null_means_missing && !expected) {
+        // Nothing is there, as expected. So we try the underlying
+        // 'add' operation.
+        new_item        = mmm_alloc_committed(sizeof(hatrack_dict_item_t));
+        new_item->key   = key;
+        new_item->value = value;
+
+        if (crown_store_add(store,
+                            thread,
+                            &self->crown_instance,
+                            hv,
+                            new_item,
+                            0)) {
+            mmm_end_op(thread);
+
+            return true;
+        }
+
+        mmm_retire_unused(new_item);
+        mmm_end_op(thread);
+
+        return false;
+    }
+
+    // Something's there, but make sure it's what we expected.
+    if (old_item && old_item->value != expected) {
+        mmm_retire_unused(new_item);
+        mmm_end_op(thread);
+        return false;
+    }
+
+    // okay it IS what we expected, so now we try an actual underlying CAS op.
+
+    new_item        = mmm_alloc_committed(sizeof(hatrack_dict_item_t));
+    new_item->key   = key;
+    new_item->value = value;
+    store           = atomic_read(&self->crown_instance.store_current);
+
+    hatrack_dict_item_t *found = crown_store_cas(store,
+                                                 thread,
+                                                 &self->crown_instance,
+                                                 hv,
+                                                 new_item,
+                                                 old_item,
+                                                 NULL,
+                                                 0);
+    if (found != old_item) {
+        // Someone beat us to the replacement.
+        mmm_retire_unused(new_item);
+        mmm_end_op(thread);
+        return false;
+    }
+
+    if (self->free_handler) {
+        mmm_add_cleanup_handler(old_item,
+                                (mmm_cleanup_func)hatrack_dict_record_eject,
+                                self);
+    }
+
+    mmm_retire(thread, old_item);
+    mmm_end_op(thread);
+
+    return true;
+}
+
+bool
+hatrack_dict_cas(hatrack_dict_t *self,
+                 void           *key,
+                 void           *value,
+                 void           *expected,
+                 bool            null_means_missing)
+{
+    return hatrack_dict_cas_mmm(self,
+                                mmm_thread_acquire(),
+                                key,
+                                value,
+                                expected,
+                                null_means_missing);
 }
 
 bool

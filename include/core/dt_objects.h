@@ -22,13 +22,14 @@ typedef enum {
 // size and know parameters in the vtable.
 typedef void (*n00b_vtable_entry)(n00b_obj_t *, va_list);
 typedef void (*n00b_container_init)(n00b_obj_t *, void *, va_list);
+typedef uint64_t (*n00b_obj_size_helper)(void *);
 
 // Note that in the long term, many of these things wouldn't be baked
 // into a static table, but because we are not implementing any of
 // them in n00b itself right now, this is just better overall.
 typedef enum {
     N00B_BI_CONSTRUCTOR = 0,
-    // Old and about to be removed.
+    N00B_BI_ALLOC_SZ,
     N00B_BI_TO_STRING,
     N00B_BI_TO_LITERAL,
     N00B_BI_FORMAT,
@@ -154,6 +155,7 @@ typedef enum : int64_t {
     N00B_T_LOCK,
     N00B_T_CONDITION,
     N00B_T_STREAM,
+    N00B_T_CHANNEL,
     N00B_T_MESSAGE,
     N00B_T_BYTERING,
     N00B_T_FILE,

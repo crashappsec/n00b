@@ -80,7 +80,6 @@ n00b_thread_spawn(void *(*r)(void *), void *arg)
 #ifdef N00B_DEBUG_SHOW_SPAWN
     n00b_static_c_backtrace();
 #endif
-
     // Certainly don't launch another thread.
     // Instead, exit the current thread.
     if (n00b_current_process_is_exiting()) {

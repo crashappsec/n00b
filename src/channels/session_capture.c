@@ -205,7 +205,6 @@ n00b_setup_capture(n00b_session_t *s, n00b_stream_t *target, int policy)
 
     n00b_stream_t *p = n00b_new_subscription_proxy();
 
-    //    n00b_add_write_filter(p, n00b_capture_encoder());
     n00b_io_subscribe_to_delivery(p, target, NULL);
 
     s->capture_stream = p;

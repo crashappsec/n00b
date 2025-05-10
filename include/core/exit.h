@@ -1,5 +1,5 @@
 #pragma once
 
-extern void n00b_exit(int);
-extern void n00b_thread_exit(void *);
-extern void n00b_abort(void);
+extern _Noreturn void n00b_exit(int);
+extern _Noreturn void n00b_thread_exit(void *);
+extern _Noreturn void n00b_abort(void);

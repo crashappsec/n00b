@@ -30,6 +30,13 @@ struct n00b_defer_ll_t {
 
 // The unnecessary extra block after the label is to prevent
 // clang-format from wrapping oddly.
+//
+// #pragma GCC diagnostic pop
+#if defined(__GNUC__) && !defined(__APPLE__)
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#endif
+
 #define n00b_defer(defer_block)                                                \
     n00b_defer_ll_t n00b_defer_node(__LINE__);                                 \
     if (n00b_defer_node(__LINE__).guard != N00B_DEFER_INIT) {                  \

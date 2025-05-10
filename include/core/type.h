@@ -231,6 +231,16 @@ n00b_type_is_stream(n00b_type_t *t)
 }
 
 static inline bool
+n00b_type_is_channel(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_CHANNEL;
+}
+
+static inline bool
 n00b_type_is_text_element(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {
@@ -679,6 +689,12 @@ n00b_type_stream(void)
 }
 
 static inline n00b_type_t *
+n00b_type_channel(void)
+{
+    return n00b_bi_types[N00B_T_CHANNEL];
+}
+
+static inline n00b_type_t *
 n00b_type_message(void)
 {
     return n00b_bi_types[N00B_T_MESSAGE];
@@ -1064,6 +1080,26 @@ n00b_type_is_buffer(n00b_type_t *t)
     }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_BUFFER;
+}
+
+static inline bool
+n00b_type_is_net_addr(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_IPV4;
+}
+
+static inline bool
+n00b_type_is_duration(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_DURATION;
 }
 
 static inline bool

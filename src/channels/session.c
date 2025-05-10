@@ -354,12 +354,24 @@ n00b_session_run(n00b_session_t *session)
         n00b_session_setup_control_stream(session);
     }
 
-    n00b_session_setup_replay(session);
+    if (session->log_cursor.log) {
+        n00b_session_start_replay(session);
+    }
     n00b_proc_spawn(session->subprocess);
     n00b_session_run_control_loop(session);
     capture(session, N00B_CAPTURE_END, NULL);
     n00b_session_finish_capture(session);
     return session_cleanup(session);
+}
+
+void
+n00b_session_start_replay(n00b_session_t *session)
+{
+    if (!session->log_cursor.log) {
+        N00B_CRAISE("Replay not set up.");
+    }
+    start_session_clock(session);
+    n00b_thread_spawn((void *)n00b_session_run_replay_loop, session);
 }
 
 bool
@@ -370,8 +382,8 @@ n00b_session_run_cinematic(n00b_session_t *session)
     }
     session->log_cursor.paused = false;
     n00b_session_setup_user_read_cb(session);
-    start_session_clock(session);
-    n00b_session_run_replay_loop(session);
+    n00b_session_start_replay(session);
+    n00b_session_run_control_loop(session);
     return session_cleanup(session);
 }
 

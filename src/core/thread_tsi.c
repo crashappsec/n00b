@@ -180,6 +180,8 @@ n00b_global_tsi_setup(void)
 
     n00b_tsi_t *tsi    = n00b_init_self_tsi();
     tsi->system_thread = true;
+    n00b_thread_t *self = n00b_thread_self();
+    self->tsi = tsi;
 }
 
 void
