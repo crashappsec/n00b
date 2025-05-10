@@ -13,6 +13,7 @@ extern void n00b_setup_term_channels(void);
 static void
 setup_io(void)
 {
+    n00b_gc_register_root(&n00b_system_dispatcher, 1);
     fd_cache               = n00b_dict(n00b_type_int(), n00b_type_ref());
     n00b_system_dispatcher = n00b_new_event_context(N00B_EV_POLL);
     n00b_setup_term_channels();
@@ -27,9 +28,13 @@ typedef struct {
 static void
 process_conditions(n00b_event_loop_t *ctx)
 {
+    n00b_list_t *old = atomic_read(&ctx->conditions);
+    if (!n00b_list_len(old)) {
+        return;
+    }
+
     // We *should* be the only thread changing out the list.
     n00b_list_t *new_list = n00b_list(n00b_type_ref());
-    n00b_list_t *old      = atomic_read(&ctx->conditions);
 
     while (!(CAS(&ctx->conditions, &old, new_list))) {
         // Nothing.
@@ -153,8 +158,42 @@ n00b_fd_name(n00b_fd_stream_t *s)
         return n00b_cstring(path);
     }
 #endif
+
+    if (s->tty) {
+        return n00b_cstring(ttyname(s->fd));
+    }
+
+    char *tag;
+
+    struct stat info;
+    fstat(s->fd, &info);
+
+    switch (info.st_mode & S_IFMT) {
+    case S_IFREG:
+        tag = "file";
+        break;
+    case S_IFDIR:
+        tag = "dir";
+        break;
+    case S_IFSOCK:
+        tag = "socket";
+        break;
+    case S_IFCHR:
+    case S_IFBLK:
+        tag = "device";
+        break;
+    case S_IFIFO:
+        tag = "pipe";
+        break;
+    case S_IFLNK:
+        tag = "link";
+        break;
+    default:
+        tag = "fd";
+        break;
+    }
+    return n00b_cstring(tag);
     // TODO: Linux support. readlink + proc
-    return NULL;
 }
 
 // When we add an entry for a file descriptor, we want to avoid adding
@@ -197,18 +236,10 @@ fd_hash_key(n00b_event_loop_t *loop, int fd)
 static inline n00b_fd_stream_t *
 fd_cache_lookup(int fd, n00b_event_loop_t *loop)
 {
-    n00b_fd_cache_entry_t *entry;
-    int64_t                key = fd_hash_key(loop, fd);
+    int64_t           key    = fd_hash_key(loop, fd);
+    n00b_fd_stream_t *result = hatrack_dict_get(fd_cache, (void *)key, NULL);
 
-    entry = hatrack_dict_get(fd_cache, (void *)key, NULL);
-
-    if (!entry) {
-        return NULL;
-    }
-
-    n00b_fd_stream_t *result = atomic_read(&entry->fd_info);
-
-    if (result->fd == N00B_FD_CLOSED) {
+    if (result && result->fd == N00B_FD_CLOSED) {
         return NULL;
     }
 
@@ -218,33 +249,27 @@ fd_cache_lookup(int fd, n00b_event_loop_t *loop)
 static inline n00b_fd_stream_t *
 fd_cache_add(n00b_fd_stream_t *s)
 {
-    int64_t                key = fd_hash_key(s->evloop, s->fd);
-    n00b_fd_cache_entry_t *entry;
-    n00b_fd_stream_t      *result;
+    int64_t           key = fd_hash_key(s->evloop, s->fd);
+    n00b_fd_stream_t *found_entry;
 
-    entry = hatrack_dict_get(fd_cache, (void *)key, NULL);
+    while (true) {
+        found_entry = hatrack_dict_get(fd_cache, (void *)key, NULL);
 
-    if (!entry) {
-        entry = n00b_gc_alloc_mapped(n00b_fd_cache_entry_t,
-                                     N00B_GC_SCAN_ALL);
-        atomic_store(&entry->fd_info, s);
+        // There's something there that appears to be open.
+        if (found_entry && found_entry->fd >= 0) {
+            return found_entry;
+        }
 
-        if (hatrack_dict_add(fd_cache, (void *)key, entry)) {
+        // Either there's nothing there, or the found entry is closed, and
+        // we want to replace it.
+
+        if (hatrack_dict_cas(fd_cache, (void *)key, s, found_entry, true)) {
             return s;
         }
-        entry = hatrack_dict_get(fd_cache, (void *)key, NULL);
-    }
 
-    result = atomic_read(&entry->fd_info);
-    if (result->fd != N00B_FD_CLOSED) {
-        return result;
+        // If we didn't win the CAS, the hatrack API doesn't give us
+        // the new value, so we need to re-load, so we loop.
     }
-
-    if (CAS(&entry->fd_info, &result, s)) {
-        return s;
-    }
-
-    return result;
 }
 
 static inline void
@@ -279,9 +304,8 @@ apply_preferred_sockopts(int fd)
     setsockopt(fd, SOL_SOCKET, SO_LINGER_SEC, &linger, sizeof(int));
 #elif defined(__linux__)
     struct linger linger_opt = {
-        .l_onoff = 1,
-        .l_linger = N00B_SOCKET_LINGER_SEC
-    };
+        .l_onoff  = 1,
+        .l_linger = N00B_SOCKET_LINGER_SEC};
     setsockopt(fd, SOL_SOCKET, SO_LINGER, &linger_opt, sizeof(struct linger));
 #endif
 }
@@ -299,9 +323,9 @@ n00b_fd_stream_from_fd(int                fd,
     if (result) {
         return result;
     }
-
     struct stat info;
     if (fstat(fd, &info)) {
+        n00b_raise_errno();
         return NULL; // Invalid FD
     }
 
@@ -322,13 +346,17 @@ n00b_fd_stream_from_fd(int                fd,
 
     result->fd_flags = fcntl(result->fd, F_GETFL);
 
-    if (result->fd_flags & O_RDONLY) {
+    int mode = result->fd_flags & O_ACCMODE;
+
+    switch (mode) {
+    case O_WRONLY:
+        result->read_closed = true;
+        break;
+    case O_RDONLY:
         result->write_closed = true;
-    }
-    else {
-        if (result->fd_flags & O_WRONLY) {
-            result->read_closed = true;
-        }
+        break;
+    default:
+        break;
     }
 
     if (isatty(fd)) {
@@ -358,10 +386,6 @@ n00b_fd_stream_from_fd(int                fd,
         result->no_dispatcher_rw = true;
     }
 
-    // Just in case there was a race. The only person who should
-    // append is the one who got their entry in the cache.
-    //
-    // Then, use whichever one was actually in the cache.
     n00b_fd_stream_t *check = fd_cache_add(result);
 
     if (check == result) {
@@ -553,8 +577,7 @@ fd_post(n00b_fd_stream_t *s, n00b_list_t *subs, void *msg)
 static void
 fd_post_close(n00b_fd_stream_t *s)
 {
-    close(s->fd);
-    s->fd           = N00B_FD_CLOSED;
+    n00b_raw_fd_close(s->fd);
     s->read_closed  = true;
     s->write_closed = true;
 
@@ -674,6 +697,7 @@ process_write_queue(n00b_fd_stream_t *s)
         case ENETDOWN:
         case ENETUNREACH:
             fd_post_error(s, qitem, errno, true, false);
+            return;
         default:
             fd_post_error(s, qitem, errno, true, true);
             return;
@@ -687,10 +711,14 @@ assemble_buffer(n00b_rdbuf_t *cache, int len)
     n00b_buf_t *result = n00b_buffer_empty();
     result->data       = n00b_gc_array_value_alloc(char, len);
     char *p            = result->data;
+    int   total        = 0;
 
     while (cache) {
+        assert(cache->len + total <= len);
         memcpy(p, cache->segment, cache->len);
+        total += cache->len;
         p += cache->len;
+        assert(!cache->next || n00b_in_heap(cache->next));
         cache = cache->next;
     }
 
@@ -732,12 +760,10 @@ handle_one_read(n00b_fd_stream_t *s)
             return false;
         }
 
-        n00b_net_addr_t  *saddr  = n00b_new(n00b_type_net_addr(),
+        n00b_net_addr_t  *saddr = n00b_new(n00b_type_net_addr(),
                                           n00b_kw("sockaddr", &addr));
-        n00b_fd_stream_t *fd     = n00b_fd_stream_from_fd(sock, NULL, NULL);
-        n00b_channel_t   *chan   = n00b_new_fd_channel(fd);
-        n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(chan);
-        cookie->addr             = saddr;
+        n00b_fd_stream_t *fd    = n00b_fd_stream_from_fd(sock, NULL, NULL);
+        n00b_channel_t   *chan  = n00b_new_fd_channel(fd, saddr);
 
         n00b_fd_stream_nonblocking(fd);
         fd_post(s, s->read_subs, chan);
@@ -754,8 +780,9 @@ handle_one_read(n00b_fd_stream_t *s)
             // For a regular file, it does NOT.
             if (s->socket) {
                 fd_discovered_read_close(s);
+                return true;
             }
-            return true;
+            return false;
         }
         if (val < 0) {
             switch (errno) {
@@ -781,12 +808,12 @@ handle_one_read(n00b_fd_stream_t *s)
         total += val;
 
         if (!first) {
-            first = n00b_gc_alloc_mapped(n00b_fd_sub_t,
+            first = n00b_gc_alloc_mapped(n00b_rdbuf_t,
                                          N00B_GC_SCAN_ALL);
             last  = first;
         }
         else {
-            last->next = n00b_gc_alloc_mapped(n00b_fd_sub_t,
+            last->next = n00b_gc_alloc_mapped(n00b_rdbuf_t,
                                               N00B_GC_SCAN_ALL);
             last       = last->next;
         }
@@ -895,6 +922,7 @@ n00b_fd_write(n00b_fd_stream_t *s, char *bytes, int len)
             n00b_fd_stream_nonblocking(s);
             fd_post_error(s, qitem, errno, true, false);
             worker_yield(s);
+            return false;
         default:
             fd_post_error(s, qitem, errno, true, true);
             worker_yield(s);
@@ -908,34 +936,16 @@ n00b_fd_write(n00b_fd_stream_t *s, char *bytes, int len)
     return true;
 }
 
-// Synchronous read.
-// 'full' parameter will block until either `len` bytes are available,
-// or the timeout is reached (if one was given).
-n00b_buf_t *
-n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full, bool *err)
+static inline n00b_buf_t *
+blocking_greedy_read(n00b_fd_stream_t *s,
+                     int               ms_timeout,
+                     bool             *err)
 {
-    if (!s->read_subs || s->fd == N00B_FD_CLOSED) {
-        *err = true;
-        return NULL;
-    }
-
-    if (!len) {
-        *err = true;
-        return NULL;
-    }
-
-    become_worker(s);
-    n00b_fd_stream_blocking(s);
-
-    if (len == -1) {
-        len = PIPE_BUF;
-    }
-
-    char buf[len];
-
-    n00b_buf_t *b         = NULL;
-    char       *p         = buf;
-    int         remaining = len;
+    char          tmpbuf[PIPE_BUF];
+    n00b_rdbuf_t *first = NULL;
+    n00b_rdbuf_t *last  = NULL;
+    n00b_buf_t   *msg   = NULL;
+    int           total = 0;
 
     struct pollfd fds[1] = {
         {
@@ -945,72 +955,238 @@ n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full, bool *err)
         },
     };
 
+    if (ms_timeout <= 0) {
+        ms_timeout = -1;
+    }
+
+    int r = poll(fds, 1, 0);
+
+    if (!r) {
+        worker_yield(s);
+        return NULL;
+    }
+
+    if (!(fds[0].revents & POLLIN)) {
+        fd_post_error(s, NULL, errno, false, true);
+        *err = true;
+        return NULL;
+    }
+
     while (true) {
-        if (ms_timeout) {
-            n00b_gts_suspend();
-            int r = poll(fds, 1, ms_timeout);
-            n00b_gts_resume();
+        n00b_fd_stream_nonblocking(s);
 
-            switch (r) {
-            case 0:
-finish:
-                if (p != (char *)&buf) {
-                    int l = p - buf;
-                    b     = n00b_buffer_from_bytes(buf, l);
-                    s->total_read += l;
-                    fd_post(s, s->read_subs, b);
-                }
-
-                n00b_fd_stream_nonblocking(s);
-                worker_yield(s);
-                *err = false;
-                return b;
-            case -1:
-                switch (errno) {
-                case EAGAIN:
-                case EINTR:
-                    continue;
-                default:
-                    fd_post_error(s, NULL, errno, false, true);
-                    goto finish;
-                }
-
-            default:
-                break;
+        int val = read(s->fd, tmpbuf, PIPE_BUF);
+        if (val == 0) {
+            // If it's a socket, reading EOF tells us it's closed.
+            // For a regular file, it does NOT.
+            if (s->socket) {
+                fd_discovered_read_close(s);
             }
-
-            if (!(fds[0].revents & POLLIN)) {
-                fd_post_error(s, NULL, EBADF, false, true);
-                goto finish;
-            }
-        }
-
-        n00b_gts_suspend();
-        int r = read(s->fd, p, remaining);
-        n00b_gts_resume();
-
-        if (!r) {
-            fd_discovered_read_close(s);
             goto finish;
         }
 
-        if (r < 0) {
+        if (val < 0) {
             switch (errno) {
             case EINTR:
                 continue;
             default:
                 fd_post_error(s, NULL, errno, false, true);
-                goto finish;
+                // fallthrough
+            case EAGAIN:
+finish:
+                if (first) {
+                    msg = assemble_buffer(first, total);
+                    fd_post(s, s->read_subs, msg);
+                    first = last = NULL;
+                }
+
+                worker_yield(s);
+                return msg;
             }
         }
 
-        remaining -= r;
-        p += r;
+        s->total_read += val;
+        total += val;
 
-        if (!remaining || !full) {
+        if (!first) {
+            first = n00b_gc_alloc_mapped(n00b_rdbuf_t,
+                                         N00B_GC_SCAN_ALL);
+            last  = first;
+        }
+        else {
+            last->next = n00b_gc_alloc_mapped(n00b_rdbuf_t,
+                                              N00B_GC_SCAN_ALL);
+            last       = last->next;
+        }
+
+        last->next = NULL;
+
+        if (val > PIPE_BUF) {
+            val = PIPE_BUF;
+            n00b_unreachable();
+        }
+        last->len = val;
+        memcpy(last->segment, tmpbuf, val);
+        continue;
+    }
+}
+
+// Synchronous read.
+// 'full' parameter will block until the first of the following:
+
+// 1) `len` bytes are available
+// 2) EOF is reached.
+// 3) The timeout is reached.
+// 4) The fd closes / errors on us.
+//
+// The 'full' parameter indicates we should ignore EOF, because not
+// all the data may be available.
+//
+//
+// We are still going to use non-blocking reads, until we get EAGAIN
+// or EINTR.  At that point, we will poll until there's data.
+//
+// If, on the other hand, a negative number is passed for the length,
+// we block (if necessary) until anything is available, and then we
+// read as much data as we can before blocking!
+
+n00b_buf_t *
+n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full, bool *err)
+{
+    if (!s->read_subs || s->fd == N00B_FD_CLOSED) {
+        *err = true;
+        return NULL;
+    }
+
+    *err = false;
+
+    become_worker(s);
+
+    if (len <= 0) {
+        return blocking_greedy_read(s, ms_timeout, err);
+    }
+
+    char buf[len];
+
+    n00b_buf_t      *b         = NULL;
+    char            *p         = buf;
+    int              remaining = len;
+    n00b_duration_t *end       = NULL;
+    n00b_duration_t *now;
+
+    struct pollfd fds[1] = {
+        {
+            .fd      = s->fd,
+            .events  = POLLIN,
+            .revents = 0,
+        },
+    };
+
+    if (ms_timeout > 0) {
+        end = n00b_new_ms_timeout(ms_timeout);
+    }
+    else {
+        ms_timeout = -1;
+    }
+
+    n00b_fd_stream_nonblocking(s);
+    int r = poll(fds, 1, 0);
+
+    while (true) {
+        // The first time through, the 'r' is from the no-delay poll.
+        switch (r) {
+        case 0:
+            goto wait;
+        case -1:
+            switch (errno) {
+            case EAGAIN:
+                goto wait;
+            case EINTR:
+                continue;
+            default:
+                fd_post_error(s, NULL, errno, false, true);
+                *err = true;
+                goto finish;
+            }
+        default:
+            break;
+        }
+
+        if (!(fds[0].revents & POLLIN)) {
+            fd_post_error(s, NULL, EBADF, false, true);
+            *err = true;
             goto finish;
         }
+
+        n00b_gts_suspend();
+        r = read(s->fd, p, remaining);
+        n00b_gts_resume();
+
+        switch (r) {
+        case -1:
+            switch (errno) {
+            case EAGAIN:
+                goto wait;
+            case EINTR:
+                continue;
+            default:
+                fd_post_error(s, NULL, errno, false, true);
+                *err = true;
+                goto finish;
+            }
+        case 0:
+            // For sockets, it is a close. Anything else, 'no data available'.
+            if (s->socket) {
+                fd_discovered_read_close(s);
+                goto finish;
+            }
+            //  might be more data in the future. Whether we keep waiting is
+            // up to the 'full' parameter.
+            if (full) {
+                goto wait;
+            }
+            else {
+                goto finish;
+            }
+        default:
+            remaining -= r;
+            p += r;
+            if (!remaining) {
+                goto finish;
+            }
+            continue; // We don't poll until we get EAGAIN.
+        }
+
+wait:
+
+        if (end) {
+            now = n00b_now();
+            if (n00b_duration_gt(now, end)) {
+                goto finish;
+            }
+            n00b_duration_t *diff = n00b_duration_diff(now, end);
+            ms_timeout            = n00b_duration_to_ms(diff);
+        }
+
+        n00b_gts_suspend();
+        r = poll(fds, 1, ms_timeout);
+        n00b_gts_resume();
+        n00b_fd_stream_nonblocking(s);
+
+        continue;
     }
+
+finish:
+    if (p != (char *)&buf) {
+        int l = p - buf;
+        b     = n00b_buffer_from_bytes(buf, l);
+        s->total_read += l;
+        fd_post(s, s->read_subs, b);
+        worker_yield(s);
+        return b;
+    }
+    *err = true;
+    return b;
 }
 
 static inline void

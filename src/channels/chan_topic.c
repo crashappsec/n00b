@@ -92,6 +92,8 @@ _n00b_create_topic_channel(n00b_string_t *name,
 
     result = n00b_new(n00b_type_channel(), &topic_impl, args, filters);
 
+    result->name = name;
+
     if (hatrack_dict_add(ns, name, result)) {
         return result;
     }

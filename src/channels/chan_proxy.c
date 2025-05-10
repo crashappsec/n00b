@@ -56,21 +56,7 @@ proxy_init(n00b_channel_t *stream, n00b_channel_t *target)
 
     info->target = target;
 
-    int x = ((int)target->w) << 1;
-    x |= ((int)target->r);
-
-    switch (x) {
-    case 0:
-        N00B_CRAISE("Target is closed");
-    case 1:
-        return O_RDONLY;
-    case 2:
-        return O_WRONLY;
-    case 3:
-        return O_RDWR;
-    default:
-        n00b_unreachable();
-    }
+    return O_RDWR;
 }
 
 static void *

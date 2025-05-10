@@ -104,9 +104,9 @@ typedef struct {
 typedef struct n00b_rdbuf_t n00b_rdbuf_t;
 
 struct n00b_rdbuf_t {
+    char          segment[PIPE_BUF];
     n00b_rdbuf_t *next;
     int           len;
-    char          segment[PIPE_BUF];
 };
 
 typedef struct {
@@ -144,10 +144,6 @@ struct n00b_event_loop_t {
         n00b_pevent_loop_t poll;
     } algo;
 };
-
-typedef struct n00b_fd_cache_entry_t {
-    _Atomic(n00b_fd_stream_t *) fd_info;
-} n00b_fd_cache_entry_t;
 
 extern n00b_event_loop_t *n00b_system_dispatcher;
 extern bool               n00b_fd_set_absolute_position(n00b_fd_stream_t *,
@@ -248,4 +244,4 @@ extern bool n00b_condition_poll(n00b_condition_test_fn, void *, int to);
 #define n00b_add_timer(time, action, ...) \
     _n00b_add_timer(time,                 \
                     action,               \
-                    N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)
+                    N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, __VA_ARGS__))

@@ -807,9 +807,10 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
                            N00B_ALLOC_XPARAM);
 #endif
 
-    n00b_alloc_hdr *hdr = &((n00b_alloc_hdr *)obj)[-1];
-    hdr->n00b_obj       = true;
-    hdr->type           = type;
+    n00b_alloc_hdr *hdr = (void *)obj;
+    --hdr;
+    hdr->n00b_obj = true;
+    hdr->type     = type;
 
     if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
         hdr->n00b_finalize = true;

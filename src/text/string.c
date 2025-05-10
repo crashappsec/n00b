@@ -950,7 +950,7 @@ n00b_string_from_file(n00b_string_t *name, int *err)
 
     if (len == -1) {
         *err = errno;
-        close(fd);
+        n00b_raw_fd_close(fd);
         return NULL;
     }
     if (lseek(fd, 0, SEEK_SET) == -1) {
@@ -968,7 +968,7 @@ n00b_string_from_file(n00b_string_t *name, int *err)
             if (errno == EINTR || errno == EAGAIN) {
                 continue;
             }
-            close(fd);
+            n00b_raw_fd_close(fd);
             *err = errno;
             return NULL;
         }
@@ -1358,7 +1358,7 @@ n00b_string_lit(n00b_string_t        *s,
                 return NULL;
             }
         }
-	break;
+        break;
     default:
         // TODO / FIXME: hook up the errors.
         return n00b_string_unescape(s, (int *)err);

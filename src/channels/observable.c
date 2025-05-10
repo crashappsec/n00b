@@ -94,12 +94,12 @@ n00b_observable_post(n00b_observable_t *o, void *topic_info, void *msg)
     while (n--) {
         n00b_observer_t *target = n00b_private_list_get(l, n, NULL);
 
-        if (!target) {
+        if (!target || !n00b_in_heap(target)) {
             n00b_private_list_remove(l, n);
             continue;
         }
 
-        (*target->callback)(msg, target->thunk);
+        (*target->callback)(msg, target->subscriber);
         r++;
 
         if (target->oneshot) {
@@ -115,7 +115,7 @@ n00b_observable_subscribe(n00b_observable_t *target,
                           void              *topic_info,
                           n00b_observer_cb   cb,
                           bool               oneshot,
-                          void              *thunk)
+                          void              *subscriber)
 {
     int64_t        topic_ix   = get_topic_ix(target, topic_info);
     n00b_list_t   *topic_subs = get_topic_subs(target, topic_ix);
@@ -126,11 +126,11 @@ n00b_observable_subscribe(n00b_observable_t *target,
         n00b_list_set(target->observers, topic_ix, topic_subs);
     }
 
-    n00b_observer_t *result = n00b_gc_alloc_mapped(n00b_observer_t *,
+    n00b_observer_t *result = n00b_gc_alloc_mapped(n00b_observer_t,
                                                    N00B_GC_SCAN_ALL);
     result->callback        = cb;
     result->oneshot         = oneshot;
-    result->thunk           = thunk;
+    result->subscriber      = subscriber;
     result->topic           = topic;
     result->topic_ix        = topic_ix;
     result->target          = target;
@@ -142,6 +142,7 @@ n00b_observable_subscribe(n00b_observable_t *target,
             (*target->on_subscribe)(target, result);
         }
     }
+
     return result;
 }
 

@@ -469,7 +469,8 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
         node->typeid = result;
 
         if (!n00b_universe_add(&n00b_type_universe, node)) {
-            n00b_type_t *o = n00b_universe_get(&n00b_type_universe, node->typeid);
+            n00b_type_t *o = n00b_universe_get(&n00b_type_universe,
+                                               node->typeid);
             if (!o) {
                 return result;
             }

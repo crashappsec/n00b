@@ -10,8 +10,11 @@ typedef struct {
 extern n00b_channel_t *_n00b_new_fd_channel(n00b_fd_stream_t *fd, ...);
 extern n00b_channel_t *_n00b_channel_open_file(n00b_string_t *filename, ...);
 extern n00b_channel_t *n00b_channel_fd_open(int);
+extern void           *_n00b_read_file(n00b_string_t *, ...);
 
-// In chan_listener.c
+#define n00b_read_file(filename, ...) \
+    _n00b_read_file(filename __VA_OPT__(, n00b_kw(__VA_ARGS__)))
+
 extern n00b_channel_t *_n00b_create_listener(n00b_net_addr_t *, ...);
 extern n00b_channel_t *_n00b_channel_connect(n00b_net_addr_t *, ...);
 
@@ -19,14 +22,15 @@ extern void n00b_channel_fd_pause_reads(n00b_channel_t *);
 extern void n00b_channel_fd_unpause_reads(n00b_channel_t *);
 
 #define n00b_new_fd_channel(fdstrm, ...) \
-    _n00b_new_fd_channel(fdstrm, __VA_ARGS__ __VA_OPT__(, ) 0ULL)
+    _n00b_new_fd_channel(fdstrm __VA_OPT__(, __VA_ARGS__))
 
 #define n00b_channel_open_file(fname, ...) \
-    _n00b_channel_open_file(fname, n00b_kw(__VA_ARGS__))
+    _n00b_channel_open_file(fname __VA_OPT__(, n00b_kw(__VA_ARGS__)))
+
 #define n00b_create_listener(addr, ...) \
-    _n00b_create_listener(addr, __VA_ARGS__ __VA_OPT__(, ) 0ULL)
+    _n00b_create_listener(addr __VA_OPT__(, __VA_ARGS__))
 #define n00b_channel_connect(addr, ...) \
-    _n00b_channel_connect(addr, __VA_ARGS__ __VA_OPT__(, ) 0ULL)
+    _n00b_channel_connect(addr __VA_OPT__(, __VA_ARGS__))
 
 static inline int
 n00b_channel_fileno(n00b_channel_t *c)

@@ -295,6 +295,7 @@ n00b_channels = [
     'src/channels/terminal_io.c',
     'src/channels/print.c',
     'src/channels/proc.c',
+    'src/channels/debug.c',    
     # 'src/channels/session.c',
     # 'src/channels/session_control.c',
     # 'src/channels/session_capture.c',

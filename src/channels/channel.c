@@ -3,7 +3,8 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static _Atomic int32_t global_msg_id = 0;
+static _Atomic int32_t global_msg_id     = 0;
+static _Atomic int32_t global_channel_id = 0;
 static void            route_channel_message(void *msg, void *dst);
 
 // This callback gets the first subscriber for *any* channel.
@@ -68,16 +69,33 @@ dispatch_no_subscriber(n00b_observable_t *obs,
     }
 }
 
+static n00b_observer_t *
+base_subscribe(n00b_channel_t *channel,
+               n00b_channel_t *dst,
+               bool            oneshot,
+               int64_t         sub_kind)
+{
+    if (!dst->w) {
+        N00B_CRAISE("Subscriber is not able to be written to.");
+    }
+
+    n00b_observer_t *result = n00b_observable_subscribe(&channel->pub_info,
+                                                        (void *)sub_kind,
+                                                        route_channel_message,
+                                                        oneshot,
+                                                        dst);
+
+    n00b_list_append(dst->my_subscriptions, result);
+
+    return result;
+}
+
 n00b_observer_t *
 n00b_channel_subscribe_read(n00b_channel_t *channel,
                             n00b_channel_t *dst,
                             bool            oneshot)
 {
-    return n00b_observable_subscribe(&channel->pub_info,
-                                     (void *)(int64_t)N00B_CT_R,
-                                     route_channel_message,
-                                     oneshot,
-                                     dst);
+    return base_subscribe(channel, dst, oneshot, N00B_CT_R);
 }
 
 n00b_observer_t *
@@ -85,11 +103,7 @@ n00b_channel_subscribe_raw(n00b_channel_t *channel,
                            n00b_channel_t *dst,
                            bool            oneshot)
 {
-    return n00b_observable_subscribe(&channel->pub_info,
-                                     (void *)(int64_t)N00B_CT_RAW,
-                                     route_channel_message,
-                                     oneshot,
-                                     dst);
+    return base_subscribe(channel, dst, oneshot, N00B_CT_RAW);
 }
 
 n00b_observer_t *
@@ -97,11 +111,7 @@ n00b_channel_subscribe_queue(n00b_channel_t *channel,
                              n00b_channel_t *dst,
                              bool            oneshot)
 {
-    return n00b_observable_subscribe(&channel->pub_info,
-                                     (void *)(int64_t)N00B_CT_Q,
-                                     route_channel_message,
-                                     oneshot,
-                                     dst);
+    return base_subscribe(channel, dst, oneshot, N00B_CT_Q);
 }
 
 n00b_observer_t *
@@ -109,22 +119,14 @@ n00b_channel_subscribe_write(n00b_channel_t *channel,
                              n00b_channel_t *dst,
                              bool            oneshot)
 {
-    return n00b_observable_subscribe(&channel->pub_info,
-                                     (void *)(int64_t)N00B_CT_W,
-                                     route_channel_message,
-                                     oneshot,
-                                     dst);
+    return base_subscribe(channel, dst, oneshot, N00B_CT_W);
 }
 
 n00b_observer_t *
 n00b_channel_subscribe_close(n00b_channel_t *channel,
                              n00b_channel_t *dst)
 {
-    return n00b_observable_subscribe(&channel->pub_info,
-                                     (void *)(int64_t)N00B_CT_CLOSE,
-                                     route_channel_message,
-                                     true,
-                                     dst);
+    return base_subscribe(channel, dst, true, N00B_CT_CLOSE);
 }
 
 n00b_observer_t *
@@ -132,11 +134,7 @@ n00b_channel_subscribe_error(n00b_channel_t *channel,
                              n00b_channel_t *dst,
                              bool            oneshot)
 {
-    return n00b_observable_subscribe(&channel->pub_info,
-                                     (void *)(int64_t)N00B_CT_ERROR,
-                                     route_channel_message,
-                                     oneshot,
-                                     dst);
+    return base_subscribe(channel, dst, oneshot, N00B_CT_ERROR);
 }
 
 static inline n00b_cmsg_t *
@@ -438,10 +436,6 @@ n00b_channel_read(n00b_channel_t *channel, int ms_timeout, bool *err)
 
     void *result = n00b_perform_channel_read(channel, true, ms_timeout, ep);
 
-    if (err) {
-        N00B_CRAISE("Error in read.");
-    }
-
     return result;
 }
 
@@ -475,7 +469,7 @@ n00b_channel_set_relative_position(n00b_channel_t *c, int pos)
     return (*c->impl->spos_impl)(c, pos, true);
 }
 
-extern bool
+bool
 n00b_channel_set_absolute_position(n00b_channel_t *c, int pos)
 {
     if (!c->impl->spos_impl) {
@@ -485,16 +479,23 @@ n00b_channel_set_absolute_position(n00b_channel_t *c, int pos)
     return (*c->impl->spos_impl)(c, pos, false);
 }
 
-extern void
+void
 n00b_channel_close(n00b_channel_t *c)
 {
     if (c->impl->close_impl) {
         (*c->impl->close_impl)(c);
     }
 
+    while (n00b_list_len(c->my_subscriptions)) {
+        n00b_observer_t *sub = n00b_list_pop(c->my_subscriptions);
+        n00b_observable_unsubscribe(sub);
+    }
+
     c->r = false;
     c->w = false;
     n00b_cnotify_close(c, (void *)~0ULL);
+    n00b_observable_remove_all_subscriptions(&c->pub_info);
+    n00b_channel_debug_deregister(c);
 }
 
 static n00b_string_t *
@@ -528,11 +529,15 @@ n00b_channel_init(n00b_channel_t *stream, va_list args)
                                              false);
     stream->pub_info.max_topics = N00B_CT_NUM_TOPICS;
 
-    stream->impl       = impl;
-    stream->read_cache = n00b_list(n00b_type_ref());
+    stream->impl             = impl;
+    stream->my_subscriptions = n00b_list(n00b_type_ref());
+    stream->read_cache       = n00b_list(n00b_type_ref());
+    stream->channel_id       = atomic_fetch_add(&global_channel_id, 1);
 
     n00b_alloc_hdr *h = ((n00b_alloc_hdr *)stream) - 1;
     h->type           = n00b_type_channel();
+
+    n00b_channel_debug_register(stream);
 
     if (filter_specs) {
         int n = n00b_list_len(filter_specs);
@@ -546,7 +551,7 @@ n00b_channel_init(n00b_channel_t *stream, va_list args)
         }
     }
 
-    int mode = (*impl->init_impl)(stream, init_args);
+    int mode = O_ACCMODE & (*impl->init_impl)(stream, init_args);
 
     switch (mode) {
     case O_RDONLY:
@@ -555,13 +560,10 @@ n00b_channel_init(n00b_channel_t *stream, va_list args)
     case O_WRONLY:
         stream->w = true;
         break;
-    case O_RDWR:
+    default:
         stream->r = true;
         stream->w = true;
         break;
-    default:
-        stream->r = stream->w = false;
-        return;
     }
 
     if (stream->r) {

@@ -3,7 +3,8 @@
 
 typedef struct {
     n00b_buf_t *buffer;
-    int         position;
+    int         rposition;
+    int         wposition;
 } n00b_buffer_channel_t;
 
 extern n00b_channel_t *n00b_channel_from_buffer(n00b_buf_t *,

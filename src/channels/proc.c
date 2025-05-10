@@ -85,10 +85,10 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
     ctx->subproc_pid = setup_exit_obj(ctx);
 
     if (ctx->subproc_stdout) {
-        n00b_channel_fd_pause_reads(ctx->subproc_stdout);
+        //        n00b_channel_fd_pause_reads(ctx->subproc_stdout);
     }
     if (ctx->subproc_stderr) {
-        n00b_channel_fd_pause_reads(ctx->subproc_stderr);
+        //        n00b_channel_fd_pause_reads(ctx->subproc_stderr);
     }
 
     if (ctx->seeded_stdin && ctx->subproc_stdin) {
@@ -179,6 +179,7 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
         }
     }
 
+    /*
     if (ctx->subproc_stdout) {
         n00b_channel_fd_unpause_reads(ctx->subproc_stdout);
     }
@@ -188,7 +189,8 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
 
     if (ctx->flags & N00B_PROC_STDIN_PROXY) {
         n00b_channel_fd_unpause_reads(n00b_chan_stdin());
-    }
+        }*/
+    n00b_show_channels();
 
     return;
 }
@@ -214,7 +216,7 @@ close_read_side(bool proxy, int filedes[2])
         return false;
     }
 
-    close(filedes[0]);
+    n00b_raw_fd_close(filedes[0]);
     return true;
 }
 
@@ -225,7 +227,7 @@ close_write_side(bool proxy, int filedes[2])
         return false;
     }
 
-    close(filedes[1]);
+    n00b_raw_fd_close(filedes[1]);
     return true;
 }
 
@@ -281,32 +283,17 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
         ctx->pid = pid;
 
         if (ctx->flags & N00B_PROC_STDIN_PROXY) {
-            n00b_channel_fd_pause_reads(n00b_chan_stdin());
+            //            n00b_channel_fd_pause_reads(n00b_chan_stdin());
         }
 
         if (proxy_in) {
             ctx->subproc_stdin = n00b_channel_fd_open(stdin_pipe[1]);
-            n00b_channel_set_name(ctx->subproc_stdin,
-                                  n00b_cformat("«#»«#» stdin«#»",
-                                               n00b_cached_lbracket(),
-                                               ctx->cmd,
-                                               n00b_cached_rbracket()));
         }
         if (proxy_out) {
             ctx->subproc_stdout = n00b_channel_fd_open(stdout_pipe[0]);
-            n00b_channel_set_name(ctx->subproc_stdout,
-                                  n00b_cformat("«#»«#» stdout«#»",
-                                               n00b_cached_lbracket(),
-                                               ctx->cmd,
-                                               n00b_cached_rbracket()));
         }
         if (proxy_err) {
             ctx->subproc_stderr = n00b_channel_fd_open(stderr_pipe[0]);
-            n00b_channel_set_name(ctx->subproc_stderr,
-                                  n00b_cformat("«#»«#» stderr«#»",
-                                               n00b_cached_lbracket(),
-                                               ctx->cmd,
-                                               n00b_cached_rbracket()));
         }
         post_spawn_subscription_setup(ctx);
 
@@ -421,8 +408,8 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
     int err_code;
     if (pid != 0) {
-        close(subproc_fd);
-        close(pmain[1]);
+        n00b_raw_fd_close(subproc_fd);
+        n00b_raw_fd_close(pmain[1]);
 
         if (ctx->flags & N00B_PROC_STDIN_PROXY) {
             n00b_channel_fd_pause_reads(n00b_chan_stdin());
@@ -433,10 +420,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
             waitpid(pid, &status, 0);
             ctx->pid = -1;
             errno    = err_code;
-            close(pmain[0]);
+            n00b_raw_fd_close(pmain[0]);
             n00b_raise_errno();
         }
-        close(pmain[0]);
+        n00b_raw_fd_close(pmain[0]);
 
         ctx->pid = pid;
         if (use_aux) {
@@ -470,7 +457,7 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         fcntl(pty_fd, F_SETFL, flags);
 
         if (use_aux) {
-            close(subproc_aux);
+            n00b_raw_fd_close(subproc_aux);
             fcntl(aux_fd, F_SETFL, flags);
         }
 
@@ -481,10 +468,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         return;
     }
 
-    close(pty_fd);
+    n00b_raw_fd_close(pty_fd);
 
     if (use_aux) {
-        close(aux_fd);
+        n00b_raw_fd_close(aux_fd);
     }
     close(pmain[0]);
 
@@ -587,8 +574,8 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
     }
 
     if (end) {
-        n00b_proc_spawn(ctx);
         n00b_condition_lock_acquire(&(ctx->cv));
+        n00b_proc_spawn(ctx);
         if (!ctx->exited
             && !_n00b_condition_timed_wait(&(ctx->cv),
                                            end,
@@ -598,11 +585,9 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
         }
     }
     else {
-        n00b_proc_spawn(ctx);
         n00b_condition_lock_acquire(&(ctx->cv));
-        if (!ctx->exited) {
-            n00b_condition_wait(&(ctx->cv));
-        }
+        n00b_proc_spawn(ctx);
+        n00b_condition_wait(&(ctx->cv));
         n00b_proc_close(ctx);
     }
     n00b_condition_lock_release(&(ctx->cv));

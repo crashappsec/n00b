@@ -1083,6 +1083,26 @@ n00b_type_is_buffer(n00b_type_t *t)
 }
 
 static inline bool
+n00b_type_is_net_addr(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_IPV4;
+}
+
+static inline bool
+n00b_type_is_duration(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_DURATION;
+}
+
+static inline bool
 n00b_type_is_datetime(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {

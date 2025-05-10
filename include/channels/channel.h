@@ -46,11 +46,13 @@ struct n00b_channel_t {
     // This is in both raw channels and filters in case we want to do
     // notifications per filter level.
     n00b_observable_t pub_info;
+    n00b_list_t      *my_subscriptions;
     n00b_string_t    *name;
     n00b_list_t      *read_cache;
     n00b_chan_impl   *impl;
     n00b_filter_t    *write_top;
     n00b_filter_t    *read_top;
+    int               channel_id; // unique number for debugging.
 
     // Note that individual r/w requests may be 'blocking'; for a
     // read, the block lasts until the end channel operates, AND the
@@ -87,7 +89,7 @@ struct n00b_channel_t {
     // the 'implementation'.
 
     // These bits indicate whether the user can make a
-    // channel_write(), chanel_read()The channel might be closed, but
+    // channel_write(), chanel_read() The channel might be closed, but
     // the implementation should detect and return the indication to
     // the caller.
     unsigned int w           : 1;
@@ -242,7 +244,7 @@ n00b_get_channel_cookie(n00b_channel_t *stream)
         va_start(args, last);                        \
                                                      \
         item = va_arg(args, void *);                 \
-        if (item) {                                  \
+        if (item && n00b_in_heap(item)) {            \
             if (n00b_type_is_list(item)) {           \
                 output = item;                       \
             }                                        \

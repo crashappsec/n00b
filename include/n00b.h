@@ -16,6 +16,7 @@ typedef struct n00b_string_t n00b_string_t;
 // prototyping.
 #include "util/defer.h"
 #include "util/assert.h"
+#include "util/close.h"
 #include "n00b/base.h"
 
 extern bool n00b_startup_complete;
@@ -86,6 +87,7 @@ extern bool n00b_startup_complete;
 #include "channels/channel_exit.h"
 #include "channels/channel_proxy.h"
 #include "channels/terminal_io.h"
+#include "channels/debug.h"
 
 #include "channels/proc.h"
 #include "channels/session.h"
