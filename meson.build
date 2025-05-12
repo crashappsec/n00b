@@ -209,7 +209,8 @@ n00b_core = [
     'src/core/thread.c',        # Basic thread interface
     'src/core/thread_tsi.c',    # Internal API; thread specific data
     'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
-    'src/core/lock.c',     
+    'src/core/lock.c',
+    'src/core/signal.c',
 ]
 
 n00b_runtime = [
@@ -291,7 +292,8 @@ n00b_channels = [
     'src/channels/chan_topic.c',
     'src/channels/chan_listener.c',
     'src/channels/chan_exit.c',
-    'src/channels/chan_proxy.c',    
+    'src/channels/chan_proxy.c',
+#    'src/channels/chan_string.c',    
     'src/channels/terminal_io.c',
     'src/channels/print.c',
     'src/channels/proc.c',

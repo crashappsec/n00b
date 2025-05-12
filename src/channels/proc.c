@@ -84,13 +84,6 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
 {
     ctx->subproc_pid = setup_exit_obj(ctx);
 
-    if (ctx->subproc_stdout) {
-        //        n00b_channel_fd_pause_reads(ctx->subproc_stdout);
-    }
-    if (ctx->subproc_stderr) {
-        //        n00b_channel_fd_pause_reads(ctx->subproc_stderr);
-    }
-
     if (ctx->seeded_stdin && ctx->subproc_stdin) {
         n00b_channel_queue(ctx->subproc_stdin,
                            n00b_string_to_buffer(ctx->seeded_stdin));
@@ -179,19 +172,7 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
         }
     }
 
-    /*
-    if (ctx->subproc_stdout) {
-        n00b_channel_fd_unpause_reads(ctx->subproc_stdout);
-    }
-    if (ctx->subproc_stderr) {
-        n00b_channel_fd_unpause_reads(ctx->subproc_stderr);
-    }
-
-    if (ctx->flags & N00B_PROC_STDIN_PROXY) {
-        n00b_channel_fd_unpause_reads(n00b_chan_stdin());
-        }*/
-    n00b_show_channels();
-
+    write(ctx->gate, "x", 1);
     return;
 }
 
@@ -235,6 +216,9 @@ static void
 try_execve(n00b_proc_t *ctx, char *argv[], char *envp[])
 {
     char *cmd = n00b_string_to_cstr(ctx->cmd);
+    char  buf[1];
+
+    read(ctx->gate, buf, 1);
 
     execve(cmd, argv, envp);
     n00b_raise_errno();
@@ -250,11 +234,13 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     int    stdin_pipe[2];
     int    stdout_pipe[2];
     int    stderr_pipe[2];
+    int    gate[2];
     char **argp;
     char **envp;
 
     pre_launch_prep(ctx, &argp);
 
+    pipe(gate);
     open_pipe(proxy_in, stdin_pipe);
     open_pipe(proxy_out, stdout_pipe);
     open_pipe(proxy_err, stderr_pipe);
@@ -280,6 +266,8 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     pid = fork();
 
     if (pid != 0) {
+        ctx->gate = gate[1];
+        close(gate[0]);
         ctx->pid = pid;
 
         if (ctx->flags & N00B_PROC_STDIN_PROXY) {
@@ -300,6 +288,8 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
         return;
     }
 
+    ctx->gate = gate[0];
+    close(gate[1]);
     close_write_side(proxy_in, stdin_pipe);
     close_read_side(proxy_out, stdout_pipe);
     close_read_side(proxy_err, stderr_pipe);
@@ -330,7 +320,7 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
 }
 
 static void
-should_exit_via_sig(n00b_channel_t *sig, int64_t signal, n00b_proc_t *ctx)
+should_exit_via_sig(int signal, siginfo_t *info, n00b_proc_t *ctx)
 {
     n00b_condition_lock_acquire(&ctx->cv);
     n00b_channel_close(ctx->subproc_stdin);
@@ -355,9 +345,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     int             aux_fd;
     char          **argp;
     char          **envp;
-
-    // n00b_register_signal_handler(SIGCHLD, (void *)should_exit_via_sig, ctx);
-    // n00b_register_signal_handler(SIGPIPE, (void *)should_exit_via_sig, ctx);
+    int             gate[2];
+    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
 
     pre_launch_prep(ctx, &argp);
 
@@ -400,6 +390,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         n00b_raise_errno();
     }
 
+    if (pipe(gate)) {
+        n00b_raise_errno();
+    }
+
     pid = fork();
 
     if (pid < 0) {
@@ -410,6 +404,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     if (pid != 0) {
         n00b_raw_fd_close(subproc_fd);
         n00b_raw_fd_close(pmain[1]);
+
+        close(gate[0]);
+        ctx->gate = gate[1];
 
         if (ctx->flags & N00B_PROC_STDIN_PROXY) {
             n00b_channel_fd_pause_reads(n00b_chan_stdin());
@@ -449,9 +446,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
         if (ctx->flags & N00B_PROC_HANDLE_WIN_SIZE) {
             n00b_proc_proxy_winch(ctx);
-            // n00b_register_signal_handler(SIGWINCH,
-            //(void *)n00b_handle_winch,
-            //                              ctx);
+            n00b_signal_register(SIGWINCH,
+                                 (void *)n00b_handle_winch,
+                                 ctx);
         }
 
         fcntl(pty_fd, F_SETFL, flags);
@@ -467,6 +464,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
         return;
     }
+
+    close(gate[1]);
+    ctx->gate = gate[0];
 
     n00b_raw_fd_close(pty_fd);
 
@@ -540,6 +540,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 void
 n00b_proc_spawn(n00b_proc_t *ctx)
 {
+    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
+
     if (!ctx->cmd) {
         N00B_CRAISE("Cannot spawn; no command set.");
     }
@@ -697,4 +700,30 @@ _n00b_run_process(n00b_string_t *cmd,
     }
 
     return proc;
+}
+
+void
+n00b_proc_close(n00b_proc_t *proc)
+{
+    if (proc->subproc_stdin) {
+        n00b_channel_close(proc->subproc_stdin);
+    }
+    if (proc->subproc_stdout) {
+        n00b_channel_close(proc->subproc_stdout);
+    }
+    if (proc->subproc_stderr) {
+        n00b_channel_close(proc->subproc_stderr);
+    }
+    if (proc->subproc_pid) {
+        n00b_channel_close(proc->subproc_pid);
+    }
+
+    n00b_signal_unregister(SIGCHLD, (void *)should_exit_via_sig, proc);
+    n00b_signal_unregister(SIGPIPE, (void *)should_exit_via_sig, proc);
+
+    if (proc->flags & N00B_PROC_USE_PTY) {
+        n00b_signal_unregister(SIGWINCH,
+                               (void *)n00b_handle_winch,
+                               proc);
+    }
 }

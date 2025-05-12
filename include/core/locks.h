@@ -195,3 +195,24 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
 extern void n00b_debug_all_locks(void);
 extern void n00b_lock_release(void *);
 extern void n00b_lock_release_all(void *);
+
+typedef _Atomic(int64_t) n00b_spin_lock_t;
+
+static inline void
+n00b_spin_lock(n00b_spin_lock_t *lock)
+{
+    while (atomic_fetch_or(lock, 1))
+        ;
+}
+
+static inline void
+n00b_spin_unlock(n00b_spin_lock_t *lock)
+{
+    atomic_store(lock, 0ULL);
+}
+
+static inline void
+n00b_init_spin_lock(n00b_spin_lock_t *lock)
+{
+    n00b_spin_unlock(lock);
+}

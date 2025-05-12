@@ -409,13 +409,13 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_init_common_string_cache();
         n00b_backtrace_init(n00b_stashed_argv[0]);
         n00b_gc_set_system_finalizer((void *)n00b_finalize_allocation);
+        n00b_setup_signals();
         n00b_crash_init();
         n00b_register_builtins();
         n00b_init_path();
         n00b_theme_initialization();
         n00b_assertion_init();
         n00b_long_term_pin(n00b_internal_heap);
-        // n00b_internal_io_setup();
         n00b_initialize_library();
 
         n00b_startup_complete = true;

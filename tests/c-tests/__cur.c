@@ -9,7 +9,10 @@ n00b_buf_t       *capture;
 n00b_string_t    *test_file;
 
 void
-echo_it(n00b_fd_stream_t *s, n00b_fd_sub_t *sub, n00b_buf_t *buf, void *thunk)
+echo_it(n00b_fd_stream_t *s,
+        n00b_fd_sub_t    *sub,
+        n00b_buf_t       *buf,
+        void             *thunk)
 {
     n00b_fd_write(my_stdout, buf->data, buf->byte_len);
     n00b_fd_write(my_stdout, "*", 1);
@@ -26,7 +29,7 @@ test_timer(n00b_timer_t *t, n00b_duration_t *time, void *thunk)
 void
 timer_2(n00b_timer_t *t, n00b_duration_t *time, void *thunk)
 {
-    n00b_show_channels();
+    printf("Timer 2\n");
 }
 
 void *
@@ -83,10 +86,35 @@ my_accept(n00b_channel_t *chan, void *ignore)
     return NULL;
 }
 
+void
+signal_demo(int signal, siginfo_t *info, void *user_param)
+{
+    n00b_show_channels();
+}
+
+void
+signal_demo2(int signal, siginfo_t *info, void *user_param)
+{
+    // Need to manually render the string until filters are ported.
+    n00b_string_t *s = n00b_cformat(
+        "[|red|]Received SIGHUP:[|/|] "
+        "pid = [|#|], uid = [|#|], "
+        "addr = [|#:p|]",
+        (int64_t)info->si_pid,
+        (int64_t)info->si_uid,
+        info->si_addr);
+    char *buf = n00b_rich_to_ansi(s, NULL);
+
+    fprintf(stderr, "%s\n", buf);
+}
+
 int
 main(void)
 {
     n00b_terminal_app_setup();
+
+    n00b_signal_register(SIGHUP, signal_demo, (void *)1ULL);
+    n00b_signal_register(SIGHUP, signal_demo2, (void *)2ULL);
 
     n00b_list_t   *args = n00b_list(n00b_type_string());
     n00b_string_t *ls   = n00b_cstring("/bin/ls");
@@ -100,8 +128,6 @@ main(void)
     test_file         = n00b_read_file(n00b_cstring("meson.build"));
     n00b_proc_t *proc = n00b_run_process(ls, args, true, true);
     capture           = n00b_proc_get_stdout_capture(proc);
-
-    n00b_show_channels();
 
     n00b_net_addr_t *addr = n00b_new(n00b_type_net_addr(),
                                      n00b_kw("address",
