@@ -33,14 +33,18 @@ n00b_thread_stack_region(n00b_thread_t *t)
 
     t->base = pthread_get_stackaddr_np(self);
 
-#ifdef N00B_USE_FRAME_INTRINSIC
+#if N00B_USE_FRAME_INTRINSIC
     t->cur = __builtin_frame_address(0);
 #else
     void *ptr;
 
     // For M1s only.
-    // __asm volatile("mov  %0, sp" : "=r"(ptr) :);
+#ifndef N00B_N0_STACK_ASM
+    __asm volatile("mov  %0, sp" : "=r"(ptr) :);
+    t->cur = ptr;
+#else
     t->cur = &ptr + N00B_STACK_SLOP;
+#endif
     // I don't know why this needs to get set; the value added when launching
     // gets zeroed out at some point after tsi is supposedly initialized.
     t->tsi = n00b_get_tsi_ptr();
@@ -54,6 +58,7 @@ static void
 post_thread_cleanup(n00b_tsi_t *tsi)
 {
     mmm_thread_release(&tsi->self_data.mmm_info);
+    n00b_heap_remove_root(n00b_default_heap, tsi);
 }
 
 static void *
@@ -86,13 +91,10 @@ n00b_thread_spawn(void *(*r)(void *), void *arg)
         n00b_thread_exit(NULL);
     }
 
-    n00b_push_heap(n00b_internal_heap);
     n00b_tbundle_t *info = n00b_gc_alloc_mapped(n00b_tbundle_t,
                                                 N00B_GC_SCAN_ALL);
-    n00b_pop_heap();
-
-    info->true_cb  = r;
-    info->true_arg = arg;
+    info->true_cb        = r;
+    info->true_arg       = arg;
 
     pthread_t pt;
     int       ret = pthread_create(&pt, NULL, n00b_thread_launcher, info);

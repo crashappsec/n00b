@@ -94,8 +94,8 @@ _n00b_create_listener(n00b_net_addr_t *addr, ...)
 {
     int          backlog;
     n00b_list_t *params = n00b_list(n00b_type_ref());
+    va_list      args;
 
-    va_list args;
     va_start(args, addr);
     backlog = va_arg(args, int);
 

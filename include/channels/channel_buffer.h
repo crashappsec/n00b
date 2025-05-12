@@ -21,3 +21,15 @@ extern n00b_channel_t *_n00b_io_buf_channel(n00b_buf_t *, bool, ...);
     _n00b_out_buf_channel(buffer, __VA_ARGS__ __VA_OPT__(, ) 0ULL, 0ULL)
 #define n00b_io_buf_channel(buffer, ...) \
     _n00b_io_buf_channel(buffer, __VA_ARGS__ __VA_OPT__(, ) 0ULL, 0ULL)
+
+static inline n00b_buf_t *
+n00b_channel_extract_buffer(n00b_channel_t *s)
+{
+    n00b_buffer_channel_t *c = (void *)s->cookie;
+
+    if (!n00b_type_is_buffer(n00b_get_my_type(c->buffer))) {
+        return NULL;
+    }
+
+    return c->buffer;
+}

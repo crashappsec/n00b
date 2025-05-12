@@ -1532,8 +1532,9 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             }
 
             ++tstate->pc;
-            // Probably could do this less often.
-            n00b_gts_checkin();
+            // Give the GC a chance to run if another thread needs
+            // it. Probably could do this less often.
+            n00b_gts_reacquire();
         }
     }
     N00B_EXCEPT

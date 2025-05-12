@@ -578,7 +578,9 @@ n00b_new_ms_timeout(int ms)
         .tv_nsec = (ms % MS_PER_SEC) * NS_PER_MS,
     };
 
-    return n00b_duration_add(n00b_now(), (void *)&addon);
+    struct timespec now;
+    n00b_write_now(&now);
+    return n00b_duration_add((void *)&now, (void *)&addon);
 }
 
 n00b_duration_t *

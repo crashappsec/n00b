@@ -198,8 +198,11 @@ prep_write_subs(n00b_channel_t *stream)
 
     if (w) {
         for (int i = 0; i < n00b_list_len(w); i++) {
-            n00b_observer_t *item   = n00b_list_get(q, i, NULL);
-            n00b_channel_t  *target = (void *)item->subscriber;
+            n00b_observer_t *item = n00b_list_get(q, i, NULL);
+            if (!item) {
+                continue;
+            }
+            n00b_channel_t *target = (void *)item->subscriber;
             n00b_list_append(items,
                              n00b_cformat("[|#:x|] (deliver)",
                                           target->channel_id));
@@ -255,13 +258,15 @@ n00b_show_channels(void)
     l                = n00b_render(t, n00b_terminal_width(), -1);
     n00b_string_t *s = n00b_string_join(l, n00b_cached_empty_string());
 
-    char *buf = n00b_rich_to_ansi(s, NULL);
-    char *p   = buf;
+    n00b_print(s);
+    /*
+        char *buf = n00b_rich_to_ansi(s, NULL);
+        char *p   = buf;
 
-    while (*p) {
-        if (fputc(*p, stderr) == EOF) {
-            fputc(*p, stdout);
-        }
-        p++;
-    }
+        while (*p) {
+            if (fputc(*p, stderr) == EOF) {
+                fputc(*p, stdout);
+            }
+            p++;
+            }*/
 }
