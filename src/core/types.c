@@ -425,7 +425,7 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
     n00b_buf_t    *buf;
     uint64_t       result;
     n00b_type_t   *node = n00b_type_resolve(*nodeptr);
-    type_hash_ctx *ctx;
+    type_hash_ctx  ctx;
     n00b_dt_kind_t kind = n00b_type_get_kind(node);
 
     // Note that
@@ -444,22 +444,21 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
         return node->typeid;
     default:
         // I was leaving ctx on the stack but the GC was losing it :(
-        ctx           = n00b_gc_alloc_mapped(type_hash_ctx, N00B_GC_SCAN_ALL);
-        node->typeid  = 0;
-        ctx->sha      = n00b_new(n00b_type_hash());
-        ctx->tv_count = 0;
-        ctx->memos    = n00b_new_unmanaged_dict(HATRACK_DICT_KEY_TYPE_PTR,
-                                             false,
-                                             false);
+        node->typeid = 0;
+        ctx.sha      = n00b_new(n00b_type_hash());
+        ctx.tv_count = 0;
+        ctx.memos    = n00b_new_unmanaged_dict(HATRACK_DICT_KEY_TYPE_PTR,
+                                            false,
+                                            false);
 
-        internal_type_hash(node, ctx);
+        internal_type_hash(node, &ctx);
 
-        buf    = n00b_sha_finish(ctx->sha);
+        buf    = n00b_sha_finish(ctx.sha);
         result = ((uint64_t *)buf->data)[0];
 
         little_64(result);
 
-        if (ctx->tv_count == 0) {
+        if (ctx.tv_count == 0) {
             result &= ~(1LLU << 63);
         }
         else {
@@ -1603,7 +1602,7 @@ setup_primitive_types(void)
 
     n00b_heap_register_root(n00b_default_heap,
                             &n00b_type_universe,
-                            sizeof(n00b_type_universe_t));
+                            sizeof(n00b_type_universe_t) / 8);
 
     n00b_alloc_base_type_object(N00B_T_TYPESPEC);
 

@@ -505,6 +505,11 @@ setup_collection(n00b_collection_ctx *ctx, n00b_heap_t *h, int64_t r)
 
     n00b_unlock_arena_header(a);
     a->last_issued = crit.next_alloc;
+
+#ifdef N00B_FIND_SCRIBBLES
+    int len = (char *)a->addr_end - (char *)a->addr_start;
+    assert(!mprotect(a->addr_start, len, PROT_READ | PROT_WRITE));
+#endif
     n00b_lock_arena_header(a);
 
     // Must happen after setting 'last_issued'
@@ -585,7 +590,7 @@ trace_key_startup_items(n00b_collection_ctx *ctx)
 static inline void
 trace_one_rootset(n00b_collection_ctx *ctx, n00b_heap_t *h)
 {
-    if (!h->roots || h->released) {
+    if (!h->roots /* || h->released*/) {
         return;
     }
 
@@ -664,6 +669,8 @@ trace_stack(n00b_collection_ctx *ctx)
     int n = atomic_read(&n00b_next_thread_slot);
     n     = n00b_min(n, HATRACK_THREADS_MAX);
 
+    n00b_thread_stack_region(n00b_thread_self());
+
     for (int i = 0; i < n; i++) {
         n00b_thread_t *ti = atomic_read(&n00b_global_thread_list[i]);
         if (!ti) {
@@ -685,103 +692,11 @@ trace_stack(n00b_collection_ctx *ctx)
     }
 }
 
-#ifdef N00B_SHOW_GARBAGE_REPORTS
-typedef struct {
-    char   *file;
-    int64_t line;
-    int64_t bytes;
-    int64_t num_allocs;
-} n00b_garbage_entry_t;
-
-static void
-garbage_report(n00b_heap_t *h)
-{
-    fprintf(stderr, "Garbage Report:\n---------------\n");
-    n00b_push_heap(n00b_internal_heap);
-
-    crown_t       info;
-    n00b_arena_t *a = h->first_arena;
-
-    crown_init_size(&info, 18, NULL);
-
-    while (a) {
-        uint64_t *cur = a->addr_start;
-        uint64_t *end = a->addr_end;
-        a             = a->successor;
-
-        while (cur < end) {
-            if (*cur != n00b_gc_guard) {
-                cur++;
-                continue;
-            }
-            n00b_alloc_hdr *h = (void *)cur;
-
-            if (!h->n00b_moved) {
-                bool                 found     = false;
-                n00b_garbage_entry_t candidate = {
-                    .file       = h->alloc_file,
-                    .line       = h->alloc_line,
-                    .bytes      = 0,
-                    .num_allocs = 0,
-                };
-
-                hash_internal_conversion_t u;
-                u.xhv = XXH3_128bits(&candidate, sizeof(n00b_garbage_entry_t));
-
-                n00b_garbage_entry_t *entry = crown_get(&info, u.lhv, &found);
-
-                if (found) {
-                    entry->bytes += h->alloc_len;
-                    entry->num_allocs++;
-                }
-                else {
-                    entry = n00b_gc_alloc_mapped(n00b_garbage_entry_t,
-                                                 N00B_GC_SCAN_NONE);
-
-                    entry->file       = h->alloc_file;
-                    entry->line       = h->alloc_line;
-                    entry->bytes      = h->alloc_len;
-                    entry->num_allocs = 1;
-                    crown_put(&info, u.lhv, entry, NULL);
-                }
-            }
-            int n = h->alloc_len / 8;
-
-            if (!n) {
-                n++;
-            }
-            cur += n;
-        }
-    }
-
-    crown_store_t *store = atomic_read(&info.store_current);
-
-    for (unsigned int i = 0; i <= store->last_slot; i++) {
-        crown_bucket_t       *bucket = &store->buckets[i];
-        crown_record_t        rec    = atomic_read(&bucket->record);
-        n00b_garbage_entry_t *e      = rec.item;
-        if (e) {
-            fprintf(stderr,
-                    "%lld allocs, %lld total bytes from %s:%lld\n",
-                    e->num_allocs,
-                    e->bytes,
-                    e->file,
-                    e->line);
-        }
-    }
-
-    n00b_pop_heap();
-}
-#else
-#define garbage_report(x)
-#endif
-
 static inline void
 finish_collection(n00b_collection_ctx *ctx, n00b_heap_t *h)
 {
-    garbage_report(h);
     cleanup_work_lists(ctx);
-
+    n00b_heap_clear(h);
     make_to_space_our_space(ctx, h);
     h->inherit_count = ctx->allocs_copied;
     h->num_collects++;
@@ -795,6 +710,12 @@ finish_collection(n00b_collection_ctx *ctx, n00b_heap_t *h)
     if ((words_used << 2) < total_words) {
         h->expand = true;
     }
+
+#ifdef N00B_FIND_SCRIBBLES
+    mprotect(ctx->next_alloc,
+             (char *)a->addr_end - (char *)ctx->next_alloc,
+             PROT_READ);
+#endif
 }
 
 void
@@ -802,9 +723,7 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 {
     n00b_collection_ctx ctx;
 
-    assert(!n00b_collection_suspended);
     n00b_gts_stop_the_world();
-
     // Calling this on a pinned heap will cause this to collect, not
     // to add an arena. That allows us to selectively compact, but
     // only at a time of our control.
@@ -840,7 +759,9 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
     clock_gettime(CLOCK_MONOTONIC, &end);
     diff = n00b_duration_diff(&end, &start);
 
-    cprintf("---Collection ended (%s).\n", n00b_to_string(diff));
+    printf("---Collection ended (%s).\n", n00b_to_string(diff)->data);
+    n00b_debug_print_heap(h);
+
     fprintf(stderr,
             "Preserved %d of %d records (%f%%)\n",
             ctx.allocs_copied,
@@ -849,7 +770,7 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 
     __n00b_current_from_space = NULL;
     --__n00b_collector_running;
-    n00b_gts_restart_the_world();
-
 #endif
+
+    n00b_gts_restart_the_world();
 }

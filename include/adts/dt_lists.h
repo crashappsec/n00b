@@ -3,9 +3,9 @@
 #include "n00b.h"
 
 typedef struct {
+    n00b_rw_lock_t lock;
     int64_t      **data;
     uint64_t       noscan;
-    n00b_rw_lock_t lock;
     int32_t        append_ix          : 30;
     // The actual length if treated properly. We should be
     // careful about it.

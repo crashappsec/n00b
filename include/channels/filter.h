@@ -27,8 +27,10 @@ enum {
 // Note: have not added the typing yet.
 typedef struct {
     int                 cookie_size;
+    n00b_chan_filter_fn setup_fn;
     n00b_chan_filter_fn read_fn;
     n00b_chan_filter_fn write_fn;
+    n00b_chan_filter_fn flush_fn;
     n00b_string_t      *name;
     n00b_type_t        *output_type;
     // If `polymorphic_w` is true, it indicates that filter WRITES to
@@ -65,10 +67,17 @@ struct n00b_filter_t {
     n00b_filter_t    *next_write_step;
     unsigned int      w_skip : 1;
     unsigned int      r_skip : 1;
-    char              cookie[];
+    alignas(32) char cookie[];
 };
 
 typedef struct {
     n00b_filter_impl *impl;
+    void             *param;
     int               policy;
 } n00b_filter_spec_t;
+
+extern n00b_filter_spec_t *n00b_filter_apply_color(void);
+extern n00b_filter_spec_t *n00b_filter_apply_line_buffering(void);
+extern n00b_filter_spec_t *n00b_filter_json(void);
+extern n00b_filter_spec_t *n00b_filter_marshal(void);
+extern n00b_filter_spec_t *n00b_filter_hexdump(int64_t);

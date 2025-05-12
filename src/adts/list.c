@@ -369,7 +369,7 @@ n00b_list_len(const n00b_list_t *list)
 n00b_list_t *
 n00b_list(n00b_type_t *x)
 {
-    return n00b_new(n00b_type_list(x));
+    return n00b_new(n00b_type_list(x), 0ULL);
 }
 
 static n00b_string_t *
@@ -808,7 +808,7 @@ n00b_private_list_find(n00b_list_t *list, void *item)
 {
     int n = n00b_list_len(list);
     for (int i = 0; i < n; i++) {
-        void *candidate = n00b_list_get(list, i, NULL);
+        void *candidate = n00b_private_list_get(list, i, NULL);
         if (n00b_equals(candidate, item)) {
             return i;
         }

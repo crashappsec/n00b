@@ -16,24 +16,21 @@ extern bool                        n00b_io_exited;
 _Noreturn void
 n00b_thread_exit(void *result)
 {
-    if (!exiting) {
-        n00b_ioqueue_dont_block_callbacks();
-    }
-
-    n00b_thread_cancel_other_threads();
-
     // This has a potential race condition, but given we always should
     // have an IO thread running until actual shutdown, I think it's
     // okay.
     if (n00b_thread_run_count() == 1) {
         exit(saved_exit_code);
     }
+
+    n00b_gts_suspend();
     pthread_exit(result);
 }
 
 static void
 n00b_wait_on_io_shutdown(void)
 {
+    n00b_gts_suspend();
     n00b_condition_t *c = atomic_read(&n00b_io_exit_request);
 
     if (!c) {

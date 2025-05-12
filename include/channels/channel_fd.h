@@ -18,9 +18,6 @@ extern void           *_n00b_read_file(n00b_string_t *, ...);
 extern n00b_channel_t *_n00b_create_listener(n00b_net_addr_t *, ...);
 extern n00b_channel_t *_n00b_channel_connect(n00b_net_addr_t *, ...);
 
-extern void n00b_channel_fd_pause_reads(n00b_channel_t *);
-extern void n00b_channel_fd_unpause_reads(n00b_channel_t *);
-
 #define n00b_new_fd_channel(fdstrm, ...) \
     _n00b_new_fd_channel(fdstrm, N00B_VA(__VA_ARGS__));
 

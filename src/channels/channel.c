@@ -366,7 +366,6 @@ n00b_perform_channel_read(n00b_channel_t *channel,
     }
 
     n00b_lock_acquire(lock);
-
     // 1. If there aren't enough available queued messages for us
     //    (behind any pending waiters) then call the raw non-blocking
     //    channel read until it fails.
@@ -514,18 +513,21 @@ n00b_channel_set_absolute_position(n00b_channel_t *c, int pos)
 void
 n00b_channel_close(n00b_channel_t *c)
 {
+    n00b_flush(c);
+
     if (c->impl->close_impl) {
         (*c->impl->close_impl)(c);
     }
+
+    c->r = false;
+    c->w = false;
+    n00b_cnotify_close(c, (void *)c);
 
     while (n00b_list_len(c->my_subscriptions)) {
         n00b_observer_t *sub = n00b_list_pop(c->my_subscriptions);
         n00b_observable_unsubscribe(sub);
     }
 
-    c->r = false;
-    c->w = false;
-    n00b_cnotify_close(c, (void *)~0ULL);
     n00b_observable_remove_all_subscriptions(&c->pub_info);
     n00b_channel_debug_deregister(c);
 }
@@ -571,18 +573,6 @@ n00b_channel_init(n00b_channel_t *stream, va_list args)
 
     n00b_channel_debug_register(stream);
 
-    if (filter_specs) {
-        int n = n00b_list_len(filter_specs);
-
-        while (n--) {
-            n00b_filter_spec_t *spec = n00b_list_get(filter_specs, n, NULL);
-            if (!n00b_filter_add(stream, spec->impl, spec->policy)) {
-                stream->r = stream->w = false;
-                return;
-            }
-        }
-    }
-
     int mode = O_ACCMODE & (*impl->init_impl)(stream, init_args);
 
     switch (mode) {
@@ -605,6 +595,18 @@ n00b_channel_init(n00b_channel_t *stream, va_list args)
         stream->locks[N00B_LOCKWR_IX] = n00b_new(n00b_type_lock());
     }
     stream->locks[N00B_LOCKSUB_IX] = n00b_new(n00b_type_lock());
+
+    if (filter_specs) {
+        int n = n00b_list_len(filter_specs);
+
+        while (n--) {
+            n00b_filter_spec_t *spec = n00b_list_get(filter_specs, n, NULL);
+            if (!n00b_filter_add(stream, spec)) {
+                stream->r = stream->w = false;
+                return;
+            }
+        }
+    }
 }
 
 static uint64_t

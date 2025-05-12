@@ -87,7 +87,7 @@ extern bool n00b_startup_complete;
 #include "channels/channel_topic.h"
 #include "channels/channel_exit.h"
 #include "channels/channel_proxy.h"
-// #include "channels/channel_string.h"
+#include "channels/channel_string.h"
 #include "channels/terminal_io.h"
 #include "channels/debug.h"
 

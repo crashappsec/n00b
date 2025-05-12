@@ -643,7 +643,7 @@ n00b_io_run_base(n00b_stream_base_t *eb, int flags)
     result = event_base_loop(libevent2_event_base, flags);
 
     pthread_sigmask(SIG_SETMASK, &saved_set, 0);
-    n00b_gts_checkin();
+    abort();
 
     return result;
 }

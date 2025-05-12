@@ -63,13 +63,23 @@ typedef struct {
 } n00b_global_thread_info_t;
 
 // Use the first one on thread first start-up only.
-extern void n00b_gts_start(void);
-extern void n00b_gts_suspend(void);
-extern void n00b_gts_resume(void);
-extern void n00b_gts_checkin(void);
-extern void n00b_gts_stop_the_world(void);
-extern void n00b_gts_restart_the_world(void);
+extern void _n00b_gts_start(char *, int);
+extern void _n00b_gts_suspend(char *, int);
+extern void _n00b_gts_resume(char *, int);
+extern void _n00b_gts_might_stop(char *, int);
+extern void _n00b_gts_stop_the_world(char *, int);
+extern void _n00b_gts_wont_stop(char *, int);
+extern void _n00b_gts_restart_the_world(char *, int);
+extern void n00b_gts_reacquire(void);
 extern void n00b_gts_notify_abort(void);
+
+#define n00b_gts_start()             _n00b_gts_start(__FILE__, __LINE__)
+#define n00b_gts_suspend()           _n00b_gts_suspend(__FILE__, __LINE__)
+#define n00b_gts_resume()            _n00b_gts_resume(__FILE__, __LINE__)
+#define n00b_gts_might_stop()        _n00b_gts_might_stop(__FILE__, __LINE__)
+#define n00b_gts_wont_stop()         _n00b_gts_stop_the_world(__FILE__, __LINE__)
+#define n00b_gts_stop_the_world()    _n00b_gts_stop_the_world(__FILE__, __LINE__)
+#define n00b_gts_restart_the_world() _n00b_gts_restart_the_world(__FILE__, __LINE__)
 
 extern void           n00b_thread_stack_region(n00b_thread_t *);
 extern n00b_thread_t *n00b_thread_register(void);

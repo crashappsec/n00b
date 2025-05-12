@@ -1,11 +1,18 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 // This assumes filters are added atomicly. May add a setup lock soon.
 bool
-n00b_filter_add(n00b_channel_t *c, n00b_filter_impl *impl, int policy)
+n00b_filter_add(n00b_channel_t *c, n00b_filter_spec_t *spec)
 {
-    int            sz = impl->cookie_size;
-    n00b_filter_t *f  = n00b_gc_alloc(sizeof(n00b_filter_t) + sz);
+    n00b_filter_impl *impl   = spec->impl;
+    int               policy = spec->policy;
+    void             *param  = spec->param;
+    int               sz     = impl->cookie_size;
+    n00b_filter_t    *f      = n00b_gc_flex_alloc(n00b_filter_t,
+                                          sz,
+                                          1,
+                                          N00B_GC_SCAN_ALL);
 
     if (policy <= 0 || policy > N00B_FILTER_MAX) {
         N00B_CRAISE("Invalid operation policy for filter.");
@@ -28,10 +35,6 @@ n00b_filter_add(n00b_channel_t *c, n00b_filter_impl *impl, int policy)
         f->r_skip = true;
     }
 
-    if (c->r && !(policy & N00B_FILTER_READ)) {
-        f->r_skip = true;
-    }
-
     if (f->r_skip && f->w_skip) {
         return false;
     }
@@ -46,6 +49,12 @@ n00b_filter_add(n00b_channel_t *c, n00b_filter_impl *impl, int policy)
     f->impl           = impl;
     f->next_read_step = c->read_top;
     c->read_top       = f;
+
+    memset(f->cookie, 0, sz);
+
+    if (f->impl->setup_fn) {
+        (*f->impl->setup_fn)(f->cookie, param);
+    }
 
     return true;
 }
@@ -76,6 +85,8 @@ n00b_filter_writes(n00b_channel_t *c, n00b_cmsg_t *pkg)
     while (f) {
         if (!f->w_skip) {
             next_msgs = n00b_list(n00b_type_ref());
+            n_msgs    = n00b_list_len(cur_msgs);
+
             for (int i = 0; i < n_msgs; i++) {
                 msg  = n00b_private_list_get(cur_msgs, i, NULL);
                 pass = (*f->impl->write_fn)((void *)f->cookie, msg);
@@ -88,11 +99,75 @@ n00b_filter_writes(n00b_channel_t *c, n00b_cmsg_t *pkg)
             if (!n00b_list_len(next_msgs)) {
                 return NULL;
             }
+            cur_msgs = next_msgs;
         }
         f = f->next_write_step;
     }
 
     return next_msgs;
+}
+
+void
+n00b_flush(n00b_channel_t *c)
+{
+    n00b_list_t        *cur_msgs    = n00b_list(n00b_type_ref());
+    n00b_list_t        *next_msgs   = cur_msgs;
+    n00b_filter_t      *f           = c->write_top;
+    bool                found_flush = false;
+    n00b_list_t        *pass;
+    n00b_chan_filter_fn fn;
+    int                 n_msgs;
+
+    n00b_list_append(cur_msgs, NULL);
+
+    while (f) {
+        if (!f->w_skip) {
+            fn = f->impl->flush_fn;
+
+            if (!fn) {
+                if (found_flush) {
+                    fn = f->impl->write_fn;
+                }
+                else {
+                    return;
+                }
+            }
+            else {
+                found_flush = true;
+            }
+
+            next_msgs = n00b_list(n00b_type_ref());
+            n_msgs    = n00b_list_len(cur_msgs);
+
+            for (int i = 0; i < n_msgs; i++) {
+                void *msg = n00b_private_list_get(cur_msgs, i, NULL);
+
+                pass = (*fn)((void *)f->cookie, msg);
+                if (!pass || !n00b_list_len(pass)) {
+                    continue;
+                }
+                next_msgs = n00b_private_list_plus(next_msgs, pass);
+            }
+
+            if (!n00b_list_len(next_msgs)) {
+                return;
+            }
+            cur_msgs = next_msgs;
+        }
+        f = f->next_write_step;
+    }
+
+    if (!found_flush) {
+        return;
+    }
+
+    n_msgs = n00b_list_len(next_msgs);
+
+    for (int i = 0; i < n_msgs; i++) {
+        void *out_msg = n00b_list_get(next_msgs, i, NULL);
+        n00b_cnotify_w(c, out_msg);
+        (*c->impl->write_impl)(c, out_msg, false);
+    }
 }
 
 n00b_list_t *

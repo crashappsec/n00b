@@ -24,7 +24,7 @@ const char *n00b_cmd_doc =
     "This is the long doc, but its contents are yet to be written.\n";
 
 static void
-exit_gracefully(n00b_channel_t *e, int64_t signal, void *aux)
+exit_gracefully(int64_t signal, void *, void *aux)
 {
     n00b_eprintf("[|em|]Shutting down[|/|] due to signal: [|em|][|#|]",
                  n00b_get_signal_name(signal));
@@ -253,7 +253,7 @@ n00b_basic_setup(int argc, char **argv, char **envp)
 
     n00b_terminal_app_setup();
 
-    n00b_io_register_signal_handler(SIGTERM, (void *)exit_gracefully);
+    n00b_signal_register(SIGTERM, (void *)exit_gracefully, NULL);
     //  TODO: redo this on libevent.
     /*
     n00b_io_register_signal_handler(SIGSEGV, (void *)exit_crash_handler);

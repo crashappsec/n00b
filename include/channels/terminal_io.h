@@ -3,6 +3,9 @@
 n00b_channel_t *n00b_chan_stdin(void);
 n00b_channel_t *n00b_chan_stdout(void);
 n00b_channel_t *n00b_chan_stderr(void);
+n00b_channel_t *n00b_chan_raw_stdin(void);
+n00b_channel_t *n00b_chan_raw_stdout(void);
+n00b_channel_t *n00b_chan_raw_stderr(void);
 
 extern void n00b_terminal_dimensions(size_t *cols, size_t *rows);
 extern void n00b_termcap_apply_raw_mode(struct termios *termcap);
