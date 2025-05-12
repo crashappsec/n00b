@@ -7,6 +7,11 @@ static stack_t n00b_signal_stack = {
 };
 
 typedef struct {
+    n00b_signal_handler_t h;
+    void                 *stash;
+} user_sig_cb_info_t;
+
+typedef struct {
     n00b_list_t *list;
     siginfo_t    signal_info;
 } sig_callback_info_t;
@@ -35,11 +40,10 @@ pthread_once_t n00b_signals_inited = PTHREAD_ONCE_INIT;
 static void *
 n00b_signal_monitor(void *ignore)
 {
-    char                  sigbyte[1];
-    int                   signal;
-    n00b_list_t          *handlers;
-    siginfo_t            *siginfo;
-    n00b_signal_handler_t callback;
+    char         sigbyte[1];
+    int          signal;
+    n00b_list_t *handlers;
+    siginfo_t   *siginfo;
 
     while (true) {
         n00b_gts_suspend();
@@ -66,9 +70,9 @@ n00b_signal_monitor(void *ignore)
             siginfo  = &n00b_signal_handlers[signal].signal_info;
 
             while (n--) {
-                callback = n00b_list_get(handlers, n, NULL);
-                if (callback) {
-                    (*callback)(signal, siginfo);
+                user_sig_cb_info_t *ui = n00b_list_get(handlers, n, NULL);
+                if (ui && ui->h) {
+                    (*ui->h)(signal, siginfo, ui->stash);
                 }
             }
         }
@@ -146,11 +150,17 @@ remove_signal_handler(int n)
 }
 
 bool
-n00b_signal_register(int n, n00b_signal_handler_t h)
+n00b_signal_register(int n, n00b_signal_handler_t h, void *stash)
 {
     if (n < 0 || n >= N00B_MAX_SIGNAL) {
         return false;
     }
+
+    user_sig_cb_info_t *ui = n00b_gc_alloc_mapped(user_sig_cb_info_t,
+                                                  N00B_GC_SCAN_ALL);
+
+    ui->h     = h;
+    ui->stash = stash;
 
     n00b_spin_lock(&update_lock);
     sig_callback_info_t *info = &n00b_signal_handlers[n];
@@ -162,7 +172,7 @@ n00b_signal_register(int n, n00b_signal_handler_t h)
         info->list = l;
     }
 
-    n00b_private_list_append(l, h);
+    n00b_private_list_append(l, ui);
 
     if (n00b_list_len(l) == 1) {
         add_signal_handler(n);
@@ -174,22 +184,29 @@ n00b_signal_register(int n, n00b_signal_handler_t h)
 }
 
 bool
-n00b_signal_unregister(int n, n00b_signal_handler_t h)
+n00b_signal_unregister(int sig, n00b_signal_handler_t h, void *stash)
 {
-    bool result;
+    bool result = false;
 
-    if (n < 0 || n >= N00B_MAX_SIGNAL) {
+    if (sig < 0 || sig >= N00B_MAX_SIGNAL) {
         return false;
     }
 
-    n00b_list_t *l = n00b_signal_handlers[n].list;
+    n00b_list_t *l = n00b_signal_handlers[sig].list;
 
     if (!l) {
         return false;
     }
 
     n00b_spin_lock(&update_lock);
-    result = n00b_private_list_remove_item(l, h);
+    int n = n00b_list_len(l);
+    while (n--) {
+        user_sig_cb_info_t *ui = n00b_list_get(l, n, NULL);
+        if (ui && ui->h == h && ui->stash == stash) {
+            n00b_private_list_remove(l, n);
+            result = true;
+        }
+    }
 
     if (!n00b_list_len(l)) {
         remove_signal_handler(n);

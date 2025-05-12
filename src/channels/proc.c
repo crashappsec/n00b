@@ -320,7 +320,7 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
 }
 
 static void
-should_exit_via_sig(n00b_channel_t *sig, int64_t signal, n00b_proc_t *ctx)
+should_exit_via_sig(int signal, siginfo_t *info, n00b_proc_t *ctx)
 {
     n00b_condition_lock_acquire(&ctx->cv);
     n00b_channel_close(ctx->subproc_stdin);
@@ -346,8 +346,8 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     char          **argp;
     char          **envp;
     int             gate[2];
-    // n00b_register_signal_handler(SIGCHLD, (void *)should_exit_via_sig, ctx);
-    // n00b_register_signal_handler(SIGPIPE, (void *)should_exit_via_sig, ctx);
+    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
 
     pre_launch_prep(ctx, &argp);
 
@@ -446,9 +446,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
         if (ctx->flags & N00B_PROC_HANDLE_WIN_SIZE) {
             n00b_proc_proxy_winch(ctx);
-            // n00b_register_signal_handler(SIGWINCH,
-            //(void *)n00b_handle_winch,
-            //                              ctx);
+            n00b_signal_register(SIGWINCH,
+                                 (void *)n00b_handle_winch,
+                                 ctx);
         }
 
         fcntl(pty_fd, F_SETFL, flags);
@@ -540,6 +540,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 void
 n00b_proc_spawn(n00b_proc_t *ctx)
 {
+    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
+
     if (!ctx->cmd) {
         N00B_CRAISE("Cannot spawn; no command set.");
     }
@@ -697,4 +700,30 @@ _n00b_run_process(n00b_string_t *cmd,
     }
 
     return proc;
+}
+
+void
+n00b_proc_close(n00b_proc_t *proc)
+{
+    if (proc->subproc_stdin) {
+        n00b_channel_close(proc->subproc_stdin);
+    }
+    if (proc->subproc_stdout) {
+        n00b_channel_close(proc->subproc_stdout);
+    }
+    if (proc->subproc_stderr) {
+        n00b_channel_close(proc->subproc_stderr);
+    }
+    if (proc->subproc_pid) {
+        n00b_channel_close(proc->subproc_pid);
+    }
+
+    n00b_signal_unregister(SIGCHLD, (void *)should_exit_via_sig, proc);
+    n00b_signal_unregister(SIGPIPE, (void *)should_exit_via_sig, proc);
+
+    if (proc->flags & N00B_PROC_USE_PTY) {
+        n00b_signal_unregister(SIGWINCH,
+                               (void *)n00b_handle_winch,
+                               proc);
+    }
 }
