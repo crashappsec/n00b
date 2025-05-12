@@ -653,20 +653,6 @@ _n00b_channel_connect(n00b_net_addr_t *addr, ...)
     return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
 }
 
-void
-n00b_channel_fd_pause_reads(n00b_channel_t *stream)
-{
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
-    n00b_fd_pause_reads(c->stream);
-}
-
-void
-n00b_channel_fd_unpause_reads(n00b_channel_t *stream)
-{
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
-    n00b_fd_unpause_reads(c->stream);
-}
-
 void *
 _n00b_read_file(n00b_string_t *path, ...)
 {

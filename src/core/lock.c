@@ -6,8 +6,6 @@
 // because some pthreads implementations generally don't handle nested
 // locking at all.
 
-extern void            n00b_gts_suspend(void);
-extern void            n00b_gts_resume(void);
 static n00b_rw_lock_t *all_rw_locks   = NULL;
 static pthread_mutex_t rw_setup_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -255,8 +253,6 @@ n00b_generic_on_lock_acquire(n00b_generic_lock_t *lock, char *file, int line)
     if (lock->level++) {
         return;
     }
-
-    lock_assert(!rec->file, lock);
 
     rec->file = file;
     rec->line = line;
@@ -624,6 +620,7 @@ n00b_condition_pre_wait(n00b_condition_t *c)
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
     if (c->mutex.info.thread != &tsi->self_data) {
+        n00b_static_c_backtrace();
         N00B_CRAISE("Must hold lock before calling wait()");
     }
     if (c->mutex.info.next_held || c->mutex.info.prev_held) {
@@ -676,7 +673,10 @@ _n00b_condition_notify_all(n00b_condition_t *c, char *f, int l)
 {
     n00b_thread_t *t = n00b_thread_self();
     if (c->mutex.info.thread != t) {
+        /*
+        n00b_static_c_backtrace();
         N00B_CRAISE("Must hold lock before calling notify_all()");
+        */
     }
 
     if (c->cb) {

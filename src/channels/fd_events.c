@@ -17,6 +17,7 @@ setup_io(void)
 {
     n00b_gc_register_root(&n00b_system_dispatcher, 1);
     n00b_gc_register_root(&n00b_io_exit_request, 1);
+    n00b_gc_register_root(&fd_cache, 1);
     fd_cache               = n00b_dict(n00b_type_int(), n00b_type_ref());
     n00b_system_dispatcher = n00b_new_event_context(N00B_EV_POLL);
     n00b_setup_term_channels();
@@ -570,6 +571,10 @@ fd_post(n00b_fd_stream_t *s, n00b_list_t *subs, void *msg)
 
     while (n--) {
         n00b_fd_sub_t *sub = n00b_private_list_get(subs, n, NULL);
+
+        if (!sub) {
+            continue;
+        }
         (*sub->action.msg)(s, sub, msg, sub->thunk);
         if (sub->oneshot) {
             n00b_private_list_remove_item(subs, sub);
@@ -747,7 +752,7 @@ handle_one_read(n00b_fd_stream_t *s)
 
     if (s->listener) {
         struct sockaddr addr;
-        socklen_t       addr_len;
+        socklen_t       addr_len = sizeof(struct sockaddr);
 
         int sock = accept(s->fd, &addr, &addr_len);
 
@@ -1075,7 +1080,7 @@ n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full, bool *err)
     char            *p         = buf;
     int              remaining = len;
     n00b_duration_t *end       = NULL;
-    n00b_duration_t *now;
+    n00b_duration_t  now;
 
     struct pollfd fds[1] = {
         {
@@ -1163,11 +1168,11 @@ n00b_fd_read(n00b_fd_stream_t *s, int len, int ms_timeout, bool full, bool *err)
 wait:
 
         if (end) {
-            now = n00b_now();
-            if (n00b_duration_gt(now, end)) {
+            n00b_write_now(&now);
+            if (n00b_duration_gt(&now, end)) {
                 goto finish;
             }
-            n00b_duration_t *diff = n00b_duration_diff(now, end);
+            n00b_duration_t *diff = n00b_duration_diff(&now, end);
             ms_timeout            = n00b_duration_to_ms(diff);
         }
 
@@ -1266,32 +1271,10 @@ process_pending_changes(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
 
         struct pollfd *entry = &ploop->pollset[s->internal_ix];
 
-        if (s->pause_req) {
-            if (s->is_paused) {
-                s->r_added   = true;
-                s->is_paused = false;
-
-                // Should never be false, but be safe.
-                if (entry->events & POLLIN) {
-                    entry->events &= ~POLLIN;
-                    ploop->ops_in_pollset--;
-                }
-            }
-            else {
-                s->r_added   = false;
-                s->is_paused = true;
-                if (!(entry->events & POLLIN)) {
-                    entry->events |= POLLIN;
-                    ploop->ops_in_pollset++;
-                }
-            }
-            s->pause_req = false;
-        }
-
-        if (s->needs_r && !s->is_paused) {
+        if (s->needs_r) {
             s->r_added = true;
 
-            if (!(entry->events & POLLIN)) {
+            if (s->fd != 1 && s->fd != 2 && !(entry->events & POLLIN)) {
                 entry->events |= POLLIN;
                 ploop->ops_in_pollset++;
             }
@@ -1321,6 +1304,7 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
         s                   = fd_ptrs[i];
         worker              = NULL;
         struct pollfd *slot = slot_list + i;
+
         if (!s || atomic_read(&s->evloop->owner) != self) {
             continue;
         }
@@ -1341,6 +1325,9 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
                 ploop->ops_in_pollset--;
             }
             else {
+                if (s->fd == -1) {
+                    s->fd = slot->fd;
+                }
                 if (handle_one_read(s) || s->plain_file) {
                     slot->events &= ~POLLIN;
                     s->r_added = false;
@@ -1386,8 +1373,8 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
 
         // Take back closed slots.
         if (s->fd == N00B_FD_CLOSED) {
-            *fd_ptrs = NULL;
-            n00b_list_append(ploop->empty_slots, (void *)(int64_t)i);
+            *fd_ptrs        = NULL;
+            // n00b_list_append(ploop->empty_slots, (void *)(int64_t)i);
             s->read_closed  = true;
             s->write_closed = true;
         }
@@ -1447,7 +1434,9 @@ n00b_fd_run_poll_dispatcher_once(n00b_event_loop_t *loop,
         wait = 0;
     }
 
+    n00b_gts_suspend();
     int val = poll(ploop->pollset, ploop->pollset_last, wait);
+    n00b_gts_resume();
 
     if (val < 0) {
         return false;
@@ -1477,18 +1466,22 @@ loop_exit_check(n00b_event_loop_t *loop, n00b_duration_t *now)
 bool
 n00b_fd_run_evloop_once(n00b_event_loop_t *loop)
 {
-    return n00b_fd_run_poll_dispatcher_once(loop, n00b_now());
+    n00b_duration_t now;
+
+    n00b_write_now(&now);
+    return n00b_fd_run_poll_dispatcher_once(loop, &now);
 }
 
 bool
 n00b_fd_run_evloop(n00b_event_loop_t *loop, n00b_duration_t *howlong)
 {
-    n00b_duration_t *now      = NULL;
-    n00b_thread_t   *t        = n00b_thread_self();
-    n00b_thread_t   *expected = NULL;
+    n00b_duration_t now;
+    n00b_thread_t  *t        = n00b_thread_self();
+    n00b_thread_t  *expected = NULL;
 
     if (howlong) {
-        loop->stop_time = n00b_duration_add(n00b_now(), howlong);
+        n00b_write_now(&now);
+        loop->stop_time = n00b_duration_add(&now, howlong);
     }
     else {
         loop->stop_time = NULL;
@@ -1500,9 +1493,9 @@ n00b_fd_run_evloop(n00b_event_loop_t *loop, n00b_duration_t *howlong)
 
     // Always run at least once.
     do {
-        now = n00b_now();
-        n00b_fd_run_poll_dispatcher_once(loop, now);
-        loop_exit_check(loop, now);
+        n00b_write_now(&now);
+        n00b_fd_run_poll_dispatcher_once(loop, &now);
+        loop_exit_check(loop, &now);
     } while (!loop->exit_loop);
 
     n00b_condition_t *cond = atomic_read(&n00b_io_exit_request);

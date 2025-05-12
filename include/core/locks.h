@@ -1,7 +1,6 @@
 #pragma once
 #include "n00b/base.h"
 
-extern bool n00b_is_world_stopped(void);
 extern bool n00b_abort_signal;
 
 // Must be a power of 2.

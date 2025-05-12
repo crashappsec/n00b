@@ -51,14 +51,13 @@ _n00b_print(void *first, ...)
 
         if (numargs < 0) {
             numargs = 0;
+            cur     = va_arg(args, void *);
         }
-        cur = va_arg(args, void *);
+        else {
+            _n00b_karg = n00b_get_kargs_and_count(args, &numargs);
+            numargs++;
+        }
     }
-    else {
-        _n00b_karg = n00b_get_kargs_and_count(args, &numargs);
-        numargs++;
-    }
-
     if (_n00b_karg != NULL) {
         if (!stream) {
             n00b_kw_ptr("stream", stream);

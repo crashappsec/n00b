@@ -8,11 +8,13 @@ _Atomic(n00b_thread_t *) n00b_global_thread_list[HATRACK_THREADS_MAX];
 static bool              threads_inited = false;
 
 static void
-n00b_register_thread_tsi(n00b_tsi_t *tsi)
+n00b_register_thread_tsi(n00b_tsi_t *tsi, int len)
 {
-    n00b_heap_register_dynamic_root(n00b_internal_heap,
-                                    tsi,
-                                    sizeof(n00b_tsi_t) / sizeof(void *));
+    if (!n00b_default_heap) {
+        return;
+    }
+
+    n00b_heap_register_dynamic_root(n00b_default_heap, tsi, len);
     assert(atomic_read(&n00b_global_thread_list[tsi->thread_id]));
 }
 
@@ -66,10 +68,7 @@ n00b_init_self_tsi(void)
                            0);
 
     pthread_setspecific(n00b_static_tsi_key, tsi);
-
-    if (n00b_default_heap) {
-        n00b_register_thread_tsi(tsi);
-    }
+    n00b_register_thread_tsi(tsi, size / sizeof(void *));
 
     // Even though we fetch-and-add an index, we CAS here for a couple
     // of reasons:
@@ -107,9 +106,11 @@ void
 n00b_finish_main_thread_initialization(void)
 {
     if (!threads_inited) {
-        // turn on locking.
-        n00b_push_heap(n00b_internal_heap);
-        n00b_pop_heap();
+        n00b_register_thread_tsi(n00b_thread_self()->tsi,
+                                 n00b_round_up_to_given_power_of_2(
+                                     getpagesize(),
+                                     sizeof(n00b_tsi_t))
+                                     / sizeof(void *));
         n00b_gts_start();
         threads_inited = true;
     }
@@ -146,7 +147,7 @@ n00b_tsi_cleanup(void *arg)
 
     n00b_gts_quit(tsi);
     atomic_store(&n00b_global_thread_list[tsi->thread_id], NULL);
-    n00b_heap_remove_root(n00b_internal_heap, tsi);
+    n00b_heap_remove_root(n00b_default_heap, tsi);
     atomic_fetch_add(&n00b_live_threads, -1);
 
 #if defined(N00B_MADV_ZERO)
@@ -178,10 +179,10 @@ n00b_global_tsi_setup(void)
     pthread_key_create(&n00b_static_tsi_key, n00b_tsi_cleanup);
     mmm_setthreadfns((void *)n00b_mmm_get_tsi, NULL);
 
-    n00b_tsi_t *tsi    = n00b_init_self_tsi();
-    tsi->system_thread = true;
+    n00b_tsi_t *tsi     = n00b_init_self_tsi();
+    tsi->system_thread  = true;
     n00b_thread_t *self = n00b_thread_self();
-    self->tsi = tsi;
+    self->tsi           = tsi;
 }
 
 void

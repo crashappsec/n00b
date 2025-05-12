@@ -48,3 +48,9 @@ n00b_timeval_to_duration(struct timeval *s)
 {
     return n00b_new(n00b_type_duration(), n00b_kw("timeval", s));
 }
+
+static inline void
+n00b_write_now(n00b_duration_t *output)
+{
+    clock_gettime(CLOCK_REALTIME, output);
+}

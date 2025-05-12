@@ -4,10 +4,14 @@
 // stderr.  I may bundle together a 'terminal' abstraction that would
 // cover ptys as well, not sure.
 
-#define STDIN_IX  0
-#define STDOUT_IX 1
-#define STDERR_IX 2
-#define NUM_CHANS 3
+#define STDIN_RAW_IX  0
+#define STDOUT_RAW_IX 1
+#define STDERR_RAW_IX 2
+#define STDIN_IX      3
+#define STDOUT_IX     4
+#define STDERR_IX     5
+#define NUM_CHANS     6
+
 static n00b_channel_t *n00b_chan_term_io[NUM_CHANS];
 
 n00b_channel_t *
@@ -28,19 +32,49 @@ n00b_chan_stderr(void)
     return n00b_chan_term_io[STDERR_IX];
 }
 
+n00b_channel_t *
+n00b_chan_raw_stdin(void)
+{
+    return n00b_chan_term_io[STDIN_RAW_IX];
+}
+
+n00b_channel_t *
+n00b_chan_raw_stdout(void)
+{
+    return n00b_chan_term_io[STDOUT_RAW_IX];
+}
+
+n00b_channel_t *
+n00b_chan_raw_stderr(void)
+{
+    return n00b_chan_term_io[STDERR_RAW_IX];
+}
+
 void
 n00b_setup_term_channels(void)
 {
     n00b_gc_register_root(n00b_chan_term_io, NUM_CHANS);
     n00b_fd_stream_t *instrm, *outstrm, *errstrm;
+    n00b_channel_t   *stream;
+    n00b_channel_t   *proxy;
 
-    instrm  = n00b_fd_stream_from_fd(STDIN_IX, NULL, NULL);
-    outstrm = n00b_fd_stream_from_fd(STDOUT_IX, NULL, NULL);
-    errstrm = n00b_fd_stream_from_fd(STDERR_IX, NULL, NULL);
+    instrm  = n00b_fd_stream_from_fd(STDIN_RAW_IX, NULL, NULL);
+    outstrm = n00b_fd_stream_from_fd(STDOUT_RAW_IX, NULL, NULL);
+    errstrm = n00b_fd_stream_from_fd(STDERR_RAW_IX, NULL, NULL);
 
-    n00b_chan_term_io[STDIN_IX]  = n00b_new_fd_channel(instrm);
-    n00b_chan_term_io[STDOUT_IX] = n00b_new_fd_channel(outstrm);
-    n00b_chan_term_io[STDERR_IX] = n00b_new_fd_channel(errstrm);
+    stream                           = n00b_new_fd_channel(instrm);
+    n00b_chan_term_io[STDIN_RAW_IX]  = stream;
+    n00b_chan_term_io[STDIN_IX]      = stream;
+    stream                           = n00b_new_fd_channel(outstrm);
+    n00b_chan_term_io[STDOUT_RAW_IX] = stream;
+    proxy                            = n00b_new_channel_proxy(stream,
+                                   n00b_filter_apply_color());
+    n00b_chan_term_io[STDOUT_IX]     = stream; // proxy;
+    stream                           = n00b_new_fd_channel(errstrm);
+    n00b_chan_term_io[STDERR_RAW_IX] = stream;
+    proxy                            = n00b_new_channel_proxy(stream,
+                                   n00b_filter_apply_color());
+    n00b_chan_term_io[STDERR_IX]     = stream; // proxy;
 }
 
 #include "n00b.h"
@@ -133,6 +167,7 @@ n00b_terminal_app_setup(void)
     struct termios tc;
     n00b_unbuffer_stdin();
     n00b_unbuffer_stdout();
+    n00b_unbuffer_stderr();
 
     pthread_once(&termcap_save, stash_termcap);
 

@@ -74,36 +74,40 @@ n00b_observable_all_subscribers(n00b_observable_t *o,
 int
 n00b_observable_post(n00b_observable_t *o, void *topic_info, void *msg)
 {
-    int64_t topic_ix = get_topic_ix(o, topic_info);
+    int64_t      topic_ix = get_topic_ix(o, topic_info);
+    n00b_list_t *subs     = n00b_observable_all_subscribers(o,
+                                                        (void *)topic_ix);
 
-    n00b_lock_acquire(&o->lock);
-
-    int          r = 0;
-    n00b_list_t *l = n00b_list_get(o->observers, topic_ix, NULL);
-
-    if (!l) {
-        n00b_lock_release(&o->lock);
-        return r;
+    if (!subs) {
+        return 0;
     }
 
-    l = n00b_list_shallow_copy(l);
-    n00b_lock_release(&o->lock);
-
-    int n = n00b_list_len(l);
+    int n = n00b_list_len(subs);
+    int r = 0;
 
     while (n--) {
-        n00b_observer_t *target = n00b_private_list_get(l, n, NULL);
+        n00b_observer_t *item = n00b_list_get(subs, n, NULL);
 
-        if (!target || !n00b_in_heap(target)) {
-            n00b_private_list_remove(l, n);
+        if (!item) {
             continue;
         }
 
-        (*target->callback)(msg, target->subscriber);
+        n00b_channel_t *target = (void *)item->subscriber;
+
+        if (!target) {
+            continue;
+        }
+
+        if (!n00b_in_heap(target)) {
+            n00b_list_remove(subs, n);
+            continue;
+        }
+
+        (*item->callback)(msg, target);
         r++;
 
-        if (target->oneshot) {
-            n00b_private_list_remove_item(l, target);
+        if (item->oneshot) {
+            n00b_list_remove_item(subs, item);
         }
     }
 
@@ -122,8 +126,13 @@ n00b_observable_subscribe(n00b_observable_t *target,
     n00b_string_t *topic      = n00b_list_get(target->topics, topic_ix, NULL);
 
     if (!topic_subs) {
-        topic_subs = n00b_list(n00b_type_ref());
-        n00b_list_set(target->observers, topic_ix, topic_subs);
+        n00b_lock_list(target->observers);
+        topic_subs = get_topic_subs(target, topic_ix);
+        if (!topic_subs) {
+            topic_subs = n00b_list(n00b_type_ref());
+            n00b_list_set(target->observers, topic_ix, topic_subs);
+        }
+        n00b_unlock_list(target->observers);
     }
 
     n00b_observer_t *result = n00b_gc_alloc_mapped(n00b_observer_t,
@@ -135,6 +144,10 @@ n00b_observable_subscribe(n00b_observable_t *target,
     result->topic_ix        = topic_ix;
     result->target          = target;
 
+    /* printf("subscribe %s to %s (topic %d)\n", */
+    /*        ((n00b_channel_t *)subscriber)->name->data, */
+    /*        ((n00b_channel_t *)target)->name->data, */
+    /*        topic_ix); */
     n00b_list_append(topic_subs, result);
 
     if (target->on_subscribe) {
@@ -159,6 +172,7 @@ n00b_observable_unsubscribe(n00b_observer_t *sub)
     n00b_lock_acquire(&target->lock);
 
     n00b_list_remove_item(topic_subs, sub);
+
     if (target->on_unsubscribe) {
         if (target->lt_unsub || !n00b_list_len(topic_subs)) {
             (*target->on_unsubscribe)(target, sub);

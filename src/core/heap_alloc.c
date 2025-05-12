@@ -127,18 +127,20 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
     // The second page is a guard page.
     // The final page of the heap is also a guard page.
 
-    uint64_t      total_len  = byte_len + N00B_ARENA_OVERHEAD;
-    char         *true_start = mmap(NULL,
+    uint64_t total_len  = byte_len + N00B_ARENA_OVERHEAD;
+    char    *true_start = mmap(NULL,
                             total_len,
                             PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANON,
                             -1,
                             0);
-    n00b_arena_t *result     = n00b_raw_alloc_to_arena_addr(true_start);
 
-    if (result == MAP_FAILED) {
-        n00b_raise_errno();
+    if (true_start == MAP_FAILED) {
+        printf("Out of memory.\n");
+        abort();
     }
+
+    n00b_arena_t *result = n00b_raw_alloc_to_arena_addr(true_start);
 
     result->user_length = byte_len;
     result->addr_start  = n00b_arena_user_data_start(result);
@@ -305,6 +307,13 @@ n00b_free_compat(void *p)
     // TODO-- finish this
 }
 
+static inline bool
+need_space(n00b_arena_t *arena, n00b_crit_t entry, int64_t len)
+{
+    return ((void *)entry.next_alloc) < arena->addr_start
+        || ((char *)entry.next_alloc) + len >= (char *)arena->addr_end;
+}
+
 void *
 _n00b_heap_alloc(n00b_heap_t *h,
                  size_t       request_len,
@@ -317,121 +326,107 @@ _n00b_heap_alloc(n00b_heap_t *h,
     n00b_crit_t   prev_entry;
     n00b_crit_t   new_entry;
     int64_t       alloc_len = n00b_calculate_alloc_len(request_len);
-    int64_t       guarded_alloc_len;
     n00b_arena_t *newest_arena;
+    bool          expand = false;
 
+#ifdef N00B_FIND_SCRIBBLES
+    alloc_len = n00b_round_up_to_given_power_of_2(n00b_page_bytes, alloc_len);
+#endif
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     assert(file);
 #endif
-
-    // #if defined(N00B_DEBUG) && defined(N00B_ADD_ALLOC_LOC_INFO)
-    //     _n00b_watch_scan(file, line);
-    // #endif
-
-    // Since other heaps than ours need to collect too, always
-    // check in at least once.
-    n00b_gts_checkin();
-
     while (true) {
+        n00b_gts_reacquire();
         newest_arena = h->newest_arena;
         prev_entry   = atomic_read(&h->ptr);
 
-        if (((void *)prev_entry.next_alloc) < newest_arena->addr_start
-            || ((void *)prev_entry.next_alloc) >= newest_arena->addr_end) {
-            // Someone should be installing a new arena (if h->pinned)
-            // or collecting otherwise.
-            if (n00b_collection_suspended || __n00b_collector_running) {
-                goto emergency_arena;
-            }
+        // If there's not enough space, don't even try.
+        if (need_space(newest_arena, prev_entry, alloc_len)) {
+            n00b_gts_might_stop();
 
-            n00b_gts_checkin();
-            continue;
-        }
-        // Try to reserve things.
-
-#if defined(N00B_MPROTECT_GUARD_ALLOCS)
-        if (add_guard) {
-            uint64_t end = ((uint64_t)prev_entry.next_alloc) + alloc_len;
-            // Make 'end' end on a page boundry.
-            end          = n00b_round_up_to_given_power_of_2(n00b_page_bytes,
-                                                    end);
-
-            guarded_alloc_len = end - (uint64_t)prev_entry.next_alloc;
-            // 2 int64_ts to maintain proper alignment.
-            guarded_alloc_len += n00b_page_bytes + 2 * sizeof(int64_t);
-        }
-        else {
-            guarded_alloc_len = alloc_len;
-        }
-#else
-        guarded_alloc_len = alloc_len;
-#endif
-        new_entry.next_alloc = (void *)((char *)prev_entry.next_alloc)
-                             + guarded_alloc_len;
-        new_entry.thread = n00b_thread_self();
-
-        if (!h->pinned && !__n00b_collector_running
-            && !n00b_collection_suspended
-            && ((void *)new_entry.next_alloc) > newest_arena->addr_end) {
-            h->expand = true;
-            n00b_heap_collect(h, alloc_len);
-            continue;
-        }
-
-        if (CAS(&h->ptr, &prev_entry, new_entry)) {
-            int64_t esize;
-            if (((void *)new_entry.next_alloc) >= newest_arena->addr_end) {
-                // We won, but we lost because there's not enough
-                // room left in the current arena.
-                if (n00b_heap_is_pinned(h) || __n00b_collector_running
-                    || n00b_collection_suspended) {
-emergency_arena:
-                    esize = newest_arena->addr_end - newest_arena->addr_start;
-                    esize *= 8;
-                    esize = n00b_max(guarded_alloc_len, esize);
-                    n00b_add_arena(h,
-                                   n00b_max(guarded_alloc_len,
-                                            N00B_START_SCRATCH_HEAP_SIZE));
-                    continue;
-                }
-                else {
-                    n00b_heap_collect(h, alloc_len);
-                }
+            if (!need_space(newest_arena, prev_entry, alloc_len)) {
+                n00b_gts_wont_stop();
                 continue;
             }
+            h->expand = expand;
 
-            break;
+            n00b_heap_collect(h, alloc_len);
+            h      = n00b_current_heap(h);
+            expand = true;
         }
 
-        n00b_gts_checkin();
+        // Here, we know there's enough space, IF we win the race.
+        new_entry.next_alloc = (void *)((char *)prev_entry.next_alloc)
+                             + alloc_len;
+        new_entry.thread = n00b_thread_self();
+
+        if (CAS(&h->ptr, &prev_entry, new_entry)) {
+            break;
+        }
+        // Otherwise, we lost, and need to check again that there's
+        // enough space to try again.
     }
 
     atomic_fetch_add(&h->alloc_count, 1);
 
     n00b_alloc_hdr *hdr = prev_entry.next_alloc;
 
+#ifdef N00B_FIND_SCRIBBLES
+    // printf("unlock %d bytes at %p for %s:%d\n", alloc_len, hdr, file, line);
+    assert(!mprotect(hdr, alloc_len, PROT_READ | PROT_WRITE));
+#endif
+    char *p    = (void *)hdr;
+    char *pend = p + alloc_len;
+
+    memset(p, 0, pend - p);
+#if 0
+#ifdef N00B_SCAN_ALLOC
+    int64_t *p    = (void *)hdr;
+    int64_t *pend = (int64_t *)((char *)p) + alloc_len;
+    if (pend > (int64_t *)h->cur_arena_end) {
+        pend = (int64_t *)h->cur_arena_end;
+    }
+
+    while (p < pend) {
+        if (*p) {
+            fprintf(stderr,
+                    "Error: When allocing at: %s:%d: "
+                    "previous allocation overflowed word #%ld (%x).\n",
+                    file,
+                    line,
+                    p - (int64_t *)hdr,
+                    *p);
+            fprintf(stderr, "New alloc hdr @%p\n", hdr);
+            n00b_alloc_hdr *old;
+            old = n00b_find_allocation_record(hdr - 1);
+            fprintf(stderr,
+                    "Prev alloc: %s:%d (sz: %d)\n",
+                    old->alloc_file,
+                    old->alloc_line,
+                    old->alloc_len);
+            while (*p && p < pend) {
+                if (*p) {
+                    printf("%p has: %x\n", p, *p);
+                }
+                p++;
+            }
+            fprintf(stderr,
+                    "%ld total words overwritten.\n",
+                    p - (int64_t *)hdr);
+            abort();
+        }
+        p++;
+    }
+
+#endif
+#endif
+
     hdr->guard     = n00b_gc_guard;
-    hdr->alloc_len = guarded_alloc_len;
+    hdr->alloc_len = alloc_len;
 
     if (scan != N00B_GC_SCAN_NONE) {
         hdr->n00b_ptr_scan = true;
     }
-
-#ifdef N00B_MPROTECT_GUARD_ALLOCS
-    if (add_guard) {
-        char *end             = ((char *)hdr) + hdr->alloc_len;
-        char *guard_loc       = end - n00b_page_bytes - 2 * sizeof(int64_t);
-        *(int64_t *)guard_loc = N00B_NOSCAN;
-
-        if (mprotect(guard_loc, n00b_page_bytes, PROT_READ)) {
-            fprintf(stderr, "mprotect failed??\n");
-            abort();
-        }
-        uint64_t *sentinel_loc = ((uint64_t *)end) - 1;
-        *sentinel_loc          = N00B_GC_PAGEJUMP;
-    }
-
-#endif
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     hdr->alloc_file = file;

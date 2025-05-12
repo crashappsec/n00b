@@ -36,7 +36,7 @@ n00b_run_callbacks(void *ignored)
     atomic_store(&cur_callback_thread, n00b_thread_self());
 
     while (true) {
-        n00b_gts_checkin();
+        abort();
 
         if (atomic_read(&cur_callback_thread) != n00b_thread_self()) {
 #ifdef N00B_ASYNC_IO_CALLBACKS
@@ -155,12 +155,12 @@ _n00b_write(n00b_stream_t *recipient,
         n00b_ioqueue_t *new    = n00b_unprotected_mempage();
         n00b_ioqueue_t *expect = NULL;
 
-        n00b_heap_register_dynamic_root(n00b_internal_heap,
+        n00b_heap_register_dynamic_root(n00b_default_heap,
                                         new,
                                         n00b_get_page_size() / 8);
 
         if (!CAS(&cur->next_page, &expect, new)) {
-            n00b_heap_remove_root(n00b_internal_heap, new);
+            n00b_heap_remove_root(n00b_default_heap, new);
             n00b_delete_mempage(new);
             cur = expect;
         }
@@ -262,7 +262,7 @@ n00b_ioqueue_setup(void)
 
     n00b_ioqueue_t *q = n00b_unprotected_mempage();
 
-    n00b_heap_register_root(n00b_internal_heap,
+    n00b_heap_register_root(n00b_default_heap,
                             q,
                             n00b_get_page_size() / 8);
 
@@ -273,7 +273,7 @@ n00b_ioqueue_setup(void)
     private_queue->num       = 0;
     private_queue->next_page = NULL;
 
-    n00b_heap_register_root(n00b_internal_heap,
+    n00b_heap_register_root(n00b_default_heap,
                             private_queue,
                             n00b_get_page_size() / 8);
 

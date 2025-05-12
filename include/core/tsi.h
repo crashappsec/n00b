@@ -50,6 +50,12 @@ typedef struct {
     // This flag is used for critical sections with private
     // data structures to suspend locking.
     int                        suspend_locking       : 1;
+    int                        gti_s                 : 1;
+    int                        gti_w                 : 1;
+    int                        gti_r;
+    char                      *gti_file;
+    int                        gti_line;
+    int                        gti_next;
 #if defined(N00B_ENABLE_ALLOC_DEBUG)
     int show_alloc_locations : 1;
 #endif
@@ -247,12 +253,17 @@ n00b_alloc_guard_next_new(void)
 #endif
 
 // Use to stash on the stack.
+#if 0
 #define n00b_push_heap(heap)                             \
     n00b_heap_t *__n00b_saved_heap = n00b_thread_heap(); \
     n00b_set_thread_heap(heap)
 
 #define n00b_pop_heap() \
     n00b_set_thread_heap(__n00b_saved_heap)
+#endif
+
+#define n00b_push_heap(heap)
+#define n00b_pop_heap()
 
 #ifdef N00B_USE_INTERNAL_API
 extern void

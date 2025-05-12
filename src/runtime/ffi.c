@@ -111,9 +111,7 @@ static inline void
 ffi_init()
 {
     if (n00b_symbol_cache == NULL) {
-        n00b_push_heap(n00b_internal_heap);
         n00b_symbol_cache = n00b_dict(n00b_type_string(), n00b_type_ref());
-        n00b_pop_heap();
     }
 }
 
@@ -145,9 +143,7 @@ n00b_add_static_function(n00b_string_t *name, void *symbol)
 {
     ffi_init();
 
-    n00b_push_heap(n00b_internal_heap);
     name = n00b_string_copy(name);
-    n00b_pop_heap();
     hatrack_dict_put(n00b_symbol_cache, name, symbol);
 }
 

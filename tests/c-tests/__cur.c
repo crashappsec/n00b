@@ -32,6 +32,8 @@ timer_2(n00b_timer_t *t, n00b_duration_t *time, void *thunk)
     printf("Timer 2\n");
 }
 
+extern void n00b_dump_gti(void);
+
 void *
 callback_test(n00b_buf_t *b, void *thunk)
 {
@@ -42,11 +44,13 @@ callback_test(n00b_buf_t *b, void *thunk)
         printf("\n");
         n00b_show_channels();
         break;
+    case 'G':
+        n00b_dump_gti();
+        break;
     case '@':
         n00b_channel_write(n00b_chan_stderr(), capture);
         break;
     case '%':
-        printf("Test that file.\n");
         n00b_channel_write(n00b_chan_stderr(), test_file);
         break;
     case '\r':
@@ -89,6 +93,7 @@ my_accept(n00b_channel_t *chan, void *ignore)
 void
 signal_demo(int signal, siginfo_t *info, void *user_param)
 {
+    printf("Via a Signal:\n");
     n00b_show_channels();
 }
 
@@ -96,16 +101,15 @@ void
 signal_demo2(int signal, siginfo_t *info, void *user_param)
 {
     // Need to manually render the string until filters are ported.
-    n00b_string_t *s = n00b_cformat(
+    // char *buf = n00b_rich_to_ansi(s, NULL);
+    //  fprintf(stderr, "%s\n", buf);
+    n00b_printf(
         "[|red|]Received SIGHUP:[|/|] "
         "pid = [|#|], uid = [|#|], "
         "addr = [|#:p|]",
         (int64_t)info->si_pid,
         (int64_t)info->si_uid,
         info->si_addr);
-    char *buf = n00b_rich_to_ansi(s, NULL);
-
-    fprintf(stderr, "%s\n", buf);
 }
 
 int
@@ -113,8 +117,15 @@ main(void)
 {
     n00b_terminal_app_setup();
 
+    n00b_gc_register_root(&my_stdin, 1);
+    n00b_gc_register_root(&my_stdout, 1);
+    n00b_gc_register_root(&capture, 1);
+    n00b_gc_register_root(&test_file, 1);
     n00b_signal_register(SIGHUP, signal_demo, (void *)1ULL);
     n00b_signal_register(SIGHUP, signal_demo2, (void *)2ULL);
+
+    n00b_printf("[|red|]Welcome to the hood[|/|]\r");
+    n00b_printf(" ");
 
     n00b_list_t   *args = n00b_list(n00b_type_string());
     n00b_string_t *ls   = n00b_cstring("/bin/ls");
@@ -129,14 +140,28 @@ main(void)
     n00b_proc_t *proc = n00b_run_process(ls, args, true, true);
     capture           = n00b_proc_get_stdout_capture(proc);
 
-    n00b_net_addr_t *addr = n00b_new(n00b_type_net_addr(),
-                                     n00b_kw("address",
-                                             n00b_cstring("127.0.0.1"),
-                                             "port",
-                                             7879ULL));
+    uint64_t         port = 7879;
+    n00b_net_addr_t *addr = NULL;
+    n00b_channel_t  *srv;
+
+    do {
+        N00B_TRY
+        {
+            addr = n00b_new(n00b_type_net_addr(),
+                            n00b_kw("address",
+                                    n00b_cstring("127.0.0.1"),
+                                    "port",
+                                    port));
+            srv  = n00b_create_listener(addr);
+        }
+        N00B_EXCEPT
+        {
+            port++;
+        }
+        N00B_TRY_END;
+    } while (!srv);
 
     n00b_debugf("test", "Address: [|#|]", addr);
-    n00b_channel_t *srv = n00b_create_listener(addr);
 
     my_stdin           = n00b_fd_stream_from_fd(0, NULL, NULL);
     my_stdout          = n00b_fd_stream_from_fd(1, NULL, NULL);
@@ -175,5 +200,4 @@ main(void)
     }
     printf("Boom!\n");
     n00b_exit(0);
-    //    n00b_fd_run_evloop(n00b_system_dispatcher, );
 }

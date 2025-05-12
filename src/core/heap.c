@@ -15,11 +15,6 @@ uint64_t            n00b_gc_guard      = 0;
 n00b_heap_t        *n00b_default_heap  = NULL;
 // This is the current heap for a given thread. If it's null, use the
 // default heap.
-n00b_heap_t        *n00b_internal_heap = NULL;
-// The heap we're migrating into. We only allocate this once; when
-// we're done, we move around the destination arena and leave the
-// heap reference around to avoid needless heap entries.
-// The scratch heap is used during GC.
 n00b_heap_t        *n00b_all_heaps     = NULL;
 n00b_heap_t        *n00b_cur_heap_page = NULL;
 static n00b_heap_t *long_term_pins     = NULL;
@@ -320,13 +315,9 @@ n00b_create_first_heaps(void)
     long_term_pins = n00b_new_heap(0);
     n00b_heap_pin(long_term_pins);
 
-    n00b_internal_heap = n00b_new_heap(N00B_SYSTEM_HEAP_SIZE);
-    n00b_heap_set_name(n00b_internal_heap, "internal");
-
-    n00b_default_heap->name  = "user";
-    n00b_internal_heap->name = "internal";
-    n00b_to_space->name      = "gc 'to-space'";
-    long_term_pins->name     = "long-term pins";
+    n00b_default_heap->name = "user";
+    n00b_to_space->name     = "gc 'to-space'";
+    long_term_pins->name    = "long-term pins";
 
     long_term_pins->no_trace = true;
 }
@@ -335,8 +326,8 @@ void
 n00b_long_term_pin(n00b_heap_t *h)
 {
     // Long-term pins a heap, which marks it as no_trace.
-    n00b_gts_stop_the_world();
     n00b_heap_collect(h, 0);
+    n00b_gts_stop_the_world();
     n00b_crit_t crit = atomic_read(&h->ptr);
 
     if (!long_term_pins->first_arena) {

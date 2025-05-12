@@ -715,21 +715,6 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     va_list args;
     va_start(args, type);
 
-    n00b_heap_t *__n00b_saved_heap           = NULL;
-    bool         clear_thread_heap_reference = false;
-
-    //    // Always use the internal heap for types.
-    if (type->typeid == N00B_T_TYPESPEC) {
-        __n00b_saved_heap           = n00b_internal_heap;
-        clear_thread_heap_reference = true;
-    }
-
-    // Thread heap overrides specified heaps.
-    if (heap && !n00b_thread_heap()) {
-        __n00b_saved_heap           = heap;
-        clear_thread_heap_reference = true;
-    }
-
     type = n00b_type_resolve(type);
 
     n00b_obj_t obj;
@@ -753,9 +738,6 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     if (!tinfo->vtable) {
         obj = n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL);
 
-        if (clear_thread_heap_reference) {
-            n00b_pop_heap();
-        }
         va_end(args);
         return obj;
     }
@@ -812,17 +794,10 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
         }
         break;
     default:
-        if (clear_thread_heap_reference) {
-            n00b_pop_heap();
-        }
 
         N00B_CRAISE(
             "Requested type is non-instantiable or not yet "
             "implemented.");
-    }
-
-    if (clear_thread_heap_reference) {
-        n00b_pop_heap();
     }
 
     va_end(args);

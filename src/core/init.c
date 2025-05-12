@@ -103,7 +103,6 @@ load_env(n00b_dict_t *environment_vars)
         hatrack_dict_put(environment_vars, key, value);
         n00b_assert(hatrack_dict_get(environment_vars, key, NULL) == value);
     }
-    n00b_gc_register_root(&cached_environment_vars, 1);
     cached_environment_vars = environment_vars;
 }
 
@@ -361,7 +360,6 @@ struct timespec *n00b_io_duration = NULL;
 static void *
 start_io(void *ignore)
 {
-    n00b_fd_init_io();
     n00b_fd_run_evloop(n00b_system_dispatcher, n00b_io_duration);
     return NULL;
 }
@@ -370,6 +368,7 @@ static void
 n00b_initialize_library(void)
 {
     n00b_init_program_timestamp();
+    n00b_fd_init_io();
     n00b_thread_spawn((void *)start_io, NULL);
 }
 
@@ -405,6 +404,7 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_gc_register_root(&n00b_extensions, 1);
         n00b_gc_register_root(&cached_environment_vars, 1);
         n00b_gc_register_root(&mmm_free_tids, sizeof(mmm_free_tids) / 8);
+        n00b_gc_register_root(&exit_handlers, 1);
         n00b_initialize_global_types();
         n00b_init_common_string_cache();
         n00b_backtrace_init(n00b_stashed_argv[0]);
@@ -415,7 +415,6 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_init_path();
         n00b_theme_initialization();
         n00b_assertion_init();
-        n00b_long_term_pin(n00b_internal_heap);
         n00b_initialize_library();
 
         n00b_startup_complete = true;

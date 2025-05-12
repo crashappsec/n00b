@@ -1,6 +1,5 @@
 #ifdef n00b_some_stuff_i_may_occasionally_enable_in_testing
 
-#define N00B_SHOW_GARBAGE_REPORTS
 #define N00B_USE_LOCK_DEBUGGING
 #define N00B_ENABLE_ALLOC_DEBUG_OPT_IN
 #define N00B_GC_SHOW_COLLECT_STACK_TRACES
@@ -13,7 +12,11 @@
 #else
 #endif
 
-#define N00B_USE_LOCK_DEBUGGING
+// #define N00B_GC_STATS
+// #define N00B_DEBUG_GC_ROOTS
+// #define N00B_FIND_SCRIBBLES
+// #define N00B_SCAN_ALLOC
+// #define N00B_USE_LOCK_DEBUGGING
 
 #pragma once
 // Home of anything remotely configurable. Don't change this file;
@@ -141,19 +144,6 @@
 #ifndef N00B_DEFAULT_HEAP_SIZE
 // This is the size any test case that prints a thing grows to awfully fast.
 #define N00B_DEFAULT_HEAP_SIZE (1 << 26) // 30 == 1 g
-#endif
-
-#ifndef N00B_SYSTEM_HEAP_SIZE
-// Can't be any smaller than this for startup.
-#define N00B_SYSTEM_HEAP_SIZE (1 << 24)
-#endif
-
-#ifndef N00B_START_STRING_HEAP_SIZE
-#define N00B_START_STRING_HEAP_SIZE (1 << 24)
-#endif
-
-#ifndef N00B_START_SCRATCH_HEAP_SIZE
-#define N00B_START_SCRATCH_HEAP_SIZE (1 << 18)
 #endif
 
 #ifndef N00B_MARSHAL_CHUNK_SIZE

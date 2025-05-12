@@ -38,9 +38,10 @@ typedef struct {
     n00b_list_t          *pending_stderr_subs;
     n00b_lock_t           run_lock;
     n00b_condition_t      cv;
-    n00b_buf_t           *cap_in;
-    n00b_buf_t           *cap_out;
-    n00b_buf_t           *cap_err;
+    n00b_channel_t       *cap_in;
+    n00b_channel_t       *cap_out;
+    n00b_channel_t       *cap_err;
+    n00b_channel_t       *exit_cb;
     n00b_post_fork_hook_t hook;
     void                 *param;
     struct winsize        dimensions;
@@ -167,7 +168,7 @@ n00b_proc_get_stdout_capture(n00b_proc_t *proc)
     if (!proc->cap_out) {
         N00B_CRAISE("stdout was not monitored for this process.");
     }
-    return proc->cap_out;
+    return n00b_channel_extract_buffer(proc->cap_out);
 }
 
 static inline n00b_buf_t *
@@ -178,7 +179,7 @@ n00b_proc_get_stderr_capture(n00b_proc_t *proc)
     if (!proc->cap_err) {
         N00B_CRAISE("stderr was not monitored for this process.");
     }
-    return proc->cap_err;
+    return n00b_channel_extract_buffer(proc->cap_err);
 }
 
 static inline n00b_buf_t *
@@ -190,7 +191,7 @@ n00b_proc_get_stdin_capture(n00b_proc_t *proc)
         N00B_CRAISE("stdin was not monitored for this process.");
     }
 
-    return proc->cap_in;
+    return n00b_channel_extract_buffer(proc->cap_in);
 }
 
 static inline bool

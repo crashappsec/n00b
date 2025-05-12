@@ -5,7 +5,7 @@ bool
 n00b_filter_add(n00b_channel_t *c, n00b_filter_impl *impl, int policy)
 {
     int            sz = impl->cookie_size;
-    n00b_filter_t *f  = n00b_gc_alloc(sizeof(n00b_filter_t) + sz);
+    n00b_filter_t *f  = n00b_gc_flex_alloc(n00b_filter_t, sz, 1, N00B_GC_SCAN_ALL);
 
     if (policy <= 0 || policy > N00B_FILTER_MAX) {
         N00B_CRAISE("Invalid operation policy for filter.");
@@ -28,9 +28,9 @@ n00b_filter_add(n00b_channel_t *c, n00b_filter_impl *impl, int policy)
         f->r_skip = true;
     }
 
-    if (c->r && !(policy & N00B_FILTER_READ)) {
-        f->r_skip = true;
-    }
+    //    if (c->r && !(policy & N00B_FILTER_READ)) {
+    //        f->r_skip = true;
+    //    }
 
     if (f->r_skip && f->w_skip) {
         return false;

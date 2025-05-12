@@ -115,6 +115,10 @@ if get_option('dev_mode') == true
     if get_option('use_asan').enabled()
         c_args = c_args + ['-fsanitize=address', '-fsanitize-recover=all']
         link_args = link_args + ['-fsanitize=address', '-fsanitize-recover=all']
+
+        if (host_machine.system() == 'darwin')
+        c_args = c_args + ['-fsanitize-blacklist=../.sanitize_ignore']
+        endif
     endif
 
     if get_option('use_ubsan').enabled()
@@ -293,7 +297,7 @@ n00b_channels = [
     'src/channels/chan_listener.c',
     'src/channels/chan_exit.c',
     'src/channels/chan_proxy.c',
-#    'src/channels/chan_string.c',    
+    'src/channels/chan_string.c',    
     'src/channels/terminal_io.c',
     'src/channels/print.c',
     'src/channels/proc.c',
@@ -303,6 +307,11 @@ n00b_channels = [
     'src/channels/session_capture.c',
     'src/channels/session_replay.c',
     'src/channels/session_states.c',
+     'src/channels/filter_color.c',
+#    'src/channels/filter_json.c',
+#    'src/channels/filter_line_buf.c',
+#    'src/channels/filter_hex_dump.c',
+#    'src/channels/filter_marshal.c',        
 ]
 
 n00b_debug = [

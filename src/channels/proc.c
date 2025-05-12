@@ -76,6 +76,8 @@ setup_exit_obj(n00b_proc_t *ctx)
     n00b_channel_set_name(callback, n00b_cstring("wait4 exit"));
     n00b_channel_subscribe_read(result, callback, true);
 
+    ctx->exit_cb = callback;
+
     return result;
 }
 
@@ -116,13 +118,13 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
                                     NULL);
     }
 
-    n00b_channel_t *buf;
+    n00b_buf_t *buf;
 
     if (ctx->flags & N00B_PROC_STDIN_CAP) {
-        ctx->cap_in = n00b_buffer_empty();
-        buf         = n00b_out_buf_channel(ctx->cap_in, true);
-        n00b_channel_subscribe_read(n00b_chan_stdin(), buf, false);
-        n00b_channel_set_name(buf,
+        buf         = n00b_buffer_empty();
+        ctx->cap_in = n00b_out_buf_channel(buf, true);
+        n00b_channel_subscribe_read(n00b_chan_stdin(), ctx->cap_in, false);
+        n00b_channel_set_name(ctx->cap_in,
                               n00b_cformat("«#»«#» stdin cap«#»",
                                            n00b_cached_lbracket(),
                                            ctx->cmd,
@@ -130,26 +132,26 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
     }
 
     if (ctx->flags & N00B_PROC_STDOUT_CAP) {
-        ctx->cap_out = n00b_buffer_empty();
-        buf          = n00b_out_buf_channel(ctx->cap_out, true);
-        n00b_channel_subscribe_read(ctx->subproc_stdout, buf, false);
-        n00b_channel_set_name(buf,
+        buf          = n00b_buffer_empty();
+        ctx->cap_out = n00b_out_buf_channel(buf, true);
+        n00b_channel_subscribe_read(ctx->subproc_stdout, ctx->cap_out, false);
+        n00b_channel_set_name(ctx->cap_out,
                               n00b_cformat("«#»«#» stdout cap«#»",
                                            n00b_cached_lbracket(),
                                            ctx->cmd,
                                            n00b_cached_rbracket()));
 
         if (ctx->flags & N00B_PROC_MERGE_OUTPUT) {
-            n00b_channel_subscribe_read(ctx->subproc_stderr, buf, false);
+            n00b_channel_subscribe_read(ctx->subproc_stderr, ctx->cap_out, false);
         }
     }
 
     if (ctx->flags & N00B_PROC_STDERR_CAP
         && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
-        ctx->cap_err = n00b_buffer_empty();
-        buf          = n00b_out_buf_channel(ctx->cap_err, true);
-        n00b_channel_subscribe_read(ctx->subproc_stderr, buf, false);
-        n00b_channel_set_name(buf,
+        buf          = n00b_buffer_empty();
+        ctx->cap_err = n00b_out_buf_channel(buf, true);
+        n00b_channel_subscribe_read(ctx->subproc_stderr, ctx->cap_err, false);
+        n00b_channel_set_name(ctx->cap_err,
                               n00b_cformat("«#»«#» stderr cap«#»",
                                            n00b_cached_lbracket(),
                                            ctx->cmd,
@@ -241,6 +243,7 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     pre_launch_prep(ctx, &argp);
 
     pipe(gate);
+
     open_pipe(proxy_in, stdin_pipe);
     open_pipe(proxy_out, stdout_pipe);
     open_pipe(proxy_err, stderr_pipe);
@@ -269,10 +272,6 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
         ctx->gate = gate[1];
         close(gate[0]);
         ctx->pid = pid;
-
-        if (ctx->flags & N00B_PROC_STDIN_PROXY) {
-            //            n00b_channel_fd_pause_reads(n00b_chan_stdin());
-        }
 
         if (proxy_in) {
             ctx->subproc_stdin = n00b_channel_fd_open(stdin_pipe[1]);
@@ -323,9 +322,7 @@ static void
 should_exit_via_sig(int signal, siginfo_t *info, n00b_proc_t *ctx)
 {
     n00b_condition_lock_acquire(&ctx->cv);
-    n00b_channel_close(ctx->subproc_stdin);
-    n00b_channel_close(ctx->subproc_stdout);
-    n00b_channel_close(ctx->subproc_stderr);
+    n00b_proc_close(ctx);
     ctx->exited = true;
     if (ctx->wait_for_exit) {
         n00b_condition_notify_all(&ctx->cv);
@@ -407,10 +404,6 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
         close(gate[0]);
         ctx->gate = gate[1];
-
-        if (ctx->flags & N00B_PROC_STDIN_PROXY) {
-            n00b_channel_fd_pause_reads(n00b_chan_stdin());
-        }
 
         if (read(pmain[0], &err_code, sizeof(err_code)) > 0) {
             int status;
@@ -716,6 +709,19 @@ n00b_proc_close(n00b_proc_t *proc)
     }
     if (proc->subproc_pid) {
         n00b_channel_close(proc->subproc_pid);
+    }
+    if (proc->cap_in) {
+        n00b_channel_close(proc->cap_in);
+    }
+    if (proc->cap_out) {
+        n00b_channel_close(proc->cap_out);
+    }
+    if (proc->cap_err) {
+        n00b_channel_close(proc->cap_err);
+    }
+
+    if (proc->exit_cb) {
+        n00b_channel_close(proc->exit_cb);
     }
 
     n00b_signal_unregister(SIGCHLD, (void *)should_exit_via_sig, proc);
