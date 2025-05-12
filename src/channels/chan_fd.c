@@ -670,9 +670,7 @@ n00b_channel_fd_unpause_reads(n00b_channel_t *stream)
 void *
 _n00b_read_file(n00b_string_t *path, ...)
 {
-    va_list args;
-    va_start(args, path);
-
+    va_list         args;
     bool            buffer    = false;
     bool            lock      = false;
     n00b_string_t **error_ptr = NULL;

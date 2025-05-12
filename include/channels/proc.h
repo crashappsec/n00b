@@ -57,6 +57,7 @@ typedef struct {
     bool                  exited;
     bool                  timeout;
     bool                  wait_for_exit;
+    int                   gate;
 } n00b_proc_t;
 
 #define n00b_proc_check_and_set(p, operation)              \

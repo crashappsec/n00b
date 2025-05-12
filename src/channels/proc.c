@@ -84,13 +84,6 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
 {
     ctx->subproc_pid = setup_exit_obj(ctx);
 
-    if (ctx->subproc_stdout) {
-        //        n00b_channel_fd_pause_reads(ctx->subproc_stdout);
-    }
-    if (ctx->subproc_stderr) {
-        //        n00b_channel_fd_pause_reads(ctx->subproc_stderr);
-    }
-
     if (ctx->seeded_stdin && ctx->subproc_stdin) {
         n00b_channel_queue(ctx->subproc_stdin,
                            n00b_string_to_buffer(ctx->seeded_stdin));
@@ -179,19 +172,7 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
         }
     }
 
-    /*
-    if (ctx->subproc_stdout) {
-        n00b_channel_fd_unpause_reads(ctx->subproc_stdout);
-    }
-    if (ctx->subproc_stderr) {
-        n00b_channel_fd_unpause_reads(ctx->subproc_stderr);
-    }
-
-    if (ctx->flags & N00B_PROC_STDIN_PROXY) {
-        n00b_channel_fd_unpause_reads(n00b_chan_stdin());
-        }*/
-    n00b_show_channels();
-
+    write(ctx->gate, "x", 1);
     return;
 }
 
@@ -235,6 +216,9 @@ static void
 try_execve(n00b_proc_t *ctx, char *argv[], char *envp[])
 {
     char *cmd = n00b_string_to_cstr(ctx->cmd);
+    char  buf[1];
+
+    read(ctx->gate, buf, 1);
 
     execve(cmd, argv, envp);
     n00b_raise_errno();
@@ -250,11 +234,13 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     int    stdin_pipe[2];
     int    stdout_pipe[2];
     int    stderr_pipe[2];
+    int    gate[2];
     char **argp;
     char **envp;
 
     pre_launch_prep(ctx, &argp);
 
+    pipe(gate);
     open_pipe(proxy_in, stdin_pipe);
     open_pipe(proxy_out, stdout_pipe);
     open_pipe(proxy_err, stderr_pipe);
@@ -280,6 +266,8 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     pid = fork();
 
     if (pid != 0) {
+        ctx->gate = gate[1];
+        close(gate[0]);
         ctx->pid = pid;
 
         if (ctx->flags & N00B_PROC_STDIN_PROXY) {
@@ -300,6 +288,8 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
         return;
     }
 
+    ctx->gate = gate[0];
+    close(gate[1]);
     close_write_side(proxy_in, stdin_pipe);
     close_read_side(proxy_out, stdout_pipe);
     close_read_side(proxy_err, stderr_pipe);
@@ -355,7 +345,7 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     int             aux_fd;
     char          **argp;
     char          **envp;
-
+    int             gate[2];
     // n00b_register_signal_handler(SIGCHLD, (void *)should_exit_via_sig, ctx);
     // n00b_register_signal_handler(SIGPIPE, (void *)should_exit_via_sig, ctx);
 
@@ -400,6 +390,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         n00b_raise_errno();
     }
 
+    if (pipe(gate)) {
+        n00b_raise_errno();
+    }
+
     pid = fork();
 
     if (pid < 0) {
@@ -410,6 +404,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     if (pid != 0) {
         n00b_raw_fd_close(subproc_fd);
         n00b_raw_fd_close(pmain[1]);
+
+        close(gate[0]);
+        ctx->gate = gate[1];
 
         if (ctx->flags & N00B_PROC_STDIN_PROXY) {
             n00b_channel_fd_pause_reads(n00b_chan_stdin());
@@ -467,6 +464,9 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
         return;
     }
+
+    close(gate[1]);
+    ctx->gate = gate[0];
 
     n00b_raw_fd_close(pty_fd);
 

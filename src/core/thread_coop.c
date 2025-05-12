@@ -207,8 +207,6 @@ n00b_gts_stop_the_world(void)
         tsi->thread_sleeping = false;
     }
 
-    n00b_assert(expected.state != n00b_gts_stop);
-
     do {
         n00b_gts_checkin();
 
