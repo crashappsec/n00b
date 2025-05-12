@@ -57,6 +57,7 @@ typedef struct {
     bool                  exited;
     bool                  timeout;
     bool                  wait_for_exit;
+    int                   gate;
 } n00b_proc_t;
 
 #define n00b_proc_check_and_set(p, operation)              \
@@ -72,23 +73,6 @@ typedef struct {
     }
 
 #define n00b_proc_post_check(p)
-
-static inline void
-n00b_proc_close(n00b_proc_t *proc)
-{
-    if (proc->subproc_stdin) {
-        n00b_channel_close(proc->subproc_stdin);
-    }
-    if (proc->subproc_stdout) {
-        n00b_channel_close(proc->subproc_stdout);
-    }
-    if (proc->subproc_stderr) {
-        n00b_channel_close(proc->subproc_stderr);
-    }
-    if (proc->subproc_pid) {
-        n00b_channel_close(proc->subproc_pid);
-    }
-}
 
 static inline void
 n00b_proc_set_command(n00b_proc_t *proc, n00b_string_t *cmd)
@@ -270,6 +254,7 @@ extern n00b_proc_t *_n00b_run_process(n00b_string_t *cmd,
 
 extern void n00b_proc_spawn(n00b_proc_t *);
 extern void n00b_proc_run(n00b_proc_t *, n00b_duration_t *);
+extern void n00b_proc_close(n00b_proc_t *);
 
 #define n00b_run_process(cmd, proxy, capture, ...) \
     _n00b_run_process(cmd, proxy, capture, N00B_VA(__VA_ARGS__))

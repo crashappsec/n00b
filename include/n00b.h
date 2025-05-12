@@ -21,6 +21,7 @@ typedef struct n00b_string_t n00b_string_t;
 
 extern bool n00b_startup_complete;
 
+#include "core/signal.h"
 #include "core/init.h"
 #include "core/env.h"    // env variable API
 #include "core/exit.h"
@@ -86,6 +87,7 @@ extern bool n00b_startup_complete;
 #include "channels/channel_topic.h"
 #include "channels/channel_exit.h"
 #include "channels/channel_proxy.h"
+// #include "channels/channel_string.h"
 #include "channels/terminal_io.h"
 #include "channels/debug.h"
 

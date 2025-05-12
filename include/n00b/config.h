@@ -339,3 +339,7 @@
 #else
 #define N00B_SOCK_LISTEN_BACKLOG_DEFAULT 32
 #endif
+
+#if !defined(N00B_MAX_SIGNAL)
+#define N00B_MAX_SIGNAL 128
+#endif
