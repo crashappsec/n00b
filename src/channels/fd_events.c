@@ -318,7 +318,7 @@ n00b_fd_stream_from_fd(int                fd,
                        n00b_event_loop_t *dispatcher,
                        n00b_ev_ready_cb   notifier)
 {
-    if (!dispatcher) {
+    while (!dispatcher) {
         dispatcher = n00b_system_dispatcher;
     }
     n00b_fd_stream_t *result = fd_cache_lookup(fd, dispatcher);

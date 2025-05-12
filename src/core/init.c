@@ -416,7 +416,6 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_theme_initialization();
         n00b_assertion_init();
         n00b_long_term_pin(n00b_internal_heap);
-        // n00b_internal_io_setup();
         n00b_initialize_library();
 
         n00b_startup_complete = true;
