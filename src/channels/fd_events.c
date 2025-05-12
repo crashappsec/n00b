@@ -4,9 +4,11 @@
 // This is a LOW-LEVEL interface. The callbacks are expected to return
 // quickly, so should not be user callbacks.
 
-n00b_event_loop_t    *n00b_system_dispatcher = NULL;
-static n00b_dict_t   *fd_cache               = NULL;
-static pthread_once_t io_inited              = PTHREAD_ONCE_INIT;
+n00b_event_loop_t          *n00b_system_dispatcher = NULL;
+static n00b_dict_t         *fd_cache               = NULL;
+static pthread_once_t       io_inited              = PTHREAD_ONCE_INIT;
+_Atomic(n00b_condition_t *) n00b_io_exit_request   = NULL;
+bool                        n00b_io_exited         = false;
 
 extern void n00b_setup_term_channels(void);
 
@@ -14,6 +16,7 @@ static void
 setup_io(void)
 {
     n00b_gc_register_root(&n00b_system_dispatcher, 1);
+    n00b_gc_register_root(&n00b_io_exit_request, 1);
     fd_cache               = n00b_dict(n00b_type_int(), n00b_type_ref());
     n00b_system_dispatcher = n00b_new_event_context(N00B_EV_POLL);
     n00b_setup_term_channels();
@@ -1458,6 +1461,11 @@ n00b_fd_run_poll_dispatcher_once(n00b_event_loop_t *loop,
 static inline void
 loop_exit_check(n00b_event_loop_t *loop, n00b_duration_t *now)
 {
+    if (atomic_read(&n00b_io_exit_request)) {
+        loop->exit_loop = true;
+        return;
+    }
+
     if (!loop->stop_time) {
         return;
     }
@@ -1496,6 +1504,13 @@ n00b_fd_run_evloop(n00b_event_loop_t *loop, n00b_duration_t *howlong)
         n00b_fd_run_poll_dispatcher_once(loop, now);
         loop_exit_check(loop, now);
     } while (!loop->exit_loop);
+
+    n00b_condition_t *cond = atomic_read(&n00b_io_exit_request);
+    if (cond) {
+        n00b_condition_lock_acquire(cond);
+        n00b_condition_notify_all(cond);
+        n00b_condition_lock_release(cond);
+    }
 
     loop->exit_loop = false;
     atomic_store(&loop->owner, NULL);

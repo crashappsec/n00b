@@ -816,7 +816,7 @@ n00b_alloc_party(n00b_io_impl_info_t *impl,
                  n00b_io_permission_t perms,
                  n00b_io_event_type   et)
 {
-    n00b_stream_t *s = n00b_new(n00b_type_stream(), impl, cookie, perms, et);
+    n00b_stream_t *s = n00b_new(n00b_type_channel(), impl, cookie, perms, et);
     return s;
 }
 

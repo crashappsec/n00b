@@ -83,7 +83,7 @@ n00b_table_set_column_priority(n00b_table_t *table, int64_t col, int64_t pri)
 static void
 n00b_table_init(n00b_table_t *table, va_list args)
 {
-    n00b_stream_t          *outstream        = NULL;
+    n00b_channel_t         *outstream        = NULL;
     bool                    eject_on_render  = true;
     n00b_string_t          *theme_name       = NULL; // Default is "table"
     n00b_decoration_style_t decoration_style = N00B_TABLE_DEFAULT;
@@ -403,7 +403,7 @@ n00b_table_render(n00b_table_t *table, int width, int ignored)
 {
     defer_on();
     n00b_table_acquire(table);
-    n00b_stream_t *saved_outstream = table->outstream;
+    n00b_channel_t *saved_outstream = table->outstream;
 
     if (saved_outstream && table->eject_on_render) {
         Return N00B_CRAISE("Table is set to stream and release data as it outputs."), NULL;
@@ -987,7 +987,7 @@ static void
 core_emit(n00b_table_t *table, n00b_string_t *s)
 {
     if (table->outstream) {
-        n00b_write(table->outstream, s);
+        n00b_channel_queue(table->outstream, s);
     }
     else {
         n00b_private_list_append(table->render_cache, s);

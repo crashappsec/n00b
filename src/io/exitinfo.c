@@ -133,7 +133,7 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
     n00b_list_t *l = watch_fds;
 
     if (!n00b_type_is_list(t)) {
-        l = n00b_list(n00b_type_stream());
+        l = n00b_list(n00b_type_channel());
         n00b_list_append(l, watch_fds);
         watch_fds = l;
     }
@@ -152,7 +152,7 @@ n00b_pid_monitor(int64_t pid, void *watch_fds)
         n00b_type_t   *t  = n00b_get_my_type(fd);
 
         n00b_acquire_party(fd);
-        if (!(n00b_type_is_stream(t) || n00b_type_is_file(t))) {
+        if (!(n00b_type_is_channel(t))) {
             N00B_CRAISE("Invalid stream.");
         }
         if (fd->closed_for_read) {

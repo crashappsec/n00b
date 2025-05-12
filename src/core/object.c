@@ -599,15 +599,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
-    [N00B_T_STREAM] = {
-        .name      = "stream",
-        .typeid    = N00B_T_STREAM,
-        .alloc_len = sizeof(n00b_stream_t),
-        .vtable    = &n00b_stream_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
     // not alloc'd this way, right now.
     [N00B_T_CHANNEL] = {
         .name      = "stream",
@@ -632,15 +623,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .typeid    = N00B_T_BYTERING,
         .alloc_len = sizeof(n00b_bytering_t),
         .vtable    = &n00b_bytering_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
-    [N00B_T_FILE] = {
-        .name      = "file",
-        .typeid    = N00B_T_FILE,
-        .alloc_len = sizeof(n00b_stream_t),
-        .vtable    = &n00b_file_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,

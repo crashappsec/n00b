@@ -361,7 +361,7 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
     pre_launch_prep(ctx, &argp);
 
-    if (!n00b_is_tty(n00b_stdin())) {
+    if (!n00b_channel_is_tty(n00b_chan_stdin())) {
         win_ptr = NULL;
     }
     else {

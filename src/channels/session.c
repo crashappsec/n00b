@@ -10,7 +10,7 @@ n00b_session_init(n00b_session_t *session, va_list args)
     n00b_list_t     *execv_args         = NULL;
     n00b_dict_t     *execv_env          = NULL;
     n00b_string_t   *pwd                = NULL;
-    n00b_stream_t   *capture_stream     = NULL; // No more than one option
+    n00b_channel_t  *capture_stream     = NULL; // No more than one option
     n00b_string_t   *capture_filename   = NULL; // for capture is allowed.
     bool             capture_tmpfile    = false;
     bool             pass_input         = true;
@@ -87,9 +87,7 @@ n00b_session_init(n00b_session_t *session, va_list args)
     }
     if (capture_filename) {
         n00b_assert(!capture_stream);
-        capture_stream = n00b_new(n00b_type_file(),
-                                  capture_filename,
-                                  n00b_fm_rw);
+        capture_stream = n00b_channel_open_file(capture_filename);
     }
 
     if (capture_stream) {
@@ -100,19 +98,19 @@ n00b_session_init(n00b_session_t *session, va_list args)
 static const char *bash_setup_string = N00B_SESSION_BASH_SETUP;
 
 static inline n00b_string_t *
-create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
+create_tmpfiles(n00b_channel_t **ctrl_file_ptr)
 {
-    n00b_stream_t *rc_file = n00b_tempfile(NULL, NULL);
-    *ctrl_file_ptr         = n00b_tempfile(NULL, NULL);
-    n00b_string_t *result  = n00b_stream_get_name(rc_file);
-    n00b_buf_t    *buf     = n00b_new(n00b_type_buffer(),
+    n00b_channel_t *rc_file = n00b_tempfile(NULL, NULL);
+    *ctrl_file_ptr          = n00b_tempfile(NULL, NULL);
+    n00b_string_t *result   = n00b_channel_get_name(rc_file);
+    n00b_buf_t    *buf      = n00b_new(n00b_type_buffer(),
                                n00b_kw("length",
                                        (int64_t)strlen(bash_setup_string),
                                        "ptr",
                                        bash_setup_string));
 
-    n00b_write_blocking(rc_file, buf, NULL);
-    n00b_close(rc_file);
+    n00b_channel_write(rc_file, buf);
+    n00b_channel_close(rc_file);
 
     return result;
 }
@@ -123,7 +121,7 @@ extern void n00b_restart_io(void);
 static void
 post_fork_hook(n00b_session_t *s)
 {
-    n00b_string_t *ctrl = n00b_stream_get_name(s->subproc_ctrl_stream);
+    n00b_string_t *ctrl = n00b_channel_get_name(s->subproc_ctrl_stream);
     n00b_restart_io();
     n00b_set_env(n00b_cstring("N00B_BASH_INFO_LOG"), ctrl);
 
@@ -179,9 +177,9 @@ setup_shell_invocation(n00b_session_t *session)
     // once the fork happens, we add the environment variables before
     // we do the actual exec.
 
-    n00b_stream_t *ctrl_stream;
-    n00b_string_t *path;
-    n00b_list_t   *result = n00b_list(n00b_type_string());
+    n00b_channel_t *ctrl_stream;
+    n00b_string_t  *path;
+    n00b_list_t    *result = n00b_list(n00b_type_string());
 
     session->rc_filename         = create_tmpfiles(&ctrl_stream);
     session->subproc_ctrl_stream = ctrl_stream;
@@ -303,15 +301,15 @@ session_cleanup(n00b_session_t *session)
     }
     session->last_event = NULL;
     n00b_truncate_all_match_data(session, NULL, 0);
-    n00b_close(session->stdin_injection);
+    n00b_channel_close(session->stdin_injection);
     session->cur_user_state = NULL;
     if (session->rc_filename) {
         unlink(session->rc_filename->data);
         session->rc_filename = NULL;
     }
     if (session->subproc_ctrl_stream) {
-        s = n00b_stream_get_name(session->subproc_ctrl_stream);
-        n00b_close(session->subproc_ctrl_stream);
+        s = n00b_channel_get_name(session->subproc_ctrl_stream);
+        n00b_channel_close(session->subproc_ctrl_stream);
         unlink(s->data);
         session->subproc_ctrl_stream = NULL;
     }

@@ -155,6 +155,19 @@ bufchan_get_pos(n00b_channel_t *stream)
     }
 }
 
+static bool
+bufchan_eof(n00b_channel_t *stream)
+{
+    n00b_buffer_channel_t *c = n00b_get_channel_cookie(stream);
+
+    if (!stream->r) {
+        return c->wposition == c->buffer->byte_len;
+    }
+    else {
+        return c->rposition == c->buffer->byte_len;
+    }
+}
+
 static n00b_chan_impl n00b_bufchan_impl = {
     .cookie_size             = sizeof(n00b_buffer_channel_t),
     .init_impl               = (void *)bufchan_init,
@@ -162,6 +175,7 @@ static n00b_chan_impl n00b_bufchan_impl = {
     .write_impl              = (void *)bufchan_write,
     .spos_impl               = (void *)bufchan_set_pos,
     .gpos_impl               = (void *)bufchan_get_pos,
+    .eof_impl                = (void *)bufchan_eof,
     .poll_for_blocking_reads = true,
 };
 

@@ -201,6 +201,39 @@ n00b_fdchan_close(n00b_channel_t *stream)
     return true;
 }
 
+bool
+n00b_fdchan_eof(n00b_channel_t *stream)
+{
+    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    if (c->stream->read_closed && c->stream->write_closed) {
+        return true;
+    }
+    if (!c->stream->socket) {
+        int n = lseek(c->stream->fd, 0, SEEK_CUR);
+        if (n == lseek(c->stream->fd, 0, SEEK_END)) {
+            return true;
+        }
+        lseek(c->stream->fd, n, SEEK_SET);
+    }
+    else {
+        struct pollfd fds[1] = {
+            {
+                .fd      = c->stream->fd,
+                .events  = POLLIN | POLLOUT,
+                .revents = 0,
+            },
+        };
+
+        poll(fds, 1, 0);
+
+        if (fds[0].events & POLLHUP) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void *
 fdchan_read(n00b_channel_t *stream, bool *err)
 {
@@ -280,6 +313,7 @@ static n00b_chan_impl fdchan_impl = {
     .spos_impl           = (void *)fdchan_set_position,
     .gpos_impl           = (void *)n00b_fd_get_position,
     .close_impl          = (void *)n00b_fdchan_close,
+    .eof_impl            = (void *)n00b_fdchan_eof,
     .read_subscribe_cb   = (void *)n00b_fdchan_on_first_subscriber,
     .read_unsubscribe_cb = (void *)n00b_fdchan_on_no_subscribers,
 };

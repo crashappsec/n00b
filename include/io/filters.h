@@ -10,10 +10,11 @@ extern n00b_stream_filter_t *n00b_new_filter(n00b_filter_fn,
 extern void                  n00b_remove_filter(n00b_stream_t *,
                                                 n00b_stream_filter_t *);
 extern n00b_stream_filter_t *n00b_new_line_buffering_xform(void);
-extern void                  n00b_line_buffer_reads(n00b_stream_t *);
-extern void                  n00b_line_buffer_writes(n00b_stream_t *);
-extern n00b_stream_filter_t *n00b_new_custom_callback_filter(
-    n00b_callback_filter);
+
+// #warning n00b_line_buffer_reads()  and writes needs porting.
+extern void                  n00b_line_buffer_reads(n00b_channel_t *);
+extern void                  n00b_line_buffer_writes(n00b_channel_t *);
+extern n00b_stream_filter_t *n00b_new_custom_callback_filter(n00b_callback_filter);
 extern void                  n00b_add_custom_read_filter(n00b_stream_t *,
                                                          n00b_callback_filter);
 extern void                  n00b_add_custom_write_filter(n00b_stream_t *,
@@ -35,8 +36,14 @@ extern void                  n00b_colorterm_enable(n00b_stream_t *,
                                                    size_t,
                                                    bool,
                                                    n00b_theme_t *);
-extern n00b_stream_filter_t *n00b_ansi_ctrl_parse_on_write(n00b_stream_t *);
-extern n00b_stream_filter_t *n00b_ansi_ctrl_parse_on_read(n00b_stream_t *);
+
+#ifdef N00B_WARN_TMP
+#warning "n00b_ansi_ctrl_parse_on_write() needs porting"
+#warning "n00b_ansi_ctrl_parse_on_read() needs porting"
+#endif
+
+extern n00b_stream_filter_t *n00b_ansi_ctrl_parse_on_write(n00b_channel_t *);
+extern n00b_stream_filter_t *n00b_ansi_ctrl_parse_on_read(n00b_channel_t *);
 
 static inline bool
 n00b_add_read_filter(n00b_stream_t *stream, n00b_stream_filter_t *f)

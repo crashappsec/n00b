@@ -207,9 +207,41 @@ _n00b_channel_queue(n00b_channel_t *channel,
 }
 
 void
+n00b_channel_putc(n00b_channel_t *channel, n00b_codepoint_t cp)
+{
+    n00b_channel_queue(channel, n00b_buffer_from_codepoint(cp));
+}
+
+void
 route_channel_message(void *msg, void *dst)
 {
     _n00b_channel_queue(dst, msg, __FILE__, __LINE__);
+}
+
+n00b_buf_t *
+n00b_channel_unfiltered_read(n00b_channel_t *stream, int len)
+{
+    bool err;
+
+    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(stream);
+    return n00b_fd_read(cookie->stream, len, 0, false, &err);
+}
+
+bool
+n00b_channel_unfiltered_write(n00b_channel_t *stream, n00b_buf_t *buf)
+{
+    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(stream);
+    return n00b_fd_write(cookie->stream, buf->data, buf->byte_len);
+}
+
+bool
+n00b_channel_eof(n00b_channel_t *stream)
+{
+    if (!stream->impl->eof_impl) {
+        return false;
+    }
+
+    return (*stream->impl->eof_impl)(stream);
 }
 
 // Attempt to read from the source until it fails.

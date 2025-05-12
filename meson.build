@@ -296,11 +296,11 @@ n00b_channels = [
     'src/channels/print.c',
     'src/channels/proc.c',
     'src/channels/debug.c',    
-    # 'src/channels/session.c',
-    # 'src/channels/session_control.c',
-    # 'src/channels/session_capture.c',
-    # 'src/channels/session_replay.c',
-    # 'src/channels/session_states.c',
+    'src/channels/session.c',
+    'src/channels/session_control.c',
+    'src/channels/session_capture.c',
+    'src/channels/session_replay.c',
+    'src/channels/session_states.c',
 ]
 
 n00b_debug = [
@@ -512,15 +512,16 @@ endif
 #    link_with: link_with,
 #)
 
-# executable(
-#    'n00b',
-#    n00b_src,    
-#    include_directories: incdir,
-#    dependencies: deps,
-#    c_args: c_args,
-#    link_args: exe_link_args,
-#    link_with: link_with,
-#)
+executable(
+   'n00b',
+   n00b_src,    
+   include_directories: incdir,
+   dependencies: deps,
+   c_args: c_args,
+   link_args: exe_link_args,
+   link_with: link_with,
+   )
+
 
 executable(
     'ctest',

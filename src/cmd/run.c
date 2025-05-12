@@ -18,8 +18,7 @@ n00b_compile_and_run(n00b_cmdline_ctx *ctx)
     n00b_generate_code(ctx->cctx, ctx->vm);
 
     if (!n00b_cmd_quiet(ctx)) {
-        n00b_string_t *s = n00b_crich("«em4»Beginning execution.\n");
-        n00b_write_blocking(n00b_stderr(), s, NULL);
+        n00b_eprintf("«em4»Beginning execution.");
     }
     n00b_vmthread_t *thread = n00b_vmthread_new(ctx->vm);
     n00b_vmthread_run(thread);

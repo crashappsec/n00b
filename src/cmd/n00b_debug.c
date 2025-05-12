@@ -3,11 +3,11 @@
 
 #include "n00b.h"
 
-static n00b_stream_t *n00b_debug_log_file = NULL;
-static n00b_stream_t *n00b_debug_cb       = NULL;
-static n00b_stream_t *n00b_debug_output   = NULL;
-static n00b_stream_t *n00b_debug_listener = NULL;
-static n00b_stream_t *n00b_debug_stdin    = NULL;
+static n00b_channel_t *n00b_debug_log_file = NULL;
+static n00b_channel_t *n00b_debug_cb       = NULL;
+static n00b_channel_t *n00b_debug_output   = NULL;
+static n00b_channel_t *n00b_debug_listener = NULL;
+static n00b_channel_t *n00b_debug_stdin    = NULL;
 
 static inline void
 setup_log_file(n00b_string_t *fname)
@@ -33,11 +33,11 @@ setup_log_file(n00b_string_t *fname)
 }
 
 static void
-process_debug_msg(n00b_stream_t *conn, void *raw, void *aux)
+process_debug_msg(n00b_channel_t *conn, void *raw, void *aux)
 {
     if (!n00b_type_is_message(n00b_get_my_type(raw))) {
-        n00b_stream_t *t = n00b_add_debug_topic("__bad_debug_message__");
-        raw              = n00b_new(n00b_type_message(), t, raw);
+        n00b_channel_t *t = n00b_add_debug_topic("__bad_debug_message__");
+        raw               = n00b_new(n00b_type_message(), t, raw);
     }
 
     n00b_message_t *msg = raw;
@@ -45,7 +45,7 @@ process_debug_msg(n00b_stream_t *conn, void *raw, void *aux)
     n00b_debug(msg->topic, msg->payload);
 
     if (n00b_debug_log_file) {
-        n00b_write(n00b_debug_log_file, msg->payload);
+        n00b_chan_write(n00b_debug_log_file, msg->payload);
     }
 }
 
@@ -53,7 +53,7 @@ static n00b_string_t *ctrl_c = NULL;
 static n00b_string_t *q_key  = NULL;
 
 static void
-logger_handle_stdin(n00b_stream_t *p1, void *m, void *aux)
+logger_handle_stdin(n00b_channel_t *p1, void *m, void *aux)
 {
     n00b_buf_t    *b = m;
     n00b_string_t *s = n00b_utf8(b->data, b->byte_len);
@@ -78,19 +78,19 @@ logger_handle_stdin(n00b_stream_t *p1, void *m, void *aux)
 }
 
 static void
-connection_closer(n00b_stream_t *ignore, void *conn, void *unused)
+connection_closer(n00b_channel_t *ignore, void *conn, void *unused)
 {
-    n00b_stream_t     *c      = conn;
+    n00b_channel_t    *c      = conn;
     n00b_ev2_cookie_t *cookie = c->cookie;
     n00b_string_t     *cmsg   = n00b_cformat(
         "«green»Connection from «#» «em2»CLOSED.«/»\n",
         cookie->aux);
 
-    n00b_write(n00b_debug_output, cmsg);
+    n00b_chan_write(n00b_debug_output, cmsg);
 }
 
 static void
-log_accept(n00b_stream_t *conn)
+log_accept(n00b_channel_t *conn)
 {
     n00b_ev2_cookie_t *cookie = conn->cookie;
     n00b_string_t     *cmsg   = n00b_cformat("«em6»Connection from «i»«#»",
@@ -103,7 +103,7 @@ log_accept(n00b_stream_t *conn)
 }
 
 static void
-exit_gracefully(n00b_stream_t *e, int64_t signal, void *aux)
+exit_gracefully(n00b_channel_t *e, int64_t signal, void *aux)
 {
     n00b_printf("«em»Shutting down«/» due to signal: «em»«#»",
                 n00b_get_signal_name(signal));
@@ -157,8 +157,8 @@ main(int argc, char *argv[], char *envp[])
     n00b_debug_output = n00b_fd_open(fileno(stderr));
     n00b_debug_stdin  = n00b_fd_open(fileno(stdin));
 
-    n00b_stream_t *input_cb = n00b_callback_open(logger_handle_stdin,
-                                                 NULL);
+    n00b_channel_t *input_cb = n00b_callback_open(logger_handle_stdin,
+                                                  NULL);
 
     n00b_io_subscribe_to_reads(n00b_debug_stdin, input_cb, NULL);
 
