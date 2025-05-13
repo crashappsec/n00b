@@ -288,6 +288,7 @@ n00b_io = [
 n00b_channels = [
     'src/channels/fd_events.c',
     'src/channels/filter.c',    
+    'src/channels/filter_json.c',
     'src/channels/observable.c',
     'src/channels/channel.c',
     'src/channels/chan_fd.c',
