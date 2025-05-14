@@ -287,6 +287,7 @@ n00b_get_channel_cookie(n00b_channel_t *stream)
 
 // Implementations live in filter.c, but since they take channel_t
 // parameters, these come after the above.
-extern bool         n00b_filter_add(n00b_channel_t *, n00b_filter_impl *, int);
+extern bool         n00b_filter_add(n00b_channel_t *, n00b_filter_spec_t *);
 extern n00b_list_t *n00b_filter_writes(n00b_channel_t *, n00b_cmsg_t *);
 extern n00b_list_t *n00b_filter_reads(n00b_channel_t *, n00b_cmsg_t *);
+extern void         n00b_flush(n00b_channel_t *);

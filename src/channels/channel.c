@@ -513,18 +513,21 @@ n00b_channel_set_absolute_position(n00b_channel_t *c, int pos)
 void
 n00b_channel_close(n00b_channel_t *c)
 {
+    n00b_flush(c);
+
     if (c->impl->close_impl) {
         (*c->impl->close_impl)(c);
     }
+
+    c->r = false;
+    c->w = false;
+    n00b_cnotify_close(c, (void *)c);
 
     while (n00b_list_len(c->my_subscriptions)) {
         n00b_observer_t *sub = n00b_list_pop(c->my_subscriptions);
         n00b_observable_unsubscribe(sub);
     }
 
-    c->r = false;
-    c->w = false;
-    n00b_cnotify_close(c, (void *)~0ULL);
     n00b_observable_remove_all_subscriptions(&c->pub_info);
     n00b_channel_debug_deregister(c);
 }
@@ -598,7 +601,7 @@ n00b_channel_init(n00b_channel_t *stream, va_list args)
 
         while (n--) {
             n00b_filter_spec_t *spec = n00b_list_get(filter_specs, n, NULL);
-            if (!n00b_filter_add(stream, spec->impl, spec->policy)) {
+            if (!n00b_filter_add(stream, spec)) {
                 stream->r = stream->w = false;
                 return;
             }

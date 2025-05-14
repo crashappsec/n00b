@@ -2,10 +2,10 @@
 #include "n00b.h"
 #include "util/plock.h"
 
-bool        n00b_abort_signal = false;
-uint64_t    gti_lock          = 0;
-int64_t     nesting           = 0;
-_Atomic int r_holders         = 0;
+bool        n00b_abort_signal     = false;
+uint64_t    gti_lock              = 0;
+int64_t     n00b_world_is_stopped = 0;
+_Atomic int r_holders             = 0;
 
 const struct timespec gts_poll_interval = {
     .tv_sec  = 0,
@@ -65,6 +65,7 @@ _n00b_gts_suspend(char *file, int line)
         atomic_fetch_add(&r_holders, -1);
     }
     n00b_set_thread_state(n00b_gts_go);
+    n00b_thread_stack_region(n00b_thread_self());
 }
 
 void
@@ -122,7 +123,7 @@ _n00b_gts_stop_the_world(char *file, int line)
         n00b_thread_exit(NULL);
     }
     if (tsi->gti_w) {
-        nesting++;
+        n00b_world_is_stopped++;
         return;
     }
 
@@ -134,18 +135,17 @@ _n00b_gts_stop_the_world(char *file, int line)
         pl_take_w(&gti_lock);
     }
 
-    printf("World stopped...\n");
     tsi->gti_file = file;
     tsi->gti_line = line;
     tsi->gti_w    = true;
+    n00b_world_is_stopped++;
     n00b_set_thread_state(n00b_gts_go);
 }
 
 void
 _n00b_gts_restart_the_world(char *file, int line)
 {
-    if (nesting) {
-        nesting--;
+    if (--n00b_world_is_stopped) {
         return;
     }
 
@@ -154,7 +154,6 @@ _n00b_gts_restart_the_world(char *file, int line)
     tsi->gti_file = file;
     tsi->gti_line = line;
 
-    printf("World started...\n");
     if (tsi->gti_r) {
         pl_wtor(&gti_lock);
     }
@@ -171,15 +170,12 @@ void
 _n00b_gts_start(char *file, int line)
 {
     _n00b_gts_resume(file, line);
-    n00b_thread_stack_region(n00b_thread_self());
 }
 
 void
 n00b_gts_notify_abort(void)
 {
-    n00b_gts_stop_the_world();
     n00b_abort_signal = true;
-    n00b_gts_restart_the_world();
 }
 
 void

@@ -505,10 +505,10 @@ setup_collection(n00b_collection_ctx *ctx, n00b_heap_t *h, int64_t r)
 
     n00b_unlock_arena_header(a);
     a->last_issued = crit.next_alloc;
+
 #ifdef N00B_FIND_SCRIBBLES
-    mprotect(a->addr_start,
-             (char *)a->addr_end - (char *)a->addr_start,
-             PROT_READ | PROT_WRITE);
+    int len = (char *)a->addr_end - (char *)a->addr_start;
+    assert(!mprotect(a->addr_start, len, PROT_READ | PROT_WRITE));
 #endif
     n00b_lock_arena_header(a);
 
@@ -590,7 +590,7 @@ trace_key_startup_items(n00b_collection_ctx *ctx)
 static inline void
 trace_one_rootset(n00b_collection_ctx *ctx, n00b_heap_t *h)
 {
-    if (!h->roots || h->released) {
+    if (!h->roots /* || h->released*/) {
         return;
     }
 
@@ -670,6 +670,7 @@ trace_stack(n00b_collection_ctx *ctx)
     n     = n00b_min(n, HATRACK_THREADS_MAX);
 
     n00b_thread_stack_region(n00b_thread_self());
+
     for (int i = 0; i < n; i++) {
         n00b_thread_t *ti = atomic_read(&n00b_global_thread_list[i]);
         if (!ti) {
@@ -711,8 +712,8 @@ finish_collection(n00b_collection_ctx *ctx, n00b_heap_t *h)
     }
 
 #ifdef N00B_FIND_SCRIBBLES
-    mprotect(a->addr_start,
-             (char *)a->addr_end - (char *)a->addr_start,
+    mprotect(ctx->next_alloc,
+             (char *)a->addr_end - (char *)ctx->next_alloc,
              PROT_READ);
 #endif
 }

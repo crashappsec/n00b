@@ -307,10 +307,10 @@ n00b_channels = [
     'src/channels/session_capture.c',
     'src/channels/session_replay.c',
     'src/channels/session_states.c',
-     'src/channels/filter_color.c',
+    'src/channels/filter_color.c',
+    'src/channels/filter_linebuf.c',
+    'src/channels/filter_hexdump.c',
 #    'src/channels/filter_json.c',
-#    'src/channels/filter_line_buf.c',
-#    'src/channels/filter_hex_dump.c',
 #    'src/channels/filter_marshal.c',        
 ]
 

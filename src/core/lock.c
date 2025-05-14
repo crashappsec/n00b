@@ -201,11 +201,14 @@ n00b_debug_all_locks(void)
         abort();                                        \
     }
 
+extern int64_t n00b_world_is_stopped;
+
 static inline bool
 no_locks(void)
 {
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-    if (!tsi || !n00b_startup_complete || n00b_abort_signal) {
+    if (!tsi || n00b_world_is_stopped
+        || !n00b_startup_complete || n00b_abort_signal) {
         return true;
     }
 

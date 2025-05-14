@@ -1531,11 +1531,21 @@ static void (*const event_impls[])(n00b_event_loop_t *) = {
 n00b_event_loop_t *
 n00b_new_event_context(n00b_event_impl_kind kind)
 {
-    n00b_event_loop_t *ctx = n00b_gc_alloc_mapped(n00b_event_loop_t,
-                                                  N00B_GC_SCAN_ALL);
-    ctx->kind              = kind;
-    ctx->timers            = n00b_list(n00b_type_ref());
-    ctx->pending           = n00b_list(n00b_type_ref());
+    int len = sizeof(n00b_event_loop_t);
+    len     = n00b_round_up_to_given_power_of_2(n00b_page_bytes, len);
+
+    n00b_event_loop_t *ctx = mmap(NULL,
+                                  len,
+                                  PROT_READ | PROT_WRITE,
+                                  MAP_PRIVATE | MAP_ANON,
+                                  -1,
+                                  0);
+
+    n00b_gc_register_root(ctx, len / 8);
+
+    ctx->kind    = kind;
+    ctx->timers  = n00b_list(n00b_type_ref());
+    ctx->pending = n00b_list(n00b_type_ref());
     atomic_store(&ctx->conditions, n00b_list(n00b_type_ref()));
 
     (*event_impls[kind])(ctx);

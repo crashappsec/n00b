@@ -348,11 +348,20 @@ _n00b_heap_alloc(n00b_heap_t *h,
                 n00b_gts_wont_stop();
                 continue;
             }
-            h->expand = expand;
 
-            n00b_heap_collect(h, alloc_len);
-            h      = n00b_current_heap(h);
-            expand = true;
+            if (n00b_collection_suspended) {
+                size_t esize = (newest_arena->addr_end - newest_arena->addr_start) << 3;
+                esize        = n00b_max(alloc_len << 3, esize);
+                n00b_add_arena(h, esize);
+                n00b_gts_wont_stop();
+            }
+            else {
+                h->expand = expand;
+
+                n00b_heap_collect(h, alloc_len);
+                h      = n00b_current_heap(h);
+                expand = true;
+            }
         }
 
         // Here, we know there's enough space, IF we win the race.
@@ -372,8 +381,17 @@ _n00b_heap_alloc(n00b_heap_t *h,
     n00b_alloc_hdr *hdr = prev_entry.next_alloc;
 
 #ifdef N00B_FIND_SCRIBBLES
-    // printf("unlock %d bytes at %p for %s:%d\n", alloc_len, hdr, file, line);
+    /*
+    printf("unlock %d bytes (%p:%p) for %s:%d\n",
+           alloc_len,
+           hdr,
+           hdr + alloc_len,
+           file,
+           line);
+    fflush(stdout);
+    */
     assert(!mprotect(hdr, alloc_len, PROT_READ | PROT_WRITE));
+
 #endif
     char *p    = (void *)hdr;
     char *pend = p + alloc_len;

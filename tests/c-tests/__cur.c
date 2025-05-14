@@ -64,28 +64,32 @@ callback_test(n00b_buf_t *b, void *thunk)
 }
 
 void *
-sock_close(n00b_channel_t *chan, void *ignore)
+sock_close(n00b_channel_t *chan, void *rcv)
 {
-    n00b_printf("Lost connection.");
+    n00b_flush(rcv);
+    n00b_channel_queue(n00b_chan_stdout(),
+                       n00b_crich("[|red|]Lost connection."));
     return NULL;
 }
 
 void *
 sock_rcv(n00b_buf_t *b, void *ignore)
 {
-    n00b_printf("SOCK this bro: [|#|]", b);
+    n00b_print(b);
     return NULL;
 }
 
 void *
 my_accept(n00b_channel_t *chan, void *ignore)
 {
-    n00b_channel_t *rcv   = n00b_new_callback_channel(sock_rcv, NULL);
-    n00b_channel_t *close = n00b_new_callback_channel(sock_close, NULL);
-    n00b_channel_subscribe_read(chan, rcv, false);
-    n00b_channel_subscribe_close(chan, close);
     n00b_printf("[|h6|]Got connection.");
+    n00b_channel_t *rcv = n00b_new_callback_channel(sock_rcv,
+                                                    NULL,
+                                                    n00b_filter_hexdump(0x4a4a4a00));
+    n00b_channel_subscribe_read(chan, rcv, false);
 
+    n00b_channel_t *close = n00b_new_callback_channel(sock_close, rcv);
+    n00b_channel_subscribe_close(chan, close);
     return NULL;
 }
 

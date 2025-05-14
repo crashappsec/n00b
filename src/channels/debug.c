@@ -198,8 +198,11 @@ prep_write_subs(n00b_channel_t *stream)
 
     if (w) {
         for (int i = 0; i < n00b_list_len(w); i++) {
-            n00b_observer_t *item   = n00b_list_get(q, i, NULL);
-            n00b_channel_t  *target = (void *)item->subscriber;
+            n00b_observer_t *item = n00b_list_get(q, i, NULL);
+            if (!item) {
+                continue;
+            }
+            n00b_channel_t *target = (void *)item->subscriber;
             n00b_list_append(items,
                              n00b_cformat("[|#:x|] (deliver)",
                                           target->channel_id));
