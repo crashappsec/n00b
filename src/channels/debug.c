@@ -255,13 +255,15 @@ n00b_show_channels(void)
     l                = n00b_render(t, n00b_terminal_width(), -1);
     n00b_string_t *s = n00b_string_join(l, n00b_cached_empty_string());
 
-    char *buf = n00b_rich_to_ansi(s, NULL);
-    char *p   = buf;
+    n00b_print(s);
+    /*
+        char *buf = n00b_rich_to_ansi(s, NULL);
+        char *p   = buf;
 
-    while (*p) {
-        if (fputc(*p, stderr) == EOF) {
-            fputc(*p, stdout);
-        }
-        p++;
-    }
+        while (*p) {
+            if (fputc(*p, stderr) == EOF) {
+                fputc(*p, stdout);
+            }
+            p++;
+            }*/
 }

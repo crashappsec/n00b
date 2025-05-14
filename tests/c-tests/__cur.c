@@ -14,8 +14,7 @@ echo_it(n00b_fd_stream_t *s,
         n00b_buf_t       *buf,
         void             *thunk)
 {
-    n00b_fd_write(my_stdout, buf->data, buf->byte_len);
-    n00b_fd_write(my_stdout, "*", 1);
+    n00b_eprintf("[|h2|]*[|#|]*", buf);
 }
 
 void
@@ -85,7 +84,7 @@ my_accept(n00b_channel_t *chan, void *ignore)
     n00b_channel_t *close = n00b_new_callback_channel(sock_close, NULL);
     n00b_channel_subscribe_read(chan, rcv, false);
     n00b_channel_subscribe_close(chan, close);
-    n00b_printf("Got connection.");
+    n00b_printf("[|h6|]Got connection.");
 
     return NULL;
 }
@@ -93,16 +92,12 @@ my_accept(n00b_channel_t *chan, void *ignore)
 void
 signal_demo(int signal, siginfo_t *info, void *user_param)
 {
-    printf("Via a Signal:\n");
     n00b_show_channels();
 }
 
 void
 signal_demo2(int signal, siginfo_t *info, void *user_param)
 {
-    // Need to manually render the string until filters are ported.
-    // char *buf = n00b_rich_to_ansi(s, NULL);
-    //  fprintf(stderr, "%s\n", buf);
     n00b_printf(
         "[|red|]Received SIGHUP:[|/|] "
         "pid = [|#|], uid = [|#|], "
@@ -124,8 +119,8 @@ main(void)
     n00b_signal_register(SIGHUP, signal_demo, (void *)1ULL);
     n00b_signal_register(SIGHUP, signal_demo2, (void *)2ULL);
 
-    n00b_printf("[|red|]Welcome to the hood[|/|]\r");
-    n00b_printf(" ");
+    n00b_eprintf("[|red|]Welcome to the hood[|/|]");
+    n00b_eprintf("[|p|]");
 
     n00b_list_t   *args = n00b_list(n00b_type_string());
     n00b_string_t *ls   = n00b_cstring("/bin/ls");
@@ -173,9 +168,7 @@ main(void)
     n00b_add_timer(&t, test_timer, n00b_add_timer(&t2, timer_2));
 
     n00b_channel_t *inchan = n00b_new_channel_proxy(n00b_chan_stdin());
-
-    printf("Time to open the log file.\n");
-    n00b_channel_t *log = n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
+    n00b_channel_t *log    = n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
                                                  "write_only",
                                                  (int64_t) true,
                                                  "allow_file_creation",
@@ -190,14 +183,14 @@ main(void)
     n00b_channel_t *accept_cb = n00b_new_callback_channel(my_accept, NULL);
     n00b_channel_subscribe_read(srv, accept_cb, false);
 
-    n00b_printf("Your two minutes begins on the first tick.");
-    n00b_printf("ESC exits early; ! shows subscriptions.");
+    n00b_eprintf("Your two minutes begins on the first tick.");
+    n00b_eprintf("ESC exits early; ! shows subscriptions.");
     for (int i = 0; i < 120; i++) {
         n00b_sleep_ms(1000);
         if (!(i % 15)) {
-            printf("tick\n");
+            n00b_eprintf("[|em1|]tick..");
         }
     }
-    printf("Boom!\n");
+    n00b_eprintf("[|em4|]Boom!");
     n00b_exit(0);
 }

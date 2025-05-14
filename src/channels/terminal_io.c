@@ -69,15 +69,13 @@ n00b_setup_term_channels(void)
     n00b_chan_term_io[STDOUT_RAW_IX] = stream;
     proxy                            = n00b_new_channel_proxy(stream,
                                    n00b_filter_apply_color());
-    n00b_chan_term_io[STDOUT_IX]     = stream; // proxy;
+    n00b_chan_term_io[STDOUT_IX]     = proxy;
     stream                           = n00b_new_fd_channel(errstrm);
     n00b_chan_term_io[STDERR_RAW_IX] = stream;
     proxy                            = n00b_new_channel_proxy(stream,
                                    n00b_filter_apply_color());
-    n00b_chan_term_io[STDERR_IX]     = stream; // proxy;
+    n00b_chan_term_io[STDERR_IX]     = proxy;
 }
-
-#include "n00b.h"
 
 void
 n00b_terminal_dimensions(size_t *cols, size_t *rows)
