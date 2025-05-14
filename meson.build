@@ -311,8 +311,8 @@ n00b_channels = [
     'src/channels/filter_color.c',
     'src/channels/filter_linebuf.c',
     'src/channels/filter_hexdump.c',
-#    'src/channels/filter_json.c',
-#    'src/channels/filter_marshal.c',        
+    'src/channels/filter_json.c',
+    'src/channels/filter_marshal.c',
 ]
 
 n00b_debug = [

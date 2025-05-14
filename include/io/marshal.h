@@ -65,6 +65,11 @@ typedef struct {
     n00b_gc_root_info_t *root_entry;
 } n00b_unpickle_ctx;
 
+typedef union {
+    n00b_pickle_ctx   pickle;
+    n00b_unpickle_ctx unpickle;
+} n00b_marshal_filter_t;
+
 // Note that the magic value is intended to act as a version
 // number. As we change things about the memory format, we should
 // be changing the magic value appropriately.

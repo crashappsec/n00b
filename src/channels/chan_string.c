@@ -66,7 +66,7 @@ stringchan_eof(n00b_channel_t *stream)
     return result;
 }
 
-static n00b_chan_impl n00b_bufchan_impl = {
+static n00b_chan_impl n00b_strchan_impl = {
     .cookie_size             = sizeof(n00b_string_channel_t),
     .init_impl               = (void *)stringchan_init,
     .read_impl               = (void *)stringchan_read,
@@ -74,3 +74,12 @@ static n00b_chan_impl n00b_bufchan_impl = {
     .eof_impl                = (void *)stringchan_eof,
     .poll_for_blocking_reads = true,
 };
+
+n00b_channel_t *
+_n00b_new_string_channel(void *seed, ...)
+{
+    n00b_list_t *filters;
+    n00b_build_filter_list(filters, seed);
+
+    return n00b_new(n00b_type_channel(), &n00b_strchan_impl, seed, filters);
+}

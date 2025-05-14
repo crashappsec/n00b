@@ -180,7 +180,10 @@ static n00b_chan_impl n00b_bufchan_impl = {
 };
 
 n00b_channel_t *
-n00b_channel_from_buffer(n00b_buf_t *b, int64_t mode, n00b_list_t *filters, bool end)
+n00b_channel_from_buffer(n00b_buf_t  *b,
+                         int64_t      mode,
+                         n00b_list_t *filters,
+                         bool         end)
 {
     n00b_list_t *args = n00b_list(n00b_type_ref());
 
