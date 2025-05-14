@@ -3,7 +3,6 @@
 
 typedef struct n00b_filter_t      n00b_filter_t;
 typedef struct n00b_filter_step_t n00b_filter_step_t;
-typedef struct n00b_channel_t     n00b_channel_t;
 
 typedef n00b_list_t *(*n00b_chan_filter_fn)(void *, void *);
 
@@ -80,13 +79,17 @@ typedef struct {
 extern n00b_filter_spec_t *n00b_filter_apply_color(void);
 extern n00b_filter_spec_t *n00b_filter_apply_line_buffering(void);
 extern n00b_filter_spec_t *n00b_filter_json(void);
-extern n00b_filter_spec_t *n00b_filter_marshal(void);
+extern n00b_filter_spec_t *n00b_filter_marshal(bool);
 extern n00b_filter_spec_t *n00b_filter_hexdump(int64_t);
 
 // json filter
 extern n00b_filter_spec_t *n00b_filter_to_json(int);
-extern void n00b_chan_filter_add_to_json_on_write(n00b_channel_t *c);
-extern void n00b_chan_filter_add_to_json_on_read(n00b_channel_t *c);
+extern void                n00b_chan_filter_add_to_json_on_write(
+                   struct n00b_channel_t *c);
+extern void n00b_chan_filter_add_to_json_on_read(
+    struct n00b_channel_t *c);
 extern n00b_filter_spec_t *n00b_filter_from_json(int);
-extern void n00b_chan_filter_add_from_json_on_write(n00b_channel_t *c);
-extern void n00b_chan_filter_add_from_json_on_read(n00b_channel_t *c);
+extern void                n00b_chan_filter_add_from_json_on_write(
+                   struct n00b_channel_t *c);
+extern void n00b_chan_filter_add_from_json_on_read(
+    struct n00b_channel_t *c);
