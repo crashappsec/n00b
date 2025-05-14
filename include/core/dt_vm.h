@@ -507,8 +507,8 @@ typedef struct {
     // The stuff in this struct isn't saved out; it needs to be
     // reinitialized on each startup.
 #ifdef N00B_DEV
-    n00b_buf_t            *print_buf;
-    struct n00b_channel_t *print_stream;
+    n00b_buf_t           *print_buf;
+    struct n00b_stream_t *print_stream;
 #endif
 } n00b_zrun_state_t;
 

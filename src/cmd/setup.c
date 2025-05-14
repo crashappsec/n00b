@@ -254,16 +254,12 @@ n00b_basic_setup(int argc, char **argv, char **envp)
     n00b_terminal_app_setup();
 
     n00b_signal_register(SIGTERM, (void *)exit_gracefully, NULL);
-    //  TODO: redo this on libevent.
-    /*
-    n00b_io_register_signal_handler(SIGSEGV, (void *)exit_crash_handler);
-    n00b_io_register_signal_handler(SIGBUS, (void *)exit_crash_handler);
-    */
+    n00b_signal_register(SIGSEGV, (void *)exit_gracefully, NULL);
+    n00b_signal_register(SIGBUS, (void *)exit_gracefully, NULL);
 
     sigemptyset(&cur_set);
     sigaddset(&cur_set, SIGPIPE);
     pthread_sigmask(SIG_BLOCK, &cur_set, &saved_set);
-    n00b_ignore_uncaught_io_errors();
 
     return parse_cmd_line();
 }

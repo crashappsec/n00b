@@ -600,20 +600,11 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .mutable   = true,
     },
     // not alloc'd this way, right now.
-    [N00B_T_CHANNEL] = {
+    [N00B_T_STREAM] = {
         .name      = "stream",
-        .typeid    = N00B_T_CHANNEL,
+        .typeid    = N00B_T_STREAM,
         .alloc_len = VARIABLE_ALLOC_SZ,
-        .vtable    = &n00b_channel_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
-    [N00B_T_MESSAGE] = {
-        .name      = "message",
-        .typeid    = N00B_T_MESSAGE,
-        .alloc_len = sizeof(n00b_message_t),
-        .vtable    = &n00b_message_vtable,
+        .vtable    = &n00b_stream_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
@@ -748,7 +739,7 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 #if defined(N00B_MPROTECT_GUARD_ALLOCS)
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
-    if (tsi->add_guard) {
+    if (tsi && tsi->add_guard) {
         tsi->add_guard = false;
         obj            = _n00b_heap_alloc(n00b_current_heap(heap),
                                alloc_len,

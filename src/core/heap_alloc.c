@@ -336,7 +336,7 @@ _n00b_heap_alloc(n00b_heap_t *h,
     assert(file);
 #endif
     while (true) {
-        n00b_gts_reacquire();
+        n00b_gts_checkin();
         newest_arena = h->newest_arena;
         prev_entry   = atomic_read(&h->ptr);
 

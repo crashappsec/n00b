@@ -13,12 +13,18 @@ n00b_thread_stack_region(n00b_thread_t *t)
 
     size_t size;
 
-    pthread_attr_getstack(&attrs, (void **)&t->base, &size);
-
-#ifdef N00B_USE_FRAME_INTRINSIC
-    t->cur = __builtin_frame_address(0);
+    pthread_attr_getstack(&attrs, (void **)&t->cur, &size);
+    /*
+    n00b_barrier();
+    printf("Lower address is: %p\n", t->base);
+    printf("For higher address:\n");
+    printf("option 1: %p\n", __builtin_frame_address(0));
+    printf("option 2: %p\n", t->base + size);
+    */
+#if 0
+    t->base = __builtin_frame_address(0);
 #else
-    t->cur = t->base + (size / 8);
+    t->base = t->cur + size;
 #endif
 }
 
@@ -54,13 +60,6 @@ n00b_thread_stack_region(n00b_thread_t *t)
 #error "Unsupported platform."
 #endif
 
-static void
-post_thread_cleanup(n00b_tsi_t *tsi)
-{
-    mmm_thread_release(&tsi->self_data.mmm_info);
-    n00b_heap_remove_root(n00b_default_heap, tsi);
-}
-
 static void *
 n00b_thread_launcher(void *arg)
 {
@@ -72,10 +71,10 @@ n00b_thread_launcher(void *arg)
     tsi->self_data.tsi = tsi;
     n00b_assert(tsi->self_data.tsi);
 
-    pthread_cleanup_push((void *)post_thread_cleanup, n00b_get_tsi_ptr());
+    //    pthread_cleanup_push((void *)post_thread_cleanup, n00b_get_tsi_ptr());
     n00b_tbundle_t *info = arg;
     result               = (*info->true_cb)(info->true_arg);
-    pthread_cleanup_pop(1);
+    //    pthread_cleanup_pop(1);
     return result;
 }
 
@@ -85,6 +84,9 @@ n00b_thread_spawn(void *(*r)(void *), void *arg)
 #ifdef N00B_DEBUG_SHOW_SPAWN
     n00b_static_c_backtrace();
 #endif
+    if (n00b_world_is_stopped) {
+        abort();
+    }
     // Certainly don't launch another thread.
     // Instead, exit the current thread.
     if (n00b_current_process_is_exiting()) {

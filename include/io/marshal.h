@@ -65,6 +65,11 @@ typedef struct {
     n00b_gc_root_info_t *root_entry;
 } n00b_unpickle_ctx;
 
+typedef union {
+    n00b_pickle_ctx   pickle;
+    n00b_unpickle_ctx unpickle;
+} n00b_marshal_filter_t;
+
 // Note that the magic value is intended to act as a version
 // number. As we change things about the memory format, we should
 // be changing the magic value appropriately.
@@ -86,24 +91,9 @@ typedef struct {
 // For compat w/ original version, until it is excised.
 #define N00B_MARSHAL_MAGIC        N00B_MARSHAL_MAGIC_BASE
 
-extern n00b_stream_filter_t *n00b_new_pickler(n00b_stream_t *);
-extern n00b_stream_filter_t *n00b_new_unpickler(n00b_stream_t *);
-extern n00b_buf_t           *n00b_automarshal(void *);
-extern void                 *n00b_autounmarshal(n00b_buf_t *);
-extern n00b_pickle_ctx      *n00b_pickle_streamless_new(size_t);
-extern n00b_unpickle_ctx    *n00b_unpickle_streamless_new(void);
-extern n00b_buf_t           *n00b_pickle_streamless(n00b_pickle_ctx *, void *);
-
-extern void *n00b_unpickle_streamless(n00b_unpickle_ctx *, n00b_buf_t *);
-
-static inline void
-n00b_add_marshaling(n00b_stream_t *party)
-{
-    n00b_add_filter(party, n00b_new_pickler(party), false);
-}
-
-static inline void
-n00b_add_unmarshaling(n00b_stream_t *party)
-{
-    n00b_add_filter(party, n00b_new_unpickler(party), false);
-}
+extern n00b_buf_t         *n00b_automarshal(void *);
+extern void               *n00b_autounmarshal(n00b_buf_t *);
+extern n00b_filter_spec_t *n00b_filter_marshal(bool);
+n00b_filter_spec_t        *n00b_filter_unmarshal(bool);
+extern n00b_buf_t         *n00b_autopickle(void *);
+extern void               *n00b_autounpickle(n00b_buf_t *);

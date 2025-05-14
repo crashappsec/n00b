@@ -1764,13 +1764,13 @@ n00b_to_cstr(void *v)
 char **
 n00b_make_cstr_array(n00b_list_t *l, int *lenp)
 {
-    n00b_lock_list_write(l);
+    n00b_lock_list(l);
 
     int    len    = n00b_list_len(l);
     char **result = n00b_gc_array_alloc(char *, len + 1);
 
     for (int i = 0; i < len; i++) {
-        void *v   = n00b_list_get(l, i, NULL);
+        void *v   = n00b_private_list_get(l, i, NULL);
         result[i] = n00b_to_cstr(v);
     }
 

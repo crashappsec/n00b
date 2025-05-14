@@ -15,8 +15,8 @@ static n00b_string_t *simple_fmt(n00b_debug_msg_t *);
 
 static n00b_dict_t      *topic_workflows   = NULL;
 static n00b_db_rule_t   *default_workflow  = NULL;
-static n00b_channel_t   *server_connection = NULL;
-static n00b_channel_t   *debug_logfile     = NULL;
+static n00b_stream_t   *server_connection = NULL;
+static n00b_stream_t   *debug_logfile     = NULL;
 static n00b_debug_fmt_fn default_formatter = simple_fmt;
 static pthread_once_t    server_attempted  = PTHREAD_ONCE_INIT;
 static pthread_once_t    logfile_attempted = PTHREAD_ONCE_INIT;
@@ -160,7 +160,7 @@ handle_stderr(n00b_debug_msg_t *msg)
 {
     n00b_buf_t *to_write = format_message(msg);
 
-    n00b_channel_write(n00b_chan_stderr(), to_write);
+    n00b_write(n00b_stderr(), to_write);
 
     return 1;
 }
@@ -189,7 +189,7 @@ get_debug_server_addr(void)
 }
 
 static void
-on_server_close(n00b_channel_t *c, void *ignored)
+on_server_close(n00b_stream_t *c, void *ignored)
 {
     // Start w/ half a second of sleep. Double each time, up to 8
     // total attempts
@@ -207,7 +207,7 @@ on_server_close(n00b_channel_t *c, void *ignored)
 }
 
 static void
-on_log_close(n00b_channel_t *c, void *ignored)
+on_log_close(n00b_stream_t *c, void *ignored)
 {
     // Maybe log to stdout too, but no need for exponential back-off,
     // or waiting at all.
@@ -217,12 +217,12 @@ on_log_close(n00b_channel_t *c, void *ignored)
 static void
 attempt_connection(void)
 {
-    server_connection = n00b_channel_connect(get_debug_server_addr());
+    server_connection = n00b_stream_connect(get_debug_server_addr());
 
     if (server_connection) {
-        n00b_channel_subscribe_close(
+        n00b_stream_subscribe_close(
             server_connection,
-            n00b_new_callback_channel(on_server_close, NULL));
+            n00b_new_callback_stream(on_server_close, NULL));
     }
 }
 
@@ -231,7 +231,7 @@ attempt_log_open(void)
 {
     n00b_string_t *fname = n00b_get_env(n00b_cstring(SERVER_LOGFILE_ENV));
 
-    debug_logfile = n00b_channel_open_file(fname,
+    debug_logfile = n00b_stream_open_file(fname,
                                            "write_only",
                                            n00b_ka(true),
                                            "allow_file_creation",
@@ -240,9 +240,9 @@ attempt_log_open(void)
                                            n00b_ka(true));
 
     if (debug_logfile) {
-        n00b_channel_subscribe_close(
+        n00b_stream_subscribe_close(
             server_connection,
-            n00b_new_callback_channel(on_log_close, NULL));
+            n00b_new_callback_stream(on_log_close, NULL));
     }
 }
 
@@ -258,7 +258,7 @@ handle_server(n00b_debug_msg_t *msg)
     }
 
     n00b_buf_t *to_write = format_message(msg);
-    n00b_channel_write(server_connection, to_write);
+    n00b_write(server_connection, to_write);
     return 1;
 }
 
@@ -274,7 +274,7 @@ handle_logfile(n00b_debug_msg_t *msg)
     }
 
     n00b_buf_t *to_write = format_message(msg);
-    n00b_channel_write(debug_logfile, to_write);
+    n00b_write(debug_logfile, to_write);
     return 1;
 }
 

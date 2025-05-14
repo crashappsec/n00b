@@ -50,7 +50,7 @@ typedef struct {
     bool            merge_io;
     int             next_eventid;
     n00b_list_t    *commands;
-    n00b_channel_t *replay_stream;
+    n00b_stream_t *replay_stream;
     n00b_table_t   *state_repr;
     n00b_list_t    *aux_error;
 } n00b_test_t;

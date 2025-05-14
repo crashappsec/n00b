@@ -106,12 +106,12 @@ void
 n00b_finish_main_thread_initialization(void)
 {
     if (!threads_inited) {
+        n00b_gts_start();
         n00b_register_thread_tsi(n00b_thread_self()->tsi,
                                  n00b_round_up_to_given_power_of_2(
                                      getpagesize(),
                                      sizeof(n00b_tsi_t))
                                      / sizeof(void *));
-        n00b_gts_start();
         threads_inited = true;
     }
 }
@@ -131,8 +131,12 @@ static void
 n00b_tsi_cleanup(void *arg)
 {
     n00b_tsi_t *tsi = arg;
+    if (!tsi) {
+        return;
+    }
 
-    assert(tsi);
+    n00b_barrier();
+    n00b_heap_remove_root(n00b_default_heap, tsi);
 
     int page_sz = n00b_get_page_size();
     int size    = n00b_round_up_to_given_power_of_2(page_sz,
@@ -145,10 +149,12 @@ n00b_tsi_cleanup(void *arg)
         n00b_delete_heap(tsi->string_heap);
     }
 
-    n00b_gts_quit(tsi);
     atomic_store(&n00b_global_thread_list[tsi->thread_id], NULL);
     n00b_heap_remove_root(n00b_default_heap, tsi);
     atomic_fetch_add(&n00b_live_threads, -1);
+
+    n00b_gts_quit(tsi);
+    n00b_barrier();
 
 #if defined(N00B_MADV_ZERO)
     madvise(tsi, size, MADV_ZERO);

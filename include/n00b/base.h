@@ -76,6 +76,8 @@ typedef struct n00b_string_t  n00b_string_t;
 typedef struct n00b_string_t  n00b_string_t;
 typedef struct n00b_string_t  n00b_string_t;
 
+#define n00b_barrier() atomic_thread_fence(memory_order_seq_cst)
+
 // While the hatrack data structures are done in a way that's
 // independent of n00b, the memory management is core to everything
 // EXCEPT for the locking code, which memory management does use.

@@ -216,3 +216,76 @@ n00b_signal_unregister(int sig, n00b_signal_handler_t h, void *stash)
 
     return result;
 }
+
+n00b_string_t *
+n00b_get_signal_name(int64_t signal)
+{
+    switch (signal) {
+    case SIGHUP:
+        return n00b_cstring("SIGHUP");
+    case SIGINT:
+        return n00b_cstring("SIGINT");
+    case SIGQUIT:
+        return n00b_cstring("SIGQUIT");
+    case SIGILL:
+        return n00b_cstring("SIGILL");
+    case SIGTRAP:
+        return n00b_cstring("SIGTRAP");
+    case SIGABRT:
+        return n00b_cstring("SIGABRT");
+    case SIGFPE:
+        return n00b_cstring("SIGFPE");
+    case SIGKILL:
+        return n00b_cstring("SIGKILL");
+    case SIGBUS:
+        return n00b_cstring("SIGBUS");
+    case SIGSEGV:
+        return n00b_cstring("SIGSEGV");
+    case SIGSYS:
+        return n00b_cstring("SIGSYS");
+    case SIGPIPE:
+        return n00b_cstring("SIGPIPE");
+    case SIGALRM:
+        return n00b_cstring("SIGALRM");
+    case SIGTERM:
+        return n00b_cstring("SIGTERM");
+    case SIGURG:
+        return n00b_cstring("SIGURG");
+    case SIGSTOP:
+        return n00b_cstring("SIGSTOP");
+    case SIGTSTP:
+        return n00b_cstring("SIGTSTP");
+    case SIGCONT:
+        return n00b_cstring("SIGCONT");
+    case SIGCHLD:
+        return n00b_cstring("SIGCHLD");
+    case SIGTTIN:
+        return n00b_cstring("SIGTTIN");
+    case SIGTTOU:
+        return n00b_cstring("SIGTTOU");
+    case SIGIO:
+        return n00b_cstring("SIGIO");
+    case SIGXCPU:
+        return n00b_cstring("SIGXCPU");
+    case SIGXFSZ:
+        return n00b_cstring("SIGXFSZ");
+    case SIGVTALRM:
+        return n00b_cstring("SIGVTALRM");
+    case SIGPROF:
+        return n00b_cstring("SIGPROF");
+    case SIGWINCH:
+        return n00b_cstring("SIGWINCH");
+    case SIGUSR1:
+        return n00b_cstring("SIGUSR1");
+    case SIGUSR2:
+        return n00b_cstring("SIGUSR2");
+#if !defined(__linux__)
+    case SIGEMT:
+        return n00b_cstring("SIGEMT");
+    case SIGINFO:
+        return n00b_cstring("SIGINFO");
+#endif
+    default:
+        N00B_CRAISE("Unknown signal");
+    }
+}

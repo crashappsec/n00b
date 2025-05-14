@@ -14,6 +14,7 @@ n00b_signal_unregister(int, n00b_signal_handler_t, void *);
 extern pthread_once_t n00b_signals_inited;
 extern void           n00b_setup_signals(void);
 extern void           n00b_terminate_signal_handling(void);
+extern n00b_string_t *n00b_get_signal_name(int64_t);
 
 static inline void
 n00b_init_signals(void)

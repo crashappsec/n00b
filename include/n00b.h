@@ -71,31 +71,30 @@ extern bool n00b_startup_complete;
 #include "util/notify.h"
 
 // IO primitives.
-#include "channels/print.h"
+#include "io/print.h"
 #include "util/hex.h"
 #include "text/layout.h"
 #include "text/ansi.h"
 #include "text/regex.h"
 
-#include "channels/fd_event.h"
-#include "channels/observable.h"
-#include "channels/filter.h"
-#include "channels/channel.h"
-#include "channels/channel_fd.h"
-#include "channels/channel_cb.h"
-#include "channels/channel_buffer.h"
-#include "channels/channel_topic.h"
-#include "channels/channel_exit.h"
-#include "channels/channel_proxy.h"
-#include "channels/channel_string.h"
-#include "channels/terminal_io.h"
-#include "channels/debug.h"
+#include "io/fd_event.h"
+#include "io/observable.h"
+#include "io/filter.h"
+#include "io/stream.h"
+#include "io/stream_fd.h"
+#include "io/stream_cb.h"
+#include "io/stream_buffer.h"
+#include "io/stream_topic.h"
+#include "io/stream_exit.h"
+#include "io/stream_proxy.h"
+#include "io/stream_string.h"
+#include "io/terminal_io.h"
+#include "io/debug.h"
+#include "io/marshal.h"
 
-#include "channels/proc.h"
-#include "channels/session.h"
-
-#include "io/iocore.h"
-#include "io/ioqueue.h"
+#include "io/proc.h"
+#include "io/session.h"
+#include "io/http.h"
 
 // Mixed data type API.
 #include "adts/mixed.h"
@@ -144,19 +143,12 @@ extern bool n00b_startup_complete;
 #include "runtime/ffi.h"
 #include "util/watch.h"
 
-#include "io/http.h"
-#include "io/file.h"
-#include "io/filters.h"
-#include "io/marshal.h"
-
 #include "util/parsing.h"  // generic parser via Earley parsing.
 #include "util/getopt.h"   // Getopt parsing.
 #include "text/markdown.h" // Wrap of vendored md4c.
 
 // Helper functions for object marshal implementations to
 // marshal primitive values.
-
-#include "io/debug.h"
 
 #include "util/testgen.h"
 

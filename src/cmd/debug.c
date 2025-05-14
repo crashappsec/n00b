@@ -119,8 +119,6 @@ n00b_show_compiler_debug_info(n00b_cmdline_ctx *ctx)
         return;
     }
 
-    n00b_enable_debugging();
-
     if (n00b_cmd_show_modules(ctx)) {
         int n = n00b_list_len(ctx->cctx->module_ordering);
 
