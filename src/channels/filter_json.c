@@ -3,46 +3,64 @@
 #include "io/marshal.h"
 #include "channels/filter.h"
 
-n00b_list_t *
+static n00b_list_t *
 n00b_chan_filter_to_json(void *cookie, void *msg)
 {
+    n00b_type_t *msg_type   = n00b_get_my_type(msg);
+    n00b_list_t *result     = n00b_list(n00b_type_string());
+
+    if (n00b_type_is_buffer(msg_type)) {
+        n00b_list_append(result, msg);
+        return result;
+    }
+
+    if (!n00b_type_is_string(msg_type)) {
+        msg = n00b_to_string(msg);
+    }
+
     n00b_string_t *s = n00b_to_json(msg);
     if (!s) {
-        return NULL;
+        // TODO: there was a problem converting to json
+        return msg;
     }
-    n00b_list_t *result = n00b_list(n00b_type_string());
+
     n00b_list_append(result, s);
     return result;
 }
 
-n00b_filter_impl *
-n00b_new_chan_filter_to_json_impl()
-{
-    n00b_filter_impl *impl = n00b_gc_alloc(sizeof(n00b_filter_impl));
-    impl->cookie_size = 0;
-    // impl->name = n00b_cstring("filter_to_json");
-    impl->name = n00b_string_empty();
-    impl->output_type = n00b_type_list(n00b_type_string());
-    impl->read_fn = n00b_chan_filter_to_json;
-    impl->write_fn = n00b_chan_filter_to_json;
-    return impl;
+static n00b_filter_impl to_json_filter = {
+    .cookie_size = 0,
+    .read_fn     = (void *)n00b_chan_filter_to_json,
+    .write_fn    = (void *)n00b_chan_filter_to_json,
+    .name        = NULL,
+};
+
+n00b_filter_spec_t *
+n00b_filter_to_json(int filter_policy) {
+    if (!to_json_filter.name) {
+        to_json_filter.name = n00b_cstring("to_json");
+    }
+
+    n00b_filter_spec_t *result = n00b_gc_alloc(n00b_filter_spec_t);
+    result->impl               = &to_json_filter;
+    result->policy             = filter_policy;
 }
 
 void
 n00b_chan_filter_add_to_json_on_read(n00b_channel_t *c)
 {
-    n00b_filter_impl *impl = n00b_new_chan_filter_to_json_impl();
-    n00b_filter_add(c, impl, N00B_FILTER_READ);
+    n00b_filter_spec_t *spec = n00b_filter_to_json(N00B_FILTER_READ);
+    n00b_filter_add(c, spec);
 }
 
 void
 n00b_chan_filter_add_to_json_on_write(n00b_channel_t *c)
 {
-    n00b_filter_impl *impl = n00b_new_chan_filter_to_json_impl();
-    n00b_filter_add(c, impl, N00B_FILTER_WRITE);
+    n00b_filter_spec_t *spec = n00b_filter_to_json(N00B_FILTER_WRITE);;
+    n00b_filter_add(c, spec);
 }
 
-n00b_list_t *
+static n00b_list_t *
 n00b_chan_filter_from_json(void *cookie, void *msg)
 {
     n00b_list_t *errors = NULL;
@@ -58,29 +76,34 @@ n00b_chan_filter_from_json(void *cookie, void *msg)
     return NULL;
 }
 
-n00b_filter_impl *
-n00b_new_chan_filter_from_json_impl()
-{
-    n00b_filter_impl *impl = n00b_gc_alloc(sizeof(n00b_filter_impl));
-    impl->cookie_size = 0;
-    // impl->name = n00b_cstring("filter_from_json");
-    impl->name = n00b_string_empty();
-    impl->output_type = n00b_type_list(n00b_type_ref());
-    impl->read_fn = n00b_chan_filter_from_json;
-    impl->write_fn = n00b_chan_filter_from_json;
-    return impl;
+static n00b_filter_impl from_json_filter = {
+    .cookie_size = 0,
+    .read_fn     = (void *)n00b_chan_filter_from_json,
+    .write_fn    = (void *)n00b_chan_filter_from_json,
+    .name        = NULL,
+};
+
+n00b_filter_spec_t *
+n00b_filter_from_json(int filter_policy) {
+    if (!to_json_filter.name) {
+        to_json_filter.name = n00b_cstring("from_json");
+    }
+
+    n00b_filter_spec_t *result = n00b_gc_alloc(n00b_filter_spec_t);
+    result->impl               = &from_json_filter;
+    result->policy             = filter_policy;
 }
 
 void
 n00b_chan_filter_add_from_json_on_read(n00b_channel_t *c)
 {
-    n00b_filter_impl *impl = n00b_new_chan_filter_from_json_impl();
-    n00b_filter_add(c, impl, N00B_FILTER_READ);
+    n00b_filter_spec_t *spec = n00b_filter_from_json(N00B_FILTER_READ);
+    n00b_filter_add(c, spec);
 }
 
 void
 n00b_chan_filter_add_from_json_on_write(n00b_channel_t *c)
 {
-    n00b_filter_impl *impl = n00b_new_chan_filter_from_json_impl();
-    n00b_filter_add(c, impl, N00B_FILTER_WRITE);
+    n00b_filter_spec_t *spec = n00b_filter_from_json(N00B_FILTER_WRITE);
+    n00b_filter_add(c, spec);
 }
