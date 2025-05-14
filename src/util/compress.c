@@ -14,7 +14,7 @@ archive_write_cb(n00b_archive_ctx *a,
 {
     n00b_stream_t *stream = (n00b_stream_t *)client_data;
 
-    n00b_stream_write_memory(stream, length, (void *)buffer);
+    n00b_write_memory(stream, length, (void *)buffer);
 
     return length;
 }

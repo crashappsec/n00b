@@ -14,7 +14,7 @@
 
 // #define N00B_GC_STATS
 //  #define N00B_DEBUG_GC_ROOTS
-#define N00B_FIND_SCRIBBLES
+// #define N00B_FIND_SCRIBBLES
 // #define N00B_SCAN_ALLOC
 // #define N00B_USE_LOCK_DEBUGGING
 

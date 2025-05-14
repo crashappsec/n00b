@@ -345,8 +345,6 @@ n00b_add_static_symbols(void)
     FSTAT(n00b_get_c_backtrace);
     FSTAT(n00b_lookup_color);
     FSTAT(n00b_to_vga);
-    FSTAT(n00b_read_utf8_file);
-    FSTAT(n00b_read_binary_file);
     FSTAT(n00b_list_resize);
     FSTAT(n00b_list_append);
     FSTAT(n00b_list_sort);

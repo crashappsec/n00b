@@ -723,10 +723,9 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 {
     n00b_collection_ctx ctx;
 
-    n00b_gts_stop_the_world();
-    // Calling this on a pinned heap will cause this to collect, not
-    // to add an arena. That allows us to selectively compact, but
-    // only at a time of our control.
+    do {
+        n00b_gts_stop_the_world();
+    } while (0);
 
 #ifdef N00B_GC_STATS
     n00b_duration_t  start;

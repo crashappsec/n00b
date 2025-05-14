@@ -5,57 +5,52 @@
 // on MacOS and might as well group everything and minimize calls to
 // pthread_setspecific() for static fields.
 typedef struct {
-    n00b_thread_t              self_data;
-    n00b_exception_stack_t     exception_stack;
-    void                      *thread_runtime; // really n00b_vmthread_t
-    char                      *bt_utf8_result;
+    n00b_thread_t          self_data;
+    n00b_exception_stack_t exception_stack;
+    void                  *thread_runtime; // really n00b_vmthread_t
+    char                  *bt_utf8_result;
     // Used by libbacktrace.
-    void                      *trace_table; // really n00b_table_t
-    n00b_heap_t               *thread_heap;
-    n00b_heap_t               *string_heap;
-    void                      *locks; // n00b_generic_lock_t       *
+    void                  *trace_table; // really n00b_table_t
+    n00b_heap_t           *thread_heap;
+    n00b_heap_t           *string_heap;
+    void                  *locks; // n00b_generic_lock_t       *
     // When we call into system functions that we know are not
     // recursive, we can stash the user's heap here. For instance,
     // this is done when calling into the format module, which does a
     // lot of little allocations that we clean up all at once.
-    n00b_heap_t               *stashed_heap;
-    int                        saved_lock_level;
-    n00b_lock_record_t         saved_lock_records[N00B_LOCK_DEBUG_RING];
-    n00b_lock_record_t         lock_wait_location;
-    n00b_lock_t               *lock_wait_target;
-    int64_t                    thread_id;
-    int                        kargs_next_entry;
-    n00b_global_thread_state_t thread_state;
+    n00b_heap_t           *stashed_heap;
+    int                    saved_lock_level;
+    n00b_lock_record_t     saved_lock_records[N00B_LOCK_DEBUG_RING];
+    n00b_lock_record_t     lock_wait_location;
+    n00b_lock_t           *lock_wait_target;
+    int64_t                thread_id;
+    int                    kargs_next_entry;
+    unsigned int           gts_reader            : 1;
+    unsigned int           gts_nest              : 2;
     // C keyword args have fixed-size, thread-specific storage above.
     // We use this bit to indicate whether it's been set up or not;
     // doing so happens the first time a keyword enabled function is
     // called.
-    int                        init_kargs            : 1;
-    int                        thread_sleeping       : 1;
+    unsigned int           init_kargs            : 1;
+    unsigned int           thread_sleeping       : 1;
     // Used to mark private threads like the IO event dispatcher
     // and the IO callback thread.
-    int                        system_thread         : 1;
+    unsigned int           system_thread         : 1;
     // Used for debugging, to tell n00b_new() to add a guard
     // page after the next in-thread call.
-    int                        add_guard             : 1;
+    unsigned int           add_guard             : 1;
     // This flag is used if debugging watches are enabled, to prevent
     // recursion. See utils/watch.c for more.
     //
     // Currently watch checks have been removed from allocs; will put
     // them back down the road when I need them again.
-    int                        watch_recursion_guard : 1;
+    unsigned int           watch_recursion_guard : 1;
     // This flag is used to prevent recursion when getting an
     // unformatted stack trace from libbacktrace().
-    int                        u8_backtracing        : 1;
+    unsigned int           u8_backtracing        : 1;
     // This flag is used for critical sections with private
     // data structures to suspend locking.
-    int                        suspend_locking       : 1;
-    int                        gti_s                 : 1;
-    int                        gti_w                 : 1;
-    int                        gti_r;
-    char                      *gti_file;
-    int                        gti_line;
-    int                        gti_next;
+    unsigned int           suspend_locking       : 1;
 #if defined(N00B_ENABLE_ALLOC_DEBUG)
     int show_alloc_locations : 1;
 #endif
@@ -71,7 +66,19 @@ extern pthread_key_t n00b_static_tsi_key;
 static inline n00b_tsi_t *
 n00b_get_tsi_ptr(void)
 {
+    n00b_tsi_t *result;
+
+    n00b_barrier();
+
+    if ((result = pthread_getspecific(n00b_static_tsi_key)) != NULL) {
+        return result;
+    }
+
+    struct timespec wait = {.tv_sec = 0, .tv_nsec = 10000000};
+    nanosleep(&wait, NULL);
+
     return pthread_getspecific(n00b_static_tsi_key);
+    n00b_barrier();
 }
 
 static inline void
@@ -228,18 +235,6 @@ n00b_current_heap(n00b_heap_t *h)
         return h;
     }
     return n00b_default_heap;
-}
-
-static inline n00b_global_thread_state_t
-n00b_get_thread_state(void)
-{
-    return n00b_get_tsi_ptr()->thread_state;
-}
-
-static inline void
-n00b_set_thread_state(n00b_global_thread_state_t s)
-{
-    n00b_get_tsi_ptr()->thread_state = s;
 }
 
 #ifdef N00B_MPROTECT_GUARD_ALLOCS
