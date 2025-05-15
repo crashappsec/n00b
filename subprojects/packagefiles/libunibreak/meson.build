@@ -11,7 +11,7 @@ i = run_command(
   'sh',
   '-exc',
   '''
-[ -n "$(find -name libunibreak.a)" ] && exit 0
+[ -n "$(find . -name libunibreak.a)" ] && exit 0
 ./configure
 make
   ''',
