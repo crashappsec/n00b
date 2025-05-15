@@ -15,7 +15,7 @@ i = run_command(
   'sh',
   '-exc',
   '''
-[ -n "$(find -name libcrypto.a)" ] && exit 0
+[ -n "$(find . -name libcrypto.a)" ] && exit 0
 if [ "$(uname)" != "Darwin" ] ; then
 export N00B_STATIC=-static
 export CPPFLAGS="-I$(realpath ../kernel-headers-*)/include $CPPFLAGS"
