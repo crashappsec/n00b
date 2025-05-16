@@ -68,12 +68,12 @@ n00b_setup_term_channels(void)
     stream                           = n00b_new_fd_channel(outstrm);
     n00b_chan_term_io[STDOUT_RAW_IX] = stream;
     proxy                            = n00b_new_channel_proxy(stream,
-                                   n00b_filter_apply_color());
+                                   n00b_filter_apply_color(-1));
     n00b_chan_term_io[STDOUT_IX]     = proxy;
     stream                           = n00b_new_fd_channel(errstrm);
     n00b_chan_term_io[STDERR_RAW_IX] = stream;
     proxy                            = n00b_new_channel_proxy(stream,
-                                   n00b_filter_apply_color());
+                                   n00b_filter_apply_color(-1));
     n00b_chan_term_io[STDERR_IX]     = proxy;
 }
 

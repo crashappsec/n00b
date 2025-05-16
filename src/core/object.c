@@ -748,7 +748,7 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 #if defined(N00B_MPROTECT_GUARD_ALLOCS)
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
-    if (tsi->add_guard) {
+    if (tsi && tsi->add_guard) {
         tsi->add_guard = false;
         obj            = _n00b_heap_alloc(n00b_current_heap(heap),
                                alloc_len,

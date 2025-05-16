@@ -201,8 +201,6 @@ n00b_debug_all_locks(void)
         abort();                                        \
     }
 
-extern int64_t n00b_world_is_stopped;
-
 static inline bool
 no_locks(void)
 {
@@ -469,36 +467,25 @@ _n00b_rw_lock_try_read(n00b_rw_lock_t *l, char *file, int line)
     }
 
     n00b_thread_t *t = n00b_thread_self();
-    if (l->info.thread == t) {
-        l->info.level++;
-        return true;
-    }
 
     switch (pthread_rwlock_tryrdlock(&l->lock)) {
     case EDEADLK:
-    case EBUSY:
         if (l->info.thread == t) {
             l->info.level++;
-            return true;
         }
-        if (l->info.thread) {
-            return false;
-        }
+        assert(!l->info.thread);
+
         for (int i = 0; i < N00B_LOCK_MAX_READERS; i++) {
             if (l->readers[i].thread == t) {
                 l->readers[i].level++;
-                return true;
             }
         }
+        return true;
+    case EBUSY:
         return false;
     case 0:
-        if (on_first_rw_lock_r(l, t, file, line)) {
-            return true;
-        }
-        // Ran out of read slots.
-        pthread_rwlock_unlock(&l->lock);
-        return false;
-
+        on_first_rw_lock_r(l, t, file, line);
+        return true;
     default:
         return false;
     }
@@ -527,11 +514,7 @@ _n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *l, char *file, int line)
             return;
         }
     }
-    if (!on_first_rw_lock_r(l, t, file, line)) {
-        // Ran out of read slots.
-        pthread_rwlock_unlock(&l->lock);
-        N00B_CRAISE("Too many concurrent readers to track.");
-    }
+    on_first_rw_lock_r(l, t, file, line);
 }
 
 bool
@@ -543,11 +526,10 @@ _n00b_rw_lock_try_write(n00b_rw_lock_t *l, char *file, int line)
 
     switch (pthread_rwlock_trywrlock(&l->lock)) {
     case EDEADLK:
+        assert(l->info.thread == (void *)(int64_t)n00b_thread_self());
+        n00b_generic_on_lock_acquire(&l->info, file, line);
+        return true;
     case EBUSY:
-        if (l->info.thread == (void *)(int64_t)pthread_self()) {
-            n00b_generic_on_lock_acquire(&l->info, file, line);
-            return true;
-        }
         return false;
     case 0:
         n00b_generic_on_lock_acquire(&l->info, file, line);

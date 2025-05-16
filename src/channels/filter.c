@@ -8,11 +8,8 @@ n00b_filter_add(n00b_channel_t *c, n00b_filter_spec_t *spec)
     n00b_filter_impl *impl   = spec->impl;
     int               policy = spec->policy;
     void             *param  = spec->param;
-    int               sz     = impl->cookie_size;
-    n00b_filter_t    *f      = n00b_gc_flex_alloc(n00b_filter_t,
-                                          sz,
-                                          1,
-                                          N00B_GC_SCAN_ALL);
+    int               sz     = impl->cookie_size + sizeof(n00b_filter_t);
+    n00b_filter_t    *f      = n00b_gc_raw_alloc(sz, N00B_GC_SCAN_ALL);
 
     if (policy <= 0 || policy > N00B_FILTER_MAX) {
         N00B_CRAISE("Invalid operation policy for filter.");

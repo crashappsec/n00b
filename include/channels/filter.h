@@ -75,8 +75,7 @@ typedef struct {
     void             *param;
     int               policy;
 } n00b_filter_spec_t;
-
-extern n00b_filter_spec_t *n00b_filter_apply_color(void);
+extern n00b_filter_spec_t *n00b_filter_apply_color(int);
 extern n00b_filter_spec_t *n00b_filter_apply_line_buffering(void);
 extern n00b_filter_spec_t *n00b_filter_json(void);
 extern n00b_filter_spec_t *n00b_filter_marshal(bool);

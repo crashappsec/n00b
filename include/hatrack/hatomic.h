@@ -32,7 +32,7 @@
  * We continue to use atomic_load() if we DO want a memory barier on
  * the read operation, for instance in our debugging support code.
  */
-#define atomic_read(x) atomic_load_explicit(x, memory_order_relaxed)
+#define atomic_read(x) atomic_load_explicit(x, memory_order_seq_cst)
 
 /* Most of our writes will need ordering, except when initializing
  * variables, which isn't worth worrying about.

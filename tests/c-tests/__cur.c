@@ -31,7 +31,7 @@ timer_2(n00b_timer_t *t, n00b_duration_t *time, void *thunk)
     printf("Timer 2\n");
 }
 
-extern void n00b_dump_gti(void);
+extern void n00b_dump_gts(void);
 
 void *
 callback_test(n00b_buf_t *b, void *thunk)
@@ -44,7 +44,7 @@ callback_test(n00b_buf_t *b, void *thunk)
         n00b_show_channels();
         break;
     case 'G':
-        n00b_dump_gti();
+        n00b_dump_gts();
         break;
     case '@':
         n00b_channel_write(n00b_chan_stderr(), capture);

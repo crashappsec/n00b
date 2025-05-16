@@ -1,175 +1,129 @@
 #define N00B_USE_INTERNAL_API
-#include "n00b.h"
-#include "util/plock.h"
+#define ONLY_READERS -1
 
-bool        n00b_abort_signal     = false;
-uint64_t    gti_lock              = 0;
-int64_t     n00b_world_is_stopped = 0;
-_Atomic int r_holders             = 0;
+#include "n00b.h"
+
+typedef struct gts_atomic_t {
+    int16_t requesting;
+    int16_t world_stopped;
+    int32_t readers;
+    int64_t write_lock;
+} gts_state_t;
+
+_Atomic gts_state_t gts_state;
+bool                n00b_abort_signal     = false;
+bool                n00b_world_is_stopped = false;
 
 const struct timespec gts_poll_interval = {
     .tv_sec  = 0,
     .tv_nsec = N00B_GTS_POLL_DURATION_NS,
 };
 
+pthread_rwlock_t runlock          = PTHREAD_RWLOCK_INITIALIZER;
+_Atomic int      gts_read_request = 0;
+
+void
+n00b_dump_gts(void)
+{
+}
+
 void
 n00b_initialize_global_thread_info(void)
 {
-    n00b_set_thread_state(n00b_gts_go);
+    printf("world is stopped = %d\n", n00b_world_is_stopped);
 }
 
 void
-_n00b_gts_resume(char *file, int line)
+n00b_gts_might_stop(void)
+{
+}
+
+void
+n00b_gts_suspend(void)
 {
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
-    if (tsi->gti_w) {
-        return;
-    }
-
-    if (!tsi->gti_r++) {
-        tsi->gti_file = file;
-        tsi->gti_line = line;
-        n00b_set_thread_state(n00b_gts_go);
-        pl_take_r(&gti_lock);
-        atomic_fetch_add(&r_holders, 1);
+    if (tsi->gts_reader) {
+        pthread_rwlock_unlock(&runlock);
+        tsi->gts_reader = false;
     }
 }
 
 void
-n00b_gts_reacquire(void)
+n00b_gts_resume(void)
+{
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+
+    assert(!tsi->gts_reader);
+    pthread_rwlock_rdlock(&runlock);
+    tsi->gts_reader = true;
+}
+
+void
+n00b_gts_checkin(void)
 {
     // Give an opening for people to grab the write lock if they've
-    // been waiting.
+    // been waiting for the gloval lock.
+
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
-    if (tsi->gti_r && !tsi->gti_w) {
-        pl_drop_r(&gti_lock);
-        n00b_set_thread_state(n00b_gts_go);
-        pl_take_r(&gti_lock);
-    }
-}
-
-void
-_n00b_gts_suspend(char *file, int line)
-{
-    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-
-    if (tsi->gti_w) {
-        return;
-    }
-    if (!--tsi->gti_r) {
-        pl_drop_r(&gti_lock);
-        tsi->gti_file = file;
-        tsi->gti_line = line;
-        atomic_fetch_add(&r_holders, -1);
-    }
-    n00b_set_thread_state(n00b_gts_go);
-    n00b_thread_stack_region(n00b_thread_self());
-}
-
-void
-_n00b_gts_might_stop(char *file, int line)
-{
-    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-
-    if (n00b_abort_signal) {
-        n00b_thread_exit(NULL);
-    }
-
-    if (tsi->gti_w) {
+    if (!tsi) {
+        // Should only be during an abort.
         return;
     }
 
-    tsi->gti_file = file;
-    tsi->gti_line = line;
-    tsi->gti_s    = true;
-
-    if (tsi->gti_r) {
-        while (!pl_try_rtos(&gti_lock)) {
-            n00b_gts_reacquire();
-        }
+    if (tsi->gts_reader) {
+        pthread_rwlock_unlock(&runlock);
+        sched_yield();
+        pthread_rwlock_rdlock(&runlock);
     }
-    else {
-        pl_take_s(&gti_lock);
-    }
-    tsi->gti_s = true;
 }
 
 void
-_n00b_gts_wont_stop(char *file, int line)
+n00b_gts_wont_stop(void)
 {
-    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-
-    assert(tsi->gti_s);
-
-    if (tsi->gti_r) {
-        pl_stor(&gti_lock);
-    }
-    else {
-        pl_drop_s(&gti_lock);
-    }
-    tsi->gti_file = file;
-    tsi->gti_line = line;
-    tsi->gti_s    = false;
 }
 
 void
-_n00b_gts_stop_the_world(char *file, int line)
+_n00b_gts_stop_the_world(char *f, int l)
 {
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-
-    if (n00b_abort_signal) {
-        n00b_thread_exit(NULL);
+    if (tsi->gts_reader) {
+        pthread_rwlock_unlock(&runlock);
+        tsi->gts_reader = false;
     }
-    if (tsi->gti_w) {
-        n00b_world_is_stopped++;
+
+    int x;
+    if ((x = (tsi->gts_nest++)) == 3) {
+        // Nesting too deep.
+        abort();
+    }
+    pthread_rwlock_wrlock(&runlock);
+    n00b_world_is_stopped = true;
+}
+
+void
+_n00b_gts_restart_the_world(char *f, int l)
+{
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+    assert(!tsi->gts_reader);
+    assert(tsi->gts_nest);
+
+    if (--tsi->gts_nest) {
         return;
     }
 
-    if (tsi->gti_s) {
-        pl_stow(&gti_lock);
-        tsi->gti_s = false;
-    }
-    else {
-        pl_take_w(&gti_lock);
-    }
-
-    tsi->gti_file = file;
-    tsi->gti_line = line;
-    tsi->gti_w    = true;
-    n00b_world_is_stopped++;
-    n00b_set_thread_state(n00b_gts_go);
+    n00b_world_is_stopped = false;
+    pthread_rwlock_unlock(&runlock);
+    sched_yield();
+    pthread_rwlock_rdlock(&runlock);
+    tsi->gts_reader = true;
 }
 
 void
-_n00b_gts_restart_the_world(char *file, int line)
+n00b_gts_start(void)
 {
-    if (--n00b_world_is_stopped) {
-        return;
-    }
-
-    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-
-    tsi->gti_file = file;
-    tsi->gti_line = line;
-
-    if (tsi->gti_r) {
-        pl_wtor(&gti_lock);
-    }
-    else {
-        pl_wtos(&gti_lock);
-        pl_drop_s(&gti_lock);
-    }
-
-    tsi->gti_w = false;
-    tsi->gti_s = false;
-}
-
-void
-_n00b_gts_start(char *file, int line)
-{
-    _n00b_gts_resume(file, line);
+    n00b_gts_resume();
 }
 
 void
@@ -181,51 +135,25 @@ n00b_gts_notify_abort(void)
 void
 n00b_gts_quit(n00b_tsi_t *tsi)
 {
-    if (tsi->gti_r) {
-        pl_drop_r(&gti_lock);
+    if (tsi->gts_reader || tsi->gts_nest) {
+        pthread_rwlock_unlock(&runlock);
     }
-    if (tsi->gti_s) {
-        pl_drop_s(&gti_lock);
-    }
-    if (tsi->gti_w) {
-        pl_drop_w(&gti_lock);
-    }
-}
 
-void
-n00b_dump_gti(void)
-{
-    printf("Lock state: %p\n", (void *)gti_lock);
+    /*
+    gts_state_t read = atomic_read(&gts_state);
+    n00b_barrier();
 
-    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
-        n00b_thread_t *t = atomic_read(&n00b_global_thread_list[i]);
-
-        if (!t) {
-            continue;
-        }
-
-        n00b_tsi_t *tsi = t->tsi;
-
-        char state = 0;
-        if (tsi->gti_w) {
-            state = 'w';
-            assert(!tsi->gti_s);
+    if (tsi->thread_id == read.write_lock) {
+        assert(tsi->thread_id != ONLY_READERS);
+        if (read.requesting) {
+            n00b_gts_wont_stop();
         }
         else {
-            if (tsi->gti_s) {
-                state = 's';
-            }
+            n00b_gts_restart_the_world();
         }
-
-        if (!state) {
-            if (tsi->gti_r) {
-                state = 'r';
-            }
-            else {
-                state = '-';
-            }
-        }
-
-        printf("%p: %c %d\n", t, state, tsi->gti_r);
     }
+
+    if (tsi->gts_reader) {
+        deregister_runner(tsi);
+        }*/
 }

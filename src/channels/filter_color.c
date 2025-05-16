@@ -8,6 +8,13 @@ typedef struct {
     bool           truncate;
 } colorterm_ctx;
 
+static void *
+color_setup(colorterm_ctx *ctx, void *width)
+{
+    ctx->width = n00b_calculate_render_width((int64_t)width);
+    ctx->theme = n00b_get_current_theme();
+}
+
 static n00b_list_t *
 n00b_filter_add_color(colorterm_ctx *ctx, void *msg)
 {
@@ -93,13 +100,14 @@ n00b_filter_add_color(colorterm_ctx *ctx, void *msg)
 
 static n00b_filter_impl color_filter = {
     .cookie_size = sizeof(colorterm_ctx),
+    .setup_fn    = (void *)color_setup,
     .read_fn     = NULL,
     .write_fn    = (void *)n00b_filter_add_color,
     .name        = NULL,
 };
 
 n00b_filter_spec_t *
-n00b_filter_apply_color(void)
+n00b_filter_apply_color(int width)
 {
     if (!color_filter.name) {
         color_filter.name = n00b_cstring("apply_color");
@@ -108,6 +116,7 @@ n00b_filter_apply_color(void)
     n00b_filter_spec_t *result = n00b_gc_alloc(n00b_filter_spec_t);
     result->impl               = &color_filter;
     result->policy             = N00B_FILTER_WRITE;
+    result->param              = (void *)(int64_t)width;
 
     return result;
 }

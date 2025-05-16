@@ -23,14 +23,13 @@ n00b_thread_exit(void *result)
         exit(saved_exit_code);
     }
 
-    n00b_gts_suspend();
+    n00b_gts_quit(n00b_get_tsi_ptr());
     pthread_exit(result);
 }
 
 static void
 n00b_wait_on_io_shutdown(void)
 {
-    n00b_gts_suspend();
     n00b_condition_t *c = atomic_read(&n00b_io_exit_request);
 
     if (!c) {
@@ -65,6 +64,7 @@ n00b_abort(void)
     n00b_gts_notify_abort();
     n00b_wait_on_io_shutdown();
     n00b_thread_cancel_other_threads();
+    n00b_gts_quit(n00b_get_tsi_ptr());
     abort();
 }
 
