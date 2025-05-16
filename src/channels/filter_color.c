@@ -13,6 +13,8 @@ color_setup(colorterm_ctx *ctx, void *width)
 {
     ctx->width = n00b_calculate_render_width((int64_t)width);
     ctx->theme = n00b_get_current_theme();
+
+    return NULL;
 }
 
 static n00b_list_t *

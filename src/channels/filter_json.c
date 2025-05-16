@@ -6,8 +6,8 @@
 static n00b_list_t *
 n00b_chan_filter_to_json(void *cookie, void *msg)
 {
-    n00b_type_t *msg_type   = n00b_get_my_type(msg);
-    n00b_list_t *result     = n00b_list(n00b_type_string());
+    n00b_type_t *msg_type = n00b_get_my_type(msg);
+    n00b_list_t *result   = n00b_list(n00b_type_string());
 
     if (n00b_type_is_buffer(msg_type)) {
         n00b_list_append(result, msg);
@@ -36,7 +36,8 @@ static n00b_filter_impl to_json_filter = {
 };
 
 n00b_filter_spec_t *
-n00b_filter_to_json(int filter_policy) {
+n00b_filter_to_json(int filter_policy)
+{
     if (!to_json_filter.name) {
         to_json_filter.name = n00b_cstring("to_json");
     }
@@ -44,6 +45,8 @@ n00b_filter_to_json(int filter_policy) {
     n00b_filter_spec_t *result = n00b_gc_alloc(n00b_filter_spec_t);
     result->impl               = &to_json_filter;
     result->policy             = filter_policy;
+
+    return result;
 }
 
 void
@@ -56,7 +59,8 @@ n00b_chan_filter_add_to_json_on_read(n00b_channel_t *c)
 void
 n00b_chan_filter_add_to_json_on_write(n00b_channel_t *c)
 {
-    n00b_filter_spec_t *spec = n00b_filter_to_json(N00B_FILTER_WRITE);;
+    n00b_filter_spec_t *spec = n00b_filter_to_json(N00B_FILTER_WRITE);
+    ;
     n00b_filter_add(c, spec);
 }
 
@@ -84,7 +88,8 @@ static n00b_filter_impl from_json_filter = {
 };
 
 n00b_filter_spec_t *
-n00b_filter_from_json(int filter_policy) {
+n00b_filter_from_json(int filter_policy)
+{
     if (!to_json_filter.name) {
         to_json_filter.name = n00b_cstring("from_json");
     }
@@ -92,6 +97,8 @@ n00b_filter_from_json(int filter_policy) {
     n00b_filter_spec_t *result = n00b_gc_alloc(n00b_filter_spec_t);
     result->impl               = &from_json_filter;
     result->policy             = filter_policy;
+
+    return result;
 }
 
 void
