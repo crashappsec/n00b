@@ -13,12 +13,18 @@ n00b_thread_stack_region(n00b_thread_t *t)
 
     size_t size;
 
-    pthread_attr_getstack(&attrs, (void **)&t->base, &size);
-
-#ifdef N00B_USE_FRAME_INTRINSIC
-    t->cur = __builtin_frame_address(0);
+    pthread_attr_getstack(&attrs, (void **)&t->cur, &size);
+    /*
+    n00b_barrier();
+    printf("Lower address is: %p\n", t->base);
+    printf("For higher address:\n");
+    printf("option 1: %p\n", __builtin_frame_address(0));
+    printf("option 2: %p\n", t->base + size);
+    */
+#if 0
+    t->base = __builtin_frame_address(0);
 #else
-    t->cur = t->base + (size / 8);
+    t->base = t->cur + size;
 #endif
 }
 

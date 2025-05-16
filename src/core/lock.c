@@ -238,6 +238,7 @@ n00b_generic_on_lock_acquire(n00b_generic_lock_t *lock, char *file, int line)
 {
     n00b_thread_t *self = n00b_thread_self();
 
+    n00b_barrier();
     if (lock->thread && lock->thread != self) {
         fprintf(stderr,
                 "Lock at %p improperly acquired @%s:%d.\n",
@@ -289,7 +290,7 @@ n00b_generic_before_lock_release(n00b_generic_lock_t *lock)
 {
     lock_assert(lock->level >= 1, lock);
     lock_assert(lock->thread == n00b_thread_self(), lock);
-
+    
     lock->level = lock->level - 1;
     if (lock->level > 0) {
         lock->lock_info[lock->level + 1].file = NULL;

@@ -30,7 +30,6 @@ n00b_dump_gts(void)
 void
 n00b_initialize_global_thread_info(void)
 {
-    printf("world is stopped = %d\n", n00b_world_is_stopped);
 }
 
 void
@@ -46,6 +45,7 @@ n00b_gts_suspend(void)
     if (tsi->gts_reader) {
         pthread_rwlock_unlock(&runlock);
         tsi->gts_reader = false;
+	n00b_thread_stack_region(&tsi->self_data);
     }
 }
 
@@ -74,6 +74,7 @@ n00b_gts_checkin(void)
 
     if (tsi->gts_reader) {
         pthread_rwlock_unlock(&runlock);
+	n00b_thread_stack_region(&tsi->self_data);	
         sched_yield();
         pthread_rwlock_rdlock(&runlock);
     }

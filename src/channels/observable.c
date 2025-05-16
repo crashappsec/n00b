@@ -60,7 +60,7 @@ n00b_observable_set_num_topics(n00b_observable_t *o, uint32_t n)
 static inline n00b_list_t *
 get_topic_subs(n00b_observable_t *o, int64_t ix)
 {
-    return n00b_list_get(o->observers, ix, NULL);
+    return n00b_private_list_get(o->observers, ix, NULL);
 }
 
 n00b_list_t *
