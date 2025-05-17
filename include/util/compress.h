@@ -46,5 +46,5 @@ typedef enum {
 
 extern void
 n00b_compress(n00b_buf_t              *buffer,
-              n00b_channel_t          *outstream,
+              n00b_stream_t           *outstream,
               n00b_compression_suite_t suite);

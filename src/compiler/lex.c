@@ -1077,7 +1077,7 @@ line_comment:
 }
 
 bool
-n00b_lex(n00b_module_t *ctx, n00b_channel_t *stream)
+n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
 {
     n00b_assert(ctx->name);
 

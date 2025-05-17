@@ -6,7 +6,7 @@ n00b_play_capture(n00b_cmdline_ctx *ctx)
 {
     n00b_string_t  *arg    = n00b_resolve_path(n00b_list_get(ctx->args, 0, NULL));
     n00b_string_t  *ext    = n00b_path_get_extension(arg);
-    n00b_channel_t *stream = NULL;
+    n00b_stream_t *stream = NULL;
 
     if (ext == n00b_cached_empty_string()) {
         arg = n00b_cformat("[|#|].cap10", arg);

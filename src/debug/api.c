@@ -26,12 +26,12 @@ start_debug_workflow(n00b_topic_info_t *tinfo, void *payload, void *unused)
     return NULL;
 }
 
-n00b_channel_t *
+n00b_stream_t *
 n00b_get_chan_debug_topic(n00b_string_t *name)
 {
     pthread_once(&debug_namespace_init, setup_namespace);
 
-    n00b_channel_t *result = hatrack_dict_get(debug_namespace, name, NULL);
+    n00b_stream_t *result = hatrack_dict_get(debug_namespace, name, NULL);
     if (result) {
         return result;
     }
@@ -45,6 +45,6 @@ n00b_get_chan_debug_topic(n00b_string_t *name)
 void
 _n00b_debug(n00b_string_t *topic, void *msg)
 {
-    n00b_channel_t *channel = n00b_get_chan_debug_topic(topic);
+    n00b_stream_t *channel = n00b_get_chan_debug_topic(topic);
     n00b_channel_write(channel, msg);
 }

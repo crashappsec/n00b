@@ -15,8 +15,8 @@ static n00b_string_t *simple_fmt(n00b_debug_msg_t *);
 
 static n00b_dict_t      *topic_workflows   = NULL;
 static n00b_db_rule_t   *default_workflow  = NULL;
-static n00b_channel_t   *server_connection = NULL;
-static n00b_channel_t   *debug_logfile     = NULL;
+static n00b_stream_t   *server_connection = NULL;
+static n00b_stream_t   *debug_logfile     = NULL;
 static n00b_debug_fmt_fn default_formatter = simple_fmt;
 static pthread_once_t    server_attempted  = PTHREAD_ONCE_INIT;
 static pthread_once_t    logfile_attempted = PTHREAD_ONCE_INIT;
@@ -189,7 +189,7 @@ get_debug_server_addr(void)
 }
 
 static void
-on_server_close(n00b_channel_t *c, void *ignored)
+on_server_close(n00b_stream_t *c, void *ignored)
 {
     // Start w/ half a second of sleep. Double each time, up to 8
     // total attempts
@@ -207,7 +207,7 @@ on_server_close(n00b_channel_t *c, void *ignored)
 }
 
 static void
-on_log_close(n00b_channel_t *c, void *ignored)
+on_log_close(n00b_stream_t *c, void *ignored)
 {
     // Maybe log to stdout too, but no need for exponential back-off,
     // or waiting at all.
@@ -222,7 +222,7 @@ attempt_connection(void)
     if (server_connection) {
         n00b_channel_subscribe_close(
             server_connection,
-            n00b_new_callback_channel(on_server_close, NULL));
+            n00b_new_callback_stream(on_server_close, NULL));
     }
 }
 
@@ -242,7 +242,7 @@ attempt_log_open(void)
     if (debug_logfile) {
         n00b_channel_subscribe_close(
             server_connection,
-            n00b_new_callback_channel(on_log_close, NULL));
+            n00b_new_callback_stream(on_log_close, NULL));
     }
 }
 

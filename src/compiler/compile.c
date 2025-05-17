@@ -68,7 +68,7 @@ n00b_string_to_type(n00b_string_t *str)
     }
 
     n00b_type_t    *result = NULL;
-    n00b_channel_t *stream = n00b_string_channel(str);
+    n00b_stream_t *stream = n00b_string_channel(str);
     n00b_module_t   ctx    = {
              .modref = 0xffffffff,
              .path   = str_to_type_tmp_path,

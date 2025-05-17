@@ -263,36 +263,36 @@ n00b_adts = [
     'src/adts/bytering.c',
 ]
 
-n00b_channels = [
-    'src/channels/fd_events.c',
-    'src/channels/filter.c',    
-    'src/channels/filter_json.c',
-    'src/channels/observable.c',
-    'src/channels/channel.c',
-    'src/channels/chan_fd.c',
-    'src/channels/chan_callback.c',
-    'src/channels/chan_buffer.c',
-    'src/channels/chan_topic.c',
-    'src/channels/chan_listener.c',
-    'src/channels/chan_exit.c',
-    'src/channels/chan_proxy.c',
-    'src/channels/chan_string.c',    
-    'src/channels/terminal_io.c',
-    'src/channels/print.c',
-    'src/channels/proc.c',
-    'src/channels/debug.c',    
-    'src/channels/session.c',
-    'src/channels/session_control.c',
-    'src/channels/session_capture.c',
-    'src/channels/session_replay.c',
-    'src/channels/session_states.c',
-    'src/channels/filter_color.c',
-    'src/channels/filter_linebuf.c',
-    'src/channels/filter_hexdump.c',
-    'src/channels/filter_json.c',
-    'src/channels/filter_marshal.c',
-    'src/channels/filter_ansi.c',
-    'src/channels/http.c',    
+n00b_io = [
+    'src/io/fd_events.c',
+    'src/io/filter.c',    
+    'src/io/filter_json.c',
+    'src/io/observable.c',
+    'src/io/channel.c',
+    'src/io/chan_fd.c',
+    'src/io/chan_callback.c',
+    'src/io/chan_buffer.c',
+    'src/io/chan_topic.c',
+    'src/io/chan_listener.c',
+    'src/io/chan_exit.c',
+    'src/io/chan_proxy.c',
+    'src/io/chan_string.c',    
+    'src/io/terminal_io.c',
+    'src/io/print.c',
+    'src/io/proc.c',
+    'src/io/debug.c',    
+    'src/io/session.c',
+    'src/io/session_control.c',
+    'src/io/session_capture.c',
+    'src/io/session_replay.c',
+    'src/io/session_states.c',
+    'src/io/filter_color.c',
+    'src/io/filter_linebuf.c',
+    'src/io/filter_hexdump.c',
+    'src/io/filter_json.c',
+    'src/io/filter_marshal.c',
+    'src/io/filter_ansi.c',
+    'src/io/http.c',    
 ]
 
 n00b_debug = [
@@ -361,7 +361,7 @@ n00b_log = ['src/cmd/n00b_debug.c']
 
 n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
-n00b_base = n00b_base + n00b_channels + n00b_debug
+n00b_base = n00b_base + n00b_io + n00b_debug
 
 n00b_src = n00b_base + n00b_cmd
 log_src = n00b_base + n00b_log

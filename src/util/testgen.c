@@ -51,7 +51,7 @@
     n00b_cstring("# This sets the width and height of the test terminal.\n")
 
 static inline void
-gen_inject(n00b_cap_event_t *event, n00b_channel_t *output, bool hdr)
+gen_inject(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
 {
     n00b_string_t *s;
 
@@ -66,7 +66,7 @@ gen_inject(n00b_cap_event_t *event, n00b_channel_t *output, bool hdr)
 
 static inline void
 gen_expect(n00b_cap_event_t *event,
-           n00b_channel_t   *output,
+           n00b_stream_t   *output,
            bool              ansi,
            bool              hdr,
            bool              err)
@@ -88,7 +88,7 @@ gen_expect(n00b_cap_event_t *event,
 }
 
 static inline void
-gen_prompt(n00b_cap_event_t *event, n00b_channel_t *output, bool hdr)
+gen_prompt(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
 {
     if (hdr) {
         n00b_channel_queue(output, PROMPT_HDR);
@@ -98,7 +98,7 @@ gen_prompt(n00b_cap_event_t *event, n00b_channel_t *output, bool hdr)
 }
 
 static inline void
-gen_winch(n00b_cap_event_t *event, n00b_channel_t *output, bool hdr)
+gen_winch(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
 {
     if (hdr) {
         n00b_channel_queue(output, WINCH_HDR);
@@ -115,7 +115,7 @@ gen_winch(n00b_cap_event_t *event, n00b_channel_t *output, bool hdr)
 static inline void
 gen_spawn(n00b_session_t   *session,
           n00b_cap_event_t *event,
-          n00b_channel_t   *output)
+          n00b_stream_t   *output)
 {
     n00b_cap_spawn_info_t *info  = event->contents;
     n00b_duration_t       *start = session->start_time;
@@ -128,7 +128,7 @@ gen_spawn(n00b_session_t   *session,
 }
 
 static inline void
-gen_end(n00b_channel_t *output)
+gen_end(n00b_stream_t *output)
 {
     n00b_channel_queue(output, n00b_cstring("# End of session.\n"));
 }
@@ -140,7 +140,7 @@ build_testgen_script(n00b_session_t *session,
                      bool            ansi,
                      bool            merge)
 {
-    n00b_channel_t *script              = n00b_tempfile(NULL, NULL);
+    n00b_stream_t *script              = n00b_tempfile(NULL, NULL);
     n00b_string_t  *tname               = n00b_channel_get_name(script);
     bool            gen_user_input      = false;
     bool            show_inject_comment = true;

@@ -64,7 +64,7 @@ callback_test(n00b_buf_t *b, void *thunk)
 }
 
 void *
-sock_close(n00b_channel_t *chan, void *rcv)
+sock_close(n00b_stream_t *chan, void *rcv)
 {
     n00b_flush(rcv);
     n00b_channel_queue(n00b_chan_stdout(),
@@ -80,15 +80,15 @@ sock_rcv(n00b_buf_t *b, void *ignore)
 }
 
 void *
-my_accept(n00b_channel_t *chan, void *ignore)
+my_accept(n00b_stream_t *chan, void *ignore)
 {
     n00b_printf("[|h6|]Got connection.");
-    n00b_channel_t *rcv = n00b_new_callback_channel(sock_rcv,
+    n00b_stream_t *rcv = n00b_new_callback_stream(sock_rcv,
                                                     NULL,
                                                     n00b_filter_hexdump(0x4a4a4a00));
     n00b_channel_subscribe_read(chan, rcv, false);
 
-    n00b_channel_t *close = n00b_new_callback_channel(sock_close, rcv);
+    n00b_stream_t *close = n00b_new_callback_stream(sock_close, rcv);
     n00b_channel_subscribe_close(chan, close);
     return NULL;
 }
@@ -141,7 +141,7 @@ main(void)
 
     uint64_t         port = 7879;
     n00b_net_addr_t *addr = NULL;
-    n00b_channel_t  *srv;
+    n00b_stream_t  *srv;
 
     do {
         N00B_TRY
@@ -171,20 +171,20 @@ main(void)
     _n00b_fd_read_subscribe(my_stdin, echo_it, 0, &err);
     n00b_add_timer(&t, test_timer, n00b_add_timer(&t2, timer_2));
 
-    n00b_channel_t *inchan = n00b_new_channel_proxy(n00b_chan_stdin());
-    n00b_channel_t *log    = n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
+    n00b_stream_t *inchan = n00b_new_channel_proxy(n00b_chan_stdin());
+    n00b_stream_t *log    = n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
                                                  "write_only",
                                                  (int64_t) true,
                                                  "allow_file_creation",
                                                  (int64_t) true);
 
     log                = n00b_new_channel_proxy(log);
-    n00b_channel_t *cb = n00b_new_callback_channel(callback_test, NULL);
+    n00b_stream_t *cb = n00b_new_callback_stream(callback_test, NULL);
     n00b_channel_subscribe_read(inchan, log, false);
     n00b_channel_subscribe_read(inchan, cb, false);
     n00b_channel_subscribe_read(cb, log, false);
 
-    n00b_channel_t *accept_cb = n00b_new_callback_channel(my_accept, NULL);
+    n00b_stream_t *accept_cb = n00b_new_callback_stream(my_accept, NULL);
     n00b_channel_subscribe_read(srv, accept_cb, false);
 
     n00b_eprintf("Your two minutes begins on the first tick.");

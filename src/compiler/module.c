@@ -155,7 +155,7 @@ one_lookup_try(n00b_compile_ctx *ctx,
                                      n00b_ka(n00b_string_byte_len(contents)),
                                      "ptr",
                                      n00b_ka(contents->data)));
-    n00b_channel_t *s = n00b_instream_buffer(b);
+    n00b_stream_t *s = n00b_instream_buffer(b);
 
     if (!n00b_lex(result, s)) {
         ctx->fatality = true;
