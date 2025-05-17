@@ -218,7 +218,6 @@ n00b_backtrace_utf8(void)
     if (tsi->u8_backtracing) {
         return NULL;
     }
-    n00b_gts_stop_the_world();
     tsi->u8_backtracing = true;
 
     tsi->bt_utf8_result = "Backtrace:\n";
@@ -227,8 +226,6 @@ n00b_backtrace_utf8(void)
     tsi->u8_backtracing = false;
 
     n00b_string_t *res = n00b_cstring(tsi->bt_utf8_result);
-
-    n00b_gts_restart_the_world();
 
     return res;
 }

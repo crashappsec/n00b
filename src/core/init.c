@@ -103,7 +103,6 @@ load_env(n00b_dict_t *environment_vars)
         hatrack_dict_put(environment_vars, key, value);
         n00b_assert(hatrack_dict_get(environment_vars, key, NULL) == value);
     }
-    n00b_gc_register_root(&cached_environment_vars, 1);
     cached_environment_vars = environment_vars;
 }
 
@@ -346,8 +345,6 @@ n00b_add_static_symbols(void)
     FSTAT(n00b_get_c_backtrace);
     FSTAT(n00b_lookup_color);
     FSTAT(n00b_to_vga);
-    FSTAT(n00b_read_utf8_file);
-    FSTAT(n00b_read_binary_file);
     FSTAT(n00b_list_resize);
     FSTAT(n00b_list_append);
     FSTAT(n00b_list_sort);
@@ -355,11 +352,22 @@ n00b_add_static_symbols(void)
     FSTAT(n00b_list_contains);
 }
 
+extern void      n00b_fd_init_io(void);
+struct timespec *n00b_io_duration = NULL;
+
+static void *
+start_io(void *ignore)
+{
+    n00b_fd_run_evloop(n00b_system_dispatcher, n00b_io_duration);
+    return NULL;
+}
+
 static void
 n00b_initialize_library(void)
 {
     n00b_init_program_timestamp();
-    n00b_io_init();
+    n00b_fd_init_io();
+    n00b_thread_spawn((void *)start_io, NULL);
 }
 
 extern void n00b_crash_init(void);
@@ -394,21 +402,19 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_gc_register_root(&n00b_extensions, 1);
         n00b_gc_register_root(&cached_environment_vars, 1);
         n00b_gc_register_root(&mmm_free_tids, sizeof(mmm_free_tids) / 8);
+        n00b_gc_register_root(&exit_handlers, 1);
         n00b_initialize_global_types();
         n00b_init_common_string_cache();
         n00b_backtrace_init(n00b_stashed_argv[0]);
         n00b_gc_set_system_finalizer((void *)n00b_finalize_allocation);
+        n00b_setup_signals();
         n00b_crash_init();
         n00b_register_builtins();
         n00b_init_path();
         n00b_theme_initialization();
         n00b_assertion_init();
-        n00b_long_term_pin(n00b_internal_heap);
-        n00b_internal_io_setup();
         n00b_initialize_library();
 
         n00b_startup_complete = true;
-
-        n00b_launch_io_loop();
     }
 }

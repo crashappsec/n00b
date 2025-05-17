@@ -378,6 +378,7 @@ md_block_merge(md_table_ctx *ctx, bool block, n00b_list_t *saved)
         return;
     case 1:
         s = n00b_list_get(ctx->entities, 0, NULL);
+
         if (block) {
             n00b_list_append(saved, n00b_call_out(s));
         }
@@ -395,6 +396,7 @@ md_block_merge(md_table_ctx *ctx, bool block, n00b_list_t *saved)
             n00b_table_add_cell(t, n00b_list_get(ctx->entities, i, NULL));
         }
 
+        n00b_table_end(t);
         n00b_list_append(saved, t);
 
         ctx->entities = saved;
@@ -407,18 +409,22 @@ md_header_merge(md_table_ctx *ctx, char *tag, n00b_list_t *saved)
     n00b_list_t   *styled = n00b_list(n00b_type_ref());
     n00b_string_t *t      = n00b_cstring(tag);
 
+    md_newline(ctx);
+
     int l = n00b_list_len(ctx->entities);
 
     for (int i = 0; i < l; i++) {
         void *item = n00b_list_get(ctx->entities, i, NULL);
         if (n00b_type_is_string(n00b_get_my_type(item))) {
-            n00b_string_style_by_tag(item, t);
+            n00b_list_append(styled, n00b_string_style_by_tag(item, t));
         }
         else {
             n00b_list_append(styled, item);
         }
     }
-    md_block_merge(ctx, false, styled);
+
+    ctx->entities = styled;
+    md_block_merge(ctx, false, saved);
 }
 
 static void
@@ -444,7 +450,7 @@ md_node_to_table(md_table_ctx *ctx)
     case N00B_MD_SPAN_WIKI_LINK:
     case N00B_MD_SPAN_U:
         saved_str = ctx->str;
-        saved_str = NULL;
+        ctx->str  = NULL;
         break;
     case N00B_MD_DOCUMENT:
         break;
@@ -452,7 +458,11 @@ md_node_to_table(md_table_ctx *ctx)
         if (!ctx->keep_soft_newlines) {
             return;
         }
-        // fallthrough
+        if (!ctx->str) {
+            ctx->str = n00b_cached_empty_string();
+        }
+        md_newline(ctx);
+        return;
     case N00B_MD_TEXT_BR:
         if (!ctx->str) {
             ctx->str = n00b_cached_empty_string();
@@ -476,6 +486,10 @@ md_node_to_table(md_table_ctx *ctx)
         saved_table = ctx->table;
         ctx->table  = NULL;
         break;
+    case N00B_MD_BLOCK_H:
+        saved_entities = ctx->entities;
+        ctx->entities  = n00b_list(n00b_type_ref());
+        break;
     default:
         saved_entities = ctx->entities;
         ctx->entities  = n00b_list(n00b_type_ref());
@@ -487,30 +501,45 @@ md_node_to_table(md_table_ctx *ctx)
     switch (n->node_type) {
     case N00B_MD_SPAN_EM:
         ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("em"));
-finish_span:
-        if (saved_str && ctx->str) {
-            ctx->str = n00b_string_concat(saved_str, ctx->str);
-        }
-        else {
-            if (!ctx->str) {
-                ctx->str = saved_str;
-            }
+
+        if (saved_str) {
+            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            saved_str = NULL;
         }
 
         return;
+
     case N00B_MD_SPAN_STRONG:
         ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("b"));
-        goto finish_span;
+
+        if (saved_str) {
+            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            saved_str = NULL;
+        }
+        return;
     case N00B_MD_SPAN_U:
         ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("u"));
-        goto finish_span;
+        if (saved_str) {
+            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            saved_str = NULL;
+        }
+        return;
     case N00B_MD_SPAN_STRIKETHRU:
         ctx->str = n00b_string_style_by_tag(ctx->str,
                                             n00b_cstring("strikethrough"));
-        goto finish_span;
+        if (saved_str) {
+            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            saved_str = NULL;
+        }
+        return;
     case N00B_MD_SPAN_A_SELF:
     case N00B_MD_SPAN_A_CODELINK:
-        goto finish_span;
+finish_span:
+        if (saved_str) {
+            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            saved_str = NULL;
+        }
+        return;
     case N00B_MD_SPAN_CODE:
     case N00B_MD_SPAN_LATEX:
     case N00B_MD_SPAN_LATEX_DISPLAY:
@@ -551,6 +580,9 @@ finish_span:
     case N00B_MD_BLOCK_BODY:
     case N00B_MD_BLOCK_HTML:
     case N00B_MD_BLOCK_P:
+        md_newline(ctx);
+        ctx->str = n00b_cached_empty_string();
+
         md_block_merge(ctx, false, saved_entities);
         break;
     case N00B_MD_BLOCK_TD:
@@ -579,7 +611,11 @@ finish_block:
         md_block_merge(ctx, false, saved_entities);
         return;
     case N00B_MD_BLOCK_H:
-        md_newline(ctx);
+        if (ctx->str) {
+            n00b_list_append(ctx->entities, ctx->str);
+            ctx->str = NULL;
+        }
+
         char *s;
         switch (n->detail.h.level) {
         case 1:
@@ -609,7 +645,6 @@ finish_block:
         return;
     case N00B_MD_BLOCK_TR:
         md_newline(ctx);
-
         if (!ctx->table) {
             ctx->table = n00b_table("style", N00B_TABLE_SIMPLE);
         }
@@ -660,6 +695,7 @@ finish_block:
         md_newline(ctx);
         return;
     }
+    return;
 }
 
 n00b_table_t *

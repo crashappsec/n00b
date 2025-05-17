@@ -45,7 +45,7 @@ struct n00b_table_t {
     // Theoretically, we could stream a cell at a time when column
     // height is limited to 1, but meh. Currently, we're not limiting
     // the column height!
-    n00b_stream_t          *outstream;
+    struct n00b_channel_t  *outstream;
     //
     // The stashed title, if any (printed to span the entire table).
     // If it exists when we

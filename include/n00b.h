@@ -1,7 +1,5 @@
 #pragma once
 
-extern bool n00b_startup_complete;
-
 // #define _XOPEN_SOURCE 700
 // #define _POSIX_C_SOURCE 200809L
 #include "n00b/config.h"
@@ -18,7 +16,12 @@ typedef struct n00b_string_t n00b_string_t;
 // prototyping.
 #include "util/defer.h"
 #include "util/assert.h"
+#include "util/close.h"
 #include "n00b/base.h"
+
+extern bool n00b_startup_complete;
+
+#include "core/signal.h"
 #include "core/init.h"
 #include "core/env.h"    // env variable API
 #include "core/exit.h"
@@ -68,10 +71,30 @@ typedef struct n00b_string_t n00b_string_t;
 #include "util/notify.h"
 
 // IO primitives.
-#include "io/term.h"
-#include "io/iocore.h"
-#include "io/ioqueue.h"
-#include "io/proc.h" // To replace subproc.h
+#include "channels/print.h"
+#include "util/hex.h"
+#include "text/layout.h"
+#include "text/ansi.h"
+#include "text/regex.h"
+
+#include "channels/fd_event.h"
+#include "channels/observable.h"
+#include "channels/filter.h"
+#include "channels/channel.h"
+#include "channels/channel_fd.h"
+#include "channels/channel_cb.h"
+#include "channels/channel_buffer.h"
+#include "channels/channel_topic.h"
+#include "channels/channel_exit.h"
+#include "channels/channel_proxy.h"
+#include "channels/channel_string.h"
+#include "channels/terminal_io.h"
+#include "channels/debug.h"
+#include "channels/marshal.h"
+
+#include "channels/proc.h"
+#include "channels/session.h"
+#include "channels/http.h"
 
 // Mixed data type API.
 #include "adts/mixed.h"
@@ -120,23 +143,14 @@ typedef struct n00b_string_t n00b_string_t;
 #include "runtime/ffi.h"
 #include "util/watch.h"
 
-#include "io/http.h"
-#include "io/file.h"
-#include "io/filters.h"
-#include "io/marshal.h"
-
 #include "util/parsing.h"  // generic parser via Earley parsing.
 #include "util/getopt.h"   // Getopt parsing.
 #include "text/markdown.h" // Wrap of vendored md4c.
 
 // Helper functions for object marshal implementations to
 // marshal primitive values.
-#include "util/hex.h"
-#include "io/debug.h"
 
-#include "text/layout.h"
-#include "text/ansi.h"
-#include "text/regex.h"
-
-#include "io/session.h"
 #include "util/testgen.h"
+
+#include "debug/workflow.h"
+#include "debug/debug.h"

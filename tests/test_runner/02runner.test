@@ -1,0 +1,21 @@
+# The capture merged stdout/stderr. This command ensures replays do too.
+MERGE
+# Ran /bin/bash:["--rcfile", "/var/folders/lj/gfrdknws4nx_4yzx2f3vc0h00000gn/T/69d113ff9cff1e6b", "-i"]
+# @2025-04-22 01:09:25 PM -0400
+# This sets the width and height of the test terminal.
+SIZE 79:51
+# PROMPT matches whenever the starting shell is bash, 
+# and that shell gives you a prompt.
+# If you run tasks in the foreground, it will match
+# on processes exiting.
+PROMPT
+INJECT tput cols\n
+# Leave the following for an exact match of the core text below.
+# Change the verb to PATTERN to use an (unanchored) regexp.
+# ERR_ in front of a verb matches the error stream; otherwise, it
+# will match the output stream.
+EXPECT 79\n
+PROMPT
+INJECT tput lines\n
+EXPECT 51\n
+PROMPT

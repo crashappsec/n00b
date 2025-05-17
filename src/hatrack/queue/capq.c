@@ -776,14 +776,14 @@ capq_migrate(capq_store_t *store, mmm_thread_t *thread, capq_t *top)
     for (i = 0; i < store->size; i++) {
         u.num = atomic_fetch_or_explicit((_Atomic __uint128_t *)&store->cells[i],
                                          moving_cell.num,
-                                         memory_order_relaxed);
+                                         memory_order_seq_cst);
 
         expected_item = u.cell;
 
         if (!capq_is_enqueued(expected_item.state)) {
             atomic_fetch_or_explicit((_Atomic __uint128_t *)&store->cells[i],
                                      moved_cell.num,
-                                     memory_order_relaxed);
+                                     memory_order_seq_cst);
             continue;
         }
 

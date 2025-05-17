@@ -367,13 +367,13 @@ typedef struct {
 
 typedef struct {
     n00b_string_t *name;
-    n00b_type_t *tid;
+    n00b_type_t   *tid;
     // Nim casts this around as a pointer, but it's always used as an integer
     // index into an array.
-    int64_t      impl;
-    int32_t      mid;
-    bool         ffi;
-    bool         skip_boxes;
+    int64_t        impl;
+    int32_t        mid;
+    bool           ffi;
+    bool           skip_boxes;
 } n00b_zcallback_t;
 
 // stack values have no indicator of what's actually stored, instead relying on
@@ -404,8 +404,8 @@ typedef struct {
 } n00b_zsymbol_t;
 
 typedef struct {
-    n00b_string_t  *funcname;
-    n00b_dict_t *syms; // int64_t, string
+    n00b_string_t *funcname;
+    n00b_dict_t   *syms; // int64_t, string
 
     // sym_types maps offset to type ids at compile time. Particularly
     // for debugging info, but will be useful if we ever want to, from
@@ -416,14 +416,14 @@ typedef struct {
     // later.
     //
     // At run-time, the type will always need to be concrete.
-    n00b_list_t *sym_types; // tspec_ref: n00b_zsymbol_t
-    n00b_type_t *tid;
-    n00b_string_t  *shortdoc;
-    n00b_string_t  *longdoc;
-    int32_t      mid;    // module_id
-    int32_t      offset; // offset to start of instructions in module
-    int32_t      size;   // Stack frame size.
-    int32_t      static_lock;
+    n00b_list_t   *sym_types; // tspec_ref: n00b_zsymbol_t
+    n00b_type_t   *tid;
+    n00b_string_t *shortdoc;
+    n00b_string_t *longdoc;
+    int32_t        mid;    // module_id
+    int32_t        offset; // offset to start of instructions in module
+    int32_t        size;   // Stack frame size.
+    int32_t        static_lock;
 } n00b_zfn_info_t;
 
 enum {
@@ -507,8 +507,8 @@ typedef struct {
     // The stuff in this struct isn't saved out; it needs to be
     // reinitialized on each startup.
 #ifdef N00B_DEV
-    n00b_buf_t    *print_buf;
-    n00b_stream_t *print_stream;
+    n00b_buf_t            *print_buf;
+    struct n00b_channel_t *print_stream;
 #endif
 } n00b_zrun_state_t;
 

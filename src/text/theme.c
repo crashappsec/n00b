@@ -562,6 +562,7 @@ initialize_tag_repo(void)
     n00b_box_props_t *rev_props     = n00b_new(n00b_type_box_props());
     n00b_box_props_t *title_props   = n00b_new(n00b_type_box_props());
     n00b_box_props_t *caption_props = n00b_new(n00b_type_box_props());
+    n00b_box_props_t *head_props    = n00b_new(n00b_type_box_props());
 
     p_props->text_style.fg_palate_index = N00B_THEME_PRIMARY_TEXT;
     p_props->text_style.bg_palate_index = N00B_THEME_PRIMARY_BACKGROUND;
@@ -654,6 +655,14 @@ initialize_tag_repo(void)
     title_props->cols_to_span               = N00B_COL_SPAN_ALL;
     title_props->alignment                  = N00B_ALIGN_BOTTOM_CENTER;
 
+    head_props->text_style.fg_palate_index = N00B_THEME_ACCENT_1_LIGHTER;
+    head_props->text_style.bg_palate_index = N00B_THEME_LIGHTER_BACKGROUND;
+    head_props->text_style.text_case       = N00B_TEXT_UPPER;
+    head_props->text_style.bold            = N00B_3_YES;
+    head_props->left_pad                   = 1;
+    head_props->right_pad                  = 1;
+    head_props->top_pad                    = 1;
+
     caption_props->text_style.fg_palate_index = N00B_THEME_DARKEST_TEXT;
     caption_props->text_style.bg_palate_index = N00B_THEME_LIGHTEST_BACKGROUND;
     caption_props->text_style.italic          = N00B_3_YES;
@@ -693,6 +702,7 @@ initialize_tag_repo(void)
     hatrack_dict_put(n00b_tag_repository, n00b_cstring("em5"), em5_props);
     hatrack_dict_put(n00b_tag_repository, n00b_cstring("em6"), em6_props);
     hatrack_dict_put(n00b_tag_repository, n00b_cstring("title"), title_props);
+    hatrack_dict_put(n00b_tag_repository, n00b_cstring("head"), head_props);
     hatrack_dict_put(n00b_tag_repository,
                      n00b_cstring("caption"),
                      caption_props);

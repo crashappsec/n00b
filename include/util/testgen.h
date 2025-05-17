@@ -3,7 +3,7 @@
 
 #ifdef N00B_USE_INTERNAL_API
 
-#define N00B_TEST_TIMEOUT_SEC_DEFAULT 5
+#define N00B_TEST_TIMEOUT_SEC_DEFAULT 10
 #endif
 
 typedef enum {
@@ -33,26 +33,26 @@ typedef struct {
 } n00b_test_cmd_t;
 
 typedef struct {
-    n00b_string_t *name;
-    n00b_string_t *path;
-    n00b_string_t *group;
-    n00b_string_t *fail_state;
-    n00b_list_t   *fail_state_triggers;
-    int64_t        id;
-    uint64_t       timeout_sec;
-    bool           enabled;
-    bool           run;
-    bool           pass;
-    bool           quiet;
-    bool           verbose;
-    bool           got_timeout;
-    bool           use_ansi;
-    bool           merge_io;
-    int            next_eventid;
-    n00b_list_t   *commands;
-    n00b_stream_t *replay_stream;
-    n00b_table_t  *state_repr;
-    n00b_list_t   *aux_error;
+    n00b_string_t  *name;
+    n00b_string_t  *path;
+    n00b_string_t  *group;
+    n00b_string_t  *fail_state;
+    n00b_list_t    *fail_state_triggers;
+    int64_t         id;
+    uint64_t        timeout_sec;
+    bool            enabled;
+    bool            run;
+    bool            pass;
+    bool            quiet;
+    bool            verbose;
+    bool            got_timeout;
+    bool            use_ansi;
+    bool            merge_io;
+    int             next_eventid;
+    n00b_list_t    *commands;
+    n00b_channel_t *replay_stream;
+    n00b_table_t   *state_repr;
+    n00b_list_t    *aux_error;
 } n00b_test_t;
 
 typedef struct {
@@ -74,12 +74,15 @@ typedef struct {
     int            tests_in_test_dir;
     int            enabled_in_test_dir;
     int            groups_in_use;
+    int            c1_width;
+    int            c2_width;
+    int            c3_width;
 } n00b_testing_ctx;
 
 extern void              n00b_testgen_record(n00b_string_t *, bool, bool, bool);
 extern n00b_test_t      *n00b_testgen_load_test_file(n00b_string_t *, int);
 extern n00b_testing_ctx *_n00b_testgen_setup(N00B_OPT_KARGS);
-extern void              n00b_testgen_start_runner(n00b_testing_ctx *);
+extern int               n00b_testgen_run_tests(n00b_testing_ctx *);
 
 #define n00b_testgen_setup(...) \
     _n00b_testgen_setup(__VA_ARGS__ __VA_OPT__(, ) NULL)

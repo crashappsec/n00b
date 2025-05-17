@@ -567,6 +567,40 @@ n00b_duration_add(n00b_duration_t *t1, n00b_duration_t *t2)
     return result;
 }
 
+#define MS_PER_SEC 1000
+#define NS_PER_MS  1000000
+
+n00b_duration_t *
+n00b_new_ms_timeout(int ms)
+{
+    struct timespec addon = {
+        .tv_sec  = ms / MS_PER_SEC,
+        .tv_nsec = (ms % MS_PER_SEC) * NS_PER_MS,
+    };
+
+    struct timespec now;
+    n00b_write_now(&now);
+    return n00b_duration_add((void *)&now, (void *)&addon);
+}
+
+n00b_duration_t *
+n00b_duration_from_ms(int ms)
+{
+    int64_t sec  = ms / MS_PER_SEC;
+    int64_t nsec = (ms % MS_PER_SEC) * NS_PER_MS;
+
+    return n00b_new(n00b_type_duration(), n00b_kw("sec", sec, "nanosec", nsec));
+}
+
+int64_t
+n00b_duration_to_ms(n00b_duration_t *d)
+{
+    int64_t ms = d->tv_nsec / NS_PER_MS;
+    ms += d->tv_sec * MS_PER_SEC;
+
+    return ms;
+}
+
 n00b_duration_t *
 n00b_duration_multiply(n00b_duration_t *d, double m)
 {

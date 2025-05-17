@@ -1,0 +1,28 @@
+# The capture merged stdout/stderr. This command ensures replays do too.
+# @2025-04-26 07:06:39 PM -0400
+# This sets the width and height of the test terminal.
+# PROMPT matches whenever the starting shell is bash, 
+# and that shell gives you a prompt.
+# If you run tasks in the foreground, it will match
+# on processes exiting.
+PROMPT
+INJECT . ./setup.sh word_split.c\n
+EXPECT Word 0: I
+EXPECT Word 1: do
+EXPECT Word 2: not
+EXPECT Word 3: know
+EXPECT Word 4: --
+EXPECT Word 5: what's
+EXPECT Word 6: the
+EXPECT Word 7: answer
+EXPECT Word 8: ?!?!?!!!
+EXPECT Word 9: I
+EXPECT Word 10: know
+EXPECT Word 11: I'm
+EXPECT Word 12: asking
+EXPECT Word 13: for
+EXPECT Word 14: the
+EXPECT Word 15: 3,100,270.002th
+EXPECT Word 16: time
+EXPECT Word 17: !!
+PROMPT

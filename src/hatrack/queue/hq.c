@@ -625,7 +625,7 @@ hq_migrate(hq_store_t *store, mmm_thread_t *thread, hq_t *top)
 
     atomic_fetch_or_explicit(&store->dequeue_index,
                              HQ_MOVING,
-                             memory_order_relaxed);
+                             memory_order_seq_cst);
 
     highest = 0;
 
@@ -647,12 +647,12 @@ hq_migrate(hq_store_t *store, mmm_thread_t *thread, hq_t *top)
         if (!hq_is_queued(expected_item.state)) {
             atomic_fetch_or_explicit((_Atomic __uint128_t *)&store->cells[i],
                                      moved_cell.num,
-                                     memory_order_relaxed);
+                                     memory_order_seq_cst);
         }
         else {
             atomic_fetch_or_explicit((_Atomic __uint128_t *)&store->cells[i],
                                      moving_cell.num,
-                                     memory_order_relaxed);
+                                     memory_order_seq_cst);
         }
     }
 

@@ -128,7 +128,8 @@ one_lookup_try(n00b_compile_ctx *ctx,
             contents                      = n00b_http_op_get_output_utf8(r);
         }
         else {
-            contents = n00b_read_utf8_file(attempt, true);
+            contents = n00b_read_file(attempt,
+                                      n00b_kw("lock", n00b_ka("true")));
         }
         if (contents != NULL) {
             break;
@@ -149,12 +150,12 @@ one_lookup_try(n00b_compile_ctx *ctx,
     result->full_uri   = attempt;
     result->modref     = key;
 
-    n00b_buf_t    *b = n00b_new(n00b_type_buffer(),
+    n00b_buf_t     *b = n00b_new(n00b_type_buffer(),
                              n00b_kw("length",
                                      n00b_ka(n00b_string_byte_len(contents)),
                                      "ptr",
                                      n00b_ka(contents->data)));
-    n00b_stream_t *s = n00b_instream_buffer(b);
+    n00b_channel_t *s = n00b_instream_buffer(b);
 
     if (!n00b_lex(result, s)) {
         ctx->fatality = true;

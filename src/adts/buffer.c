@@ -1,6 +1,23 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+n00b_buf_t *
+n00b_buffer_from_codepoint(n00b_codepoint_t cp)
+{
+    n00b_buf_t     *result = n00b_gc_alloc(sizeof(n00b_buf_t) + 4);
+    n00b_alloc_hdr *hdr    = ((n00b_alloc_hdr *)result) - 1;
+    uint8_t        *p      = (uint8_t *)(result + 1);
+
+    n00b_rw_lock_init(&result->lock);
+    hdr->n00b_obj = true;
+    hdr->type     = n00b_type_buffer();
+    if (utf8proc_encode_char(cp, p) <= 0) {
+        N00B_CRAISE("Not a codepoint.");
+    }
+
+    return result;
+}
+
 static void
 buffer_init(n00b_buf_t *obj, va_list args)
 {
