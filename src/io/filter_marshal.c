@@ -1073,7 +1073,7 @@ n00b_autounmarshal(n00b_buf_t *b)
     n00b_filter_spec_t *f  = n00b_filter_unmarshal(true);
     n00b_stream_t     *cb = n00b_new_callback_stream(helper_cb, &result, f);
 
-    n00b_channel_write(cb, b);
+    n00b_write(cb, b);
 
     return result;
 }
@@ -1085,7 +1085,7 @@ n00b_automarshal(void *obj)
     n00b_filter_spec_t *f  = n00b_filter_marshal(false);
     n00b_stream_t     *cb = n00b_new_callback_stream(helper_cb, &result, f);
 
-    n00b_channel_write(cb, obj);
+    n00b_write(cb, obj);
 
     return result;
 }

@@ -987,7 +987,7 @@ static void
 core_emit(n00b_table_t *table, n00b_string_t *s)
 {
     if (table->outstream) {
-        n00b_channel_queue(table->outstream, s);
+        n00b_queue(table->outstream, s);
     }
     else {
         n00b_private_list_append(table->render_cache, s);

@@ -10,8 +10,6 @@ static pthread_once_t       io_inited              = PTHREAD_ONCE_INIT;
 _Atomic(n00b_condition_t *) n00b_io_exit_request   = NULL;
 bool                        n00b_io_exited         = false;
 
-extern void n00b_setup_term_channels(void);
-
 static void
 setup_io(void)
 {
@@ -20,7 +18,7 @@ setup_io(void)
     n00b_gc_register_root(&fd_cache, 1);
     fd_cache               = n00b_dict(n00b_type_int(), n00b_type_ref());
     n00b_system_dispatcher = n00b_new_event_context(N00B_EV_POLL);
-    n00b_setup_term_channels();
+    n00b_setup_terminal_streams();
 }
 
 typedef struct {
@@ -771,10 +769,10 @@ handle_one_read(n00b_fd_stream_t *s)
         n00b_net_addr_t  *saddr = n00b_new(n00b_type_net_addr(),
                                           n00b_kw("sockaddr", &addr));
         n00b_fd_stream_t *fd    = n00b_fd_stream_from_fd(sock, NULL, NULL);
-        n00b_stream_t   *chan  = n00b_new_fd_channel(fd, saddr);
+        n00b_stream_t    *strm  = n00b_new_fd_stream(fd, saddr);
 
         n00b_fd_stream_nonblocking(fd);
-        fd_post(s, s->read_subs, chan);
+        fd_post(s, s->read_subs, strm);
         return false;
     }
 

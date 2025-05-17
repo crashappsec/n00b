@@ -35,7 +35,7 @@ n00b_play_capture(n00b_cmdline_ctx *ctx)
 
     N00B_TRY
     {
-        stream = n00b_channel_open_file(arg, "read_only", n00b_ka(true));
+        stream = n00b_stream_open_file(arg, "read_only", n00b_ka(true));
     }
     N00B_EXCEPT
     {

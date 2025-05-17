@@ -172,7 +172,7 @@ n00b_exception_uncaught(n00b_exception_t *exception)
     n00b_string_t *msg = n00b_repr_exception_stack_no_vm(
         n00b_cstring("FATAL ERROR:"));
 
-    n00b_print(n00b_chan_stderr(),
+    n00b_print(n00b_stderr(),
                msg,
                NULL);
 

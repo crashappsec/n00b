@@ -59,7 +59,7 @@ n00b_filter_add(n00b_stream_t *c, n00b_filter_spec_t *spec)
 // The pkg construct is currently more to be able to add debug logging if
 // needed.
 n00b_list_t *
-n00b_filter_writes(n00b_stream_t *c, n00b_cmsg_t *pkg)
+n00b_filter_writes(n00b_stream_t *c, n00b_stream_msg_t *pkg)
 {
     n00b_filter_t *f      = c->write_top;
     int            n_msgs = pkg->nitems;
@@ -107,13 +107,13 @@ n00b_filter_writes(n00b_stream_t *c, n00b_cmsg_t *pkg)
 void
 n00b_flush(n00b_stream_t *c)
 {
-    n00b_list_t        *cur_msgs    = n00b_list(n00b_type_ref());
-    n00b_list_t        *next_msgs   = cur_msgs;
-    n00b_filter_t      *f           = c->write_top;
-    bool                found_flush = false;
-    n00b_list_t        *pass;
-    n00b_chan_filter_fn fn;
-    int                 n_msgs;
+    n00b_list_t          *cur_msgs    = n00b_list(n00b_type_ref());
+    n00b_list_t          *next_msgs   = cur_msgs;
+    n00b_filter_t        *f           = c->write_top;
+    bool                  found_flush = false;
+    n00b_list_t          *pass;
+    n00b_stream_filter_fn fn;
+    int                   n_msgs;
 
     n00b_list_append(cur_msgs, NULL);
 
@@ -168,7 +168,7 @@ n00b_flush(n00b_stream_t *c)
 }
 
 n00b_list_t *
-n00b_filter_reads(n00b_stream_t *c, n00b_cmsg_t *pkg)
+n00b_filter_reads(n00b_stream_t *c, n00b_stream_msg_t *pkg)
 {
     n00b_filter_t *f      = c->read_top;
     int            n_msgs = pkg->nitems;

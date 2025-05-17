@@ -27,7 +27,7 @@ write_capture_header(n00b_stream_t *s)
 
     *mp = (int64_t)N00B_SESSION_MAGIC;
     memcpy(p, d, sizeof(n00b_duration_t));
-    n00b_channel_unfiltered_write(s, b);
+    n00b_stream_unfiltered_write(s, b);
 }
 
 static inline void
@@ -43,7 +43,7 @@ add_record_header(n00b_cap_event_t *event, n00b_stream_t *s)
     p += sizeof(n00b_duration_t);
     *(int16_t *)p = (int16_t)event->kind;
 
-    n00b_channel_unfiltered_write(s, b);
+    n00b_stream_unfiltered_write(s, b);
 }
 
 static inline void
@@ -61,8 +61,8 @@ add_capture_payload_str(n00b_string_t *s, n00b_stream_t *strm)
                                       "ptr",
                                       s->data));
 
-    n00b_channel_unfiltered_write(strm, b1);
-    n00b_channel_unfiltered_write(strm, b2);
+    n00b_stream_unfiltered_write(strm, b1);
+    n00b_stream_unfiltered_write(strm, b2);
 }
 
 static inline void
@@ -81,7 +81,7 @@ add_capture_winch(struct winsize *dims, n00b_stream_t *strm)
                                      (int64_t)sizeof(struct winsize),
                                      "ptr",
                                      dims));
-    n00b_channel_unfiltered_write(strm, b);
+    n00b_stream_unfiltered_write(strm, b);
 }
 
 static inline void
@@ -94,7 +94,7 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
                              n00b_kw("length", sizeof(uint32_t)));
 
     *(int32_t *)b->data = n;
-    n00b_channel_unfiltered_write(strm, b);
+    n00b_stream_unfiltered_write(strm, b);
 
     for (int i = 0; i < n; i++) {
         n00b_string_t *s = n00b_list_get(si->args, i, NULL);
@@ -169,7 +169,7 @@ n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
     e->contents = contents;
     e->kind     = kind;
 
-    n00b_channel_write(s->capture_stream, e);
+    n00b_write(s->capture_stream, e);
     n00b_capture_encode(s->unproxied_capture, NULL, e);
 }
 
@@ -198,14 +198,14 @@ n00b_setup_capture(n00b_session_t *s, n00b_stream_t *target, int policy)
         N00B_CRAISE("Currently sessions support only one capture stream");
     }
 
-    if (!n00b_channel_can_write(target)) {
+    if (!n00b_stream_can_write(target)) {
         N00B_CRAISE("Capture stream must be open and writable.");
     }
 
-    s->cap_filename      = n00b_channel_get_name(target);
+    s->cap_filename      = n00b_stream_get_name(target);
     s->unproxied_capture = target;
 
-    n00b_stream_t *p = n00b_new_channel_proxy(target);
+    n00b_stream_t *p = n00b_new_stream_proxy(target);
 
     s->capture_stream = p;
     s->capture_policy = policy;

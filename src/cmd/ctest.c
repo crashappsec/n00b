@@ -76,7 +76,7 @@ iotest(n00b_stream_t *p1, void *s)
         n00b_exit(0);
     }
 
-    n00b_channel_write(n00b_stderr(), s);
+    n00b_write(n00b_stderr(), s);
 
     n00b_debug("iteration", (void *)(uint64_t)i++);
     n00b_debug("testing", s);

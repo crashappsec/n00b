@@ -6,7 +6,7 @@ launch_wait(n00b_stream_t *stream)
 {
     bool err;
 
-    n00b_exit_info_t *c = n00b_get_channel_cookie(stream);
+    n00b_exit_info_t *c = n00b_get_stream_cookie(stream);
 
     n00b_thread_async_cancelable();
     n00b_gts_suspend();
@@ -27,9 +27,9 @@ launch_wait(n00b_stream_t *stream)
 }
 
 static int
-exitchan_init(n00b_stream_t *stream, n00b_list_t *args)
+exit_stream_init(n00b_stream_t *stream, n00b_list_t *args)
 {
-    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_channel_cookie(stream);
+    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_stream_cookie(stream);
     c->pid              = (int64_t)n00b_private_list_pop(args);
     c->waiter           = n00b_thread_spawn((void *)launch_wait, stream);
     stream->name        = n00b_cformat("pid(exit): [|#|]", c->pid);
@@ -38,9 +38,9 @@ exitchan_init(n00b_stream_t *stream, n00b_list_t *args)
 }
 
 static void *
-exitchan_read(n00b_stream_t *stream, bool *err)
+exit_stream_read(n00b_stream_t *stream, bool *err)
 {
-    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_channel_cookie(stream);
+    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_stream_cookie(stream);
 
     if (!c->exited) {
         *err = true;
@@ -52,9 +52,9 @@ exitchan_read(n00b_stream_t *stream, bool *err)
 }
 
 static bool
-exitchan_close(n00b_stream_t *stream)
+exit_stream_close(n00b_stream_t *stream)
 {
-    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_channel_cookie(stream);
+    n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_stream_cookie(stream);
 
     if (!c->exited) {
         kill(c->pid, SIGKILL);
@@ -66,7 +66,7 @@ exitchan_close(n00b_stream_t *stream)
 // If we get a subscriber, make sure they get the message.  TODO: add
 // an option to get EVERY subscriber, not just the first.
 void
-exitchan_on_first_subscriber(n00b_stream_t *c, n00b_exit_info_t *info)
+exit_stream_on_first_subscriber(n00b_stream_t *c, n00b_exit_info_t *info)
 {
     bool err;
 
@@ -76,20 +76,20 @@ exitchan_on_first_subscriber(n00b_stream_t *c, n00b_exit_info_t *info)
     }
 }
 
-static n00b_chan_impl exitchan_impl = {
+static n00b_stream_impl exit_stream_impl = {
     .cookie_size             = sizeof(n00b_exit_info_t),
-    .init_impl               = (void *)exitchan_init,
-    .read_impl               = (void *)exitchan_read,
-    .close_impl              = (void *)exitchan_close,
-    .read_subscribe_cb       = (void *)exitchan_on_first_subscriber,
+    .init_impl               = (void *)exit_stream_init,
+    .read_impl               = (void *)exit_stream_read,
+    .close_impl              = (void *)exit_stream_close,
+    .read_subscribe_cb       = (void *)exit_stream_on_first_subscriber,
     .poll_for_blocking_reads = true,
 };
 
 n00b_stream_t *
-n00b_new_exit_channel(int64_t pid)
+n00b_new_exit_stream(int64_t pid)
 {
     n00b_list_t *args = n00b_list(n00b_type_ref());
     n00b_list_append(args, (void *)(int64_t)pid);
 
-    return n00b_new(n00b_type_channel(), &exitchan_impl, args);
+    return n00b_new(n00b_type_stream(), &exit_stream_impl, args);
 }

@@ -600,11 +600,11 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .mutable   = true,
     },
     // not alloc'd this way, right now.
-    [N00B_T_CHANNEL] = {
+    [N00B_T_STREAM] = {
         .name      = "stream",
-        .typeid    = N00B_T_CHANNEL,
+        .typeid    = N00B_T_STREAM,
         .alloc_len = VARIABLE_ALLOC_SZ,
-        .vtable    = &n00b_channel_vtable,
+        .vtable    = &n00b_stream_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,

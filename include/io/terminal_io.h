@@ -1,11 +1,11 @@
 #include "n00b.h"
 
-n00b_stream_t *n00b_chan_stdin(void);
-n00b_stream_t *n00b_chan_stdout(void);
-n00b_stream_t *n00b_chan_stderr(void);
-n00b_stream_t *n00b_chan_raw_stdin(void);
-n00b_stream_t *n00b_chan_raw_stdout(void);
-n00b_stream_t *n00b_chan_raw_stderr(void);
+n00b_stream_t *n00b_stdin(void);
+n00b_stream_t *n00b_stdout(void);
+n00b_stream_t *n00b_stderr(void);
+n00b_stream_t *n00b_stdin_raw(void);
+n00b_stream_t *n00b_stdout_raw(void);
+n00b_stream_t *n00b_stderr_raw(void);
 
 extern void n00b_terminal_dimensions(size_t *cols, size_t *rows);
 extern void n00b_termcap_apply_raw_mode(struct termios *termcap);
@@ -67,3 +67,7 @@ n00b_calculate_render_width(int width)
 
 extern void n00b_terminal_raw_mode(void);
 extern void n00b_terminal_app_setup(void);
+
+#ifdef N00B_USE_INTERNAL_API
+extern void n00b_setup_terminal_streams(void);
+#endif

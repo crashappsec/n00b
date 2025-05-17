@@ -119,7 +119,7 @@ n00b_session_setup_control_stream(n00b_session_t *s)
 {
     n00b_filter_spec_t *lb = n00b_filter_apply_line_buffering();
     n00b_stream_t     *cb = n00b_new_callback_stream(control_cb, s, lb);
-    n00b_channel_subscribe_read(s->subproc_ctrl_stream, cb, false);
+    n00b_stream_subscribe_read(s->subproc_ctrl_stream, cb, false);
 }
 static void
 user_read_cb(n00b_stream_t *stream, void *msg, void *aux)
@@ -149,7 +149,7 @@ subproc_injection_cb(n00b_stream_t *stream, void *msg, void *aux)
     n00b_condition_lock_acquire(&session->control_notify);
     capture(session, N00B_CAPTURE_INJECTED, input);
     session->got_injection = true;
-    n00b_channel_queue(session->subprocess->subproc_stdin, input);
+    n00b_queue(session->subprocess->subproc_stdin, input);
     add_buf_to_match_buffer(session, N00B_CAPTURE_INJECTED, input);
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
@@ -167,7 +167,7 @@ n00b_subproc_read_stdout(n00b_stream_t *stream, void *msg, void *aux)
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDOUT, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-        n00b_channel_queue(n00b_chan_stdout(), s);
+        n00b_queue(n00b_stdout(), s);
     }
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
@@ -185,7 +185,7 @@ n00b_subproc_read_stderr(n00b_stream_t *stream, void *msg, void *aux)
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDERR, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-        n00b_channel_queue(n00b_chan_stderr(), s);
+        n00b_queue(n00b_stderr(), s);
     }
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
@@ -195,7 +195,7 @@ void
 n00b_session_setup_user_read_cb(n00b_session_t *s)
 {
     n00b_stream_t *cb = n00b_new_callback_stream(user_read_cb, s);
-    n00b_channel_subscribe_read(n00b_chan_stdin(), cb, false);
+    n00b_stream_subscribe_read(n00b_stdin(), cb, false);
 }
 
 void
@@ -219,7 +219,7 @@ n00b_session_setup_state_handling(n00b_session_t *s)
     cb           = n00b_new_callback_stream(n00b_subproc_read_stdout,
                                    s,
                                    n00b_filter_parse_ansi(false));
-    s->stdout_cb = n00b_list(n00b_type_channel());
+    s->stdout_cb = n00b_list(n00b_type_stream());
 
     n00b_list_append(s->stdout_cb, cb);
 
@@ -227,7 +227,7 @@ n00b_session_setup_state_handling(n00b_session_t *s)
         cb           = n00b_new_callback_stream(n00b_subproc_read_stderr,
                                        s,
                                        n00b_filter_parse_ansi(false));
-        s->stderr_cb = n00b_list(n00b_type_channel());
+        s->stderr_cb = n00b_list(n00b_type_stream());
 
         n00b_list_append(s->stderr_cb, cb);
     }

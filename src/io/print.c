@@ -4,10 +4,10 @@ static inline void
 n00b_do_write(n00b_stream_t *stream, void *data, bool noblock)
 {
     if (noblock) {
-        n00b_channel_queue(stream, data);
+        n00b_queue(stream, data);
     }
     else {
-        n00b_channel_write(stream, data);
+        n00b_write(stream, data);
     }
 }
 
@@ -28,18 +28,18 @@ _n00b_print(void *first, ...)
     va_start(args, first);
 
     if (first == NULL) {
-        n00b_do_write(n00b_chan_stdout(), n00b_cached_newline(), true);
+        n00b_do_write(n00b_stdout(), n00b_cached_newline(), true);
         return;
     }
 
     n00b_type_t *t = n00b_get_my_type(first);
 
-    if (n00b_type_is_channel(t)) {
+    if (n00b_type_is_stream(t)) {
         stream = first;
         first  = va_arg(args, void *);
         cur    = first;
         if (!first) {
-            n00b_do_write(n00b_chan_stdout(), n00b_cached_newline(), true);
+            n00b_do_write(n00b_stdout(), n00b_cached_newline(), true);
             return;
         }
     }
@@ -71,7 +71,7 @@ _n00b_print(void *first, ...)
     }
 
     if (stream == NULL) {
-        stream = n00b_chan_stdout();
+        stream = n00b_stdout();
     }
 
     n00b_string_t *s;

@@ -20,7 +20,7 @@ echo_it(n00b_fd_stream_t *s,
 void
 test_timer(n00b_timer_t *t, n00b_duration_t *time, void *thunk)
 {
-    // n00b_show_channels();
+    // n00b_show_streams();
     n00b_timer_t *t2 = thunk;
     n00b_remove_timer(t2);
 }
@@ -41,19 +41,19 @@ callback_test(n00b_buf_t *b, void *thunk)
         n00b_exit(0);
     case '!':
         printf("\n");
-        n00b_show_channels();
+        n00b_show_streams();
         break;
     case 'G':
         n00b_dump_gts();
         break;
     case '@':
-        n00b_channel_write(n00b_chan_stderr(), capture);
+        n00b_write(n00b_stderr(), capture);
         break;
     case '%':
-        n00b_channel_write(n00b_chan_stderr(), test_file);
+        n00b_write(n00b_stderr(), test_file);
         break;
     case '\r':
-        n00b_channel_write(n00b_chan_stderr(),
+        n00b_write(n00b_stderr(),
                            n00b_string_to_buffer(n00b_cached_newline()));
         break;
     default:
@@ -64,10 +64,10 @@ callback_test(n00b_buf_t *b, void *thunk)
 }
 
 void *
-sock_close(n00b_stream_t *chan, void *rcv)
+sock_close(n00b_stream_t *stream, void *rcv)
 {
     n00b_flush(rcv);
-    n00b_channel_queue(n00b_chan_stdout(),
+    n00b_queue(n00b_stdout(),
                        n00b_crich("[|red|]Lost connection."));
     return NULL;
 }
@@ -80,23 +80,23 @@ sock_rcv(n00b_buf_t *b, void *ignore)
 }
 
 void *
-my_accept(n00b_stream_t *chan, void *ignore)
+my_accept(n00b_stream_t *stream, void *ignore)
 {
     n00b_printf("[|h6|]Got connection.");
     n00b_stream_t *rcv = n00b_new_callback_stream(sock_rcv,
                                                     NULL,
                                                     n00b_filter_hexdump(0x4a4a4a00));
-    n00b_channel_subscribe_read(chan, rcv, false);
+    n00b_stream_subscribe_read(stream, rcv, false);
 
     n00b_stream_t *close = n00b_new_callback_stream(sock_close, rcv);
-    n00b_channel_subscribe_close(chan, close);
+    n00b_stream_subscribe_close(stream, close);
     return NULL;
 }
 
 void
 signal_demo(int signal, siginfo_t *info, void *user_param)
 {
-    n00b_show_channels();
+    n00b_show_streams();
 }
 
 void
@@ -171,21 +171,21 @@ main(void)
     _n00b_fd_read_subscribe(my_stdin, echo_it, 0, &err);
     n00b_add_timer(&t, test_timer, n00b_add_timer(&t2, timer_2));
 
-    n00b_stream_t *inchan = n00b_new_channel_proxy(n00b_chan_stdin());
-    n00b_stream_t *log    = n00b_channel_open_file(n00b_cstring("/tmp/testlog"),
+    n00b_stream_t *instrm = n00b_new_stream_proxy(n00b_stdin());
+    n00b_stream_t *log    = n00b_stream_open_file(n00b_cstring("/tmp/testlog"),
                                                  "write_only",
                                                  (int64_t) true,
                                                  "allow_file_creation",
                                                  (int64_t) true);
 
-    log                = n00b_new_channel_proxy(log);
+    log                = n00b_new_stream_proxy(log);
     n00b_stream_t *cb = n00b_new_callback_stream(callback_test, NULL);
-    n00b_channel_subscribe_read(inchan, log, false);
-    n00b_channel_subscribe_read(inchan, cb, false);
-    n00b_channel_subscribe_read(cb, log, false);
+    n00b_stream_subscribe_read(instrm, log, false);
+    n00b_stream_subscribe_read(instrm, cb, false);
+    n00b_stream_subscribe_read(cb, log, false);
 
     n00b_stream_t *accept_cb = n00b_new_callback_stream(my_accept, NULL);
-    n00b_channel_subscribe_read(srv, accept_cb, false);
+    n00b_stream_subscribe_read(srv, accept_cb, false);
 
     n00b_eprintf("Your two minutes begins on the first tick.");
     n00b_eprintf("ESC exits early; ! shows subscriptions.");

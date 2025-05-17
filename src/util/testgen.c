@@ -56,12 +56,12 @@ gen_inject(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
     n00b_string_t *s;
 
     if (hdr) {
-        n00b_channel_queue(output, INJECT_HDR);
+        n00b_queue(output, INJECT_HDR);
     }
 
     s = n00b_cformat("[|#|]\n", event->contents);
     s = n00b_string_escape(s);
-    n00b_channel_queue(output, n00b_cformat("INJECT [|#|]\n", s));
+    n00b_queue(output, n00b_cformat("INJECT [|#|]\n", s));
 }
 
 static inline void
@@ -76,14 +76,14 @@ gen_expect(n00b_cap_event_t *event,
     s = n00b_string_escape(s);
 
     if (hdr) {
-        n00b_channel_queue(output, EXPECT_HDR);
+        n00b_queue(output, EXPECT_HDR);
     }
 
     if (err) {
-        n00b_channel_queue(output, n00b_cformat("ERR_EXPECT [|#|]\n", s));
+        n00b_queue(output, n00b_cformat("ERR_EXPECT [|#|]\n", s));
     }
     else {
-        n00b_channel_queue(output, n00b_cformat("EXPECT [|#|]\n", s));
+        n00b_queue(output, n00b_cformat("EXPECT [|#|]\n", s));
     }
 }
 
@@ -91,24 +91,24 @@ static inline void
 gen_prompt(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
 {
     if (hdr) {
-        n00b_channel_queue(output, PROMPT_HDR);
+        n00b_queue(output, PROMPT_HDR);
     }
 
-    n00b_channel_queue(output, n00b_cformat("PROMPT\n"));
+    n00b_queue(output, n00b_cformat("PROMPT\n"));
 }
 
 static inline void
 gen_winch(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
 {
     if (hdr) {
-        n00b_channel_queue(output, WINCH_HDR);
+        n00b_queue(output, WINCH_HDR);
     }
 
     struct winsize *ws  = event->contents;
     int64_t         col = ws->ws_col;
     int64_t         row = ws->ws_row;
 
-    n00b_channel_queue(output,
+    n00b_queue(output,
                        n00b_cformat("SIZE [|#|]:[|#|]\n", col, row));
 }
 
@@ -121,16 +121,16 @@ gen_spawn(n00b_session_t   *session,
     n00b_duration_t       *start = session->start_time;
     n00b_date_time_t      *dt    = n00b_datetime_from_duration(start);
 
-    n00b_channel_queue(output,
+    n00b_queue(output,
                        n00b_cformat("# Ran [|#|]:[|#|]\n", info->command, info->args));
-    n00b_channel_queue(output,
+    n00b_queue(output,
                        n00b_cformat("# @[|#|]\n", dt));
 }
 
 static inline void
 gen_end(n00b_stream_t *output)
 {
-    n00b_channel_queue(output, n00b_cstring("# End of session.\n"));
+    n00b_queue(output, n00b_cstring("# End of session.\n"));
 }
 
 static n00b_string_t *
@@ -141,7 +141,7 @@ build_testgen_script(n00b_session_t *session,
                      bool            merge)
 {
     n00b_stream_t *script              = n00b_tempfile(NULL, NULL);
-    n00b_string_t  *tname               = n00b_channel_get_name(script);
+    n00b_string_t  *tname               = n00b_stream_get_name(script);
     bool            gen_user_input      = false;
     bool            show_inject_comment = true;
     bool            show_expect_comment = true;
@@ -152,10 +152,10 @@ build_testgen_script(n00b_session_t *session,
     int n = n00b_list_len(events);
 
     if (merge) {
-        n00b_channel_queue(script, MERGE_HDR);
+        n00b_queue(script, MERGE_HDR);
     }
     if (ansi) {
-        n00b_channel_queue(script, ANSI_HDR);
+        n00b_queue(script, ANSI_HDR);
     }
 
     for (int i = 0; i < n; i++) {
@@ -539,11 +539,11 @@ testgen_send_winch_cb(n00b_session_t *s, n00b_trigger_t *t, void *thunk)
     int             fd;
 
     if (s->subprocess->subproc_stdout) {
-        fd = n00b_channel_fileno(s->subprocess->subproc_stdout);
+        fd = n00b_stream_fileno(s->subprocess->subproc_stdout);
         ioctl(fd, TIOCSWINSZ, dims);
     }
     if (s->subprocess->subproc_stderr) {
-        fd = n00b_channel_fileno(s->subprocess->subproc_stderr);
+        fd = n00b_stream_fileno(s->subprocess->subproc_stderr);
         ioctl(fd, TIOCSWINSZ, dims);
     }
 
@@ -1216,7 +1216,7 @@ create_matrix(n00b_testing_ctx *ctx)
     n00b_new_layout_cell(ci, n00b_kw("flex", 1ULL));
 
     n00b_table_t *result = n00b_table("outstream",
-                                      n00b_chan_stderr(),
+                                      n00b_stderr(),
 #ifndef N00B_TG_DEFAULT_TABLE
                                       "style",
                                       N00B_TABLE_SIMPLE,

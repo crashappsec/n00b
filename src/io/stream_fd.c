@@ -115,33 +115,33 @@ on_fd_close(n00b_fd_stream_t *s, n00b_stream_t *c)
 // need to call the dispatcher to pass it through any filtering and
 // hand it out to readers.
 void
-fdchan_on_read_event(n00b_fd_stream_t *s,
+fd_stream_on_read_event(n00b_fd_stream_t *s,
                      n00b_fd_sub_t    *sub,
                      void             *msg,
                      void             *thunk)
 {
     bool            err;
-    n00b_stream_t *channel = thunk;
+    n00b_stream_t *stream = thunk;
 
-    n00b_list_append(channel->read_cache, msg);
-    n00b_io_dispatcher_process_read_queue(channel, &err);
+    n00b_list_append(stream->read_cache, msg);
+    n00b_io_dispatcher_process_read_queue(stream, &err);
 }
 
-// Not static; reused by chan_listener
+// Not static; reused by stream_listener
 void
-n00b_fdchan_on_first_subscriber(n00b_stream_t *c, n00b_fd_cookie_t *p)
+n00b_fd_stream_on_first_subscriber(n00b_stream_t *c, n00b_fd_cookie_t *p)
 {
     p->sub = _n00b_fd_read_subscribe(p->stream,
-                                     (void *)fdchan_on_read_event,
+                                     (void *)fd_stream_on_read_event,
                                      2,
                                      (int)(false),
                                      c);
     _n00b_fd_close_subscribe(p->stream, (void *)on_fd_close, 2, (int)false, c);
 }
 
-// Not static; reused by chan_listener
+// Not static; reused by stream_listener
 void
-n00b_fdchan_on_no_subscribers(n00b_stream_t *c, n00b_fd_cookie_t *p)
+n00b_fd_stream_on_no_subscribers(n00b_stream_t *c, n00b_fd_cookie_t *p)
 {
     if (p->sub) {
         n00b_fd_unsubscribe(p->stream, p->sub);
@@ -156,10 +156,10 @@ enum {
 };
 
 static int
-fdchan_init(n00b_stream_t *stream, n00b_list_t *l)
+fd_stream_init(n00b_stream_t *stream, n00b_list_t *l)
 {
     stream->fd_backed   = true;
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *c = n00b_get_stream_cookie(stream);
 
     c->stream = n00b_list_pop(l);
     fcntl(c->stream->fd, F_GETFL, &c->stream->fd_flags);
@@ -188,9 +188,9 @@ fdchan_init(n00b_stream_t *stream, n00b_list_t *l)
 
 // Can't be static; reused by listener.
 bool
-n00b_fdchan_close(n00b_stream_t *stream)
+n00b_fd_stream_close(n00b_stream_t *stream)
 {
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *c = n00b_get_stream_cookie(stream);
 
     n00b_raw_fd_close(c->stream->fd);
 
@@ -202,9 +202,9 @@ n00b_fdchan_close(n00b_stream_t *stream)
 }
 
 bool
-n00b_fdchan_eof(n00b_stream_t *stream)
+n00b_fd_stream_eof(n00b_stream_t *stream)
 {
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *c = n00b_get_stream_cookie(stream);
     if (c->stream->read_closed && c->stream->write_closed) {
         return true;
     }
@@ -235,9 +235,9 @@ n00b_fdchan_eof(n00b_stream_t *stream)
 }
 
 static void *
-fdchan_read(n00b_stream_t *stream, bool *err)
+fd_stream_read(n00b_stream_t *stream, bool *err)
 {
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *c = n00b_get_stream_cookie(stream);
     // Since all reads, including blocking reads, have the IO started
     // via the file descriptor polling loop, we know that, if this is
     // getting called, we're being asked to return more data, probably
@@ -273,9 +273,9 @@ fdchan_read(n00b_stream_t *stream, bool *err)
 }
 
 static void
-fdchan_write(n00b_stream_t *stream, void *msg, bool block)
+fd_stream_write(n00b_stream_t *stream, void *msg, bool block)
 {
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *c = n00b_get_stream_cookie(stream);
     n00b_buf_t       *b;
 
     if (n00b_type_is_string(n00b_get_my_type(msg))) {
@@ -294,9 +294,9 @@ fdchan_write(n00b_stream_t *stream, void *msg, bool block)
 }
 
 static bool
-fdchan_set_position(n00b_stream_t *stream, int pos, bool relative)
+fd_stream_set_position(n00b_stream_t *stream, int pos, bool relative)
 {
-    n00b_fd_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *c = n00b_get_stream_cookie(stream);
 
     if (relative) {
         return n00b_fd_set_relative_position(c->stream, pos);
@@ -305,21 +305,21 @@ fdchan_set_position(n00b_stream_t *stream, int pos, bool relative)
     return n00b_fd_set_absolute_position(c->stream, pos);
 }
 
-static n00b_chan_impl fdchan_impl = {
+static n00b_stream_impl fd_stream_impl = {
     .cookie_size         = sizeof(n00b_fd_cookie_t),
-    .init_impl           = (void *)fdchan_init,
-    .read_impl           = (void *)fdchan_read,
-    .write_impl          = (void *)fdchan_write,
-    .spos_impl           = (void *)fdchan_set_position,
+    .init_impl           = (void *)fd_stream_init,
+    .read_impl           = (void *)fd_stream_read,
+    .write_impl          = (void *)fd_stream_write,
+    .spos_impl           = (void *)fd_stream_set_position,
     .gpos_impl           = (void *)n00b_fd_get_position,
-    .close_impl          = (void *)n00b_fdchan_close,
-    .eof_impl            = (void *)n00b_fdchan_eof,
-    .read_subscribe_cb   = (void *)n00b_fdchan_on_first_subscriber,
-    .read_unsubscribe_cb = (void *)n00b_fdchan_on_no_subscribers,
+    .close_impl          = (void *)n00b_fd_stream_close,
+    .eof_impl            = (void *)n00b_fd_stream_eof,
+    .read_subscribe_cb   = (void *)n00b_fd_stream_on_first_subscriber,
+    .read_unsubscribe_cb = (void *)n00b_fd_stream_on_no_subscribers,
 };
 
 n00b_stream_t *
-_n00b_new_fd_channel(n00b_fd_stream_t *fd, ...)
+_n00b_new_fd_stream(n00b_fd_stream_t *fd, ...)
 {
     n00b_list_t *args = n00b_list(n00b_type_ref());
     n00b_list_t *filters;
@@ -344,13 +344,13 @@ _n00b_new_fd_channel(n00b_fd_stream_t *fd, ...)
 
     n00b_list_append(args, fd);
 
-    return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
+    return n00b_new(n00b_type_stream(), &fd_stream_impl, args, filters);
 }
 
 n00b_stream_t *
-n00b_channel_fd_open(int fd)
+n00b_stream_fd_open(int fd)
 {
-    return n00b_new_fd_channel(n00b_fd_stream_from_fd(fd, NULL, NULL));
+    return n00b_new_fd_stream(n00b_fd_stream_from_fd(fd, NULL, NULL));
 }
 
 #define FERR(x)                \
@@ -366,7 +366,7 @@ n00b_channel_fd_open(int fd)
     }
 
 n00b_stream_t *
-_n00b_channel_open_file(n00b_string_t *filename, ...)
+_n00b_stream_open_file(n00b_string_t *filename, ...)
 {
     va_list args;
     va_start(args, filename);
@@ -624,11 +624,11 @@ _n00b_channel_open_file(n00b_string_t *filename, ...)
     n00b_list_append(stream_args, (void *)(int64_t)FD_FILE);
     n00b_list_append(stream_args, fds);
 
-    return n00b_new(n00b_type_channel(), &fdchan_impl, stream_args, filters);
+    return n00b_new(n00b_type_stream(), &fd_stream_impl, stream_args, filters);
 }
 
 n00b_stream_t *
-_n00b_channel_connect(n00b_net_addr_t *addr, ...)
+_n00b_stream_connect(n00b_net_addr_t *addr, ...)
 {
     n00b_list_t *filters;
 
@@ -650,7 +650,7 @@ _n00b_channel_connect(n00b_net_addr_t *addr, ...)
     n00b_list_append(args, (void *)(int64_t)FD_CONNECT);
     n00b_list_append(args, n00b_fd_stream_from_fd(sock, NULL, NULL));
 
-    return n00b_new(n00b_type_channel(), &fdchan_impl, args, filters);
+    return n00b_new(n00b_type_stream(), &fd_stream_impl, args, filters);
 }
 
 void *
@@ -665,7 +665,7 @@ _n00b_read_file(n00b_string_t *path, ...)
     n00b_kw_bool("lock", lock);
     n00b_kw_ptr("error_ptr", error_ptr);
 
-    n00b_stream_t *f = n00b_channel_open_file(path,
+    n00b_stream_t *f = n00b_stream_open_file(path,
                                                "exclusive_lock",
                                                n00b_ka(lock),
                                                "read_only",
@@ -680,7 +680,7 @@ _n00b_read_file(n00b_string_t *path, ...)
     }
 
     bool        err = false;
-    n00b_buf_t *b   = n00b_channel_read(f, 0, NULL);
+    n00b_buf_t *b   = n00b_stream_read(f, 0, NULL);
 
     n00b_close(f);
 

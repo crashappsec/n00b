@@ -87,7 +87,7 @@ n00b_session_init(n00b_session_t *session, va_list args)
     }
     if (capture_filename) {
         n00b_assert(!capture_stream);
-        capture_stream = n00b_channel_open_file(capture_filename);
+        capture_stream = n00b_stream_open_file(capture_filename);
     }
 
     if (capture_stream) {
@@ -102,14 +102,14 @@ create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
 {
     n00b_stream_t *rc_file = n00b_tempfile(NULL, NULL);
     *ctrl_file_ptr          = n00b_tempfile(NULL, NULL);
-    n00b_string_t *result   = n00b_channel_get_name(rc_file);
+    n00b_string_t *result   = n00b_stream_get_name(rc_file);
     n00b_buf_t    *buf      = n00b_new(n00b_type_buffer(),
                                n00b_kw("length",
                                        (int64_t)strlen(bash_setup_string),
                                        "ptr",
                                        bash_setup_string));
 
-    n00b_channel_write(rc_file, buf);
+    n00b_write(rc_file, buf);
     n00b_close(rc_file);
 
     return result;
@@ -120,7 +120,7 @@ create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
 static void
 post_fork_hook(n00b_session_t *s)
 {
-    n00b_string_t *ctrl = n00b_channel_get_name(s->subproc_ctrl_stream);
+    n00b_string_t *ctrl = n00b_stream_get_name(s->subproc_ctrl_stream);
     n00b_set_env(n00b_cstring("N00B_BASH_INFO_LOG"), ctrl);
 
     if (!s->likely_bash) {
@@ -306,7 +306,7 @@ session_cleanup(n00b_session_t *session)
         session->rc_filename = NULL;
     }
     if (session->subproc_ctrl_stream) {
-        s = n00b_channel_get_name(session->subproc_ctrl_stream);
+        s = n00b_stream_get_name(session->subproc_ctrl_stream);
         n00b_close(session->subproc_ctrl_stream);
         unlink(s->data);
         session->subproc_ctrl_stream = NULL;

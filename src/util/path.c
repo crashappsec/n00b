@@ -81,7 +81,7 @@ void *
 n00b_tempfile(n00b_string_t *prefix, n00b_string_t *suffix)
 {
     n00b_string_t *filename = construct_random_name(prefix, suffix);
-    return n00b_channel_open_file(filename,
+    return n00b_stream_open_file(filename,
                                   n00b_kw("allow_file_creation",
                                           n00b_ka(true)));
 }

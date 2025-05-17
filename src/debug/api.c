@@ -27,7 +27,7 @@ start_debug_workflow(n00b_topic_info_t *tinfo, void *payload, void *unused)
 }
 
 n00b_stream_t *
-n00b_get_chan_debug_topic(n00b_string_t *name)
+n00b_get_debug_topic(n00b_string_t *name)
 {
     pthread_once(&debug_namespace_init, setup_namespace);
 
@@ -36,7 +36,7 @@ n00b_get_chan_debug_topic(n00b_string_t *name)
         return result;
     }
 
-    return n00b_create_topic_channel(name,
+    return _n00b_create_topic_stream(name,
                                      debug_namespace,
                                      start_debug_workflow,
                                      NULL);
@@ -45,6 +45,6 @@ n00b_get_chan_debug_topic(n00b_string_t *name)
 void
 _n00b_debug(n00b_string_t *topic, void *msg)
 {
-    n00b_stream_t *channel = n00b_get_chan_debug_topic(topic);
-    n00b_channel_write(channel, msg);
+    n00b_stream_t *stream = n00b_get_debug_topic(topic);
+    n00b_write(stream, msg);
 }

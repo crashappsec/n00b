@@ -45,7 +45,7 @@ process_debug_msg(n00b_stream_t *conn, void *raw, void *aux)
     n00b_debug(msg->topic, msg->payload);
 
     if (n00b_debug_log_file) {
-        n00b_chan_write(n00b_debug_log_file, msg->payload);
+        n00b_write(n00b_debug_log_file, msg->payload);
     }
 }
 
@@ -86,7 +86,7 @@ connection_closer(n00b_stream_t *ignore, void *conn, void *unused)
         "«green»Connection from «#» «em2»CLOSED.«/»\n",
         cookie->aux);
 
-    n00b_chan_write(n00b_debug_output, cmsg);
+    n00b_write(n00b_debug_output, cmsg);
 }
 
 static void

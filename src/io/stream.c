@@ -4,16 +4,16 @@
 #include "n00b.h"
 
 static _Atomic int32_t global_msg_id     = 0;
-static _Atomic int32_t global_channel_id = 0;
-static void            route_channel_message(void *msg, void *dst);
+static _Atomic int32_t global_stream_id = 0;
+static void            n00b_route_stream_message(void *msg, void *dst);
 
-// This callback gets the first subscriber for *any* channel.
+// This callback gets the first subscriber for *any* stream.
 // So we need to know if any read subscriber is listening.
 static void
 dispatch_first_subscriber(n00b_observable_t *obs,
                           n00b_observer_t   *subscription)
 {
-    // This relies on the pub_info field being first in a channel. If
+    // This relies on the pub_info field being first in a stream. If
     // we ever move it, we'll have to go through the alloc's data
     // pointer.
     n00b_stream_t *c      = (void *)obs;
@@ -35,7 +35,7 @@ dispatch_first_subscriber(n00b_observable_t *obs,
     }
 
     if (notify) {
-        (*c->impl->read_subscribe_cb)(c, n00b_get_channel_cookie(c));
+        (*c->impl->read_subscribe_cb)(c, n00b_get_stream_cookie(c));
     }
 }
 
@@ -43,7 +43,7 @@ static void
 dispatch_no_subscriber(n00b_observable_t *obs,
                        n00b_observer_t   *subscription)
 {
-    // This relies on the pub_info field being first in a channel. If
+    // This relies on the pub_info field being first in a stream. If
     // we ever move it, we'll have to go through the alloc's data
     // pointer.
 
@@ -65,12 +65,12 @@ dispatch_no_subscriber(n00b_observable_t *obs,
     }
 
     if (!c->has_rsubs && !c->has_rawsubs) {
-        (*c->impl->read_unsubscribe_cb)(c, n00b_get_channel_cookie(c));
+        (*c->impl->read_unsubscribe_cb)(c, n00b_get_stream_cookie(c));
     }
 }
 
 static n00b_observer_t *
-base_subscribe(n00b_stream_t *channel,
+base_subscribe(n00b_stream_t *stream,
                n00b_stream_t *dst,
                bool           oneshot,
                int64_t        sub_kind)
@@ -79,9 +79,9 @@ base_subscribe(n00b_stream_t *channel,
         N00B_CRAISE("Subscriber is not able to be written to.");
     }
 
-    n00b_observer_t *result = n00b_observable_subscribe(&channel->pub_info,
+    n00b_observer_t *result = n00b_observable_subscribe(&stream->pub_info,
                                                         (void *)sub_kind,
-                                                        route_channel_message,
+                                                        n00b_route_stream_message,
                                                         oneshot,
                                                         dst);
 
@@ -91,56 +91,56 @@ base_subscribe(n00b_stream_t *channel,
 }
 
 n00b_observer_t *
-n00b_channel_subscribe_read(n00b_stream_t *channel,
+n00b_stream_subscribe_read(n00b_stream_t *stream,
                             n00b_stream_t *dst,
                             bool           oneshot)
 {
-    return base_subscribe(channel, dst, oneshot, N00B_CT_R);
+    return base_subscribe(stream, dst, oneshot, N00B_CT_R);
 }
 
 n00b_observer_t *
-n00b_channel_subscribe_raw(n00b_stream_t *channel,
+n00b_stream_subscribe_raw(n00b_stream_t *stream,
                            n00b_stream_t *dst,
                            bool           oneshot)
 {
-    return base_subscribe(channel, dst, oneshot, N00B_CT_RAW);
+    return base_subscribe(stream, dst, oneshot, N00B_CT_RAW);
 }
 
 n00b_observer_t *
-n00b_channel_subscribe_queue(n00b_stream_t *channel,
+n00b_stream_subscribe_queue(n00b_stream_t *stream,
                              n00b_stream_t *dst,
                              bool           oneshot)
 {
-    return base_subscribe(channel, dst, oneshot, N00B_CT_Q);
+    return base_subscribe(stream, dst, oneshot, N00B_CT_Q);
 }
 
 n00b_observer_t *
-n00b_channel_subscribe_write(n00b_stream_t *channel,
+n00b_stream_subscribe_write(n00b_stream_t *stream,
                              n00b_stream_t *dst,
                              bool           oneshot)
 {
-    return base_subscribe(channel, dst, oneshot, N00B_CT_W);
+    return base_subscribe(stream, dst, oneshot, N00B_CT_W);
 }
 
 n00b_observer_t *
-n00b_channel_subscribe_close(n00b_stream_t *channel,
+n00b_stream_subscribe_close(n00b_stream_t *stream,
                              n00b_stream_t *dst)
 {
-    return base_subscribe(channel, dst, true, N00B_CT_CLOSE);
+    return base_subscribe(stream, dst, true, N00B_CT_CLOSE);
 }
 
 n00b_observer_t *
-n00b_channel_subscribe_error(n00b_stream_t *channel,
+n00b_stream_subscribe_error(n00b_stream_t *stream,
                              n00b_stream_t *dst,
                              bool           oneshot)
 {
-    return base_subscribe(channel, dst, oneshot, N00B_CT_ERROR);
+    return base_subscribe(stream, dst, oneshot, N00B_CT_ERROR);
 }
 
-static inline n00b_cmsg_t *
+static inline n00b_stream_msg_t *
 package_message(void *m, int nitems, char *f, int l)
 {
-    n00b_cmsg_t *result = n00b_gc_alloc_mapped(n00b_cmsg_t,
+    n00b_stream_msg_t *result = n00b_gc_alloc_mapped(n00b_stream_msg_t,
                                                N00B_GC_SCAN_ALL);
     result->payload     = m;
     result->nitems      = nitems;
@@ -152,24 +152,24 @@ package_message(void *m, int nitems, char *f, int l)
 }
 
 static void
-internal_write(n00b_stream_t *channel,
+internal_write(n00b_stream_t *stream,
                void          *msg,
                int            nitems,
                char          *file,
                int            line,
                bool           blocking)
 {
-    if (!channel->w) {
-        n00b_cnotify_error(channel,
-                           n00b_cstring("Channel is not open for writing."));
+    if (!stream->w) {
+        n00b_cnotify_error(stream,
+                           n00b_cstring("Stream is not open for writing."));
         return;
     }
 
-    n00b_cmsg_t *pkg = package_message(msg, nitems, file, line);
-    n00b_lock_acquire(channel->locks[N00B_LOCKWR_IX]);
-    n00b_cnotify_q(channel, pkg);
-    n00b_lock_release(channel->locks[N00B_LOCKWR_IX]);
-    n00b_list_t *to_deliver = n00b_filter_writes(channel, pkg);
+    n00b_stream_msg_t *pkg = package_message(msg, nitems, file, line);
+    n00b_lock_acquire(stream->locks[N00B_LOCKWR_IX]);
+    n00b_cnotify_q(stream, pkg);
+    n00b_lock_release(stream->locks[N00B_LOCKWR_IX]);
+    n00b_list_t *to_deliver = n00b_filter_writes(stream, pkg);
 
     if (!to_deliver) {
         return;
@@ -181,61 +181,61 @@ internal_write(n00b_stream_t *channel,
 
     for (int i = 0; i < n; i++) {
         out_msg = n00b_list_get(to_deliver, i, NULL);
-        n00b_cnotify_w(channel, out_msg);
-        (*channel->impl->write_impl)(channel, out_msg, blocking);
+        n00b_cnotify_w(stream, out_msg);
+        (*stream->impl->write_impl)(stream, out_msg, blocking);
     }
 }
 
 // BLOCKING
 void
-_n00b_channel_write(n00b_stream_t *channel,
+_n00b_write(n00b_stream_t *stream,
                     void          *msg,
                     char          *file,
                     int            line)
 {
-    internal_write(channel, msg, 1, file, line, true);
+    internal_write(stream, msg, 1, file, line, true);
 }
 
 // NON-BLOCKING; processes the queue,
 void
-_n00b_channel_queue(n00b_stream_t *channel,
+_n00b_queue(n00b_stream_t *stream,
                     void          *msg,
                     char          *file,
                     int            line)
 {
-    internal_write(channel, msg, 1, file, line, false);
+    internal_write(stream, msg, 1, file, line, false);
 }
 
 void
-n00b_channel_putc(n00b_stream_t *channel, n00b_codepoint_t cp)
+n00b_putc(n00b_stream_t *stream, n00b_codepoint_t cp)
 {
-    n00b_channel_queue(channel, n00b_buffer_from_codepoint(cp));
+    n00b_queue(stream, n00b_buffer_from_codepoint(cp));
 }
 
 void
-route_channel_message(void *msg, void *dst)
+n00b_route_stream_message(void *msg, void *dst)
 {
-    _n00b_channel_queue(dst, msg, __FILE__, __LINE__);
+    _n00b_queue(dst, msg, __FILE__, __LINE__);
 }
 
 n00b_buf_t *
-n00b_channel_unfiltered_read(n00b_stream_t *stream, int len)
+n00b_stream_unfiltered_read(n00b_stream_t *stream, int len)
 {
     bool err;
 
-    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *cookie = n00b_get_stream_cookie(stream);
     return n00b_fd_read(cookie->stream, len, 0, false, &err);
 }
 
 bool
-n00b_channel_unfiltered_write(n00b_stream_t *stream, n00b_buf_t *buf)
+n00b_stream_unfiltered_write(n00b_stream_t *stream, n00b_buf_t *buf)
 {
-    n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *cookie = n00b_get_stream_cookie(stream);
     return n00b_fd_write(cookie->stream, buf->data, buf->byte_len);
 }
 
 bool
-n00b_channel_eof(n00b_stream_t *stream)
+n00b_stream_eof(n00b_stream_t *stream)
 {
     if (!stream->impl->eof_impl) {
         return false;
@@ -247,33 +247,33 @@ n00b_channel_eof(n00b_stream_t *stream)
 // Attempt to read from the source until it fails.
 // TODO: Handle fatal errors.
 static inline bool
-nonblocking_channel_read(n00b_stream_t *channel)
+nonblocking_stream_read(n00b_stream_t *stream)
 {
     bool           err = false;
-    n00b_chan_r_fn fn;
+    n00b_stream_r_fn fn;
     void          *v;
 
     while (true) {
-        fn = channel->impl->read_impl;
-        v  = (*fn)(channel, &err);
+        fn = stream->impl->read_impl;
+        v  = (*fn)(stream, &err);
 
         if (err) {
             return false;
         }
 
-        n00b_cnotify_raw(channel, v);
-        n00b_cmsg_t *pkg    = package_message(v, 1, __FILE__, __LINE__);
-        channel->read_cache = n00b_filter_reads(channel, pkg);
-        if (channel->read_cache) {
-            return n00b_list_len(channel->read_cache) != 0;
+        n00b_cnotify_raw(stream, v);
+        n00b_stream_msg_t *pkg    = package_message(v, 1, __FILE__, __LINE__);
+        stream->read_cache = n00b_filter_reads(stream, pkg);
+        if (stream->read_cache) {
+            return n00b_list_len(stream->read_cache) != 0;
         }
-        channel->read_cache = n00b_list(n00b_type_ref());
+        stream->read_cache = n00b_list(n00b_type_ref());
         return false;
     }
 }
 
 static inline void *
-wait_for_read(n00b_stream_t   *channel,
+wait_for_read(n00b_stream_t   *stream,
               n00b_lock_t     *lock,
               n00b_duration_t *end,
               bool            *err)
@@ -286,17 +286,17 @@ wait_for_read(n00b_stream_t   *channel,
 
     pthread_cond_init(cond, NULL);
 
-    if (!channel->blocked_readers) {
-        channel->blocked_readers = n00b_list(n00b_type_ref());
+    if (!stream->blocked_readers) {
+        stream->blocked_readers = n00b_list(n00b_type_ref());
     }
-    n00b_list_append(channel->blocked_readers, cond);
+    n00b_list_append(stream->blocked_readers, cond);
 
     // Here, we need to make sure that, if there are no read subscribers,
     // the polling loop associated w/ the fd is still going to be polling
     // for reads.
 
-    if (channel->fd_backed) {
-        n00b_fd_cookie_t *cookie = n00b_get_channel_cookie(channel);
+    if (stream->fd_backed) {
+        n00b_fd_cookie_t *cookie = n00b_get_stream_cookie(stream);
         n00b_fd_stream_t *s      = cookie->stream;
 
         if (!s->r_added) {
@@ -313,7 +313,7 @@ wait_for_read(n00b_stream_t   *channel,
                                          end);
         if (res) {
             *err = true;
-            n00b_private_list_remove_item(channel->blocked_readers,
+            n00b_private_list_remove_item(stream->blocked_readers,
                                           cond);
             n00b_lock_release(lock);
             return NULL;
@@ -329,16 +329,16 @@ wait_for_read(n00b_stream_t   *channel,
 
     *err = false;
 
-    result = n00b_private_list_dequeue(channel->read_cache);
-    check  = n00b_private_list_dequeue(channel->blocked_readers);
+    result = n00b_private_list_dequeue(stream->read_cache);
+    check  = n00b_private_list_dequeue(stream->blocked_readers);
     assert(check == cond);
 
     // If there are leftover messages and others are waiting, signal
     // the next waiter in line.
 
-    if (n00b_list_len(channel->blocked_readers)
-        && n00b_list_len(channel->read_cache)) {
-        cond = n00b_list_get(channel->blocked_readers, 0, NULL);
+    if (n00b_list_len(stream->blocked_readers)
+        && n00b_list_len(stream->read_cache)) {
+        cond = n00b_list_get(stream->blocked_readers, 0, NULL);
         pthread_cond_signal(cond);
     }
 
@@ -348,12 +348,12 @@ wait_for_read(n00b_stream_t   *channel,
 }
 
 static void *
-n00b_perform_channel_read(n00b_stream_t *channel,
+n00b_perform_stream_read(n00b_stream_t *stream,
                           bool           blocking,
                           int            tout,
                           bool          *err)
 {
-    n00b_mutex_t    *lock   = channel->locks[N00B_LOCKRD_IX];
+    n00b_mutex_t    *lock   = stream->locks[N00B_LOCKRD_IX];
     void            *result = NULL;
     pthread_cond_t  *cond;
     n00b_duration_t *end;
@@ -368,7 +368,7 @@ n00b_perform_channel_read(n00b_stream_t *channel,
     n00b_lock_acquire(lock);
     // 1. If there aren't enough available queued messages for us
     //    (behind any pending waiters) then call the raw non-blocking
-    //    channel read until it fails.
+    //    stream read until it fails.
     //
     // 2. If we DO at any point have enough messages, take our message
     //    from its place in the queue (letting earlier readers have
@@ -385,19 +385,19 @@ n00b_perform_channel_read(n00b_stream_t *channel,
     // However, we will need to dequeue the message.
     int n = 1;
 
-    if (channel->blocked_readers) {
-        n += n00b_list_len(channel->blocked_readers);
+    if (stream->blocked_readers) {
+        n += n00b_list_len(stream->blocked_readers);
     }
 
-    while (n00b_list_len(channel->read_cache) < n) {
-        if (!nonblocking_channel_read(channel)) {
-            if (!blocking || channel->impl->disallow_blocking_reads) {
+    while (n00b_list_len(stream->read_cache) < n) {
+        if (!nonblocking_stream_read(stream)) {
+            if (!blocking || stream->impl->disallow_blocking_reads) {
                 n00b_lock_release(lock);
                 *err = true;
                 return NULL;
             }
 
-            // Some channel types may not give us asynchronous notification.
+            // Some stream types may not give us asynchronous notification.
             // In that case, we just poll.
             //
             // Specifically, buffer objects are mutable, and can be
@@ -409,7 +409,7 @@ n00b_perform_channel_read(n00b_stream_t *channel,
             // we're not, we wait for the default poll interval.  Hope
             // you know what you're doing if you're making a
             // non-blocking read on a buffer...
-            if (channel->impl->poll_for_blocking_reads) {
+            if (stream->impl->poll_for_blocking_reads) {
                 if (end && n00b_duration_lt(end, n00b_now())) {
                     *err = true;
                     return NULL;
@@ -420,18 +420,18 @@ n00b_perform_channel_read(n00b_stream_t *channel,
             else {
                 // For most things, we can just hang to see if a poll
                 // comes in.
-                return wait_for_read(channel, lock, end, err);
+                return wait_for_read(stream, lock, end, err);
             }
         }
     }
 
-    result = n00b_list_get(channel->read_cache, n - 1, NULL);
-    n00b_private_list_remove(channel->read_cache, n - 1);
-    n00b_cnotify_r(channel, result);
+    result = n00b_list_get(stream->read_cache, n - 1, NULL);
+    n00b_private_list_remove(stream->read_cache, n - 1);
+    n00b_cnotify_r(stream, result);
 
-    if (channel->blocked_readers && n00b_list_len(channel->blocked_readers)
-        && n00b_list_len(channel->read_cache)) {
-        cond = n00b_list_get(channel->blocked_readers, 0, NULL);
+    if (stream->blocked_readers && n00b_list_len(stream->blocked_readers)
+        && n00b_list_len(stream->read_cache)) {
+        cond = n00b_list_get(stream->blocked_readers, 0, NULL);
         pthread_cond_signal(cond);
     }
 
@@ -451,21 +451,21 @@ n00b_perform_channel_read(n00b_stream_t *channel,
 // as much data is available without blocking.
 
 void *
-n00b_channel_read(n00b_stream_t *channel, int ms_timeout, bool *err)
+n00b_stream_read(n00b_stream_t *stream, int ms_timeout, bool *err)
 {
-    if (!channel->r) {
-        n00b_cnotify_error(channel,
-                           n00b_cstring("Channel is not open for reading."));
+    if (!stream->r) {
+        n00b_cnotify_error(stream,
+                           n00b_cstring("Stream is not open for reading."));
         return NULL;
     }
 
     // the lower-level stuff requires the error parameter, but we
-    // don't want to force the user to provide it, esp if the channel
+    // don't want to force the user to provide it, esp if the stream
     // can't fail.
     bool  e;
     bool *ep = err ? err : &e;
 
-    void *result = n00b_perform_channel_read(channel, true, ms_timeout, ep);
+    void *result = n00b_perform_stream_read(stream, true, ms_timeout, ep);
 
     return result;
 }
@@ -504,7 +504,7 @@ possible_buffer_list(n00b_list_t *l)
 // a list, UNLESS each item is uniform, and either a buffer or a
 // string, in which case we concatenate.
 void *
-n00b_read_all(n00b_stream_t *channel, int ms_timeout)
+n00b_read_all(n00b_stream_t *stream, int ms_timeout)
 {
     n00b_list_t     *l   = n00b_list(n00b_type_ref());
     bool             err = false;
@@ -519,7 +519,7 @@ n00b_read_all(n00b_stream_t *channel, int ms_timeout)
         end     = n00b_duration_add(start, timeout);
     }
 
-    void *item = n00b_channel_read(channel, ms_timeout, &err);
+    void *item = n00b_stream_read(stream, ms_timeout, &err);
 
     while (!err) {
         n00b_list_append(l, item);
@@ -531,7 +531,7 @@ n00b_read_all(n00b_stream_t *channel, int ms_timeout)
             }
             ms_timeout = n00b_duration_to_ms(n00b_duration_diff(now, end));
         }
-        item = n00b_channel_read(channel, ms_timeout, &err);
+        item = n00b_stream_read(stream, ms_timeout, &err);
     }
 
     switch (n00b_list_len(l)) {
@@ -559,17 +559,17 @@ n00b_read_all(n00b_stream_t *channel, int ms_timeout)
 
 // This is our obtusely named non-blocking read.
 void *
-n00b_io_dispatcher_process_read_queue(n00b_stream_t *channel, bool *err)
+n00b_io_dispatcher_process_read_queue(n00b_stream_t *stream, bool *err)
 {
-    if (!channel->r) {
+    if (!stream->r) {
         return NULL;
     }
 
-    return n00b_perform_channel_read(channel, false, 0, err);
+    return n00b_perform_stream_read(stream, false, 0, err);
 }
 
 int
-n00b_channel_get_position(n00b_stream_t *c)
+n00b_stream_get_position(n00b_stream_t *c)
 {
     if (!c->impl->gpos_impl) {
         return -1;
@@ -578,7 +578,7 @@ n00b_channel_get_position(n00b_stream_t *c)
 }
 
 bool
-n00b_channel_set_relative_position(n00b_stream_t *c, int pos)
+n00b_stream_set_relative_position(n00b_stream_t *c, int pos)
 {
     if (!c->impl->spos_impl) {
         return false;
@@ -588,7 +588,7 @@ n00b_channel_set_relative_position(n00b_stream_t *c, int pos)
 }
 
 bool
-n00b_channel_set_absolute_position(n00b_stream_t *c, int pos)
+n00b_stream_set_absolute_position(n00b_stream_t *c, int pos)
 {
     if (!c->impl->spos_impl) {
         return false;
@@ -616,7 +616,7 @@ n00b_close(n00b_stream_t *c)
     }
 
     n00b_observable_remove_all_subscriptions(&c->pub_info);
-    n00b_channel_debug_deregister(c);
+    n00b_stream_debug_deregister(c);
 }
 
 static n00b_string_t *
@@ -633,9 +633,9 @@ n00b_stream_to_string(n00b_stream_t *c)
 // So we actually want to build the chain from the back of the array...
 
 static void
-n00b_channel_init(n00b_stream_t *stream, va_list args)
+n00b_stream_init(n00b_stream_t *stream, va_list args)
 {
-    n00b_chan_impl *impl         = va_arg(args, n00b_chan_impl *);
+    n00b_stream_impl *impl         = va_arg(args, n00b_stream_impl *);
     void           *init_args    = va_arg(args, void *);
     n00b_list_t    *filter_specs = va_arg(args, n00b_list_t *);
 
@@ -653,12 +653,12 @@ n00b_channel_init(n00b_stream_t *stream, va_list args)
     stream->impl             = impl;
     stream->my_subscriptions = n00b_list(n00b_type_ref());
     stream->read_cache       = n00b_list(n00b_type_ref());
-    stream->channel_id       = atomic_fetch_add(&global_channel_id, 1);
+    stream->stream_id       = atomic_fetch_add(&global_stream_id, 1);
 
     n00b_alloc_hdr *h = ((n00b_alloc_hdr *)stream) - 1;
-    h->type           = n00b_type_channel();
+    h->type           = n00b_type_stream();
 
-    n00b_channel_debug_register(stream);
+    n00b_stream_debug_register(stream);
 
     int mode = O_ACCMODE & (*impl->init_impl)(stream, init_args);
 
@@ -697,15 +697,15 @@ n00b_channel_init(n00b_stream_t *stream, va_list args)
 }
 
 static uint64_t
-n00b_channel_alloc_sz(n00b_chan_impl *impl)
+n00b_stream_alloc_sz(n00b_stream_impl *impl)
 {
     return sizeof(n00b_stream_t) + impl->cookie_size;
 }
 
-const n00b_vtable_t n00b_channel_vtable = {
+const n00b_vtable_t n00b_stream_vtable = {
     .methods = {
-        [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_channel_init,
-        [N00B_BI_ALLOC_SZ]    = (n00b_vtable_entry)n00b_channel_alloc_sz,
+        [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_stream_init,
+        [N00B_BI_ALLOC_SZ]    = (n00b_vtable_entry)n00b_stream_alloc_sz,
         [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_stream_to_string,
         [N00B_BI_GC_MAP]      = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
     },

@@ -18,9 +18,9 @@ topics_init(void)
 }
 
 static int
-topic_chan_init(n00b_stream_t *stream, n00b_list_t *args)
+topic_stream_init(n00b_stream_t *stream, n00b_list_t *args)
 {
-    n00b_topic_info_t *topic = n00b_get_channel_cookie(stream);
+    n00b_topic_info_t *topic = n00b_get_stream_cookie(stream);
 
     topic->param     = n00b_list_pop(args);
     topic->cb        = n00b_list_pop(args);
@@ -42,7 +42,7 @@ topic_read(n00b_stream_t *stream, bool *err)
 static void
 topic_write(n00b_stream_t *stream, void *msg, bool block)
 {
-    n00b_topic_info_t *topic = n00b_get_channel_cookie(stream);
+    n00b_topic_info_t *topic = n00b_get_stream_cookie(stream);
     void              *val   = msg;
     bool               err;
 
@@ -59,15 +59,15 @@ topic_write(n00b_stream_t *stream, void *msg, bool block)
     n00b_io_dispatcher_process_read_queue(stream, &err);
 }
 
-static n00b_chan_impl topic_impl = {
+static n00b_stream_impl topic_impl = {
     .cookie_size = sizeof(n00b_topic_info_t),
-    .init_impl   = (void *)topic_chan_init,
+    .init_impl   = (void *)topic_stream_init,
     .read_impl   = (void *)topic_read,
     .write_impl  = (void *)topic_write,
 };
 
 n00b_stream_t *
-_n00b_create_topic_channel(n00b_string_t *name,
+_n00b_create_topic_stream(n00b_string_t *name,
                            n00b_dict_t   *ns,
                            n00b_topic_cb  cb,
                            void          *param,
@@ -90,7 +90,7 @@ _n00b_create_topic_channel(n00b_string_t *name,
     n00b_list_append(args, cb);
     n00b_list_append(args, param);
 
-    result = n00b_new(n00b_type_channel(), &topic_impl, args, filters);
+    result = n00b_new(n00b_type_stream(), &topic_impl, args, filters);
 
     result->name = name;
 
@@ -102,7 +102,7 @@ _n00b_create_topic_channel(n00b_string_t *name,
 }
 
 n00b_stream_t *
-_n00b_get_topic_channel(n00b_string_t *name, ...)
+_n00b_get_topic_stream(n00b_string_t *name, ...)
 {
     topics_init();
 
@@ -117,7 +117,7 @@ _n00b_get_topic_channel(n00b_string_t *name, ...)
     n00b_stream_t *res = hatrack_dict_get(ns, name, NULL);
 
     if (!res) {
-        return _n00b_create_topic_channel(name, ns, NULL, NULL, 0ULL);
+        return _n00b_create_topic_stream(name, ns, NULL, NULL, 0ULL);
     }
 
     return res;

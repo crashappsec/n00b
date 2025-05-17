@@ -1445,12 +1445,12 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 // n00b_print(tstate->sp->rvalue, NULL);
                 // The debug stream for testing. This should go away soon;
                 // tee off stuff instead.
-                n00b_channel_write(n00b_chan_stdout(), tstate->sp->rvalue);
-                n00b_channel_write(n00b_chan_stdout(), n00b_cached_newline());
+                n00b_write(n00b_stdout(), tstate->sp->rvalue);
+                n00b_write(n00b_stdout(), n00b_cached_newline());
 
-                n00b_channel_queue(tstate->vm->run_state->print_stream,
-                                   tstate->sp->rvalue);
-                n00b_channel_putc(tstate->vm->run_state->print_stream, '\n');
+                n00b_queue(tstate->vm->run_state->print_stream,
+                           tstate->sp->rvalue);
+                n00b_putc(tstate->vm->run_state->print_stream, '\n');
                 ++tstate->sp;
                 break;
 #endif

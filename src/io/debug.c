@@ -1,37 +1,37 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static bool           channel_debugging_on = true;
-static bool           channel_cleanup      = false;
-static n00b_list_t   *channel_registry;
-static pthread_once_t chan_debug = PTHREAD_ONCE_INIT;
+static bool           stream_debugging_on = true;
+static bool           stream_cleanup      = false;
+static n00b_list_t   *stream_registry;
+static pthread_once_t stream_debug = PTHREAD_ONCE_INIT;
 
 static void
-channel_debug_setup(void)
+stream_debug_setup(void)
 {
-    n00b_gc_register_root(&channel_registry, 1);
-    channel_registry = n00b_list(n00b_type_channel());
+    n00b_gc_register_root(&stream_registry, 1);
+    stream_registry = n00b_list(n00b_type_stream());
 }
 
 void
-n00b_channel_debug_register(n00b_stream_t *stream)
+n00b_stream_debug_register(n00b_stream_t *stream)
 {
-    if (!channel_debugging_on) {
+    if (!stream_debugging_on) {
         return;
     }
-    pthread_once(&chan_debug, channel_debug_setup);
+    pthread_once(&stream_debug, stream_debug_setup);
 
-    n00b_list_append(channel_registry, stream);
+    n00b_list_append(stream_registry, stream);
 }
 
 void
-n00b_channel_debug_deregister(n00b_stream_t *stream)
+n00b_stream_debug_deregister(n00b_stream_t *stream)
 {
-    if (!channel_debugging_on || !channel_cleanup) {
+    if (!stream_debugging_on || !stream_cleanup) {
         return;
     }
 
-    n00b_list_remove_item(channel_registry, stream);
+    n00b_list_remove_item(stream_registry, stream);
 }
 
 static inline n00b_string_t *
@@ -59,7 +59,7 @@ repr_perms(n00b_stream_t *stream)
         return s;
     }
 
-    n00b_fd_cookie_t   *c      = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t   *c      = n00b_get_stream_cookie(stream);
     int                 fd     = c->stream->fd;
     n00b_event_loop_t  *evloop = c->stream->evloop;
     n00b_pevent_loop_t *ploop  = &evloop->algo.poll;
@@ -149,7 +149,7 @@ prep_read_subs(n00b_stream_t *stream)
             // the data structure.
             n00b_observer_t *item   = n00b_list_get(r, i, NULL);
             n00b_stream_t  *target = (void *)item->subscriber;
-            n00b_list_append(items, n00b_cformat("[|#:x|]", target->channel_id));
+            n00b_list_append(items, n00b_cformat("[|#:x|]", target->stream_id));
         }
     }
 
@@ -157,7 +157,7 @@ prep_read_subs(n00b_stream_t *stream)
         for (int i = 0; i < n00b_list_len(raw); i++) {
             n00b_observer_t *item   = n00b_list_get(raw, i, NULL);
             n00b_stream_t  *target = (void *)item->subscriber;
-            n00b_list_append(items, n00b_cformat("[|#:x|] (raw)", target->channel_id));
+            n00b_list_append(items, n00b_cformat("[|#:x|] (raw)", target->stream_id));
         }
     }
 
@@ -192,7 +192,7 @@ prep_write_subs(n00b_stream_t *stream)
             n00b_stream_t  *target = (void *)item->subscriber;
             n00b_list_append(items,
                              n00b_cformat("[|#:x|] (q)",
-                                          target->channel_id));
+                                          target->stream_id));
         }
     }
 
@@ -205,7 +205,7 @@ prep_write_subs(n00b_stream_t *stream)
             n00b_stream_t *target = (void *)item->subscriber;
             n00b_list_append(items,
                              n00b_cformat("[|#:x|] (deliver)",
-                                          target->channel_id));
+                                          target->stream_id));
         }
     }
 
@@ -213,10 +213,10 @@ prep_write_subs(n00b_stream_t *stream)
 }
 
 static inline n00b_list_t *
-prep_one_channel(n00b_stream_t *stream)
+prep_one_stream(n00b_stream_t *stream)
 {
     n00b_list_t *row = n00b_list(n00b_type_string());
-    n00b_private_list_append(row, n00b_cformat("[|#:x|]", (int64_t)stream->channel_id));
+    n00b_private_list_append(row, n00b_cformat("[|#:x|]", (int64_t)stream->stream_id));
     n00b_private_list_append(row, n00b_to_string(stream));
     n00b_private_list_append(row, repr_perms(stream));
     n00b_private_list_append(row, prep_read_subs(stream));
@@ -239,20 +239,20 @@ header_row(void)
 }
 
 void
-n00b_show_channels(void)
+n00b_show_streams(void)
 {
-    if (!channel_debugging_on) {
+    if (!stream_debugging_on) {
         return;
     }
 
     n00b_table_t *t = n00b_table("columns", 5);
-    n00b_list_t  *l = n00b_list_shallow_copy(channel_registry);
+    n00b_list_t  *l = n00b_list_shallow_copy(stream_registry);
     int           n = n00b_list_len(l);
 
     n00b_table_add_row(t, header_row());
 
     for (int i = 0; i < n; i++) {
-        n00b_table_add_row(t, prep_one_channel(n00b_list_get(l, i, NULL)));
+        n00b_table_add_row(t, prep_one_stream(n00b_list_get(l, i, NULL)));
     }
 
     l                = n00b_render(t, n00b_terminal_width(), -1);

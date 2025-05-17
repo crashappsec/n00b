@@ -2,9 +2,9 @@
 #include "n00b.h"
 
 static int
-bufchan_init(n00b_stream_t *stream, n00b_list_t *args)
+buffer_stream_init(n00b_stream_t *stream, n00b_list_t *args)
 {
-    n00b_buffer_cookie_t *c   = n00b_get_channel_cookie(stream);
+    n00b_buffer_cookie_t *c   = n00b_get_stream_cookie(stream);
     int                    ret = (int64_t)n00b_list_pop(args);
 
     c->buffer = n00b_list_pop(args);
@@ -23,9 +23,9 @@ bufchan_init(n00b_stream_t *stream, n00b_list_t *args)
 }
 
 static n00b_buf_t *
-bufchan_read(n00b_stream_t *stream, bool *err)
+buffer_stream_read(n00b_stream_t *stream, bool *err)
 {
-    n00b_buffer_cookie_t *c   = n00b_get_channel_cookie(stream);
+    n00b_buffer_cookie_t *c   = n00b_get_stream_cookie(stream);
     n00b_buf_t            *src = c->buffer;
     n00b_buf_t            *result;
 
@@ -49,9 +49,9 @@ bufchan_read(n00b_stream_t *stream, bool *err)
 }
 
 static void
-bufchan_write(n00b_stream_t *stream, void *msg, bool blocking)
+buffer_stream_write(n00b_stream_t *stream, void *msg, bool blocking)
 {
-    n00b_buffer_cookie_t *c      = n00b_get_channel_cookie(stream);
+    n00b_buffer_cookie_t *c      = n00b_get_stream_cookie(stream);
     n00b_buf_t            *target = c->buffer;
     n00b_buf_t            *src    = msg;
 
@@ -98,12 +98,12 @@ start_copying:
 }
 
 static bool
-bufchan_set_pos(n00b_stream_t *stream, int pos, bool relative)
+buffer_stream_set_position(n00b_stream_t *stream, int pos, bool relative)
 {
     // For a rw buffer, sets the READ position only; will provide
     // another API if needed for the write position.
 
-    n00b_buffer_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_buffer_cookie_t *c = n00b_get_stream_cookie(stream);
 
     int *ptr;
     if (!stream->r) {
@@ -143,9 +143,9 @@ bufchan_set_pos(n00b_stream_t *stream, int pos, bool relative)
 }
 
 static int
-bufchan_get_pos(n00b_stream_t *stream)
+buffer_stream_get_position(n00b_stream_t *stream)
 {
-    n00b_buffer_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_buffer_cookie_t *c = n00b_get_stream_cookie(stream);
 
     if (!stream->r) {
         return c->wposition;
@@ -156,9 +156,9 @@ bufchan_get_pos(n00b_stream_t *stream)
 }
 
 static bool
-bufchan_eof(n00b_stream_t *stream)
+buffer_stream_eof(n00b_stream_t *stream)
 {
-    n00b_buffer_cookie_t *c = n00b_get_channel_cookie(stream);
+    n00b_buffer_cookie_t *c = n00b_get_stream_cookie(stream);
 
     if (!stream->r) {
         return c->wposition == c->buffer->byte_len;
@@ -168,14 +168,14 @@ bufchan_eof(n00b_stream_t *stream)
     }
 }
 
-static n00b_chan_impl n00b_bufchan_impl = {
+static n00b_stream_impl n00b_bufchan_impl = {
     .cookie_size             = sizeof(n00b_buffer_cookie_t),
-    .init_impl               = (void *)bufchan_init,
-    .read_impl               = (void *)bufchan_read,
-    .write_impl              = (void *)bufchan_write,
-    .spos_impl               = (void *)bufchan_set_pos,
-    .gpos_impl               = (void *)bufchan_get_pos,
-    .eof_impl                = (void *)bufchan_eof,
+    .init_impl               = (void *)buffer_stream_init,
+    .read_impl               = (void *)buffer_stream_read,
+    .write_impl              = (void *)buffer_stream_write,
+    .spos_impl               = (void *)buffer_stream_set_position,
+    .gpos_impl               = (void *)buffer_stream_get_position,
+    .eof_impl                = (void *)buffer_stream_eof,
     .poll_for_blocking_reads = true,
 };
 
@@ -191,7 +191,7 @@ n00b_stream_from_buffer(n00b_buf_t  *b,
     n00b_list_append(args, b);
     n00b_list_append(args, (void *)mode);
 
-    return n00b_new(n00b_type_channel(), &n00b_bufchan_impl, args, filters);
+    return n00b_new(n00b_type_stream(), &n00b_bufchan_impl, args, filters);
 }
 
 n00b_stream_t *

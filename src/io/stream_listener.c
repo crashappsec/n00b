@@ -21,7 +21,7 @@ enable_opt(int socket, int opt)
 }
 
 extern void
-fdchan_on_read_event(n00b_fd_stream_t *s,
+fd_stream_on_read_event(n00b_fd_stream_t *s,
                      n00b_fd_sub_t    *sub,
                      void             *msg,
                      void             *thunk);
@@ -35,7 +35,7 @@ listener_open(n00b_stream_t *stream, n00b_list_t *args)
     int               sock;
     n00b_net_addr_t  *addr    = n00b_list_pop(args);
     int               backlog = (int64_t)n00b_list_pop(args);
-    n00b_fd_cookie_t *c       = n00b_get_channel_cookie(stream);
+    n00b_fd_cookie_t *c       = n00b_get_stream_cookie(stream);
     int               len     = n00b_get_sockaddr_len(addr);
 
     sock = socket(n00b_get_net_addr_family(addr), SOCK_STREAM, 0);
@@ -70,7 +70,7 @@ listener_open(n00b_stream_t *stream, n00b_list_t *args)
                                 (int64_t)sock);
 
     c->sub = _n00b_fd_read_subscribe(c->stream,
-                                     (void *)fdchan_on_read_event,
+                                     (void *)fd_stream_on_read_event,
                                      2,
                                      (int)(false),
                                      stream);
@@ -83,10 +83,10 @@ listener_open(n00b_stream_t *stream, n00b_list_t *args)
     return O_RDONLY;
 }
 
-static n00b_chan_impl listener_impl = {
+static n00b_stream_impl listener_impl = {
     .cookie_size = sizeof(n00b_fd_cookie_t),
     .init_impl   = (void *)listener_open,
-    .close_impl  = (void *)n00b_fdchan_close,
+    .close_impl  = (void *)n00b_fd_stream_close,
 };
 
 n00b_stream_t *
@@ -106,5 +106,5 @@ _n00b_create_listener(n00b_net_addr_t *addr, ...)
     n00b_list_append(params, (void *)(int64_t)backlog);
     n00b_list_append(params, addr);
 
-    return n00b_new(n00b_type_channel(), &listener_impl, params);
+    return n00b_new(n00b_type_stream(), &listener_impl, params);
 }

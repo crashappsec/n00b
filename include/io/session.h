@@ -55,7 +55,7 @@ typedef struct {
     n00b_duration_t  *min_input_gap;
     n00b_condition_t  unpause_notify;
     double            time_scale;
-    int               channels;
+    int               streams;
     bool              cinematic;
     bool              paused;
     bool              finished;
@@ -206,7 +206,7 @@ n00b_session_inject(n00b_session_t *s, void *data)
 
     assert(!n00b_type_is_list(n00b_get_my_type(data)));
 
-    n00b_channel_write(s->stdin_injection, data);
+    n00b_write(s->stdin_injection, data);
 }
 
 static inline void
@@ -215,23 +215,23 @@ n00b_session_write_to_user(n00b_session_t *s, void *data, bool stdout)
     n00b_stream_t *stream;
 
     if (stdout) {
-        stream = n00b_chan_stdout();
+        stream = n00b_stdout();
     }
     else {
-        stream = n00b_chan_stderr();
+        stream = n00b_stderr();
     }
 
     if (n00b_type_is_string(n00b_get_my_type(data))) {
         data = (void *)n00b_string_to_buffer((void *)data);
     }
 
-    n00b_channel_write(stream, data);
+    n00b_write(stream, data);
 }
 
 static inline void
 n00b_set_replay_stream(n00b_session_t *session, n00b_stream_t *stream)
 {
-    if (!n00b_channel_can_read(stream)) {
+    if (!n00b_stream_can_read(stream)) {
         N00B_CRAISE("Capture stream must be open and readable.");
     }
 
@@ -338,7 +338,7 @@ n00b_session_capture_extractor(n00b_session_t *session, int events)
     n00b_string_t  *fname  = n00b_session_capture_filename(session);
     n00b_close(stream);
 
-    stream = n00b_channel_open_file(fname, "read_only", n00b_ka(true));
+    stream = n00b_stream_open_file(fname, "read_only", n00b_ka(true));
 
     session->unproxied_capture = stream;
 

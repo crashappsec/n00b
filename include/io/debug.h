@@ -1,5 +1,5 @@
 #include "n00b.h"
 
-extern void n00b_channel_debug_register(n00b_stream_t *);
-extern void n00b_channel_debug_deregister(n00b_stream_t *);
-extern void n00b_show_channels(void);
+extern void n00b_stream_debug_register(n00b_stream_t *);
+extern void n00b_stream_debug_deregister(n00b_stream_t *);
+extern void n00b_show_streams(void);

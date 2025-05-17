@@ -160,7 +160,7 @@ handle_stderr(n00b_debug_msg_t *msg)
 {
     n00b_buf_t *to_write = format_message(msg);
 
-    n00b_channel_write(n00b_chan_stderr(), to_write);
+    n00b_write(n00b_stderr(), to_write);
 
     return 1;
 }
@@ -217,10 +217,10 @@ on_log_close(n00b_stream_t *c, void *ignored)
 static void
 attempt_connection(void)
 {
-    server_connection = n00b_channel_connect(get_debug_server_addr());
+    server_connection = n00b_stream_connect(get_debug_server_addr());
 
     if (server_connection) {
-        n00b_channel_subscribe_close(
+        n00b_stream_subscribe_close(
             server_connection,
             n00b_new_callback_stream(on_server_close, NULL));
     }
@@ -231,7 +231,7 @@ attempt_log_open(void)
 {
     n00b_string_t *fname = n00b_get_env(n00b_cstring(SERVER_LOGFILE_ENV));
 
-    debug_logfile = n00b_channel_open_file(fname,
+    debug_logfile = n00b_stream_open_file(fname,
                                            "write_only",
                                            n00b_ka(true),
                                            "allow_file_creation",
@@ -240,7 +240,7 @@ attempt_log_open(void)
                                            n00b_ka(true));
 
     if (debug_logfile) {
-        n00b_channel_subscribe_close(
+        n00b_stream_subscribe_close(
             server_connection,
             n00b_new_callback_stream(on_log_close, NULL));
     }
@@ -258,7 +258,7 @@ handle_server(n00b_debug_msg_t *msg)
     }
 
     n00b_buf_t *to_write = format_message(msg);
-    n00b_channel_write(server_connection, to_write);
+    n00b_write(server_connection, to_write);
     return 1;
 }
 
@@ -274,7 +274,7 @@ handle_logfile(n00b_debug_msg_t *msg)
     }
 
     n00b_buf_t *to_write = format_message(msg);
-    n00b_channel_write(debug_logfile, to_write);
+    n00b_write(debug_logfile, to_write);
     return 1;
 }
 
