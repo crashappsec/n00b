@@ -23,7 +23,6 @@ n00b_thread_exit(void *result)
         exit(saved_exit_code);
     }
 
-    n00b_gts_quit(n00b_get_tsi_ptr());
     pthread_exit(result);
 }
 

@@ -43,7 +43,7 @@ n00b_get_chan_debug_topic(n00b_string_t *name)
 }
 
 void
-n00b_chan_debug(n00b_string_t *topic, void *msg)
+_n00b_debug(n00b_string_t *topic, void *msg)
 {
     n00b_channel_t *channel = n00b_get_chan_debug_topic(topic);
     n00b_channel_write(channel, msg);

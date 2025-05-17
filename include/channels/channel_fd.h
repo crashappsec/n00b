@@ -15,6 +15,9 @@ extern void           *_n00b_read_file(n00b_string_t *, ...);
 #define n00b_read_file(filename, ...) \
     _n00b_read_file(filename, N00B_VA(n00b_kw(__VA_ARGS__)))
 
+#define n00b_read_file_to_buffer(filename, ...) \
+    _n00b_read_file(filename, n00b_kw("buffer", n00b_ka(true)))
+
 extern n00b_channel_t *_n00b_create_listener(n00b_net_addr_t *, ...);
 extern n00b_channel_t *_n00b_channel_connect(n00b_net_addr_t *, ...);
 

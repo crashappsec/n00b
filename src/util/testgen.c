@@ -210,7 +210,7 @@ build_testgen_script(n00b_session_t *session,
         }
     }
 
-    n00b_channel_close(script);
+    n00b_close(script);
 
     n00b_string_t *dst = n00b_cformat("[|#|].test", base_path);
     n00b_rename(tname, dst);
@@ -252,7 +252,7 @@ n00b_testgen_record(n00b_string_t *test_name, bool quiet, bool ansi, bool merge)
     }
     events   = n00b_session_capture_extractor(session, N00B_CAPTURE_ALL);
     filename = n00b_session_capture_filename(session);
-    n00b_channel_close(session->unproxied_capture);
+    n00b_close(session->unproxied_capture);
     path = n00b_rename(filename, path);
 
     if (!quiet) {
@@ -395,7 +395,7 @@ n00b_parse_test_file(n00b_test_t *test)
 {
     n00b_string_t *base     = test->path;
     n00b_string_t *full     = n00b_cformat("[|#|].test", base);
-    n00b_string_t *contents = n00b_read_utf8_file(full, false);
+    n00b_string_t *contents = n00b_read_file(full);
     n00b_string_t *icmd     = n00b_cstring("INJECT ");
     n00b_string_t *x1cmd    = n00b_cstring("EXPECT ");
     n00b_string_t *x2cmd    = n00b_cstring("ERR_EXPECT ");

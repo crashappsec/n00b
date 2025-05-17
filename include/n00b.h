@@ -90,12 +90,11 @@ extern bool n00b_startup_complete;
 #include "channels/channel_string.h"
 #include "channels/terminal_io.h"
 #include "channels/debug.h"
+#include "channels/marshal.h"
 
 #include "channels/proc.h"
 #include "channels/session.h"
-
-#include "io/iocore.h"
-#include "io/ioqueue.h"
+#include "channels/http.h"
 
 // Mixed data type API.
 #include "adts/mixed.h"
@@ -144,19 +143,12 @@ extern bool n00b_startup_complete;
 #include "runtime/ffi.h"
 #include "util/watch.h"
 
-#include "io/http.h"
-#include "io/file.h"
-#include "io/filters.h"
-#include "io/marshal.h"
-
 #include "util/parsing.h"  // generic parser via Earley parsing.
 #include "util/getopt.h"   // Getopt parsing.
 #include "text/markdown.h" // Wrap of vendored md4c.
 
 // Helper functions for object marshal implementations to
 // marshal primitive values.
-
-#include "io/debug.h"
 
 #include "util/testgen.h"
 

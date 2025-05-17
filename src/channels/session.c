@@ -110,19 +110,17 @@ create_tmpfiles(n00b_channel_t **ctrl_file_ptr)
                                        bash_setup_string));
 
     n00b_channel_write(rc_file, buf);
-    n00b_channel_close(rc_file);
+    n00b_close(rc_file);
 
     return result;
 }
 
-extern void n00b_restart_io(void);
 #define capture(x, y, z) n00b_session_capture(x, y, z)
 
 static void
 post_fork_hook(n00b_session_t *s)
 {
     n00b_string_t *ctrl = n00b_channel_get_name(s->subproc_ctrl_stream);
-    n00b_restart_io();
     n00b_set_env(n00b_cstring("N00B_BASH_INFO_LOG"), ctrl);
 
     if (!s->likely_bash) {
@@ -301,7 +299,7 @@ session_cleanup(n00b_session_t *session)
     }
     session->last_event = NULL;
     n00b_truncate_all_match_data(session, NULL, 0);
-    n00b_channel_close(session->stdin_injection);
+    n00b_close(session->stdin_injection);
     session->cur_user_state = NULL;
     if (session->rc_filename) {
         unlink(session->rc_filename->data);
@@ -309,7 +307,7 @@ session_cleanup(n00b_session_t *session)
     }
     if (session->subproc_ctrl_stream) {
         s = n00b_channel_get_name(session->subproc_ctrl_stream);
-        n00b_channel_close(session->subproc_ctrl_stream);
+        n00b_close(session->subproc_ctrl_stream);
         unlink(s->data);
         session->subproc_ctrl_stream = NULL;
     }

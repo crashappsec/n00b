@@ -470,6 +470,93 @@ n00b_channel_read(n00b_channel_t *channel, int ms_timeout, bool *err)
     return result;
 }
 
+static inline void *
+possible_string_list(n00b_list_t *l)
+{
+    int n = n00b_list_len(l);
+
+    for (int i = 1; i < n; i++) {
+        void *item = n00b_private_list_get(l, i, NULL);
+        if (!n00b_type_is_string(n00b_get_my_type(item))) {
+            return l;
+        }
+    }
+
+    return n00b_string_join(l, n00b_cached_empty_string());
+}
+
+static inline void *
+possible_buffer_list(n00b_list_t *l)
+{
+    int n = n00b_list_len(l);
+
+    for (int i = 1; i < n; i++) {
+        void *item = n00b_private_list_get(l, i, NULL);
+        if (!n00b_type_is_buffer(n00b_get_my_type(item))) {
+            return l;
+        }
+    }
+
+    return n00b_buffer_join(l, NULL);
+}
+
+// If there's one item read, we return it. If there's more, we return
+// a list, UNLESS each item is uniform, and either a buffer or a
+// string, in which case we concatenate.
+void *
+n00b_read_all(n00b_channel_t *channel, int ms_timeout)
+{
+    n00b_list_t     *l   = n00b_list(n00b_type_ref());
+    bool             err = false;
+    n00b_duration_t *now;
+    n00b_duration_t *timeout;
+    n00b_duration_t *start;
+    n00b_duration_t *end = NULL;
+
+    if (ms_timeout > 0) {
+        timeout = n00b_duration_from_ms(ms_timeout);
+        start   = n00b_now();
+        end     = n00b_duration_add(start, timeout);
+    }
+
+    void *item = n00b_channel_read(channel, ms_timeout, &err);
+
+    while (!err) {
+        n00b_list_append(l, item);
+
+        if (timeout) {
+            now = n00b_now();
+            if (n00b_duration_lt(end, now)) {
+                break;
+            }
+            ms_timeout = n00b_duration_to_ms(n00b_duration_diff(now, end));
+        }
+        item = n00b_channel_read(channel, ms_timeout, &err);
+    }
+
+    switch (n00b_list_len(l)) {
+    case 0:
+        return NULL;
+    case 1:
+        return n00b_list_pop(l);
+    default:
+        break;
+    }
+
+    item           = n00b_private_list_get(l, 0, NULL);
+    n00b_type_t *t = n00b_get_my_type(item);
+
+    if (n00b_type_is_buffer(t)) {
+        return possible_buffer_list(l);
+    }
+
+    if (n00b_type_is_string(t)) {
+        return possible_string_list(l);
+    }
+
+    return l;
+}
+
 // This is our obtusely named non-blocking read.
 void *
 n00b_io_dispatcher_process_read_queue(n00b_channel_t *channel, bool *err)
@@ -511,7 +598,7 @@ n00b_channel_set_absolute_position(n00b_channel_t *c, int pos)
 }
 
 void
-n00b_channel_close(n00b_channel_t *c)
+n00b_close(n00b_channel_t *c)
 {
     n00b_flush(c);
 

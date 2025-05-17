@@ -1,6 +1,5 @@
 #include "n00b.h"
 #include "channels/channel.h"
-#include "io/marshal.h"
 #include "channels/filter.h"
 
 static n00b_list_t *

@@ -160,7 +160,7 @@ main(void)
         N00B_TRY_END;
     } while (!srv);
 
-    n00b_debugf("test", "Address: [|#|]", addr);
+    n00b_debug("test", "Address: [|#|]", addr);
 
     my_stdin           = n00b_fd_stream_from_fd(0, NULL, NULL);
     my_stdout          = n00b_fd_stream_from_fd(1, NULL, NULL);

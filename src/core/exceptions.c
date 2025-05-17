@@ -172,14 +172,9 @@ n00b_exception_uncaught(n00b_exception_t *exception)
     n00b_string_t *msg = n00b_repr_exception_stack_no_vm(
         n00b_cstring("FATAL ERROR:"));
 
-    if (n00b_in_io_thread()) {
-        fprintf(stderr, "%s\n", msg->data);
-    }
-    else {
-        n00b_print(n00b_chan_stderr(),
-                   msg,
-                   NULL);
-    }
+    n00b_print(n00b_chan_stderr(),
+               msg,
+               NULL);
 
     n00b_abort();
 }

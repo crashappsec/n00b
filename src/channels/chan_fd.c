@@ -108,7 +108,7 @@ on_fd_close(n00b_fd_stream_t *s, n00b_channel_t *c)
 {
     c->r = false;
     c->w = false;
-    n00b_channel_close(c);
+    n00b_close(c);
 }
 
 // The low-level event scheduler calls this when there's a read; we
@@ -682,7 +682,7 @@ _n00b_read_file(n00b_string_t *path, ...)
     bool        err = false;
     n00b_buf_t *b   = n00b_channel_read(f, 0, NULL);
 
-    n00b_channel_close(f);
+    n00b_close(f);
 
     if (err) {
         n00b_string_t *msg = n00b_cstring("Error when reading file.");

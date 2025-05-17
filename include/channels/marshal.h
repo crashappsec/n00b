@@ -91,24 +91,9 @@ typedef union {
 // For compat w/ original version, until it is excised.
 #define N00B_MARSHAL_MAGIC        N00B_MARSHAL_MAGIC_BASE
 
-extern n00b_stream_filter_t *n00b_new_pickler(n00b_stream_t *);
-extern n00b_stream_filter_t *n00b_new_unpickler(n00b_stream_t *);
-extern n00b_buf_t           *n00b_automarshal(void *);
-extern void                 *n00b_autounmarshal(n00b_buf_t *);
-extern n00b_pickle_ctx      *n00b_pickle_streamless_new(size_t);
-extern n00b_unpickle_ctx    *n00b_unpickle_streamless_new(void);
-extern n00b_buf_t           *n00b_pickle_streamless(n00b_pickle_ctx *, void *);
-
-extern void *n00b_unpickle_streamless(n00b_unpickle_ctx *, n00b_buf_t *);
-
-static inline void
-n00b_add_marshaling(n00b_stream_t *party)
-{
-    n00b_add_filter(party, n00b_new_pickler(party), false);
-}
-
-static inline void
-n00b_add_unmarshaling(n00b_stream_t *party)
-{
-    n00b_add_filter(party, n00b_new_unpickler(party), false);
-}
+extern n00b_buf_t         *n00b_automarshal(void *);
+extern void               *n00b_autounmarshal(n00b_buf_t *);
+extern n00b_filter_spec_t *n00b_filter_marshal(bool);
+n00b_filter_spec_t        *n00b_filter_unmarshal(bool);
+extern n00b_buf_t         *n00b_autopickle(void *);
+extern void               *n00b_autounpickle(n00b_buf_t *);

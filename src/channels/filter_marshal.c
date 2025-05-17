@@ -1013,6 +1013,7 @@ static n00b_filter_impl inverse_marshal_filter = {
     .read_fn     = (void *)incremental_marshal,
     .name        = NULL,
 };
+
 n00b_filter_spec_t *
 n00b_filter_marshal(bool marshal_reads)
 {
@@ -1066,7 +1067,7 @@ helper_cb(void **addr, void *value)
 }
 
 void *
-n00b_autounpickle(n00b_buf_t *b)
+n00b_autounmarshal(n00b_buf_t *b)
 {
     void               *result;
     n00b_filter_spec_t *f  = n00b_filter_unmarshal(true);
@@ -1078,7 +1079,7 @@ n00b_autounpickle(n00b_buf_t *b)
 }
 
 n00b_buf_t *
-n00b_autopickle(void *obj)
+n00b_automarshal(void *obj)
 {
     void               *result;
     n00b_filter_spec_t *f  = n00b_filter_marshal(false);

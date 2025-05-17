@@ -13,8 +13,9 @@ typedef enum {
     // base implementation is event-driven and has read subscribers.
     N00B_CHAN_FILTER_READS,
     // For the other two, any underlying implementation requires
-    // something calling n00b_chan_write() or n00b_chan_read().
-    // The filtering occurs before the underlying implementation is called.
+    // something calling n00b_chan_write() or n00b_chan_read().  The
+    // filtering occurs before the underlying implementation is
+    // called.
     N00B_CHAN_FILTER_WRITES,
 } n00b_chan_filter_policy;
 
@@ -75,20 +76,32 @@ typedef struct {
     void             *param;
     int               policy;
 } n00b_filter_spec_t;
+
 extern n00b_filter_spec_t *n00b_filter_apply_color(int);
-extern n00b_filter_spec_t *n00b_filter_apply_line_buffering(void);
-extern n00b_filter_spec_t *n00b_filter_json(void);
-extern n00b_filter_spec_t *n00b_filter_marshal(bool);
+extern n00b_filter_spec_t *n00b_filter_apply_line_buffering(
+    void);
+
 extern n00b_filter_spec_t *n00b_filter_hexdump(int64_t);
 
+extern n00b_filter_spec_t *n00b_filter_marshal(bool);
+
+extern n00b_buf_t *n00b_automarshal(void *);
+extern void       *n00b_autounmarshal(n00b_buf_t *);
+
 // json filter
+extern n00b_filter_spec_t *n00b_filter_json(void);
 extern n00b_filter_spec_t *n00b_filter_to_json(int);
-extern void                n00b_chan_filter_add_to_json_on_write(
-                   struct n00b_channel_t *c);
+extern n00b_filter_spec_t *n00b_filter_from_json(int);
+
 extern void n00b_chan_filter_add_to_json_on_read(
     struct n00b_channel_t *c);
-extern n00b_filter_spec_t *n00b_filter_from_json(int);
-extern void                n00b_chan_filter_add_from_json_on_write(
-                   struct n00b_channel_t *c);
+extern void n00b_chan_filter_add_to_json_on_write(
+    struct n00b_channel_t *c);
+
+extern void n00b_chan_filter_add_from_json_on_write(
+    struct n00b_channel_t *c);
 extern void n00b_chan_filter_add_from_json_on_read(
     struct n00b_channel_t *c);
+
+extern n00b_filter_spec_t *n00b_filter_parse_ansi(bool);
+extern n00b_filter_spec_t *n00b_filter_strip_ansi(bool);

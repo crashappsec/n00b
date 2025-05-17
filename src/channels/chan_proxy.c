@@ -20,13 +20,13 @@ on_target_close(n00b_channel_t *target, n00b_channel_t *proxy)
     n00b_proxy_info_t *info = n00b_get_channel_cookie(proxy);
 
     if (info->read_cb) {
-        n00b_channel_close(info->read_cb);
+        n00b_close(info->read_cb);
         info->read_cb = NULL;
     }
-    n00b_channel_close(info->close_cb);
+    n00b_close(info->close_cb);
     info->close_cb = NULL;
 
-    n00b_channel_close(proxy);
+    n00b_close(proxy);
 
     return NULL;
 }

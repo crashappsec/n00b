@@ -9,14 +9,14 @@ typedef enum {
 } n00b_http_method_t;
 
 typedef struct {
-    CURL          *curl;
-    n00b_buf_t    *buf;
-    n00b_stream_t *to_send;
-    n00b_stream_t *output_stream;
-    char          *errbuf;
+    CURL           *curl;
+    n00b_buf_t     *buf;
+    n00b_channel_t *to_send;
+    n00b_channel_t *output_stream;
+    char           *errbuf;
     // Internal lock makes sure that two threads don't call at once.
-    n00b_lock_t    lock;
-    CURLcode       code; // Holds the last result code.
+    n00b_lock_t     lock;
+    CURLcode        code; // Holds the last result code.
 } n00b_basic_http_t;
 
 typedef struct {

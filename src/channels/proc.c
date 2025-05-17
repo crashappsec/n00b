@@ -122,7 +122,7 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
 
     if (ctx->flags & N00B_PROC_STDIN_CAP) {
         buf         = n00b_buffer_empty();
-        ctx->cap_in = n00b_out_buf_channel(buf, true);
+        ctx->cap_in = n00b_outstream_buffer(buf, true);
         n00b_channel_subscribe_read(n00b_chan_stdin(), ctx->cap_in, false);
         n00b_channel_set_name(ctx->cap_in,
                               n00b_cformat("«#»«#» stdin cap«#»",
@@ -133,7 +133,7 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
 
     if (ctx->flags & N00B_PROC_STDOUT_CAP) {
         buf          = n00b_buffer_empty();
-        ctx->cap_out = n00b_out_buf_channel(buf, true);
+        ctx->cap_out = n00b_outstream_buffer(buf, true);
         n00b_channel_subscribe_read(ctx->subproc_stdout, ctx->cap_out, false);
         n00b_channel_set_name(ctx->cap_out,
                               n00b_cformat("«#»«#» stdout cap«#»",
@@ -149,7 +149,7 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
     if (ctx->flags & N00B_PROC_STDERR_CAP
         && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
         buf          = n00b_buffer_empty();
-        ctx->cap_err = n00b_out_buf_channel(buf, true);
+        ctx->cap_err = n00b_outstream_buffer(buf, true);
         n00b_channel_subscribe_read(ctx->subproc_stderr, ctx->cap_err, false);
         n00b_channel_set_name(ctx->cap_err,
                               n00b_cformat("«#»«#» stderr cap«#»",
@@ -699,29 +699,29 @@ void
 n00b_proc_close(n00b_proc_t *proc)
 {
     if (proc->subproc_stdin) {
-        n00b_channel_close(proc->subproc_stdin);
+        n00b_close(proc->subproc_stdin);
     }
     if (proc->subproc_stdout) {
-        n00b_channel_close(proc->subproc_stdout);
+        n00b_close(proc->subproc_stdout);
     }
     if (proc->subproc_stderr) {
-        n00b_channel_close(proc->subproc_stderr);
+        n00b_close(proc->subproc_stderr);
     }
     if (proc->subproc_pid) {
-        n00b_channel_close(proc->subproc_pid);
+        n00b_close(proc->subproc_pid);
     }
     if (proc->cap_in) {
-        n00b_channel_close(proc->cap_in);
+        n00b_close(proc->cap_in);
     }
     if (proc->cap_out) {
-        n00b_channel_close(proc->cap_out);
+        n00b_close(proc->cap_out);
     }
     if (proc->cap_err) {
-        n00b_channel_close(proc->cap_err);
+        n00b_close(proc->cap_err);
     }
 
     if (proc->exit_cb) {
-        n00b_channel_close(proc->exit_cb);
+        n00b_close(proc->exit_cb);
     }
 
     n00b_signal_unregister(SIGCHLD, (void *)should_exit_via_sig, proc);

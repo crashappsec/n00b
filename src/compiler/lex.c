@@ -1077,7 +1077,7 @@ line_comment:
 }
 
 bool
-n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
+n00b_lex(n00b_module_t *ctx, n00b_channel_t *stream)
 {
     n00b_assert(ctx->name);
 
@@ -1088,7 +1088,7 @@ n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
     n00b_obj_t raw;
 
     if (!ctx->source) {
-        ctx->source = n00b_stream_read_all(stream);
+        ctx->source = n00b_read_all(stream, 0);
     }
 
     raw = ctx->source;

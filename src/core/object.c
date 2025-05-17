@@ -609,15 +609,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
-    [N00B_T_MESSAGE] = {
-        .name      = "message",
-        .typeid    = N00B_T_MESSAGE,
-        .alloc_len = sizeof(n00b_message_t),
-        .vtable    = &n00b_message_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
     [N00B_T_BYTERING] = {
         .name      = "bytering",
         .typeid    = N00B_T_BYTERING,

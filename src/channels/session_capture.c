@@ -179,7 +179,7 @@ n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
 // ourselves when capture is on.
 
 static void
-record_winch(n00b_channel_t *sig, int64_t signal, n00b_session_t *session)
+record_winch(int64_t signal, siginfo_t *sinfo, n00b_session_t *session)
 {
     struct winsize *dims = n00b_gc_alloc_mapped(struct winsize,
                                                 N00B_GC_SCAN_ALL);
@@ -209,7 +209,7 @@ n00b_setup_capture(n00b_session_t *s, n00b_channel_t *target, int policy)
 
     s->capture_stream = p;
     s->capture_policy = policy;
-    n00b_io_register_signal_handler(SIGWINCH, (void *)record_winch, s);
+    n00b_signal_register(SIGWINCH, (void *)record_winch, s);
 }
 
 void
@@ -226,14 +226,14 @@ n00b_capture_launch(n00b_session_t *s, n00b_string_t *cmd, n00b_list_t *args)
     info->args    = args;
 
     capture(s, N00B_CAPTURE_SPAWN, info);
-    record_winch(NULL, SIGWINCH, s);
+    record_winch(SIGWINCH, NULL, s);
 }
 
 void
 n00b_session_finish_capture(n00b_session_t *session)
 {
     if (session->saved_capture) {
-        n00b_channel_close(session->saved_capture);
+        n00b_close(session->saved_capture);
     }
 }
 

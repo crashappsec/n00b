@@ -212,10 +212,24 @@ extern void _n00b_channel_queue(n00b_channel_t *, void *, char *, int);
 #define n00b_channel_queue(chan, msg) \
     _n00b_channel_queue(chan, msg, __FILE__, __LINE__)
 
+static inline void
+_n00b_stream_write_memory(n00b_channel_t *s, void *mem, int n, char *f, int l)
+{
+    _n00b_channel_write(s, n00b_buffer_from_bytes(mem, n), f, l);
+}
+
+#define n00b_stream_write_memory(s, mem, n) \
+    _n00b_stream_write_memory(s, mem, n, __FILE__, __LINE__)
+
 extern void n00b_channel_putc(n00b_channel_t *, n00b_codepoint_t);
 
-// Blocking read
+// Blocking read functions
 extern void *n00b_channel_read(n00b_channel_t *, int, bool *);
+extern void *n00b_read_all(n00b_channel_t *, int);
+
+#define n00b_read(c)                    n00b_channel_read(c, 0, NULL)
+#define n00b_read_with_timeout(c, tout) n00b_channel_read(c, tout, NULL)
+
 // This is really a non-blocking read that returns a message IF
 // one is available.
 extern void *n00b_io_dispatcher_process_read_queue(n00b_channel_t *, bool *);
@@ -223,7 +237,7 @@ extern void *n00b_io_dispatcher_process_read_queue(n00b_channel_t *, bool *);
 extern int         n00b_channel_get_position(n00b_channel_t *);
 extern bool        n00b_channel_set_relative_position(n00b_channel_t *, int);
 extern bool        n00b_channel_set_absolute_position(n00b_channel_t *, int);
-extern void        n00b_channel_close(n00b_channel_t *);
+extern void        n00b_close(n00b_channel_t *);
 extern n00b_buf_t *n00b_channel_unfiltered_read(n00b_channel_t *, int);
 extern bool        n00b_channel_unfiltered_write(n00b_channel_t *, n00b_buf_t *);
 

@@ -336,7 +336,7 @@ n00b_session_capture_extractor(n00b_session_t *session, int events)
 {
     n00b_channel_t *stream = session->unproxied_capture;
     n00b_string_t  *fname  = n00b_session_capture_filename(session);
-    n00b_channel_close(stream);
+    n00b_close(stream);
 
     stream = n00b_channel_open_file(fname, "read_only", n00b_ka(true));
 

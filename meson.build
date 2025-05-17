@@ -263,28 +263,6 @@ n00b_adts = [
     'src/adts/bytering.c',
 ]
 
-n00b_io = [
-    'src/io/iocore.c',
-    'src/io/ioqueue.c',
-    'src/io/filters.c',
-    'src/io/marshal.c',
-    'src/io/file.c',
-    'src/io/socket.c',
-    'src/io/listener.c',
-    'src/io/signal.c',
-    'src/io/timer.c',
-    'src/io/exitinfo.c',
-    'src/io/condition.c',
-    'src/io/callback.c',
-    'src/io/topic.c',
-    'src/io/subproxy.c',
-    'src/io/buffer.c',
-    'src/io/strstream.c',
-    'src/io/colorterm.c',
-    'src/io/http.c',
-    'src/io/debug.c',
-]
-
 n00b_channels = [
     'src/channels/fd_events.c',
     'src/channels/filter.c',    
@@ -313,6 +291,8 @@ n00b_channels = [
     'src/channels/filter_hexdump.c',
     'src/channels/filter_json.c',
     'src/channels/filter_marshal.c',
+    'src/channels/filter_ansi.c',
+    'src/channels/http.c',    
 ]
 
 n00b_debug = [
@@ -379,7 +359,7 @@ n00b_cmd = [
 
 n00b_log = ['src/cmd/n00b_debug.c']
 
-n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts + n00b_io 
+n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
 n00b_base = n00b_base + n00b_channels + n00b_debug
 
