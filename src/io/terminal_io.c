@@ -65,15 +65,18 @@ n00b_setup_terminal_streams(void)
     stream                                 = n00b_new_fd_stream(instrm);
     n00b_stream_terminal_io[STDIN_RAW_IX]  = stream;
     n00b_stream_terminal_io[STDIN_IX]      = stream;
+    stream->name                           = n00b_cstring("stdin");
     stream                                 = n00b_new_fd_stream(outstrm);
     n00b_stream_terminal_io[STDOUT_RAW_IX] = stream;
     proxy                                  = n00b_new_stream_proxy(stream,
                                   n00b_filter_apply_color(-1));
     n00b_stream_terminal_io[STDOUT_IX]     = proxy;
+    proxy->name                            = n00b_cstring("stdout");
     stream                                 = n00b_new_fd_stream(errstrm);
     n00b_stream_terminal_io[STDERR_RAW_IX] = stream;
     proxy                                  = n00b_new_stream_proxy(stream,
                                   n00b_filter_apply_color(-1));
+    proxy->name                            = n00b_cstring("stderr");
     n00b_stream_terminal_io[STDERR_IX]     = proxy;
 }
 

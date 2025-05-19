@@ -3,7 +3,7 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static _Atomic int32_t global_msg_id     = 0;
+static _Atomic int32_t global_msg_id    = 0;
 static _Atomic int32_t global_stream_id = 0;
 static void            n00b_route_stream_message(void *msg, void *dst);
 
@@ -92,47 +92,47 @@ base_subscribe(n00b_stream_t *stream,
 
 n00b_observer_t *
 n00b_stream_subscribe_read(n00b_stream_t *stream,
-                            n00b_stream_t *dst,
-                            bool           oneshot)
+                           n00b_stream_t *dst,
+                           bool           oneshot)
 {
     return base_subscribe(stream, dst, oneshot, N00B_CT_R);
 }
 
 n00b_observer_t *
 n00b_stream_subscribe_raw(n00b_stream_t *stream,
-                           n00b_stream_t *dst,
-                           bool           oneshot)
+                          n00b_stream_t *dst,
+                          bool           oneshot)
 {
     return base_subscribe(stream, dst, oneshot, N00B_CT_RAW);
 }
 
 n00b_observer_t *
 n00b_stream_subscribe_queue(n00b_stream_t *stream,
-                             n00b_stream_t *dst,
-                             bool           oneshot)
+                            n00b_stream_t *dst,
+                            bool           oneshot)
 {
     return base_subscribe(stream, dst, oneshot, N00B_CT_Q);
 }
 
 n00b_observer_t *
 n00b_stream_subscribe_write(n00b_stream_t *stream,
-                             n00b_stream_t *dst,
-                             bool           oneshot)
+                            n00b_stream_t *dst,
+                            bool           oneshot)
 {
     return base_subscribe(stream, dst, oneshot, N00B_CT_W);
 }
 
 n00b_observer_t *
 n00b_stream_subscribe_close(n00b_stream_t *stream,
-                             n00b_stream_t *dst)
+                            n00b_stream_t *dst)
 {
     return base_subscribe(stream, dst, true, N00B_CT_CLOSE);
 }
 
 n00b_observer_t *
 n00b_stream_subscribe_error(n00b_stream_t *stream,
-                             n00b_stream_t *dst,
-                             bool           oneshot)
+                            n00b_stream_t *dst,
+                            bool           oneshot)
 {
     return base_subscribe(stream, dst, oneshot, N00B_CT_ERROR);
 }
@@ -141,14 +141,30 @@ static inline n00b_stream_msg_t *
 package_message(void *m, int nitems, char *f, int l)
 {
     n00b_stream_msg_t *result = n00b_gc_alloc_mapped(n00b_stream_msg_t,
-                                               N00B_GC_SCAN_ALL);
-    result->payload     = m;
-    result->nitems      = nitems;
-    result->id          = atomic_fetch_add(&global_msg_id, 1);
-    result->file        = f;
-    result->line        = l;
+                                                     N00B_GC_SCAN_ALL);
+    result->payload           = m;
+    result->nitems            = nitems;
+    result->id                = atomic_fetch_add(&global_msg_id, 1);
+    result->file              = f;
+    result->line              = l;
 
     return result;
+}
+
+void
+n00b_cache_read(n00b_stream_t *s, void *m)
+{
+    n00b_cnotify_raw(s, m);
+    n00b_stream_msg_t *msg = package_message(m, 1, __FILE__, __LINE__);
+    n00b_list_t       *l   = n00b_filter_reads(s, msg);
+    int                n   = n00b_list_len(l);
+
+    for (int i = 0; i < n; i++) {
+        void *one = n00b_private_list_get(l, i, NULL);
+        if (!n00b_cnotify_r(s, one)) {
+            n00b_list_append(s->read_cache, one);
+        }
+    }
 }
 
 static void
@@ -189,9 +205,9 @@ internal_write(n00b_stream_t *stream,
 // BLOCKING
 void
 _n00b_write(n00b_stream_t *stream,
-                    void          *msg,
-                    char          *file,
-                    int            line)
+            void          *msg,
+            char          *file,
+            int            line)
 {
     internal_write(stream, msg, 1, file, line, true);
 }
@@ -199,9 +215,9 @@ _n00b_write(n00b_stream_t *stream,
 // NON-BLOCKING; processes the queue,
 void
 _n00b_queue(n00b_stream_t *stream,
-                    void          *msg,
-                    char          *file,
-                    int            line)
+            void          *msg,
+            char          *file,
+            int            line)
 {
     internal_write(stream, msg, 1, file, line, false);
 }
@@ -224,7 +240,15 @@ n00b_stream_unfiltered_read(n00b_stream_t *stream, int len)
     bool err;
 
     n00b_fd_cookie_t *cookie = n00b_get_stream_cookie(stream);
-    return n00b_fd_read(cookie->stream, len, 0, false, &err);
+    n00b_buf_t       *result = n00b_fd_read(cookie->stream,
+                                      len,
+                                      0,
+                                      false,
+                                      &err);
+
+    n00b_cnotify_raw(stream, result);
+
+    return result;
 }
 
 bool
@@ -249,21 +273,26 @@ n00b_stream_eof(n00b_stream_t *stream)
 static inline bool
 nonblocking_stream_read(n00b_stream_t *stream)
 {
-    bool           err = false;
+    bool             err = false;
     n00b_stream_r_fn fn;
-    void          *v;
+    void            *v;
 
     while (true) {
         fn = stream->impl->read_impl;
-        v  = (*fn)(stream, &err);
+        if (!fn) {
+            return false;
+        }
+
+        v = (*fn)(stream, &err);
 
         if (err) {
             return false;
         }
 
         n00b_cnotify_raw(stream, v);
-        n00b_stream_msg_t *pkg    = package_message(v, 1, __FILE__, __LINE__);
-        stream->read_cache = n00b_filter_reads(stream, pkg);
+
+        n00b_stream_msg_t *pkg = package_message(v, 1, __FILE__, __LINE__);
+        stream->read_cache     = n00b_filter_reads(stream, pkg);
         if (stream->read_cache) {
             return n00b_list_len(stream->read_cache) != 0;
         }
@@ -349,9 +378,9 @@ wait_for_read(n00b_stream_t   *stream,
 
 static void *
 n00b_perform_stream_read(n00b_stream_t *stream,
-                          bool           blocking,
-                          int            tout,
-                          bool          *err)
+                         bool           blocking,
+                         int            tout,
+                         bool          *err)
 {
     n00b_mutex_t    *lock   = stream->locks[N00B_LOCKRD_IX];
     void            *result = NULL;
@@ -438,6 +467,7 @@ n00b_perform_stream_read(n00b_stream_t *stream,
     *err = false;
 
     n00b_lock_release(lock);
+
     return result;
 }
 
@@ -636,8 +666,8 @@ static void
 n00b_stream_init(n00b_stream_t *stream, va_list args)
 {
     n00b_stream_impl *impl         = va_arg(args, n00b_stream_impl *);
-    void           *init_args    = va_arg(args, void *);
-    n00b_list_t    *filter_specs = va_arg(args, n00b_list_t *);
+    void             *init_args    = va_arg(args, void *);
+    n00b_list_t      *filter_specs = va_arg(args, n00b_list_t *);
 
     // Async writes get enqueued and the event-thread processes.
     // Sync writes grab the lock.
@@ -653,7 +683,7 @@ n00b_stream_init(n00b_stream_t *stream, va_list args)
     stream->impl             = impl;
     stream->my_subscriptions = n00b_list(n00b_type_ref());
     stream->read_cache       = n00b_list(n00b_type_ref());
-    stream->stream_id       = atomic_fetch_add(&global_stream_id, 1);
+    stream->stream_id        = atomic_fetch_add(&global_stream_id, 1);
 
     n00b_alloc_hdr *h = ((n00b_alloc_hdr *)stream) - 1;
     h->type           = n00b_type_stream();

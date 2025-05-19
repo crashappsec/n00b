@@ -208,6 +208,7 @@ n00b_string_init_from_cstring_with_len(n00b_string_t *s,
 
     if (!n00b_cstring_validate_u8(p, &num_cp, &num_bytes, len)
         || len != num_bytes) {
+        n00b_cstring_validate_u8(p, &num_cp, &num_bytes, len);
         N00B_CRAISE("Invalid UTF-8 in C string.");
     }
 

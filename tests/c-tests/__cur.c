@@ -54,7 +54,7 @@ callback_test(n00b_buf_t *b, void *thunk)
         break;
     case '\r':
         n00b_write(n00b_stderr(),
-                           n00b_string_to_buffer(n00b_cached_newline()));
+                   n00b_string_to_buffer(n00b_cached_newline()));
         break;
     default:
         break;
@@ -63,12 +63,12 @@ callback_test(n00b_buf_t *b, void *thunk)
     return n00b_string_to_buffer(n00b_cstring("\nLOLOL\n"));
 }
 
-void *
+static void *
 sock_close(n00b_stream_t *stream, void *rcv)
 {
     n00b_flush(rcv);
     n00b_queue(n00b_stdout(),
-                       n00b_crich("[|red|]Lost connection."));
+               n00b_crich("[|red|]Lost connection."));
     return NULL;
 }
 
@@ -84,8 +84,8 @@ my_accept(n00b_stream_t *stream, void *ignore)
 {
     n00b_printf("[|h6|]Got connection.");
     n00b_stream_t *rcv = n00b_new_callback_stream(sock_rcv,
-                                                    NULL,
-                                                    n00b_filter_hexdump(0x4a4a4a00));
+                                                  NULL,
+                                                  n00b_filter_hexdump(0x4a4a4a00));
     n00b_stream_subscribe_read(stream, rcv, false);
 
     n00b_stream_t *close = n00b_new_callback_stream(sock_close, rcv);
@@ -141,7 +141,7 @@ main(void)
 
     uint64_t         port = 7879;
     n00b_net_addr_t *addr = NULL;
-    n00b_stream_t  *srv;
+    n00b_stream_t   *srv;
 
     do {
         N00B_TRY
@@ -173,12 +173,12 @@ main(void)
 
     n00b_stream_t *instrm = n00b_new_stream_proxy(n00b_stdin());
     n00b_stream_t *log    = n00b_stream_open_file(n00b_cstring("/tmp/testlog"),
-                                                 "write_only",
-                                                 (int64_t) true,
-                                                 "allow_file_creation",
-                                                 (int64_t) true);
+                                               "write_only",
+                                               (int64_t) true,
+                                               "allow_file_creation",
+                                               (int64_t) true);
 
-    log                = n00b_new_stream_proxy(log);
+    log               = n00b_new_stream_proxy(log);
     n00b_stream_t *cb = n00b_new_callback_stream(callback_test, NULL);
     n00b_stream_subscribe_read(instrm, log, false);
     n00b_stream_subscribe_read(instrm, cb, false);

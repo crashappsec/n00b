@@ -128,46 +128,46 @@ enum {
 
 // Implementations of core streams are expect to call this when done
 // writing.
-static inline void
+static inline bool
 n00b_stream_notify(n00b_stream_t *stream, void *msg, int64_t n)
 {
-    n00b_observable_post(&stream->pub_info, (void *)n, msg);
+    return n00b_observable_post(&stream->pub_info, (void *)n, msg) != 0;
 }
 
-static inline void
+static inline bool
 n00b_cnotify_r(n00b_stream_t *stream, void *msg)
 {
-    n00b_stream_notify(stream, msg, N00B_CT_R);
+    return n00b_stream_notify(stream, msg, N00B_CT_R);
 }
 
-static inline void
+static inline bool
 n00b_cnotify_q(n00b_stream_t *stream, void *msg)
 {
-    n00b_stream_notify(stream, msg, N00B_CT_Q);
+    return n00b_stream_notify(stream, msg, N00B_CT_Q);
 }
 
-static inline void
+static inline bool
 n00b_cnotify_w(n00b_stream_t *stream, void *msg)
 {
-    n00b_stream_notify(stream, msg, N00B_CT_W);
+    return n00b_stream_notify(stream, msg, N00B_CT_W);
 }
 
-static inline void
+static inline bool
 n00b_cnotify_raw(n00b_stream_t *stream, void *msg)
 {
-    n00b_stream_notify(stream, msg, N00B_CT_RAW);
+    return n00b_stream_notify(stream, msg, N00B_CT_RAW);
 }
 
-static inline void
+static inline bool
 n00b_cnotify_close(n00b_stream_t *stream, void *msg)
 {
-    n00b_stream_notify(stream, msg, N00B_CT_CLOSE);
+    return n00b_stream_notify(stream, msg, N00B_CT_CLOSE);
 }
 
-static inline void
+static inline bool
 n00b_cnotify_error(n00b_stream_t *stream, void *msg)
 {
-    n00b_stream_notify(stream, msg, N00B_CT_ERROR);
+    return n00b_stream_notify(stream, msg, N00B_CT_ERROR);
 }
 
 static inline bool
@@ -296,6 +296,8 @@ n00b_get_stream_cookie(n00b_stream_t *stream)
         }                                            \
         va_end(args);                                \
     }
+
+extern void n00b_cache_read(n00b_stream_t *, void *);
 
 #endif
 

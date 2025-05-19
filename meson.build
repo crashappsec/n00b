@@ -215,6 +215,7 @@ n00b_core = [
     'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
     'src/core/lock.c',
     'src/core/signal.c',
+    'src/core/type_hash.c'      # New type implementation coming soon.
 ]
 
 n00b_runtime = [
@@ -297,7 +298,8 @@ n00b_io = [
 
 n00b_debug = [
     'src/debug/workflow.c',
-    'src/debug/api.c',    
+    'src/debug/api.c',
+    'src/debug/server.c',
 ]
 
 n00b_compiler = [
@@ -364,7 +366,6 @@ n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
 n00b_base = n00b_base + n00b_io + n00b_debug
 
 n00b_src = n00b_base + n00b_cmd
-log_src = n00b_base + n00b_log
 
 hat_primary = [
     'src/hatrack/support/hatrack_common.c',
@@ -525,15 +526,16 @@ executable(
     link_with: link_with,
 )
 
-# executable(
-# 'n00blog',
-# log_src,
-#    include_directories: incdir,
-#    dependencies: deps,
-#    c_args: c_args,
-#    link_args: exe_link_args,
-#    link_with: link_with,
-# )
+executable(
+'n00blog',
+     n00b_base,
+     include_directories: incdir,
+     dependencies: deps,
+     c_args: c_args  + ['-DN00B_DEBUG_SERVER',
+                      '-Dn00b_debug_entry=main'],
+     link_args: exe_link_args,
+     link_with: link_with,
+)
 
 if get_option('build_hatrack').enabled()
     libhat = static_library(

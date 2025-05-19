@@ -195,6 +195,11 @@ extern void n00b_debug_all_locks(void);
 extern void n00b_lock_release(void *);
 extern void n00b_lock_release_all(void *);
 
+#ifdef N00B_USE_INTERNAL_API
+extern void n00b_release_locks_on_thread_exit(void);
+
+#endif
+
 typedef _Atomic(int64_t) n00b_spin_lock_t;
 
 static inline void

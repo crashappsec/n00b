@@ -148,7 +148,7 @@ prep_read_subs(n00b_stream_t *stream)
             // This will break if we move where observables live in
             // the data structure.
             n00b_observer_t *item   = n00b_list_get(r, i, NULL);
-            n00b_stream_t  *target = (void *)item->subscriber;
+            n00b_stream_t   *target = (void *)item->subscriber;
             n00b_list_append(items, n00b_cformat("[|#:x|]", target->stream_id));
         }
     }
@@ -156,12 +156,44 @@ prep_read_subs(n00b_stream_t *stream)
     if (raw) {
         for (int i = 0; i < n00b_list_len(raw); i++) {
             n00b_observer_t *item   = n00b_list_get(raw, i, NULL);
-            n00b_stream_t  *target = (void *)item->subscriber;
+            n00b_stream_t   *target = (void *)item->subscriber;
             n00b_list_append(items, n00b_cformat("[|#:x|] (raw)", target->stream_id));
         }
     }
 
     return n00b_string_join(items, n00b_cached_comma_padded());
+}
+
+static inline n00b_string_t *
+prep_filters(n00b_stream_t *stream)
+{
+    if (!stream->write_top) {
+        return n00b_cached_space();
+    }
+
+    n00b_list_t *l = n00b_list(n00b_type_ref());
+
+    n00b_filter_t *f = stream->write_top;
+    while (f) {
+        n00b_string_t *mode;
+
+        if (!f->w_skip && !f->r_skip) {
+            mode = n00b_cstring("rw");
+        }
+        else {
+            if (f->w_skip) {
+                mode = n00b_cstring("r");
+            }
+            else {
+                mode = n00b_cstring("w");
+            }
+        }
+
+        n00b_list_append(l, n00b_cformat("[|#|] ([|#|])", f->impl->name, mode));
+        f = f->next_write_step;
+    }
+
+    return n00b_string_join(l, n00b_cached_comma_padded());
 }
 
 static inline n00b_string_t *
@@ -189,7 +221,7 @@ prep_write_subs(n00b_stream_t *stream)
     if (q) {
         for (int i = 0; i < n00b_list_len(q); i++) {
             n00b_observer_t *item   = n00b_list_get(q, i, NULL);
-            n00b_stream_t  *target = (void *)item->subscriber;
+            n00b_stream_t   *target = (void *)item->subscriber;
             n00b_list_append(items,
                              n00b_cformat("[|#:x|] (q)",
                                           target->stream_id));
@@ -209,6 +241,8 @@ prep_write_subs(n00b_stream_t *stream)
         }
     }
 
+    n00b_list_append(items, prep_filters(stream));
+
     return n00b_string_join(items, n00b_cached_comma_padded());
 }
 
@@ -216,11 +250,14 @@ static inline n00b_list_t *
 prep_one_stream(n00b_stream_t *stream)
 {
     n00b_list_t *row = n00b_list(n00b_type_string());
-    n00b_private_list_append(row, n00b_cformat("[|#:x|]", (int64_t)stream->stream_id));
+    n00b_private_list_append(row,
+                             n00b_cformat("[|#:x|]",
+                                          (int64_t)stream->stream_id));
     n00b_private_list_append(row, n00b_to_string(stream));
     n00b_private_list_append(row, repr_perms(stream));
     n00b_private_list_append(row, prep_read_subs(stream));
     n00b_private_list_append(row, prep_write_subs(stream));
+    n00b_private_list_append(row, prep_filters(stream));
 
     return row;
 }
@@ -234,6 +271,7 @@ header_row(void)
     n00b_list_append(row, n00b_cstring("State"));
     n00b_list_append(row, n00b_cstring("Read Subs"));
     n00b_list_append(row, n00b_cstring("Write Subs"));
+    n00b_list_append(row, n00b_cstring("Filters"));
 
     return row;
 }
@@ -245,7 +283,7 @@ n00b_show_streams(void)
         return;
     }
 
-    n00b_table_t *t = n00b_table("columns", 5);
+    n00b_table_t *t = n00b_table("columns", 6);
     n00b_list_t  *l = n00b_list_shallow_copy(stream_registry);
     int           n = n00b_list_len(l);
 
@@ -259,14 +297,4 @@ n00b_show_streams(void)
     n00b_string_t *s = n00b_string_join(l, n00b_cached_empty_string());
 
     n00b_print(s);
-    /*
-        char *buf = n00b_rich_to_ansi(s, NULL);
-        char *p   = buf;
-
-        while (*p) {
-            if (fputc(*p, stderr) == EOF) {
-                fputc(*p, stdout);
-            }
-            p++;
-            }*/
 }
