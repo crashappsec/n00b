@@ -10,7 +10,7 @@ on_target_read(void *msg, n00b_stream_t *proxy)
 {
     bool err;
 
-    n00b_list_append(proxy->read_cache, msg);
+    n00b_cache_read(proxy, msg);
     return n00b_io_dispatcher_process_read_queue(proxy, &err);
 }
 

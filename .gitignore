@@ -8,3 +8,4 @@ deps/local
 tags
 src/unicode
 tests/*/*.cap10
+tests/c-tests/__cur.c

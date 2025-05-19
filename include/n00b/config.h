@@ -333,3 +333,15 @@
 #if !defined(N00B_MAX_SIGNAL)
 #define N00B_MAX_SIGNAL 128
 #endif
+
+#if !defined(N00B_ENV_DBG_ADDR)
+#define N00B_ENV_DBG_ADDR "N00B_DEBUG_ADDRESS"
+#endif
+
+#if !defined(N00B_ENV_DBG_PORT)
+#define N00B_ENV_DBG_PORT "N00B_DEBUG_PORT"
+#endif
+
+#if !defined(N00B_ENV_DBG_LOG)
+#define N00B_ENV_DBG_LOG "N00B_DEBUG_LOG"
+#endif

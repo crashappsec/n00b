@@ -8,7 +8,7 @@ typedef struct n00b_type_info_t n00b_type_info_t;
 
 typedef struct {
     // Bitfield of what container types we might be while inferring.
-    uint64_t          *container_options;
+    uint64_t           *container_options;
     // Holds known value info when infering containers.
     struct n00b_type_t *value_type;
     // Object properties. maps prop name to type node.
@@ -16,14 +16,38 @@ typedef struct {
 } tv_options_t;
 
 typedef struct n00b_type_t {
-    tv_options_t    options; // Type-specific info.
-    n00b_string_t     *name;
+    tv_options_t     options; // Type-specific info.
+    n00b_string_t   *name;
     n00b_list_t     *items;
     n00b_builtin_t   base_index;
-    uint64_t        flags;
+    uint64_t         flags;
     n00b_type_hash_t fw;
     n00b_type_hash_t typeid;
 } n00b_type_t;
+
+typedef struct n00b_obj_info_t {
+    n00b_dict_t   *props;
+    n00b_string_t *name;
+} n00b_obj_info_t;
+
+typedef struct n00b_type_info_t {
+    n00b_obj_info_t *obj_info;
+    n00b_list_t     *items; // A list of type IDs.
+    uint64_t         flags;
+    n00b_builtin_t   base_index;
+
+    union {
+        uint64_t                 hash;
+        struct n00b_type_node_t *fw;
+    } ref;
+
+    n00b_lit_syntax_t syntax;
+    bool              indexed; // 1st item is always the index type.
+    bool              ambiguous;
+    bool              concrete;
+} n00b_type_info_t;
+
+typedef uint64_t n00b_tid_t; // Will rename to type_t later.
 
 #define N00B_FN_TY_VARARGS 1
 // 'Locked' means this type node cannot forward, even though it might
@@ -65,7 +89,7 @@ typedef enum {
 typedef uint64_t (*n00b_next_typevar_fn)(void);
 
 typedef struct n00b_type_universe_t {
-    n00b_dict_t      *dict;
+    n00b_dict_t     *dict;
     _Atomic uint64_t next_typeid;
 } n00b_type_universe_t;
 

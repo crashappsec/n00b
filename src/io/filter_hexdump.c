@@ -7,19 +7,19 @@
 #define NL_COL 78
 
 typedef struct {
-    char *hp;
-    char *ap;
-    char *aend;
-    int   offset;
-    int   n; // How many chars we've read; mod by CPL.
-    char  line[80];
+    uint8_t *hp;
+    uint8_t *ap;
+    uint8_t *aend;
+    int      offset;
+    int      n; // How many chars we've read; mod by CPL.
+    uint8_t  line[80];
 } hex_state_t;
 
 static inline void
 emit_line(hex_state_t *state, n00b_list_t *result)
 {
     n00b_buf_t    *old = n00b_list_pop(result);
-    n00b_string_t *s   = n00b_cstring_copy(state->line);
+    n00b_string_t *s   = n00b_cstring_copy((char *)state->line);
     n00b_buf_t    *b   = n00b_string_to_buffer(s);
 
     if (old) {
@@ -32,9 +32,9 @@ emit_line(hex_state_t *state, n00b_list_t *result)
 static inline void
 setup_line(hex_state_t *state)
 {
-    state->hp = &state->line[HCOL1];
-    state->ap = &state->line[ACOL1];
-    char *p   = &state->line[HCOL1];
+    state->hp  = &state->line[HCOL1];
+    state->ap  = &state->line[ACOL1];
+    uint8_t *p = &state->line[HCOL1];
 
     int x = state->n + state->offset;
 
@@ -81,8 +81,8 @@ apply_hex(hex_state_t *state, void *msg)
         return result;
     }
 
-    char *p   = b->data;
-    char *end = b->data + b->byte_len;
+    uint8_t *p   = (uint8_t *)b->data;
+    uint8_t *end = (uint8_t *)b->data + b->byte_len;
 
     if (!state->hp) {
         state->n = 0;
@@ -90,7 +90,7 @@ apply_hex(hex_state_t *state, void *msg)
     }
 
     while (p < end) {
-        char x       = *p++;
+        uint8_t x    = *p++;
         *state->hp++ = n00b_hex_map_lower[x >> 4];
         *state->hp++ = n00b_hex_map_lower[x & 0xf];
         *state->hp++ = ' ';

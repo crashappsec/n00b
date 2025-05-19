@@ -1,6 +1,8 @@
 #pragma once
 #include "n00b.h"
 
+#ifdef N00B_USE_INTERNAL_API
+
 typedef struct n00b_observer_t   n00b_observer_t;
 typedef struct n00b_observable_t n00b_observable_t;
 
@@ -9,6 +11,11 @@ typedef void (*n00b_observer_cb)(void *, void *);
 // Observable, subscription.
 typedef void (*n00b_subscribe_cb)(n00b_observable_t *, n00b_observer_t *);
 
+extern n00b_observer_t *n00b_observable_subscribe(n00b_observable_t *,
+                                                  void *,
+                                                  n00b_observer_cb,
+                                                  bool,
+                                                  void *);
 struct n00b_observer_t {
     n00b_observable_t *target;
     void              *subscriber;
@@ -27,24 +34,16 @@ struct n00b_observable_t {
     bool              lt_unsub;
     uint32_t          max_topics;
     n00b_mutex_t      lock;
-#if defined(DEBUG_OBSERVERS)
-    char *debug_name;
-#endif
 };
 
-extern void             n00b_observable_init(n00b_observable_t *o,
-                                             n00b_list_t *);
-extern int              n00b_observable_post(n00b_observable_t *,
-                                             void *, // Either string or int
-                                             void *);
-extern n00b_observer_t *n00b_observable_subscribe(n00b_observable_t *,
-                                                  void *,
-                                                  n00b_observer_cb,
-                                                  bool,
-                                                  void *);
-extern void             n00b_observable_unsubscribe(n00b_observer_t *sub);
-extern n00b_list_t     *n00b_observable_all_subscribers(n00b_observable_t *,
-                                                        void *);
+extern void n00b_observable_init(n00b_observable_t *o,
+                                 n00b_list_t *);
+extern int  n00b_observable_post(n00b_observable_t *,
+                                 void *, // Either string or int
+                                 void *);
+
+extern n00b_list_t *n00b_observable_all_subscribers(n00b_observable_t *,
+                                                    void *);
 
 static inline void
 n00b_observable_set_subscribe_callback(n00b_observable_t *o,
@@ -68,3 +67,9 @@ n00b_observable_remove_all_subscriptions(n00b_observable_t *o)
 {
     o->observers = n00b_list(n00b_type_ref());
 }
+#else
+typedef void *n00b_observer_t;
+typedef void *n00b_observable_t;
+#endif
+
+extern void n00b_observable_unsubscribe(n00b_observer_t *sub);

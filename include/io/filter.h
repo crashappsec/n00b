@@ -84,6 +84,7 @@ extern n00b_filter_spec_t *n00b_filter_apply_line_buffering(
 extern n00b_filter_spec_t *n00b_filter_hexdump(int64_t);
 
 extern n00b_filter_spec_t *n00b_filter_marshal(bool);
+extern n00b_filter_spec_t *n00b_filter_unmarshal(bool);
 
 extern n00b_buf_t *n00b_automarshal(void *);
 extern void       *n00b_autounmarshal(n00b_buf_t *);

@@ -27,12 +27,12 @@ callback_stream_read(n00b_stream_t *stream, bool *err)
 
 typedef struct {
     n00b_stream_t *s;
-    void           *msg;
+    void          *msg;
 } cb_stream_info_t;
 
 static void callback_stream_write(n00b_stream_t *,
-                         void *,
-                         bool);
+                                  void *,
+                                  bool);
 static void *
 async_callback_runner(cb_stream_info_t *info)
 {
@@ -50,9 +50,9 @@ callback_stream_write(n00b_stream_t *stream, void *msg, bool block)
         // (indirectly) from the main IO polling loop, and we do not
         // want user code potentially blocking.
         cb_stream_info_t *info = n00b_gc_alloc_mapped(cb_stream_info_t,
-                                                   N00B_GC_SCAN_ALL);
-        info->s             = stream;
-        info->msg           = msg;
+                                                      N00B_GC_SCAN_ALL);
+        info->s                = stream;
+        info->msg              = msg;
 
         n00b_thread_spawn((void *)async_callback_runner, info);
         return;
@@ -65,7 +65,7 @@ callback_stream_write(n00b_stream_t *stream, void *msg, bool block)
     // we've subscribed an fd to read a callback.
     bool err;
 
-    n00b_list_append(stream->read_cache, cb_res);
+    n00b_cache_read(stream, cb_res);
     n00b_io_dispatcher_process_read_queue(stream, &err);
 }
 
@@ -77,7 +77,7 @@ static n00b_stream_impl n00b_cb_stream_impl = {
 };
 
 n00b_stream_t *
-_n00b_new_callback_stream(n00b_stream_cb_t *cb, void *params, ...)
+_n00b_new_callback_stream(n00b_stream_cb_t cb, void *params, ...)
 {
     n00b_list_t *args = n00b_list(n00b_type_ref());
     n00b_list_t *filters;

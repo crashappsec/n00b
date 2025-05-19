@@ -3,19 +3,6 @@
 
 #define capture(x, y, z) n00b_session_capture(x, y, z)
 
-#warning "port n00b_capture_encoder()"
-/*
-static inline n00b_stream_filter_t *
-n00b_capture_encoder(void)
-{
-    return NULL;
-    return n00b_new_filter(n00b_capture_encode,
-                           NULL,
-                           n00b_cstring("capture-encoder"),
-                           0);
-}
-*/
-
 static inline void
 write_capture_header(n00b_stream_t *s)
 {
@@ -102,42 +89,67 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
     }
 }
 
-static void
-n00b_capture_encode(n00b_stream_t *strm, void *ignore, void *msg)
+static n00b_list_t *
+n00b_capture_encode(n00b_stream_t *stream, void *msg)
 {
-    n00b_cap_event_t *event = msg;
+    n00b_list_t      *result = n00b_list(n00b_type_ref());
+    n00b_cap_event_t *event  = msg;
 
     if (!event) {
-        return;
+        return result;
     }
 
+    n00b_list_append(result, event);
+
     if (!event->id) {
-        write_capture_header(strm);
+        write_capture_header(stream);
     }
     // Since captures may already take up a lot of space, we are going to
     // avoid a full marshal and do a somewhat more compact encoding. At some
     // point we should hook up compression too.
-    add_record_header(event, strm);
+    add_record_header(event, stream);
 
     switch (event->kind) {
     case N00B_CAPTURE_STDIN:
     case N00B_CAPTURE_CMD_RUN:
-        add_capture_payload_str(event->contents, strm);
+        add_capture_payload_str(event->contents, stream);
         break;
     case N00B_CAPTURE_INJECTED:
     case N00B_CAPTURE_STDOUT:
     case N00B_CAPTURE_STDERR:
-        add_capture_payload_ansi(event->contents, strm);
+        add_capture_payload_ansi(event->contents, stream);
         break;
     case N00B_CAPTURE_WINCH:
-        add_capture_winch(event->contents, strm);
+        add_capture_winch(event->contents, stream);
         break;
     case N00B_CAPTURE_SPAWN:
-        add_capture_spawn(event->contents, strm);
+        add_capture_spawn(event->contents, stream);
         break;
     default:
         break;
     }
+
+    return result;
+}
+
+static n00b_filter_impl cap_encode = {
+    .cookie_size = 0,
+    .write_fn    = (void *)n00b_capture_encode,
+    .name        = NULL,
+};
+
+static inline n00b_filter_spec_t *
+n00b_capture_encoder(n00b_stream_t *param)
+{
+    if (!cap_encode.name) {
+        cap_encode.name = n00b_cstring("capture-encoder");
+    }
+    n00b_filter_spec_t *result = n00b_gc_alloc(n00b_filter_spec_t);
+    result->impl               = &cap_encode;
+    result->policy             = N00B_FILTER_WRITE;
+    result->param              = param;
+
+    return result;
 }
 
 void
@@ -170,7 +182,6 @@ n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
     e->kind     = kind;
 
     n00b_write(s->capture_stream, e);
-    n00b_capture_encode(s->unproxied_capture, NULL, e);
 }
 
 // proc does proxy WINCH, so we don't have to do that. However, we do need to
@@ -206,6 +217,7 @@ n00b_setup_capture(n00b_session_t *s, n00b_stream_t *target, int policy)
     s->unproxied_capture = target;
 
     n00b_stream_t *p = n00b_new_stream_proxy(target);
+    n00b_filter_add(p, n00b_capture_encoder(p));
 
     s->capture_stream = p;
     s->capture_policy = policy;

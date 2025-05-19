@@ -50,10 +50,13 @@ topic_write(n00b_stream_t *stream, void *msg, bool block)
         val = (*topic->cb)(topic, msg, topic->param);
     }
 
+    if (!val) {
+        return;
+    }
     // Generally, this is how the pub/sub bus gets messages to publish
     // to readers.  Without this, we will hang in certain situations where
     // we've subscribed an fd to read a callback.
-    n00b_list_append(stream->read_cache, val);
+    n00b_cache_read(stream, val);
 
     // Don't care about the result of err, just need to pass it.
     n00b_io_dispatcher_process_read_queue(stream, &err);
@@ -68,13 +71,13 @@ static n00b_stream_impl topic_impl = {
 
 n00b_stream_t *
 _n00b_create_topic_stream(n00b_string_t *name,
-                           n00b_dict_t   *ns,
-                           n00b_topic_cb  cb,
-                           void          *param,
-                           ...)
+                          n00b_dict_t   *ns,
+                          n00b_topic_cb  cb,
+                          void          *param,
+                          ...)
 {
-    n00b_list_t    *args = n00b_list(n00b_type_ref());
-    n00b_list_t    *filters;
+    n00b_list_t   *args = n00b_list(n00b_type_ref());
+    n00b_list_t   *filters;
     n00b_stream_t *result;
 
     topics_init();

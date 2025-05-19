@@ -297,11 +297,12 @@ static inline void
 apply_preferred_sockopts(int fd)
 {
     const int true_val = 1;
-    const int linger   = N00B_SOCKET_LINGER_SEC;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &true_val, sizeof(int));
 #if defined(__APPLE__) || defined(__FreeBSD__)
+    const int linger = N00B_SOCKET_LINGER_SEC;
+
     setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_LINGER_SEC, &linger, sizeof(int));
 #elif defined(__linux__)
@@ -1337,6 +1338,12 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
                 }
             }
         }
+        else {
+            if (s->closing) {
+                fd_discovered_read_close(s);
+            }
+        }
+
         if (slot->revents & POLLOUT) {
             if (s->no_dispatcher_rw) {
                 s->write_ready = true;
@@ -1366,6 +1373,13 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
                 if (!(slot->events & POLLIN)) {
                     fd_discovered_read_close(s);
                 }
+                else {
+                    s->closing = true;
+                }
+            }
+            else {
+                slot->fd     = -1;
+                slot->events = 0;
             }
         }
 

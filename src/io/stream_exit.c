@@ -18,7 +18,7 @@ launch_wait(n00b_stream_t *stream)
 
     c->exited = true;
 
-    n00b_list_append(stream->read_cache, c);
+    n00b_cache_read(stream, c);
 
     // Don't care about the result of err, just need to pass it.
     n00b_io_dispatcher_process_read_queue(stream, &err);
@@ -66,13 +66,13 @@ exit_stream_close(n00b_stream_t *stream)
 // If we get a subscriber, make sure they get the message.  TODO: add
 // an option to get EVERY subscriber, not just the first.
 void
-exit_stream_on_first_subscriber(n00b_stream_t *c, n00b_exit_info_t *info)
+exit_stream_on_first_subscriber(n00b_stream_t *s, n00b_exit_info_t *info)
 {
     bool err;
 
     if (info->exited) {
-        n00b_list_append(c->read_cache, info);
-        n00b_io_dispatcher_process_read_queue(c, &err);
+        n00b_cache_read(s, info);
+        n00b_io_dispatcher_process_read_queue(s, &err);
     }
 }
 

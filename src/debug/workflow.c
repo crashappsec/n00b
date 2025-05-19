@@ -6,20 +6,21 @@
 #define DEFAULT_SERVER_HOST "127.0.0.1"
 #define SERVER_LOGFILE_ENV  "N00B_DEBUG_LOG"
 
-#define DEFAULT_SERVER_PORT 7877
+#define DEFAULT_SERVER_PORT N00B_DEFAULT_DEBUG_PORT
 #define RETRY_STARTING_MS   500
 
-static void           attempt_connection(void);
-static void           attempt_log_open(void);
-static n00b_string_t *simple_fmt(n00b_debug_msg_t *);
+static void        attempt_connection(void);
+static void        attempt_log_open(void);
+static n00b_buf_t *simple_fmt(n00b_debug_msg_t *);
 
-static n00b_dict_t      *topic_workflows   = NULL;
-static n00b_db_rule_t   *default_workflow  = NULL;
-static n00b_stream_t   *server_connection = NULL;
-static n00b_stream_t   *debug_logfile     = NULL;
-static n00b_debug_fmt_fn default_formatter = simple_fmt;
-static pthread_once_t    server_attempted  = PTHREAD_ONCE_INIT;
-static pthread_once_t    logfile_attempted = PTHREAD_ONCE_INIT;
+static n00b_dict_t      *topic_workflows              = NULL;
+static n00b_db_rule_t   *default_workflow             = NULL;
+static n00b_stream_t    *server_connection            = NULL;
+static n00b_stream_t    *debug_logfile                = NULL;
+static n00b_debug_fmt_fn default_formatter            = (void *)simple_fmt;
+static pthread_once_t    server_attempted             = PTHREAD_ONCE_INIT;
+static pthread_once_t    logfile_attempted            = PTHREAD_ONCE_INIT;
+bool                     n00b_local_process_is_server = false;
 
 pthread_once_t workflow_setup = PTHREAD_ONCE_INIT;
 
@@ -35,6 +36,73 @@ n00b_set_debug_topic_flow(n00b_string_t *topic, n00b_db_rule_t *rule)
     hatrack_dict_put(topic_workflows, topic, rule);
 }
 
+static n00b_buf_t *
+simple_fmt(n00b_debug_msg_t *msg)
+{
+    n00b_string_t *s = n00b_cformat(
+        "[|em5|][[|#|]][|/|] @[|b|][|#|]:[|/|] [|em2|]([|#|] pid [|#|])\n"
+        "[|#|]\n[|em5|][/[|#|]]",
+        msg->topic,
+        msg->timestamp,
+        msg->remote_address,
+        msg->pid,
+        msg->payload,
+        msg->topic);
+
+    if (s->data[s->u8_bytes - 1] != '\n') {
+        s = n00b_string_concat(s, n00b_cached_newline());
+    }
+
+    s = n00b_cstring(n00b_rich_to_ansi(s, NULL));
+    return n00b_string_to_buffer(s);
+}
+
+static n00b_wire_dmsg_t *
+server_send_fmt(n00b_debug_msg_t *msg)
+{
+    // We don't want to marshal the whole structure...
+    n00b_wire_dmsg_t *result = n00b_gc_alloc_mapped(n00b_wire_dmsg_t,
+                                                    N00B_GC_SCAN_ALL);
+    result->topic            = msg->topic;
+    result->timestamp        = msg->timestamp;
+    result->payload          = msg->payload;
+    result->pid              = msg->pid;
+
+    return result;
+}
+
+static inline void
+install_local_default(void)
+{
+    default_workflow    = n00b_drule_set_formatter(NULL, (void *)server_send_fmt);
+    n00b_db_rule_t *srv = n00b_drule_server(default_workflow);
+    // First add the false branch (index 0) for when the server fails.
+    // Set the formatter to the local formatter, then try a logfile
+    // next (if the env var is set).
+    n00b_db_rule_t *fmt = n00b_drule_set_formatter(srv, (void *)simple_fmt);
+    n00b_db_rule_t *log = n00b_drule_logfile(fmt);
+    // Add the true branch, ending if we log to server successfully.
+    // If we don't, and only leave one branch, the system assumes you
+    // don't care about the answer and always want to evaluate the
+    // next rule.
+    n00b_drule_end(srv);
+    // If the log file env var isn't there, its false branch should
+    // log to the terminal.
+    n00b_drule_terminal(log);
+    // Again, add a true branch to the log file option. No need to do it
+    // for the terminal logger since it doesn't have a successor.
+    n00b_drule_end(log);
+}
+
+static inline void
+install_server_default(void)
+{
+    // For now:
+    // Always write to the terminal, and try the logfile.
+    default_workflow = n00b_drule_terminal(NULL);
+    n00b_drule_logfile(default_workflow);
+}
+
 static void
 init_db_workflow(void)
 {
@@ -43,22 +111,14 @@ init_db_workflow(void)
     n00b_gc_register_root(&server_connection, 1);
     n00b_gc_register_root(&debug_logfile, 1);
 
-    topic_workflows     = n00b_dict(n00b_type_string(), n00b_type_ref());
-    default_workflow    = n00b_drule_server(NULL);
-    // First add the false branch (index 0) for when the server fails.
-    // Try a logfile next (if the env var is set).
-    n00b_db_rule_t *log = n00b_drule_logfile(default_workflow);
-    // Add the true branch, ending if we log to server successfully.
-    // If we don't, and only leave one branch, the system assumes you
-    // don't care about the answer and always want to evaluate the
-    // next rule.
-    n00b_drule_end(default_workflow);
-    // If the log file env var isn't there, its false branch should
-    // log to the terminal.
-    n00b_drule_terminal(log);
-    // Again, add a true branch to the log file option. No need to do it
-    // for the terminal logger since it doesn't have a successor.
-    n00b_drule_end(log);
+    topic_workflows = n00b_dict(n00b_type_string(), n00b_type_ref());
+
+    if (n00b_local_process_is_server) {
+        install_server_default();
+    }
+    else {
+        install_local_default();
+    }
 }
 
 n00b_db_rule_t *
@@ -142,17 +202,10 @@ n00b_drule_end(n00b_db_rule_t *prev)
     return dbr_attach(dbr_node(N00B_DBR_END), prev);
 }
 
-static inline n00b_buf_t *
+static inline void *
 format_message(n00b_debug_msg_t *msg)
 {
-    n00b_string_t *s = (*msg->formatter)(msg);
-
-    if (s->data[s->u8_bytes - 1] != '\n') {
-        s = n00b_string_concat(s, n00b_cached_newline());
-    }
-
-    s = n00b_cstring(n00b_rich_to_ansi(s, NULL));
-    return n00b_string_to_buffer(s);
+    return (*msg->formatter)(msg);
 }
 
 static inline int
@@ -194,6 +247,8 @@ on_server_close(n00b_stream_t *c, void *ignored)
     // Start w/ half a second of sleep. Double each time, up to 8
     // total attempts
 
+    printf("Server closed connection.\n");
+
     int sleep_ms = RETRY_STARTING_MS;
 
     for (int i = 0; i < 8; i++) {
@@ -215,14 +270,26 @@ on_log_close(n00b_stream_t *c, void *ignored)
 }
 
 static void
+rcv_server_message(n00b_stream_t *c, void *msg)
+{
+    n00b_eprintf("[|h1|]Server Message: [|#|]", msg);
+}
+
+static void
 attempt_connection(void)
 {
-    server_connection = n00b_stream_connect(get_debug_server_addr());
+    server_connection = n00b_stream_connect(get_debug_server_addr(),
+                                            n00b_filter_marshal(false));
 
     if (server_connection) {
         n00b_stream_subscribe_close(
             server_connection,
             n00b_new_callback_stream(on_server_close, NULL));
+
+        n00b_stream_subscribe_read(
+            server_connection,
+            n00b_new_callback_stream(rcv_server_message, NULL),
+            false);
     }
 }
 
@@ -232,12 +299,12 @@ attempt_log_open(void)
     n00b_string_t *fname = n00b_get_env(n00b_cstring(SERVER_LOGFILE_ENV));
 
     debug_logfile = n00b_stream_open_file(fname,
-                                           "write_only",
-                                           n00b_ka(true),
-                                           "allow_file_creation",
-                                           n00b_ka(true),
-                                           "writes_always_append",
-                                           n00b_ka(true));
+                                          "write_only",
+                                          n00b_ka(true),
+                                          "allow_file_creation",
+                                          n00b_ka(true),
+                                          "writes_always_append",
+                                          n00b_ka(true));
 
     if (debug_logfile) {
         n00b_stream_subscribe_close(
@@ -250,14 +317,13 @@ static inline int
 handle_server(n00b_debug_msg_t *msg)
 {
     if (!server_connection) {
-        attempt_connection();
         pthread_once(&server_attempted, attempt_connection);
         if (!server_connection) {
             return 0;
         }
     }
 
-    n00b_buf_t *to_write = format_message(msg);
+    void *to_write = format_message(msg);
     n00b_write(server_connection, to_write);
     return 1;
 }
@@ -291,25 +357,19 @@ handle_formatter(n00b_db_rule_t *cur, n00b_debug_msg_t *msg)
     return 0;
 }
 
-static n00b_string_t *
-simple_fmt(n00b_debug_msg_t *msg)
-{
-    return n00b_cformat(
-        "[|em5|][[|#|]][|/|] @"
-        "[|b|][|#|]:[|/|]\n"
-        "[|#|]\n[|em5|][/[|#|]]",
-        msg->topic,
-        msg->timestamp,
-        msg->payload,
-        msg->topic);
-}
-
 void
 n00b_apply_debug_workflow(n00b_debug_msg_t *msg)
 {
+    pthread_once(&workflow_setup, init_db_workflow);
     n00b_db_rule_t *workflow = hatrack_dict_get(topic_workflows,
                                                 msg->topic,
                                                 NULL);
+
+    if (!msg->remote_address) {
+        msg->remote_address = n00b_cstring("[local]");
+    }
+
+    msg->pid = getpid();
 
     if (!workflow) {
         workflow = default_workflow;

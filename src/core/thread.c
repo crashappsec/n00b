@@ -14,13 +14,6 @@ n00b_thread_stack_region(n00b_thread_t *t)
     size_t size;
 
     pthread_attr_getstack(&attrs, (void **)&t->cur, &size);
-    /*
-    n00b_barrier();
-    printf("Lower address is: %p\n", t->base);
-    printf("For higher address:\n");
-    printf("option 1: %p\n", __builtin_frame_address(0));
-    printf("option 2: %p\n", t->base + size);
-    */
 #if 0
     t->base = __builtin_frame_address(0);
 #else
@@ -61,6 +54,29 @@ n00b_thread_stack_region(n00b_thread_t *t)
 #endif
 
 static void *
+post_thread_cleanup(n00b_tsi_t *tsi)
+{
+    int page_sz = n00b_get_page_size();
+    int size    = n00b_round_up_to_given_power_of_2(page_sz,
+                                                 sizeof(n00b_tsi_t));
+
+    atomic_store(&n00b_global_thread_list[tsi->thread_id], NULL);
+    atomic_fetch_add(&n00b_live_threads, -1);
+    n00b_release_locks_on_thread_exit();
+    n00b_gts_quit(tsi);
+    n00b_heap_remove_root(n00b_default_heap, tsi);
+    n00b_barrier();
+
+#if defined(N00B_MADV_ZERO)
+    madvise(tsi, size, MADV_ZERO);
+    mprotect(tsi, size, PROT_NONE);
+#endif
+    munmap(tsi, size);
+
+    return NULL;
+}
+
+static void *
 n00b_thread_launcher(void *arg)
 {
     n00b_tsi_t *tsi = n00b_init_self_tsi();
@@ -71,10 +87,10 @@ n00b_thread_launcher(void *arg)
     tsi->self_data.tsi = tsi;
     n00b_assert(tsi->self_data.tsi);
 
-    //    pthread_cleanup_push((void *)post_thread_cleanup, n00b_get_tsi_ptr());
+    pthread_cleanup_push((void *)post_thread_cleanup, n00b_get_tsi_ptr());
     n00b_tbundle_t *info = arg;
     result               = (*info->true_cb)(info->true_arg);
-    //    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
     return result;
 }
 
