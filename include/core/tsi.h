@@ -12,8 +12,7 @@ typedef struct {
     // Used by libbacktrace.
     void                  *trace_table; // really n00b_table_t
     n00b_heap_t           *thread_heap;
-    n00b_heap_t           *string_heap;
-    void                  *locks; // n00b_generic_lock_t       *
+    void                  *locks;       // n00b_generic_lock_t       *
     // When we call into system functions that we know are not
     // recursive, we can stash the user's heap here. For instance,
     // this is done when calling into the format module, which does a
@@ -176,24 +175,6 @@ static inline void
 n00b_set_thread_heap(n00b_heap_t *h)
 {
     n00b_get_tsi_ptr()->thread_heap = h;
-}
-
-static inline n00b_heap_t *
-n00b_string_heap(void)
-{
-    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-
-    if (!tsi) {
-        return NULL;
-    }
-
-    return tsi->string_heap;
-}
-
-static inline void
-n00b_set_string_heap(n00b_heap_t *h)
-{
-    n00b_get_tsi_ptr()->string_heap = h;
 }
 
 static inline n00b_heap_t *

@@ -116,14 +116,14 @@ on_fd_close(n00b_fd_stream_t *s, n00b_stream_t *c)
 // hand it out to readers.
 void
 fd_stream_on_read_event(n00b_fd_stream_t *s,
-                     n00b_fd_sub_t    *sub,
-                     void             *msg,
-                     void             *thunk)
+                        n00b_fd_sub_t    *sub,
+                        void             *msg,
+                        void             *thunk)
 {
-    bool            err;
+    bool           err;
     n00b_stream_t *stream = thunk;
 
-    n00b_list_append(stream->read_cache, msg);
+    n00b_cache_read(stream, msg);
     n00b_io_dispatcher_process_read_queue(stream, &err);
 }
 
@@ -666,14 +666,14 @@ _n00b_read_file(n00b_string_t *path, ...)
     n00b_kw_ptr("error_ptr", error_ptr);
 
     n00b_stream_t *f = n00b_stream_open_file(path,
-                                               "exclusive_lock",
-                                               n00b_ka(lock),
-                                               "read_only",
-                                               n00b_ka(true),
-                                               "target_must_be_regular_file",
-                                               n00b_ka(true),
-                                               "error_ptr",
-                                               error_ptr);
+                                             "exclusive_lock",
+                                             n00b_ka(lock),
+                                             "read_only",
+                                             n00b_ka(true),
+                                             "target_must_be_regular_file",
+                                             n00b_ka(true),
+                                             "error_ptr",
+                                             error_ptr);
 
     if (!f) {
         return NULL;

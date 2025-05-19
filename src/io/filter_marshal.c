@@ -615,7 +615,7 @@ n00b_check_unpickle_readiness(n00b_unpickle_ctx *ctx)
         // If there's not a new header's worth of data read,
         // we can't be ready to unpickle a segment (we need to get
         // all the way through an end record).
-        if (ctx->part_cursor + sizeof(n00b_alloc_hdr) >= buf_end) {
+        if (ctx->part_cursor + sizeof(n00b_alloc_hdr) > buf_end) {
             return NULL;
         }
 
@@ -627,15 +627,12 @@ n00b_check_unpickle_readiness(n00b_unpickle_ctx *ctx)
         }
 
         if (h->n00b_marshal_end) {
-            // || h->alloc_len < sizeof(n00b_alloc_hdr)) {
             int   needed_bytes = h->alloc_len;
             char *expected_end = ((char *)h->data) + needed_bytes;
 
             if (buf_end >= expected_end) {
                 // This extracts the same.
-                n00b_buf_t *result = n00b_slice_one_pickle(ctx,
-                                                           expected_end);
-                return result;
+                return n00b_slice_one_pickle(ctx, expected_end);
             }
 
             // Still waiting on data.
@@ -876,9 +873,12 @@ static void *
 marshal_setup(n00b_marshal_filter_t *c, int64_t opts)
 {
     if (opts) {
-        c->pickle.memos  = n00b_dict(n00b_type_ref(), n00b_type_u64());
-        c->pickle.base   = n00b_get_virtual_heap_start();
-        c->pickle.offset = c->pickle.base;
+        c->pickle.memos           = n00b_dict(n00b_type_ref(),
+                                    n00b_type_u64());
+        c->pickle.base            = n00b_get_virtual_heap_start();
+        c->pickle.offset          = c->pickle.base;
+        c->pickle.last_offset_end = c->pickle.base;
+
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
         c->pickle.file_cache = n00b_new_unmanaged_dict(
             HATRACK_DICT_KEY_TYPE_CSTR,
@@ -1071,7 +1071,7 @@ n00b_autounmarshal(n00b_buf_t *b)
 {
     void               *result;
     n00b_filter_spec_t *f  = n00b_filter_unmarshal(true);
-    n00b_stream_t     *cb = n00b_new_callback_stream(helper_cb, &result, f);
+    n00b_stream_t      *cb = n00b_new_callback_stream(helper_cb, &result, f);
 
     n00b_write(cb, b);
 
@@ -1083,7 +1083,7 @@ n00b_automarshal(void *obj)
 {
     void               *result;
     n00b_filter_spec_t *f  = n00b_filter_marshal(false);
-    n00b_stream_t     *cb = n00b_new_callback_stream(helper_cb, &result, f);
+    n00b_stream_t      *cb = n00b_new_callback_stream(helper_cb, &result, f);
 
     n00b_write(cb, obj);
 

@@ -1,3 +1,4 @@
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
 void
@@ -30,7 +31,7 @@ topic_id_by_name(n00b_observable_t *o, n00b_string_t *t)
 static int64_t
 get_topic_ix(n00b_observable_t *o, void *topic_info)
 {
-    if (n00b_type_is_string(n00b_get_my_type(topic_info))) {
+    if (topic_info && n00b_type_is_string(n00b_get_my_type(topic_info))) {
         return topic_id_by_name(o, topic_info);
     }
     else {

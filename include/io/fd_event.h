@@ -64,6 +64,7 @@ struct n00b_fd_stream_t {
     unsigned int             write_ready      : 1;
     unsigned int             plain_file       : 1;
     unsigned int             tty              : 1;
+    unsigned int             closing          : 1;
 
     int              fd_mode;
     int              fd_flags;

@@ -79,7 +79,7 @@ n00b_custom_string_hash(void *v)
 {
     n00b_type_t *t = n00b_get_my_type(v);
 
-    if (t->base_index == N00B_T_STRING) {
+    if (n00b_type_is_string(t)) {
         return new_string_hash(v);
     }
 

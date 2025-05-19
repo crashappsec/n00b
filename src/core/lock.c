@@ -201,6 +201,38 @@ n00b_debug_all_locks(void)
         abort();                                        \
     }
 
+void
+n00b_release_locks_on_thread_exit(void)
+{
+    n00b_thread_t       *self = n00b_thread_self();
+    n00b_tsi_t          *tsi  = self->tsi;
+    n00b_generic_lock_t *lock = tsi->locks;
+    n00b_rw_lock_t      *l;
+    n00b_generic_lock_t *next;
+
+    while (lock) {
+        next = lock->prev_held;
+        n00b_lock_release_all(lock);
+        lock = next;
+    }
+
+    n00b_gts_stop_the_world();
+    l = all_rw_locks;
+
+    while (l) {
+        int n = atomic_read(&l->num_readers);
+        if (n) {
+            for (int i = 0; i < N00B_LOCK_MAX_READERS; i++) {
+                if (l->readers[i].thread == self) {
+                    n00b_lock_release_all(l);
+                }
+            }
+        }
+        l = l->next_rw_lock;
+    }
+    n00b_gts_restart_the_world();
+}
+
 static inline bool
 no_locks(void)
 {
@@ -290,7 +322,7 @@ n00b_generic_before_lock_release(n00b_generic_lock_t *lock)
 {
     lock_assert(lock->level >= 1, lock);
     lock_assert(lock->thread == n00b_thread_self(), lock);
-    
+
     lock->level = lock->level - 1;
     if (lock->level > 0) {
         lock->lock_info[lock->level + 1].file = NULL;
@@ -416,10 +448,12 @@ n00b_mutex_release_all(n00b_lock_t *l)
     }
 
     lock_assert(l->info.thread == n00b_thread_self(), l);
+
     for (int i = 1; i < l->info.level; i++) {
         l->info.lock_info[i].file = NULL;
     }
     l->info.level = 1;
+    n00b_generic_before_lock_release(&l->info);
     pthread_mutex_unlock(&l->lock);
 }
 
@@ -606,8 +640,8 @@ n00b_condition_pre_wait(n00b_condition_t *c)
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
     if (c->mutex.info.thread != &tsi->self_data) {
-        n00b_static_c_backtrace();
-        N00B_CRAISE("Must hold lock before calling wait()");
+        fprintf(stderr, "Fatal error: Must hold lock before calling wait()\n");
+        abort();
     }
     if (c->mutex.info.next_held || c->mutex.info.prev_held) {
         n00b_debug_locks(n00b_thread_self());

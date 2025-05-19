@@ -48,6 +48,8 @@ n00b_wait_on_io_shutdown(void)
 _Noreturn void
 n00b_exit(int code)
 {
+    n00b_release_locks_on_thread_exit();
+    n00b_gts_suspend();
     saved_exit_code = code;
     exiting         = true;
     n00b_wait_on_io_shutdown();
@@ -58,6 +60,8 @@ n00b_exit(int code)
 _Noreturn void
 n00b_abort(void)
 {
+    n00b_release_locks_on_thread_exit();
+    n00b_gts_suspend();
     saved_exit_code = 139;
     exiting         = true;
     n00b_gts_notify_abort();

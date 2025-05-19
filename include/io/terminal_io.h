@@ -1,9 +1,9 @@
 #include "n00b.h"
 
 n00b_stream_t *n00b_stdin(void);
+n00b_stream_t *n00b_stdin_buffered(void);
 n00b_stream_t *n00b_stdout(void);
 n00b_stream_t *n00b_stderr(void);
-n00b_stream_t *n00b_stdin_raw(void);
 n00b_stream_t *n00b_stdout_raw(void);
 n00b_stream_t *n00b_stderr_raw(void);
 
