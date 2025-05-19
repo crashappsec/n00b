@@ -1337,6 +1337,12 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
                 }
             }
         }
+        else {
+            if (s->closing) {
+                fd_discovered_read_close(s);
+            }
+        }
+
         if (slot->revents & POLLOUT) {
             if (s->no_dispatcher_rw) {
                 s->write_ready = true;
@@ -1366,6 +1372,13 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
                 if (!(slot->events & POLLIN)) {
                     fd_discovered_read_close(s);
                 }
+                else {
+                    s->closing = true;
+                }
+            }
+            else {
+                slot->fd     = -1;
+                slot->events = 0;
             }
         }
 

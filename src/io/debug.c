@@ -2,7 +2,7 @@
 #include "n00b.h"
 
 static bool           stream_debugging_on = true;
-static bool           stream_cleanup      = false;
+static bool           stream_cleanup      = true;
 static n00b_list_t   *stream_registry;
 static pthread_once_t stream_debug = PTHREAD_ONCE_INIT;
 

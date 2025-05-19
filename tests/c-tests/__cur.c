@@ -160,7 +160,7 @@ main(void)
         N00B_TRY_END;
     } while (!srv);
 
-    n00b_debug("test", "Address: [|#|]", addr);
+    n00b_debugf("test", "Address: [|#|]", addr);
 
     my_stdin           = n00b_fd_stream_from_fd(0, NULL, NULL);
     my_stdout          = n00b_fd_stream_from_fd(1, NULL, NULL);
@@ -192,7 +192,8 @@ main(void)
     for (int i = 0; i < 120; i++) {
         n00b_sleep_ms(1000);
         if (!(i % 15)) {
-            n00b_eprintf("[|em1|]tick..");
+            n00b_string_t *s = n00b_cformat("[|em1|]tick...");
+            n00b_debug("test", s);
         }
     }
     n00b_eprintf("[|em4|]Boom!");

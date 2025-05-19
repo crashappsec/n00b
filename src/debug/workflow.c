@@ -247,6 +247,8 @@ on_server_close(n00b_stream_t *c, void *ignored)
     // Start w/ half a second of sleep. Double each time, up to 8
     // total attempts
 
+    printf("Server closed connection.\n");
+
     int sleep_ms = RETRY_STARTING_MS;
 
     for (int i = 0; i < 8; i++) {
@@ -268,6 +270,12 @@ on_log_close(n00b_stream_t *c, void *ignored)
 }
 
 static void
+rcv_server_message(n00b_stream_t *c, void *msg)
+{
+    n00b_eprintf("[|h1|]Server Message: [|#|]", msg);
+}
+
+static void
 attempt_connection(void)
 {
     server_connection = n00b_stream_connect(get_debug_server_addr(),
@@ -277,6 +285,11 @@ attempt_connection(void)
         n00b_stream_subscribe_close(
             server_connection,
             n00b_new_callback_stream(on_server_close, NULL));
+
+        n00b_stream_subscribe_read(
+            server_connection,
+            n00b_new_callback_stream(rcv_server_message, NULL),
+            false);
     }
 }
 
