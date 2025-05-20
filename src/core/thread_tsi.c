@@ -116,51 +116,13 @@ n00b_finish_main_thread_initialization(void)
     }
 }
 
-static inline void
-n00b_thread_unlock_all(void)
-{
-    n00b_generic_lock_t *l = n00b_get_thread_locks();
-    while (l) {
-        n00b_generic_lock_t *next = l->prev_held;
-        n00b_lock_release_all(l);
-        l = next;
-    }
-}
-
 static void
 n00b_tsi_cleanup(void *arg)
 {
-    n00b_tsi_t *tsi = arg;
-    if (!tsi) {
-        return;
-    }
-
-    n00b_barrier();
-    n00b_heap_remove_root(n00b_default_heap, tsi);
-
-    int page_sz = n00b_get_page_size();
-    int size    = n00b_round_up_to_given_power_of_2(page_sz,
-                                                 sizeof(n00b_tsi_t));
-
-    n00b_thread_unlock_all();
-
-    // Thread string heaps are only set up if used.
-    if (tsi->string_heap) {
-        n00b_delete_heap(tsi->string_heap);
-    }
-
-    atomic_store(&n00b_global_thread_list[tsi->thread_id], NULL);
-    n00b_heap_remove_root(n00b_default_heap, tsi);
-    atomic_fetch_add(&n00b_live_threads, -1);
-
-    n00b_gts_quit(tsi);
-    n00b_barrier();
-
-#if defined(N00B_MADV_ZERO)
-    madvise(tsi, size, MADV_ZERO);
-    mprotect(tsi, size, PROT_NONE);
-#endif
-    munmap(tsi, size);
+    // This code has all moved to post_thread_cleanup in thread.c:
+    //
+    // The thread-specific information not passed to this call on
+    // Linux, as if the key is deleted before the handler gets called?
 }
 
 void

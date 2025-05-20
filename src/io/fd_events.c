@@ -297,11 +297,12 @@ static inline void
 apply_preferred_sockopts(int fd)
 {
     const int true_val = 1;
-    const int linger   = N00B_SOCKET_LINGER_SEC;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &true_val, sizeof(int));
 #if defined(__APPLE__) || defined(__FreeBSD__)
+    const int linger = N00B_SOCKET_LINGER_SEC;
+
     setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &true_val, sizeof(int));
     setsockopt(fd, SOL_SOCKET, SO_LINGER_SEC, &linger, sizeof(int));
 #elif defined(__linux__)

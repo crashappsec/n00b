@@ -45,7 +45,7 @@ n00b_gts_suspend(void)
     if (tsi->gts_reader) {
         pthread_rwlock_unlock(&runlock);
         tsi->gts_reader = false;
-	n00b_thread_stack_region(&tsi->self_data);
+        n00b_thread_stack_region(&tsi->self_data);
     }
 }
 
@@ -74,7 +74,7 @@ n00b_gts_checkin(void)
 
     if (tsi->gts_reader) {
         pthread_rwlock_unlock(&runlock);
-	n00b_thread_stack_region(&tsi->self_data);	
+        n00b_thread_stack_region(&tsi->self_data);
         sched_yield();
         pthread_rwlock_rdlock(&runlock);
     }
@@ -139,22 +139,4 @@ n00b_gts_quit(n00b_tsi_t *tsi)
     if (tsi->gts_reader || tsi->gts_nest) {
         pthread_rwlock_unlock(&runlock);
     }
-
-    /*
-    gts_state_t read = atomic_read(&gts_state);
-    n00b_barrier();
-
-    if (tsi->thread_id == read.write_lock) {
-        assert(tsi->thread_id != ONLY_READERS);
-        if (read.requesting) {
-            n00b_gts_wont_stop();
-        }
-        else {
-            n00b_gts_restart_the_world();
-        }
-    }
-
-    if (tsi->gts_reader) {
-        deregister_runner(tsi);
-        }*/
 }

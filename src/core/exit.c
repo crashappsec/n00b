@@ -16,7 +16,6 @@ extern bool                        n00b_io_exited;
 _Noreturn void
 n00b_thread_exit(void *result)
 {
-    n00b_release_locks_on_thread_exit();
     // This has a potential race condition, but given we always should
     // have an IO thread running until actual shutdown, I think it's
     // okay.
