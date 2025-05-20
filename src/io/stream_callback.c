@@ -77,7 +77,7 @@ static n00b_stream_impl n00b_cb_stream_impl = {
 };
 
 n00b_stream_t *
-_n00b_new_callback_stream(n00b_stream_cb_t *cb, void *params, ...)
+_n00b_new_callback_stream(n00b_stream_cb_t cb, void *params, ...)
 {
     n00b_list_t *args = n00b_list(n00b_type_ref());
     n00b_list_t *filters;

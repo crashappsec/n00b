@@ -296,5 +296,18 @@ n00b_show_streams(void)
     l                = n00b_render(t, n00b_terminal_width(), -1);
     n00b_string_t *s = n00b_string_join(l, n00b_cached_empty_string());
 
-    n00b_print(s);
+    n00b_eprint(s);
+}
+
+void
+n00b_stream_debug_enable(bool cleanup)
+{
+    stream_debugging_on = true;
+    stream_cleanup      = cleanup;
+}
+
+void
+n00b_stream_debug_disable(void)
+{
+    stream_debugging_on = false;
 }

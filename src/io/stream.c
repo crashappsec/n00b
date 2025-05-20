@@ -239,6 +239,10 @@ n00b_stream_unfiltered_read(n00b_stream_t *stream, int len)
 {
     bool err;
 
+    if (!stream->fd_backed) {
+        return NULL;
+    }
+
     n00b_fd_cookie_t *cookie = n00b_get_stream_cookie(stream);
     n00b_buf_t       *result = n00b_fd_read(cookie->stream,
                                       len,
@@ -530,9 +534,9 @@ possible_buffer_list(n00b_list_t *l)
     return n00b_buffer_join(l, NULL);
 }
 
-// If there's one item read, we return it. If there's more, we return
-// a list, UNLESS each item is uniform, and either a buffer or a
-// string, in which case we concatenate.
+// This returns a list, UNLESS each item is uniform, and either a
+// buffer or a string, in which case we concatenate them and return
+// one object.
 void *
 n00b_read_all(n00b_stream_t *stream, int ms_timeout)
 {
@@ -564,13 +568,8 @@ n00b_read_all(n00b_stream_t *stream, int ms_timeout)
         item = n00b_stream_read(stream, ms_timeout, &err);
     }
 
-    switch (n00b_list_len(l)) {
-    case 0:
+    if (!n00b_list_len(l)) {
         return NULL;
-    case 1:
-        return n00b_list_pop(l);
-    default:
-        break;
     }
 
     item           = n00b_private_list_get(l, 0, NULL);

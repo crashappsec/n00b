@@ -50,6 +50,9 @@ topic_write(n00b_stream_t *stream, void *msg, bool block)
         val = (*topic->cb)(topic, msg, topic->param);
     }
 
+    if (!val) {
+        return;
+    }
     // Generally, this is how the pub/sub bus gets messages to publish
     // to readers.  Without this, we will hang in certain situations where
     // we've subscribed an fd to read a callback.
