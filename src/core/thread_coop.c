@@ -99,7 +99,9 @@ _n00b_gts_stop_the_world(char *f, int l)
         // Nesting too deep.
         abort();
     }
-    pthread_rwlock_wrlock(&runlock);
+    if (x == 1) {
+        pthread_rwlock_wrlock(&runlock);
+    }
     n00b_world_is_stopped = true;
 }
 

@@ -87,6 +87,9 @@ void
 n00b_default_uncaught_handler(n00b_exception_t *exception)
 {
     n00b_print_exception(exception, n00b_crich("«em1»Fatal Exception"));
+    n00b_sleep_ms(1000);
+    while (1)
+        ;
     n00b_abort();
 }
 

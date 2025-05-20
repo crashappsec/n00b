@@ -141,8 +141,16 @@ n00b_debug_entry(int argc, char **argv, char **envp)
     n00b_gc_register_root(&active_connections, 1);
     active_connections = n00b_list(n00b_type_stream());
 
-    n00b_stream_t   *listener = n00b_start_log_listener();
-    n00b_net_addr_t *addr     = n00b_stream_net_address(listener);
+    n00b_stream_t *listener = n00b_start_log_listener();
+
+    if (!listener) {
+        n00b_eprintf(
+            "«red»error:«/» Could not start listener:«/» "
+            "Address already in use.");
+        n00b_exit(-1);
+    }
+
+    n00b_net_addr_t *addr = n00b_stream_net_address(listener);
 
     n00b_eprintf("N00b debug server running on «em»«#»:«#»«/»«p» ",
                  addr,
