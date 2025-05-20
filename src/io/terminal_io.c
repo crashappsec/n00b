@@ -17,6 +17,12 @@ static n00b_stream_t *n00b_stream_terminal_io[NUM_CHANS];
 n00b_stream_t *
 n00b_stdin(void)
 {
+    return n00b_stream_terminal_io[STDIN_RAW_IX];
+}
+
+n00b_stream_t *
+n00b_stdin_buffered(void)
+{
     return n00b_stream_terminal_io[STDIN_IX];
 }
 
@@ -30,12 +36,6 @@ n00b_stream_t *
 n00b_stderr(void)
 {
     return n00b_stream_terminal_io[STDERR_IX];
-}
-
-n00b_stream_t *
-n00b_stdin_raw(void)
-{
-    return n00b_stream_terminal_io[STDIN_RAW_IX];
 }
 
 n00b_stream_t *
@@ -62,15 +62,23 @@ n00b_setup_terminal_streams(void)
     outstrm = n00b_fd_stream_from_fd(STDOUT_RAW_IX, NULL, NULL);
     errstrm = n00b_fd_stream_from_fd(STDERR_RAW_IX, NULL, NULL);
 
-    stream                                 = n00b_new_fd_stream(instrm);
-    n00b_stream_terminal_io[STDIN_RAW_IX]  = stream;
-    n00b_stream_terminal_io[STDIN_IX]      = stream;
-    stream->name                           = n00b_cstring("stdin");
-    stream                                 = n00b_new_fd_stream(outstrm);
-    n00b_stream_terminal_io[STDOUT_RAW_IX] = stream;
-    proxy                                  = n00b_new_stream_proxy(stream,
+    stream = n00b_new_fd_stream(instrm);
+    proxy  = n00b_new_stream_proxy(stream,
+                                  n00b_filter_apply_line_buffering());
+
+    stream->name = n00b_cstring("stdin");
+    proxy->name  = n00b_cstring("stdin-line-buffered");
+
+    n00b_stream_terminal_io[STDIN_RAW_IX] = stream;
+    n00b_stream_terminal_io[STDIN_IX]     = proxy;
+
+    stream = n00b_new_fd_stream(outstrm);
+    proxy  = n00b_new_stream_proxy(stream,
                                   n00b_filter_apply_color(-1));
+
+    n00b_stream_terminal_io[STDOUT_RAW_IX] = stream;
     n00b_stream_terminal_io[STDOUT_IX]     = proxy;
+
     proxy->name                            = n00b_cstring("stdout");
     stream                                 = n00b_new_fd_stream(errstrm);
     n00b_stream_terminal_io[STDERR_RAW_IX] = stream;

@@ -259,7 +259,14 @@ bool
 n00b_stream_unfiltered_write(n00b_stream_t *stream, n00b_buf_t *buf)
 {
     n00b_fd_cookie_t *cookie = n00b_get_stream_cookie(stream);
-    return n00b_fd_write(cookie->stream, buf->data, buf->byte_len);
+    bool              result = n00b_fd_write(cookie->stream,
+                                buf->data,
+                                buf->byte_len);
+    if (result) {
+        n00b_cnotify_w(stream, buf);
+    }
+
+    return result;
 }
 
 bool
