@@ -16,9 +16,12 @@ extern bool             n00b_duration_eq(n00b_duration_t *,
                                          n00b_duration_t *);
 extern bool             n00b_duration_gt(n00b_duration_t *,
                                          n00b_duration_t *);
-extern bool             n00b_duration_lit(n00b_duration_t *,
-                                          n00b_duration_t *);
+extern bool             n00b_duration_lt(n00b_duration_t *,
+                                         n00b_duration_t *);
 extern n00b_duration_t *n00b_duration_multiply(n00b_duration_t *, double);
+extern n00b_duration_t *n00b_new_ms_timeout(int);
+extern n00b_duration_t *n00b_duration_from_ms(int);
+extern int64_t          n00b_duration_to_ms(n00b_duration_t *);
 
 static inline n00b_duration_t *
 n00b_duration_divide(n00b_duration_t *dur, double f)
@@ -44,4 +47,10 @@ static inline n00b_duration_t *
 n00b_timeval_to_duration(struct timeval *s)
 {
     return n00b_new(n00b_type_duration(), n00b_kw("timeval", s));
+}
+
+static inline void
+n00b_write_now(n00b_duration_t *output)
+{
+    clock_gettime(CLOCK_REALTIME, output);
 }

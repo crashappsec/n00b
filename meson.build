@@ -115,6 +115,10 @@ if get_option('dev_mode') == true
     if get_option('use_asan').enabled()
         c_args = c_args + ['-fsanitize=address', '-fsanitize-recover=all']
         link_args = link_args + ['-fsanitize=address', '-fsanitize-recover=all']
+
+        if (host_machine.system() == 'darwin')
+        c_args = c_args + ['-fsanitize-blacklist=../.sanitize_ignore']
+        endif
     endif
 
     if get_option('use_ubsan').enabled()
@@ -209,7 +213,9 @@ n00b_core = [
     'src/core/thread.c',        # Basic thread interface
     'src/core/thread_tsi.c',    # Internal API; thread specific data
     'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
-    'src/core/lock.c',     
+    'src/core/lock.c',
+    'src/core/signal.c',
+    'src/core/type_hash.c'      # New type implementation coming soon.
 ]
 
 n00b_runtime = [
@@ -259,33 +265,41 @@ n00b_adts = [
 ]
 
 n00b_io = [
-    'src/io/iocore.c',
-    'src/io/ioqueue.c',
-    'src/io/filters.c',
-    'src/io/marshal.c',
-    'src/io/file.c',
-    'src/io/socket.c',
-    'src/io/listener.c',
-    'src/io/signal.c',
-    'src/io/timer.c',
-    'src/io/exitinfo.c',
-    'src/io/condition.c',
-    'src/io/callback.c',
-    'src/io/topic.c',
-    'src/io/subproxy.c',
-    'src/io/buffer.c',
-    'src/io/strstream.c',
-    'src/io/colorterm.c',
+    'src/io/fd_events.c',
+    'src/io/filter.c',    
+    'src/io/filter_json.c',
+    'src/io/observable.c',
+    'src/io/stream.c',
+    'src/io/stream_fd.c',
+    'src/io/stream_callback.c',
+    'src/io/stream_buffer.c',
+    'src/io/stream_topic.c',
+    'src/io/stream_listener.c',
+    'src/io/stream_exit.c',
+    'src/io/stream_proxy.c',
+    'src/io/stream_string.c',    
+    'src/io/terminal_io.c',
     'src/io/print.c',
-    'src/io/term.c',
-    'src/io/http.c',
     'src/io/proc.c',
-    'src/io/debug.c',
+    'src/io/debug.c',    
     'src/io/session.c',
     'src/io/session_control.c',
     'src/io/session_capture.c',
     'src/io/session_replay.c',
     'src/io/session_states.c',
+    'src/io/filter_color.c',
+    'src/io/filter_linebuf.c',
+    'src/io/filter_hexdump.c',
+    'src/io/filter_json.c',
+    'src/io/filter_marshal.c',
+    'src/io/filter_ansi.c',
+    'src/io/http.c',    
+]
+
+n00b_debug = [
+    'src/debug/workflow.c',
+    'src/debug/api.c',
+    'src/debug/server.c',
 ]
 
 n00b_compiler = [
@@ -339,6 +353,7 @@ n00b_cmd = [
     'src/cmd/compile.c',
     'src/cmd/run.c',
     'src/cmd/record.c',
+    'src/cmd/play.c',    
     'src/cmd/test.c',                        
     'src/cmd/debug.c',
 ]
@@ -346,11 +361,11 @@ n00b_cmd = [
 
 n00b_log = ['src/cmd/n00b_debug.c']
 
-n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts + n00b_io 
+n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
+n00b_base = n00b_base + n00b_io + n00b_debug
 
 n00b_src = n00b_base + n00b_cmd
-log_src = n00b_base + n00b_log
 
 hat_primary = [
     'src/hatrack/support/hatrack_common.c',
@@ -480,9 +495,40 @@ if get_option('build_n00b_dll').enabled()
     )
 endif
 
+# executable(
+#    'n00btest',
+#    test_src,
+#    include_directories: incdir,
+#    dependencies: deps,
+#    c_args: c_args,
+#    link_args: exe_link_args,
+#    link_with: link_with,
+#)
+
 executable(
-    'n00btest',
-    test_src,
+   'io_demo',
+   ['src/c-demos/iodemo.c'],
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)   
+   
+executable(
+   'n00b',
+   n00b_src,    
+   include_directories: incdir,
+   dependencies: deps,
+   c_args: c_args,
+   link_args: exe_link_args,
+   link_with: link_with,
+   )
+
+
+executable(
+    'ctest',
+    ['tests/c-tests/__cur.c'],
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,
@@ -491,23 +537,14 @@ executable(
 )
 
 executable(
-    'n00b',
-    n00b_src,
-    include_directories: incdir,
-    dependencies: deps,
-    c_args: c_args,
-    link_args: exe_link_args,
-    link_with: link_with,
-)
-
-executable(
- 'n00blog',
- log_src,
-    include_directories: incdir,
-    dependencies: deps,
-    c_args: c_args,
-    link_args: exe_link_args,
-    link_with: link_with,
+'n00blog',
+     n00b_base,
+     include_directories: incdir,
+     dependencies: deps,
+     c_args: c_args  + ['-DN00B_DEBUG_SERVER',
+                      '-Dn00b_debug_entry=main'],
+     link_args: exe_link_args,
+     link_with: link_with,
 )
 
 if get_option('build_hatrack').enabled()

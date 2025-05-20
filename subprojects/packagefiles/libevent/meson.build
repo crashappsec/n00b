@@ -11,7 +11,7 @@ i = run_command(
   'sh',
   '-exc',
   '''
-[ -n "$(find -name libevent.a)" ] && exit 0
+[ -n "$(find . -name libevent.a)" ] && exit 0
 export CPPFLAGS="-I$(realpath ../openssl-*)/include -DNDEBUG $CPPFLAGS"
 export LDFLAGS="-L$(realpath ../openssl-*) $LDFLAGS"
 if [ "$(uname)" != "Darwin" ] ; then

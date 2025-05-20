@@ -10,7 +10,7 @@ n00b_session_init(n00b_session_t *session, va_list args)
     n00b_list_t     *execv_args         = NULL;
     n00b_dict_t     *execv_env          = NULL;
     n00b_string_t   *pwd                = NULL;
-    n00b_stream_t   *capture_stream     = NULL; // No more than one option
+    n00b_stream_t  *capture_stream     = NULL; // No more than one option
     n00b_string_t   *capture_filename   = NULL; // for capture is allowed.
     bool             capture_tmpfile    = false;
     bool             pass_input         = true;
@@ -87,9 +87,7 @@ n00b_session_init(n00b_session_t *session, va_list args)
     }
     if (capture_filename) {
         n00b_assert(!capture_stream);
-        capture_stream = n00b_new(n00b_type_file(),
-                                  capture_filename,
-                                  n00b_fm_rw);
+        capture_stream = n00b_stream_open_file(capture_filename);
     }
 
     if (capture_stream) {
@@ -103,28 +101,26 @@ static inline n00b_string_t *
 create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
 {
     n00b_stream_t *rc_file = n00b_tempfile(NULL, NULL);
-    *ctrl_file_ptr         = n00b_tempfile(NULL, NULL);
-    n00b_string_t *result  = n00b_stream_get_name(rc_file);
-    n00b_buf_t    *buf     = n00b_new(n00b_type_buffer(),
+    *ctrl_file_ptr          = n00b_tempfile(NULL, NULL);
+    n00b_string_t *result   = n00b_stream_get_name(rc_file);
+    n00b_buf_t    *buf      = n00b_new(n00b_type_buffer(),
                                n00b_kw("length",
                                        (int64_t)strlen(bash_setup_string),
                                        "ptr",
                                        bash_setup_string));
 
-    n00b_write_blocking(rc_file, buf, NULL);
+    n00b_write(rc_file, buf);
     n00b_close(rc_file);
 
     return result;
 }
 
-extern void n00b_restart_io(void);
 #define capture(x, y, z) n00b_session_capture(x, y, z)
 
 static void
 post_fork_hook(n00b_session_t *s)
 {
     n00b_string_t *ctrl = n00b_stream_get_name(s->subproc_ctrl_stream);
-    n00b_restart_io();
     n00b_set_env(n00b_cstring("N00B_BASH_INFO_LOG"), ctrl);
 
     if (!s->likely_bash) {
@@ -180,8 +176,8 @@ setup_shell_invocation(n00b_session_t *session)
     // we do the actual exec.
 
     n00b_stream_t *ctrl_stream;
-    n00b_string_t *path;
-    n00b_list_t   *result = n00b_list(n00b_type_string());
+    n00b_string_t  *path;
+    n00b_list_t    *result = n00b_list(n00b_type_string());
 
     session->rc_filename         = create_tmpfiles(&ctrl_stream);
     session->subproc_ctrl_stream = ctrl_stream;
@@ -354,12 +350,24 @@ n00b_session_run(n00b_session_t *session)
         n00b_session_setup_control_stream(session);
     }
 
-    n00b_session_setup_replay(session);
+    if (session->log_cursor.log) {
+        n00b_session_start_replay(session);
+    }
     n00b_proc_spawn(session->subprocess);
     n00b_session_run_control_loop(session);
     capture(session, N00B_CAPTURE_END, NULL);
     n00b_session_finish_capture(session);
     return session_cleanup(session);
+}
+
+void
+n00b_session_start_replay(n00b_session_t *session)
+{
+    if (!session->log_cursor.log) {
+        N00B_CRAISE("Replay not set up.");
+    }
+    start_session_clock(session);
+    n00b_thread_spawn((void *)n00b_session_run_replay_loop, session);
 }
 
 bool
@@ -370,8 +378,8 @@ n00b_session_run_cinematic(n00b_session_t *session)
     }
     session->log_cursor.paused = false;
     n00b_session_setup_user_read_cb(session);
-    start_session_clock(session);
-    n00b_session_run_replay_loop(session);
+    n00b_session_start_replay(session);
+    n00b_session_run_control_loop(session);
     return session_cleanup(session);
 }
 

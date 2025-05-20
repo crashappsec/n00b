@@ -117,11 +117,9 @@ control_cb(n00b_stream_t *stream, void *msg, void *aux)
 void
 n00b_session_setup_control_stream(n00b_session_t *s)
 {
-    n00b_stream_t *cb = n00b_callback_open(control_cb,
-                                           s,
-                                           n00b_cstring("control stream"));
-    n00b_line_buffer_writes(cb);
-    n00b_io_subscribe_to_reads(s->subproc_ctrl_stream, cb, NULL);
+    n00b_filter_spec_t *lb = n00b_filter_apply_line_buffering();
+    n00b_stream_t     *cb = n00b_new_callback_stream(control_cb, s, lb);
+    n00b_stream_subscribe_read(s->subproc_ctrl_stream, cb, false);
 }
 static void
 user_read_cb(n00b_stream_t *stream, void *msg, void *aux)
@@ -151,7 +149,7 @@ subproc_injection_cb(n00b_stream_t *stream, void *msg, void *aux)
     n00b_condition_lock_acquire(&session->control_notify);
     capture(session, N00B_CAPTURE_INJECTED, input);
     session->got_injection = true;
-    n00b_write(session->subprocess->subproc_stdin, input);
+    n00b_queue(session->subprocess->subproc_stdin, input);
     add_buf_to_match_buffer(session, N00B_CAPTURE_INJECTED, input);
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
@@ -169,10 +167,7 @@ n00b_subproc_read_stdout(n00b_stream_t *stream, void *msg, void *aux)
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDOUT, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-        // Can't use n00b_write until we add a way to cut through filters,
-        // or send parameters to them anyway.
-        // n00b_write(n00b_stdout(), s);
-        write(1, s->data, s->u8_bytes);
+        n00b_queue(n00b_stdout(), s);
     }
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
@@ -190,10 +185,7 @@ n00b_subproc_read_stderr(n00b_stream_t *stream, void *msg, void *aux)
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDERR, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-
-        //  Per above.
-        // n00b_write(n00b_stdout(), s);
-        write(2, s->data, s->u8_bytes);
+        n00b_queue(n00b_stderr(), s);
     }
     n00b_condition_notify_one(&session->control_notify);
     n00b_condition_lock_release(&session->control_notify);
@@ -202,10 +194,8 @@ n00b_subproc_read_stderr(n00b_stream_t *stream, void *msg, void *aux)
 void
 n00b_session_setup_user_read_cb(n00b_session_t *s)
 {
-    n00b_stream_t *cb = n00b_callback_open(user_read_cb,
-                                           s,
-                                           n00b_cstring("user input"));
-    n00b_io_subscribe_to_reads(n00b_stdin(), cb, NULL);
+    n00b_stream_t *cb = n00b_new_callback_stream(user_read_cb, s);
+    n00b_stream_subscribe_read(n00b_stdin(), cb, false);
 }
 
 void
@@ -221,25 +211,24 @@ n00b_session_setup_state_handling(n00b_session_t *s)
     n00b_stream_t *cb;
     n00b_session_setup_user_read_cb(s);
 
-    cb = n00b_callback_open(subproc_injection_cb,
-                            s,
-                            n00b_cstring("terminal injector"));
-    n00b_ansi_ctrl_parse_on_write(cb);
+    cb                 = n00b_new_callback_stream(subproc_injection_cb,
+                                   s,
+                                   n00b_filter_parse_ansi(false));
     s->stdin_injection = cb;
 
-    cb = n00b_callback_open(n00b_subproc_read_stdout,
-                            s,
-                            n00b_cstring("terminal stdout"));
-    n00b_ansi_ctrl_parse_on_write(cb);
+    cb           = n00b_new_callback_stream(n00b_subproc_read_stdout,
+                                   s,
+                                   n00b_filter_parse_ansi(false));
     s->stdout_cb = n00b_list(n00b_type_stream());
+
     n00b_list_append(s->stdout_cb, cb);
 
     if (!s->merge_output) {
-        cb = n00b_callback_open(n00b_subproc_read_stderr,
-                                s,
-                                n00b_cstring("terminal stderr"));
-        n00b_ansi_ctrl_parse_on_write(cb);
+        cb           = n00b_new_callback_stream(n00b_subproc_read_stderr,
+                                       s,
+                                       n00b_filter_parse_ansi(false));
         s->stderr_cb = n00b_list(n00b_type_stream());
+
         n00b_list_append(s->stderr_cb, cb);
     }
 
@@ -267,6 +256,21 @@ check_for_total_timeout(n00b_session_t *s)
     }
 }
 
+static inline bool
+should_stop(n00b_session_t *s)
+{
+    if (s->subprocess && s->subprocess->exited) {
+        s->early_exit = true;
+        return true;
+    }
+
+    if (s->log_cursor.finished && s->log_cursor.cinematic) {
+        return true;
+    }
+
+    return s->early_exit;
+}
+
 void
 n00b_session_run_control_loop(n00b_session_t *s)
 {
@@ -276,10 +280,9 @@ n00b_session_run_control_loop(n00b_session_t *s)
     n00b_duration_t *target;
 
     n00b_condition_lock_acquire(&s->control_notify);
-
     n00b_session_scan_for_matches(s);
-
-    while (!s->subprocess->exited && !s->early_exit) {
+    n00b_condition_lock_release(&s->control_notify);
+    while (!should_stop(s)) {
         if (s->max_event_gap) {
             timeout = n00b_duration_add(now, s->max_event_gap);
         }
@@ -290,6 +293,7 @@ n00b_session_run_control_loop(n00b_session_t *s)
         // a timeout, it checks at each poll spot to see if it should
         // bail.
         while (true) {
+            n00b_condition_lock_acquire(&s->control_notify);
             if (n00b_condition_timed_wait(&s->control_notify, target)) {
                 n00b_condition_lock_release(&s->control_notify);
                 if (timeout) {
@@ -300,11 +304,13 @@ n00b_session_run_control_loop(n00b_session_t *s)
                         break;
                     }
                 }
-                if (s->subprocess->exited || s->early_exit) {
+                if (should_stop(s)) {
                     goto on_exit;
                 }
-                n00b_condition_lock_acquire(&s->control_notify);
                 n00b_session_scan_for_matches(s);
+            }
+            else {
+                n00b_condition_lock_release(&s->control_notify);
             }
         }
         n00b_session_scan_for_matches(s);

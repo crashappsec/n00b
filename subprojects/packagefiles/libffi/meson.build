@@ -19,7 +19,7 @@ i = run_command(
   'sh',
   '-exc',
   '''
-[ -n "$(find -name libffi.a)" ] && exit 0
+[ -n "$(find . -name libffi.a)" ] && exit 0
 if [ "$(uname)" != "Darwin" ] ; then
 export CPPFLAGS="-I$(realpath ../kernel-headers-*)/include $CPPFLAGS"
 fi

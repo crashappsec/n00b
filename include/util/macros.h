@@ -1,7 +1,7 @@
 #pragma once
 
 // clang-format off
-#define N00B_VA(...) __VA_ARGS__ __VA_OPT__(, )(0ULL)
+#define N00B_VA(...)  __VA_OPT__(__VA_ARGS__, )(0ULL)
 
 #define N00B_PP_NARG(...) \
     N00B_PP_NARG_(__VA_ARGS__, N00B_PP_RSEQ_N())

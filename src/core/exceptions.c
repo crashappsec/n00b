@@ -87,6 +87,9 @@ void
 n00b_default_uncaught_handler(n00b_exception_t *exception)
 {
     n00b_print_exception(exception, n00b_crich("«em1»Fatal Exception"));
+    n00b_sleep_ms(1000);
+    while (1)
+        ;
     n00b_abort();
 }
 
@@ -172,14 +175,9 @@ n00b_exception_uncaught(n00b_exception_t *exception)
     n00b_string_t *msg = n00b_repr_exception_stack_no_vm(
         n00b_cstring("FATAL ERROR:"));
 
-    if (n00b_in_io_thread()) {
-        fprintf(stderr, "%s\n", msg->data);
-    }
-    else {
-        n00b_print(n00b_stderr(),
-                   msg,
-                   NULL);
-    }
+    n00b_print(n00b_stderr(),
+               msg,
+               NULL);
 
     n00b_abort();
 }

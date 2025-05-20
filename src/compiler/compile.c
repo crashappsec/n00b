@@ -67,12 +67,12 @@ n00b_string_to_type(n00b_string_t *str)
         n00b_gc_register_root(&str_to_type_tmp_path, 1);
     }
 
-    n00b_type_t   *result = NULL;
-    n00b_stream_t *stream = n00b_stream_string(str);
-    n00b_module_t  ctx    = {
-            .modref = 0xffffffff,
-            .path   = str_to_type_tmp_path,
-            .name   = str_to_type_tmp_path,
+    n00b_type_t    *result = NULL;
+    n00b_stream_t *stream = n00b_string_stream(str);
+    n00b_module_t   ctx    = {
+             .modref = 0xffffffff,
+             .path   = str_to_type_tmp_path,
+             .name   = str_to_type_tmp_path,
     };
 
     if (n00b_lex(&ctx, stream) != false) {
@@ -522,7 +522,7 @@ n00b_compile_from_entry_point(n00b_string_t *entry)
 
 bool
 n00b_incremental_module(n00b_vm_t         *vm,
-                        n00b_string_t        *location,
+                        n00b_string_t     *location,
                         bool               new_entry,
                         n00b_compile_ctx **compile_state)
 {

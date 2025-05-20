@@ -404,7 +404,6 @@ copy_style_cache(char **pp, n00b_text_element_t *style)
     char *q = style->ansi_cache;
 
     for (int i = 0; i < style->ansi_len; i++) {
-        n00b_assert(*q);
         *p++ = *q++;
     }
 

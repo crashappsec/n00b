@@ -14,7 +14,7 @@ i = run_command(
   'sh',
   '-exc',
   '''
-[ -n "$(find -name libcurl.a)" ] && exit 0
+[ -n "$(find . -name libcurl.a)" ] && exit 0
 export CPPFLAGS="-I$(realpath ../openssl-*)/include $CPPFLAGS"
 export LDFLAGS="-L$(realpath ../openssl-*) $LDFLAGS"
 if [ "$(uname)" != "Darwin" ] ; then

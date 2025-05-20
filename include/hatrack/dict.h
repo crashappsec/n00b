@@ -102,6 +102,7 @@ HATRACK_EXTERN bool hatrack_dict_get_sorted_views    (hatrack_dict_t *);
 HATRACK_EXTERN void *hatrack_dict_get_mmm    (hatrack_dict_t *, mmm_thread_t *thread, void *, bool *);
 HATRACK_EXTERN void  hatrack_dict_put_mmm    (hatrack_dict_t *, mmm_thread_t *thread, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_replace_mmm(hatrack_dict_t *, mmm_thread_t *thread, void *, void *);
+HATRACK_EXTERN bool  hatrack_dict_cas_mmm(hatrack_dict_t *, mmm_thread_t *thread, void *, void *, void *, bool);
 HATRACK_EXTERN bool  hatrack_dict_add_mmm    (hatrack_dict_t *, mmm_thread_t *thread, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_remove_mmm (hatrack_dict_t *, mmm_thread_t *thread, void *);
 
@@ -118,6 +119,7 @@ HATRACK_EXTERN hatrack_dict_item_t  *hatrack_dict_items_nosort_mmm (hatrack_dict
 HATRACK_EXTERN void *hatrack_dict_get    (hatrack_dict_t *, void *, bool *);
 HATRACK_EXTERN void  hatrack_dict_put    (hatrack_dict_t *, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_replace(hatrack_dict_t *, void *, void *);
+HATRACK_EXTERN bool  hatrack_dict_cas    (hatrack_dict_t *, void *, void *, void *, bool);
 HATRACK_EXTERN bool  hatrack_dict_add    (hatrack_dict_t *, void *, void *);
 HATRACK_EXTERN bool  hatrack_dict_remove (hatrack_dict_t *, void *);
 

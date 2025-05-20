@@ -208,6 +208,7 @@ n00b_string_init_from_cstring_with_len(n00b_string_t *s,
 
     if (!n00b_cstring_validate_u8(p, &num_cp, &num_bytes, len)
         || len != num_bytes) {
+        n00b_cstring_validate_u8(p, &num_cp, &num_bytes, len);
         N00B_CRAISE("Invalid UTF-8 in C string.");
     }
 
@@ -950,7 +951,7 @@ n00b_string_from_file(n00b_string_t *name, int *err)
 
     if (len == -1) {
         *err = errno;
-        close(fd);
+        n00b_raw_fd_close(fd);
         return NULL;
     }
     if (lseek(fd, 0, SEEK_SET) == -1) {
@@ -968,7 +969,7 @@ n00b_string_from_file(n00b_string_t *name, int *err)
             if (errno == EINTR || errno == EAGAIN) {
                 continue;
             }
-            close(fd);
+            n00b_raw_fd_close(fd);
             *err = errno;
             return NULL;
         }
@@ -1189,7 +1190,7 @@ _n00b_string_split_words(n00b_string_t *str, ...)
     bool spaces      = false;
     bool punctuation = true;
 
-    n00b_karg_only_init(s);
+    n00b_karg_only_init(str);
     n00b_kw_bool("spaces", spaces);
     n00b_kw_bool("punctuation", punctuation);
 
@@ -1358,10 +1359,10 @@ n00b_string_lit(n00b_string_t        *s,
                 return NULL;
             }
         }
+        break;
     default:
         // TODO / FIXME: hook up the errors.
         return n00b_string_unescape(s, (int *)err);
-        break;
     }
     *err = n00b_err_parse_no_lit_mod_match;
     return NULL;
@@ -1764,13 +1765,13 @@ n00b_to_cstr(void *v)
 char **
 n00b_make_cstr_array(n00b_list_t *l, int *lenp)
 {
-    n00b_lock_list_write(l);
+    n00b_lock_list(l);
 
     int    len    = n00b_list_len(l);
     char **result = n00b_gc_array_alloc(char *, len + 1);
 
     for (int i = 0; i < len; i++) {
-        void *v   = n00b_list_get(l, i, NULL);
+        void *v   = n00b_private_list_get(l, i, NULL);
         result[i] = n00b_to_cstr(v);
     }
 

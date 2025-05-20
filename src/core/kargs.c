@@ -37,7 +37,8 @@ n00b_kargs_acquire()
 n00b_karg_info_t *
 n00b_pass_kargs(int nargs, ...)
 {
-    va_list args;
+    va_list           args;
+    n00b_karg_info_t *kargs;
 
     va_start(args, nargs);
 
@@ -49,12 +50,17 @@ n00b_pass_kargs(int nargs, ...)
 #endif
 
     if (nargs & 1) {
-        N00B_CRAISE(
-            "Got an odd number of parameters to kw() keyword decl macro.");
+        if (nargs > 1) {
+            N00B_CRAISE(
+                "Got an odd number of parameters to kw() keyword decl macro.");
+        }
+        kargs               = n00b_kargs_acquire();
+        kargs->num_provided = 0;
+        return kargs;
     }
 
     nargs >>= 1;
-    n00b_karg_info_t *kargs = n00b_kargs_acquire();
+    kargs = n00b_kargs_acquire();
 
     kargs->num_provided = nargs;
 

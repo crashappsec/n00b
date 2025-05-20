@@ -1445,10 +1445,10 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 // n00b_print(tstate->sp->rvalue, NULL);
                 // The debug stream for testing. This should go away soon;
                 // tee off stuff instead.
-                n00b_write_blocking(n00b_stdout(), tstate->sp->rvalue, NULL);
-                n00b_write_blocking(n00b_stdout(), n00b_cached_newline(), NULL);
+                n00b_write(n00b_stdout(), tstate->sp->rvalue);
+                n00b_write(n00b_stdout(), n00b_cached_newline());
 
-                n00b_write(tstate->vm->run_state->print_stream,
+                n00b_queue(tstate->vm->run_state->print_stream,
                            tstate->sp->rvalue);
                 n00b_putc(tstate->vm->run_state->print_stream, '\n');
                 ++tstate->sp;
@@ -1532,7 +1532,8 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
             }
 
             ++tstate->pc;
-            // Probably could do this less often.
+            // Give the GC a chance to run if another thread needs
+            // it. Probably could do this less often.
             n00b_gts_checkin();
         }
     }
