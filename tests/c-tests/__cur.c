@@ -111,6 +111,17 @@ signal_demo2(int signal, siginfo_t *info, void *user_param)
         info->si_addr);
 }
 
+void
+table_obob() {
+    n00b_table_t *t = n00b_table("columns", 1);
+    n00b_list_t *header = n00b_list(n00b_type_string());
+    n00b_list_append(header, n00b_cstring("very long string with multiple breaks"));
+    n00b_table_add_row(t, header);
+    n00b_list_t  *l = n00b_render(t, 10, -1);
+    n00b_string_t *s = n00b_string_join(l, n00b_cached_empty_string());
+    n00b_print(s);
+}
+
 int
 main(void)
 {
@@ -186,6 +197,8 @@ main(void)
 
     n00b_stream_t *accept_cb = n00b_new_callback_stream(my_accept, NULL);
     n00b_stream_subscribe_read(srv, accept_cb, false);
+
+    // table_obob();
 
     n00b_eprintf("Your two minutes begins on the first tick.");
     n00b_eprintf("ESC exits early; ! shows subscriptions.");

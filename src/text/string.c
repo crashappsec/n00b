@@ -1400,8 +1400,12 @@ n00b_string_wrap(n00b_string_t *s, int64_t width, int64_t hang)
 
     for (; i < line_starts->num_breaks - 1; i++) {
         start                = line_starts->breaks[i];
-        end                  = line_starts->breaks[i + 1] - 1;
+        end                  = line_starts->breaks[i + 1];
         n00b_string_t *slice = n00b_string_slice(s, start, end);
+        if (slice->codepoints && slice->data[slice->u8_bytes - 1] == '\n') {
+            slice->codepoints--;
+            slice->u8_bytes--;
+        }
         n00b_private_list_append(result, slice);
     }
 
