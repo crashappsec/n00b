@@ -1,10 +1,11 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static bool                        exiting         = false;
-static int                         saved_exit_code = 0;
-extern _Atomic(n00b_condition_t *) n00b_io_exit_request;
-extern bool                        n00b_io_exited;
+static bool             exiting         = false;
+static int              saved_exit_code = 0;
+extern n00b_condition_t n00b_io_exit_request;
+extern bool             n00b_io_exited;
+bool                    n00b_abort_signal = false;
 
 #ifdef N00B_DEBUG_EXIT_TRACE
 #define show_trace() n00b_static_c_backtrace()
@@ -16,58 +17,69 @@ extern bool                        n00b_io_exited;
 _Noreturn void
 n00b_thread_exit(void *result)
 {
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+
+    n00b_dlog_thread1("n00b_thread_exit() called.");
     // This has a potential race condition, but given we always should
     // have an IO thread running until actual shutdown, I think it's
     // okay.
-    if (n00b_thread_run_count() == 1) {
+    if (!n00b_thread_run_count()) {
+        n00b_dlog_thread1("Last thread exiting.");
+
+        if (!tsi->thread_id) {
+            n00b_post_thread_cleanup(tsi);
+        }
         exit(saved_exit_code);
+    }
+
+    n00b_dlog_thread1("After exit, %d threads remain.", n00b_thread_run_count());
+    if (!tsi->thread_id) {
+        n00b_post_thread_cleanup(tsi);
     }
 
     pthread_exit(result);
 }
 
+#if 0
 static void
 n00b_wait_on_io_shutdown(void)
 {
-    n00b_condition_t *c = atomic_read(&n00b_io_exit_request);
+    n00b_condition_t *c = &n00b_io_exit_request;
 
-    if (!c) {
-        n00b_condition_t *req = n00b_new(n00b_type_condition());
-        if (!CAS(&n00b_io_exit_request, &c, req)) {
-            req = c;
-        }
+    while (!n00b_io_exited) {
+        n00b_condition_lock(c);
+        n00b_condition_wait(c,
+                            n00b_kw("auto_unlock",
+                                    n00b_ka(true),
+                                    "timeout",
+                                    n00b_ka(100000)));
     }
-
-    n00b_condition_lock_acquire(n00b_io_exit_request);
-    if (!n00b_io_exited) {
-        n00b_condition_wait(n00b_io_exit_request);
-    }
-    n00b_condition_lock_release(n00b_io_exit_request);
 }
+#endif
 
 _Noreturn void
 n00b_exit(int code)
 {
-    n00b_release_locks_on_thread_exit();
-    n00b_gts_suspend();
+    n00b_dlog_thread1("n00b_exit() called.");
+
+    // Wake any long-term blocked threads.
+    kill(getpid(), SIGINT);
     saved_exit_code = code;
     exiting         = true;
-    n00b_wait_on_io_shutdown();
     n00b_thread_cancel_other_threads();
+    //    n00b_wait_on_io_shutdown();
     n00b_thread_exit(NULL);
 }
 
 _Noreturn void
 n00b_abort(void)
 {
-    n00b_release_locks_on_thread_exit();
-    n00b_gts_suspend();
-    saved_exit_code = 139;
-    exiting         = true;
-    n00b_gts_notify_abort();
-    n00b_wait_on_io_shutdown();
+    n00b_dlog_thread1("n00b_abort() called.");
+    saved_exit_code   = 139;
+    exiting           = true;
+    n00b_abort_signal = true;
+    //    n00b_wait_on_io_shutdown();
     n00b_thread_cancel_other_threads();
-    n00b_gts_quit(n00b_get_tsi_ptr());
     abort();
 }
 

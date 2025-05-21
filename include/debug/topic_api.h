@@ -21,11 +21,3 @@ extern void           _n00b_debug(n00b_string_t *, void *);
     else {                                              \
         _n00b_debug(n00b_cstring(topic), contents);     \
     }
-
-#ifdef N00B_DEBUG
-#define n00b_cdebug(x, ...) \
-    _n00b_debug(x, __VA_ARGS__ __VA_OPT__(, ) NULL)
-#else
-#define n00b_cdebug(x, ...) \
-    _n00b_debug(x, __VA_ARGS__ __VA_OPT__(, ) NULL)
-#endif

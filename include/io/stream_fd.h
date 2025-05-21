@@ -60,4 +60,14 @@ extern void n00b_fd_stream_on_first_subscriber(n00b_stream_t *,
                                                n00b_fd_cookie_t *);
 extern void n00b_fd_stream_on_no_subscribers(n00b_stream_t *,
                                              n00b_fd_cookie_t *);
+
+static inline n00b_string_t *
+n00b_get_fd_repr(n00b_stream_t *stream)
+{
+    if (!stream->fd_backed) {
+        return NULL;
+    }
+    n00b_fd_cookie_t *c = n00b_get_stream_cookie(stream);
+    return c->stream->name;
+}
 #endif

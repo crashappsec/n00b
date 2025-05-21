@@ -145,7 +145,6 @@ main(int argc, char **argv, char **envp)
         n00b_exit(ctx->exit_code);
         break;
     case N00B_CMD_TEST:
-        //        n00b_thread_spawn((void *)show_me_locks, NULL);
         n00b_run_tests(ctx);
         n00b_exit(ctx->exit_code);
     case N00B_CMD_TEST_SHOW:

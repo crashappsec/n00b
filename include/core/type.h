@@ -8,7 +8,7 @@ extern n00b_type_t *n00b_type_copy(n00b_type_t *);
 extern n00b_type_t *n00b_get_builtin_type(n00b_builtin_t);
 extern n00b_type_t *n00b_unify(n00b_type_t *, n00b_type_t *);
 
-#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 extern n00b_type_t *_n00b_type_flist(n00b_type_t *, char *, int);
 extern n00b_type_t *_n00b_type_list(n00b_type_t *, char *, int);
 extern n00b_type_t *_n00b_type_tree(n00b_type_t *, char *, int);
@@ -190,13 +190,23 @@ n00b_type_is_dict(n00b_type_t *t)
 }
 
 static inline bool
-n00b_type_is_lock(n00b_type_t *t)
+n00b_type_is_mutex(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {
         return false;
     }
 
-    return n00b_type_resolve(t)->base_index == N00B_T_LOCK;
+    return n00b_type_resolve(t)->base_index == N00B_T_MUTEX;
+}
+
+static inline bool
+n00b_type_is_rwlock(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_RW_LOCK;
 }
 
 static inline bool
@@ -650,9 +660,15 @@ n00b_type_gopt_option(void)
 }
 
 static inline n00b_type_t *
-n00b_type_lock(void)
+n00b_type_mutex(void)
 {
-    return n00b_bi_types[N00B_T_LOCK];
+    return n00b_bi_types[N00B_T_MUTEX];
+}
+
+static inline n00b_type_t *
+n00b_type_rwlock(void)
+{
+    return n00b_bi_types[N00B_T_RW_LOCK];
 }
 
 static inline n00b_type_t *

@@ -47,7 +47,7 @@ buffer_init(n00b_buf_t *obj, va_list args)
         }
     }
 
-    n00b_static_rw_lock_init(obj->lock);
+    n00b_rw_lock_init(&obj->lock);
 
     if (length == 0) {
         obj->alloc_len = N00B_EMPTY_BUFFER_ALLOC;

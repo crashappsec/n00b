@@ -32,14 +32,14 @@ n00b_wait(n00b_notifier_t *n, int ms_timeout)
         .events = POLLIN | POLLHUP | POLLERR,
     };
 
-    n00b_gts_suspend();
+    N00B_DBG_CALL(n00b_thread_suspend);
 
     if (poll(&ctx, 1, ms_timeout) != 1) {
-        n00b_gts_resume();
+        N00B_DBG_CALL(n00b_thread_resume);
         return -1LL;
     }
 
-    n00b_gts_resume();
+    N00B_DBG_CALL(n00b_thread_resume);
 
     if (ctx.revents & POLLHUP) {
         return 0LL;

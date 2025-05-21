@@ -287,6 +287,8 @@ alloc_type_list(void)
     result->append_ix = 0;
     result->length    = 2;
 
+    n00b_rw_lock_init(&result->lock);
+
     return result;
 }
 
@@ -1637,7 +1639,7 @@ n00b_initialize_global_types(void)
     }
 }
 
-#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 #define DECLARE_ONE_PARAM_FN(tname, idnumber)                      \
     n00b_type_t *                                                  \
         _n00b_type_##tname(n00b_type_t *sub, char *file, int line) \
@@ -1678,6 +1680,7 @@ extern int n00b_current_test_case;
 extern int n00b_watch_case;
 extern int TMP_DEBUG;
 
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 n00b_type_t *
 _n00b_type_list(n00b_type_t *sub, char *file, int line)
 {
@@ -1686,6 +1689,14 @@ _n00b_type_list(n00b_type_t *sub, char *file, int line)
                                     line,
                                     n00b_type_typespec(),
                                     N00B_T_LIST);
+#else
+n00b_type_t *
+_n00b_type_list(n00b_type_t *sub)
+{
+    n00b_type_t *result = _n00b_new(NULL,
+                                    n00b_type_typespec(),
+                                    N00B_T_LIST);
+#endif
     n00b_assert(result->base_index == N00B_T_LIST);
     n00b_private_list_append(result->items, sub);
     type_hash_and_dedupe(&result);
@@ -1758,8 +1769,8 @@ n00b_type_dict(n00b_type_t *sub1, n00b_type_t *sub2)
                                    N00B_T_DICT);
     n00b_list_t *items  = result->items;
 
-    n00b_list_append(items, sub1);
-    n00b_list_append(items, sub2);
+    n00b_private_list_append(items, sub1);
+    n00b_private_list_append(items, sub2);
 
     type_hash_and_dedupe(&result);
 

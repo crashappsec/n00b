@@ -1,29 +1,5 @@
 #pragma once
 
-// Stuff used widely enough that it's worth defining early.
-typedef struct hatrack_set_st n00b_set_t;
-typedef uint64_t              n00b_size_t;
-typedef struct timespec       n00b_duration_t;
-typedef struct n00b_stream_t  n00b_stream_t;
-typedef struct n00b_table_t   n00b_table_t;
-
-#include "adts/dt_box.h"
-#include "core/dt_kargs.h"
-#include "core/dt_objects.h"
-#include "core/dt_literals.h"
-#include "text/dt_colors.h"
-#include "text/dt_codepoints.h"
-#include "adts/dt_flags.h"
-
-typedef struct n00b_type_t n00b_type_t;
-
-#include "core/heap.h"
-#include "core/thread.h"
-#include "core/kargs.h"
-#include "core/dt_exceptions.h"
-#include "core/locks.h"
-#include "core/tsi.h" // Thread-specific info.
-
 #include "adts/dt_lists.h"
 #include "adts/dt_trees.h"
 #include "util/dt_tree_patterns.h"

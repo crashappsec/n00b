@@ -1,4 +1,3 @@
-
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
@@ -44,11 +43,16 @@ n00b_signal_monitor(void *ignore)
     int          signal;
     n00b_list_t *handlers;
     siginfo_t   *siginfo;
+    n00b_tsi_t  *tsi = n00b_get_tsi_ptr();
+
+    atomic_fetch_add(&n00b_live_threads, -1);
+
+    tsi->system_thread = true;
 
     while (true) {
-        n00b_gts_suspend();
+        N00B_DBG_CALL(n00b_thread_suspend);
         int r = poll(pollset, 1, -1);
-        n00b_gts_resume();
+        N00B_DBG_CALL(n00b_thread_resume);
 
         switch (r) {
         case -1:
@@ -74,6 +78,10 @@ n00b_signal_monitor(void *ignore)
                 if (ui && ui->h) {
                     (*ui->h)(signal, siginfo, ui->stash);
                 }
+            }
+
+            if (signal == SIGINT && n00b_current_process_is_exiting()) {
+                return NULL;
             }
         }
     }

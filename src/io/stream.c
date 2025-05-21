@@ -5,7 +5,6 @@
 
 static _Atomic int32_t global_msg_id    = 0;
 static _Atomic int32_t global_stream_id = 0;
-static void            n00b_route_stream_message(void *msg, void *dst);
 
 // This callback gets the first subscriber for *any* stream.
 // So we need to know if any read subscriber is listening.
@@ -79,13 +78,15 @@ base_subscribe(n00b_stream_t *stream,
         N00B_CRAISE("Subscriber is not able to be written to.");
     }
 
+    n00b_lock_acquire(stream->locks[N00B_LOCKSUB_IX]);
     n00b_observer_t *result = n00b_observable_subscribe(&stream->pub_info,
                                                         (void *)sub_kind,
                                                         n00b_route_stream_message,
-                                                        oneshot,
-                                                        dst);
+                                                        dst,
+                                                        oneshot);
 
     n00b_list_append(dst->my_subscriptions, result);
+    n00b_lock_release(stream->locks[N00B_LOCKSUB_IX]);
 
     return result;
 }
@@ -314,17 +315,13 @@ nonblocking_stream_read(n00b_stream_t *stream)
 
 static inline void *
 wait_for_read(n00b_stream_t   *stream,
-              n00b_lock_t     *lock,
               n00b_duration_t *end,
               bool            *err)
 {
     void *result;
 
-    pthread_cond_t *cond = n00b_gc_alloc_mapped(pthread_cond_t,
-                                                N00B_GC_SCAN_NONE);
-    pthread_cond_t *check;
-
-    pthread_cond_init(cond, NULL);
+    n00b_condition_t *cond = n00b_new(n00b_type_condition());
+    n00b_condition_t *check;
 
     if (!stream->blocked_readers) {
         stream->blocked_readers = n00b_list(n00b_type_ref());
@@ -347,24 +344,15 @@ wait_for_read(n00b_stream_t   *stream,
         }
     }
 
-    if (end) {
-        int res = pthread_cond_timedwait(cond,
-                                         &lock->lock,
-                                         end);
-        if (res) {
-            *err = true;
-            n00b_private_list_remove_item(stream->blocked_readers,
-                                          cond);
-            n00b_lock_release(lock);
-            return NULL;
-        }
-    }
-    else {
-        int res = pthread_cond_wait(cond, &lock->lock);
-        if (res) {
-            *err = true;
-            return NULL;
-        }
+    int64_t as_int = end ? 0 : n00b_ns_from_duration(end);
+    void   *res    = n00b_condition_wait(cond,
+                                    n00b_kw("timeout", as_int));
+
+    if (res) {
+        *err = true;
+        n00b_private_list_remove_item(stream->blocked_readers,
+                                      cond);
+        return NULL;
     }
 
     *err = false;
@@ -379,10 +367,8 @@ wait_for_read(n00b_stream_t   *stream,
     if (n00b_list_len(stream->blocked_readers)
         && n00b_list_len(stream->read_cache)) {
         cond = n00b_list_get(stream->blocked_readers, 0, NULL);
-        pthread_cond_signal(cond);
+        n00b_condition_notify(cond);
     }
-
-    n00b_lock_release(lock);
 
     return result;
 }
@@ -393,10 +379,9 @@ n00b_perform_stream_read(n00b_stream_t *stream,
                          int            tout,
                          bool          *err)
 {
-    n00b_mutex_t    *lock   = stream->locks[N00B_LOCKRD_IX];
-    void            *result = NULL;
-    pthread_cond_t  *cond;
-    n00b_duration_t *end;
+    void             *result = NULL;
+    n00b_condition_t *cond;
+    n00b_duration_t  *end;
 
     if (tout) {
         end = n00b_new_ms_timeout(tout);
@@ -405,7 +390,6 @@ n00b_perform_stream_read(n00b_stream_t *stream,
         end = NULL;
     }
 
-    n00b_lock_acquire(lock);
     // 1. If there aren't enough available queued messages for us
     //    (behind any pending waiters) then call the raw non-blocking
     //    stream read until it fails.
@@ -432,7 +416,6 @@ n00b_perform_stream_read(n00b_stream_t *stream,
     while (n00b_list_len(stream->read_cache) < n) {
         if (!nonblocking_stream_read(stream)) {
             if (!blocking || stream->impl->disallow_blocking_reads) {
-                n00b_lock_release(lock);
                 *err = true;
                 return NULL;
             }
@@ -451,6 +434,7 @@ n00b_perform_stream_read(n00b_stream_t *stream,
             // non-blocking read on a buffer...
             if (stream->impl->poll_for_blocking_reads) {
                 if (end && n00b_duration_lt(end, n00b_now())) {
+                    //                    n00b_lock_release(lock);
                     *err = true;
                     return NULL;
                 }
@@ -460,24 +444,24 @@ n00b_perform_stream_read(n00b_stream_t *stream,
             else {
                 // For most things, we can just hang to see if a poll
                 // comes in.
-                return wait_for_read(stream, lock, end, err);
+                return wait_for_read(stream, end, err);
             }
         }
     }
 
-    result = n00b_list_get(stream->read_cache, n - 1, NULL);
+    result = n00b_private_list_get(stream->read_cache, n - 1, NULL);
     n00b_private_list_remove(stream->read_cache, n - 1);
+    // n00b_lock_release(lock);
+
     n00b_cnotify_r(stream, result);
 
     if (stream->blocked_readers && n00b_list_len(stream->blocked_readers)
         && n00b_list_len(stream->read_cache)) {
         cond = n00b_list_get(stream->blocked_readers, 0, NULL);
-        pthread_cond_signal(cond);
+        n00b_condition_notify(cond);
     }
 
     *err = false;
-
-    n00b_lock_release(lock);
 
     return result;
 }
@@ -503,10 +487,13 @@ n00b_stream_read(n00b_stream_t *stream, int ms_timeout, bool *err)
     // the lower-level stuff requires the error parameter, but we
     // don't want to force the user to provide it, esp if the stream
     // can't fail.
-    bool  e;
-    bool *ep = err ? err : &e;
+    bool          e;
+    bool         *ep   = err ? err : &e;
+    n00b_mutex_t *lock = stream->locks[N00B_LOCKRD_IX];
 
+    n00b_lock_acquire(lock);
     void *result = n00b_perform_stream_read(stream, true, ms_timeout, ep);
+    n00b_lock_release(lock);
 
     return result;
 }
@@ -712,12 +699,12 @@ n00b_stream_init(n00b_stream_t *stream, va_list args)
     }
 
     if (stream->r) {
-        stream->locks[N00B_LOCKRD_IX] = n00b_new(n00b_type_lock());
+        stream->locks[N00B_LOCKRD_IX] = n00b_new(n00b_type_mutex());
     }
     if (stream->w) {
-        stream->locks[N00B_LOCKWR_IX] = n00b_new(n00b_type_lock());
+        stream->locks[N00B_LOCKWR_IX] = n00b_new(n00b_type_mutex());
     }
-    stream->locks[N00B_LOCKSUB_IX] = n00b_new(n00b_type_lock());
+    stream->locks[N00B_LOCKSUB_IX] = n00b_new(n00b_type_mutex());
 
     if (filter_specs) {
         int n = n00b_list_len(filter_specs);

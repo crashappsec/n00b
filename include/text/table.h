@@ -45,7 +45,7 @@ struct n00b_table_t {
     // Theoretically, we could stream a cell at a time when column
     // height is limited to 1, but meh. Currently, we're not limiting
     // the column height!
-    struct n00b_stream_t  *outstream;
+    struct n00b_stream_t   *outstream;
     //
     // The stashed title, if any (printed to span the entire table).
     // If it exists when we
@@ -79,7 +79,7 @@ struct n00b_table_t {
     // curses-like interface) we might want to change that.
     bool                    eject_on_render;
     // We fully lock the table state itself.
-    n00b_lock_t             lock;
+    n00b_mutex_t            lock;
     // This indicates the insertion index.
     int                     row_cursor;
     // We don't just track list size due to column spans.

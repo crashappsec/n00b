@@ -43,4 +43,5 @@ main()
     t = n00b_layout_calculate(layout, 10);
     s = n00b_to_string(t);
     n00b_eprintf("«em2»Layout 4«/»\n«#»", s);
+    n00b_debug_log_dump();
 }

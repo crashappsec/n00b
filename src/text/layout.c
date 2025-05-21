@@ -123,8 +123,8 @@ generate_result_tree(n00b_tree_node_t *node, int64_t available)
     t->cell                 = node;
     t->size                 = available;
     t->computed_min         = compute_size(&layout->min, available);
-    t->computed_max         = compute_size(&layout->max, available);
-    t->computed_pref        = compute_size(&layout->pref, available);
+    t->computed_max         = n00b_max(compute_size(&layout->max, available), t->computed_min);
+    t->computed_pref        = n00b_max(compute_size(&layout->pref, available), t->computed_min);
     t->cached_priority      = layout->priority;
     t->cached_flex_multiple = layout->flex_multiple;
 

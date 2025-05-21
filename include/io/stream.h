@@ -54,6 +54,8 @@ struct n00b_stream_t {
     n00b_stream_impl *impl;
     n00b_filter_t    *write_top;
     n00b_filter_t    *read_top;
+    n00b_list_t      *blocked_readers;
+    n00b_mutex_t     *locks[N00B_STREAM_LOCKSLOTS];
     int               stream_id; // unique number for debugging.
 
     // Note that individual r/w requests may be 'blocking'; for a
@@ -100,9 +102,7 @@ struct n00b_stream_t {
     unsigned int has_rawsubs : 1;
     unsigned int fd_backed   : 1;
 
-    n00b_list_t  *blocked_readers;
-    n00b_mutex_t *locks[N00B_STREAM_LOCKSLOTS];
-    char          cookie[];
+    alignas(16) char cookie[];
 };
 
 enum {
@@ -114,63 +114,6 @@ enum {
     N00B_CT_ERROR,
     N00B_CT_NUM_TOPICS,
 };
-
-// streams will proxy the topic name that are read / written to its
-// observers the topic information on a write always gets passed to
-// the implementation (but is usually just '__write'; the topic()
-// interface allows for custom topics). __ topics are reserved (but
-// generally passed to the implementation). Reserved topics are
-// currently: __read, __write, __log, __exception, __close __read and
-// __write are the only two that can be accepted by filters. Other
-// topics get passed directly to the underlying stream's
-// implementation function.
-#ifdef N00B_USE_INTERNAL_API
-
-// Implementations of core streams are expect to call this when done
-// writing.
-static inline bool
-n00b_stream_notify(n00b_stream_t *stream, void *msg, int64_t n)
-{
-    return n00b_observable_post(&stream->pub_info, (void *)n, msg) != 0;
-}
-
-static inline bool
-n00b_cnotify_r(n00b_stream_t *stream, void *msg)
-{
-    return n00b_stream_notify(stream, msg, N00B_CT_R);
-}
-
-static inline bool
-n00b_cnotify_q(n00b_stream_t *stream, void *msg)
-{
-    return n00b_stream_notify(stream, msg, N00B_CT_Q);
-}
-
-static inline bool
-n00b_cnotify_w(n00b_stream_t *stream, void *msg)
-{
-    return n00b_stream_notify(stream, msg, N00B_CT_W);
-}
-
-static inline bool
-n00b_cnotify_raw(n00b_stream_t *stream, void *msg)
-{
-    return n00b_stream_notify(stream, msg, N00B_CT_RAW);
-}
-
-static inline bool
-n00b_cnotify_close(n00b_stream_t *stream, void *msg)
-{
-    return n00b_stream_notify(stream, msg, N00B_CT_CLOSE);
-}
-
-static inline bool
-n00b_cnotify_error(n00b_stream_t *stream, void *msg)
-{
-    return n00b_stream_notify(stream, msg, N00B_CT_ERROR);
-}
-
-#endif
 
 static inline bool
 n00b_stream_is_tty(n00b_stream_t *stream)
@@ -266,6 +209,60 @@ n00b_stream_can_write(n00b_stream_t *stream)
 }
 
 #ifdef N00B_USE_INTERNAL_API
+// streams will proxy the topic name that are read / written to its
+// observers the topic information on a write always gets passed to
+// the implementation (but is usually just '__write'; the topic()
+// interface allows for custom topics). __ topics are reserved (but
+// generally passed to the implementation). Reserved topics are
+// currently: __read, __write, __log, __exception, __close __read and
+// __write are the only two that can be accepted by filters. Other
+// topics get passed directly to the underlying stream's
+// implementation function.
+
+// Implementations of core streams are expect to call this when done
+// writing.
+static inline bool
+n00b_stream_notify(n00b_stream_t *stream, void *msg, int64_t n)
+{
+    return n00b_observable_post(&stream->pub_info, (void *)n, msg) != 0;
+}
+
+static inline bool
+n00b_cnotify_r(n00b_stream_t *stream, void *msg)
+{
+    return n00b_stream_notify(stream, msg, N00B_CT_R);
+}
+
+static inline bool
+n00b_cnotify_q(n00b_stream_t *stream, void *msg)
+{
+    return n00b_stream_notify(stream, msg, N00B_CT_Q);
+}
+
+static inline bool
+n00b_cnotify_w(n00b_stream_t *stream, void *msg)
+{
+    return n00b_stream_notify(stream, msg, N00B_CT_W);
+}
+
+static inline bool
+n00b_cnotify_raw(n00b_stream_t *stream, void *msg)
+{
+    return n00b_stream_notify(stream, msg, N00B_CT_RAW);
+}
+
+static inline bool
+n00b_cnotify_close(n00b_stream_t *stream, void *msg)
+{
+    return n00b_stream_notify(stream, msg, N00B_CT_CLOSE);
+}
+
+static inline bool
+n00b_cnotify_error(n00b_stream_t *stream, void *msg)
+{
+    return n00b_stream_notify(stream, msg, N00B_CT_ERROR);
+}
+
 static inline void *
 n00b_get_stream_cookie(n00b_stream_t *stream)
 {
@@ -298,6 +295,7 @@ n00b_get_stream_cookie(n00b_stream_t *stream)
     }
 
 extern void n00b_cache_read(n00b_stream_t *, void *);
+extern void n00b_route_stream_message(void *, void *);
 
 #endif
 

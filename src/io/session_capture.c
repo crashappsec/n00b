@@ -50,6 +50,7 @@ add_capture_payload_str(n00b_string_t *s, n00b_stream_t *strm)
 
     n00b_stream_unfiltered_write(strm, b1);
     n00b_stream_unfiltered_write(strm, b2);
+    n00b_dlog_io("%capture: %s\n", s->data);
 }
 
 static inline void
@@ -89,11 +90,15 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
     }
 }
 
+typedef struct cap_cookie_t {
+    n00b_stream_t *s;
+} cap_cookie_t;
+
 static n00b_list_t *
-n00b_capture_encode(n00b_stream_t *stream, void *msg)
+n00b_capture_encode(cap_cookie_t *cookie, n00b_cap_event_t *event)
 {
-    n00b_list_t      *result = n00b_list(n00b_type_ref());
-    n00b_cap_event_t *event  = msg;
+    n00b_stream_t *stream = cookie->s;
+    n00b_list_t   *result = n00b_list(n00b_type_ref());
 
     if (!event) {
         return result;
@@ -132,8 +137,17 @@ n00b_capture_encode(n00b_stream_t *stream, void *msg)
     return result;
 }
 
+static void *
+cap_encode_setup(cap_cookie_t *ctx, n00b_stream_t *stream)
+{
+    ctx->s = stream;
+
+    return NULL;
+}
+
 static n00b_filter_impl cap_encode = {
-    .cookie_size = 0,
+    .cookie_size = sizeof(cap_cookie_t),
+    .setup_fn    = (void *)cap_encode_setup,
     .write_fn    = (void *)n00b_capture_encode,
     .name        = NULL,
 };
@@ -151,7 +165,6 @@ n00b_capture_encoder(n00b_stream_t *param)
 
     return result;
 }
-
 void
 n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
 {
@@ -216,11 +229,12 @@ n00b_setup_capture(n00b_session_t *s, n00b_stream_t *target, int policy)
     s->cap_filename      = n00b_stream_get_name(target);
     s->unproxied_capture = target;
 
-    n00b_stream_t *p = n00b_new_stream_proxy(target);
-    n00b_filter_add(p, n00b_capture_encoder(p));
-
+    n00b_stream_t *p  = n00b_new_stream_proxy(target);
     s->capture_stream = p;
     s->capture_policy = policy;
+
+    n00b_filter_add(p, n00b_capture_encoder(p));
+
     n00b_signal_register(SIGWINCH, (void *)record_winch, s);
 }
 

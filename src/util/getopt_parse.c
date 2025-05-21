@@ -604,10 +604,9 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
         return;
     }
     if (pn->bad_prefix) {
-        n00b_tree_node_t *n = cur->children[0];
-
-        n00b_assert(!n->num_kids);
-        n = cur->children[1];
+        // n00b_tree_node_t *n = cur->children[0];
+        // n00b_assert(!n->num_kids);
+        // n = cur->children[1];
         // n00b_assert(!n->num_kids);
 
         n00b_parse_node_t *bad_kid = n00b_tree_get_contents(cur->children[0]);

@@ -253,7 +253,15 @@ prep_one_stream(n00b_stream_t *stream)
     n00b_private_list_append(row,
                              n00b_cformat("[|#:x|]",
                                           (int64_t)stream->stream_id));
-    n00b_private_list_append(row, n00b_to_string(stream));
+
+    n00b_string_t *name     = n00b_to_string(stream);
+    n00b_string_t *fd_extra = n00b_get_fd_repr(stream);
+
+    if (fd_extra) {
+        name = n00b_cformat("[|#|]: [|#|]", name, fd_extra);
+    }
+
+    n00b_private_list_append(row, name);
     n00b_private_list_append(row, repr_perms(stream));
     n00b_private_list_append(row, prep_read_subs(stream));
     n00b_private_list_append(row, prep_write_subs(stream));
@@ -276,11 +284,11 @@ header_row(void)
     return row;
 }
 
-void
-n00b_show_streams(void)
+n00b_string_t *
+n00b_get_streams_table(void)
 {
     if (!stream_debugging_on) {
-        return;
+        return NULL;
     }
 
     n00b_table_t *t = n00b_table("columns", 6);
@@ -293,10 +301,39 @@ n00b_show_streams(void)
         n00b_table_add_row(t, prep_one_stream(n00b_list_get(l, i, NULL)));
     }
 
-    l                = n00b_render(t, n00b_terminal_width(), -1);
-    n00b_string_t *s = n00b_string_join(l, n00b_cached_empty_string());
+    l = n00b_render(t, n00b_terminal_width(), -1);
+    return n00b_string_join(l, n00b_cached_empty_string());
+}
 
-    n00b_eprint(s);
+void
+n00b_show_streams(void)
+{
+    n00b_string_t *s = n00b_get_streams_table();
+    if (s) {
+        n00b_eprint(s);
+    }
+    else {
+        n00b_eprint("Stream debugging is not enabled.");
+    }
+}
+
+void
+n00b_log_streams(FILE *f)
+{
+    n00b_string_t *s = n00b_get_streams_table();
+    if (s) {
+        fprintf(f, "%s", s->data);
+    }
+}
+
+void
+n00b_log_streams_to_file(char *fname)
+{
+    FILE *f = fopen(fname, "w");
+    if (f) {
+        n00b_log_streams(f);
+    }
+    fclose(f);
 }
 
 void

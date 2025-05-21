@@ -210,12 +210,18 @@ n00b_core = [
     'src/core/literals.c',
     'src/core/object.c',
     'src/core/validation.c',
-    'src/core/thread.c',        # Basic thread interface
-    'src/core/thread_tsi.c',    # Internal API; thread specific data
-    'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
-    'src/core/lock.c',
     'src/core/signal.c',
     'src/core/type_hash.c'      # New type implementation coming soon.
+]
+
+n00b_mt = [
+    'src/mt/gil.c',
+    'src/mt/lock_accounting.c',
+    'src/mt/mutex.c',
+    'src/mt/condition.c',    
+    'src/mt/rwlock.c',
+    'src/mt/thread.c',        # Basic thread interface
+    'src/mt/thread_tsi.c',    # Internal API; thread specific data
 ]
 
 n00b_runtime = [
@@ -265,7 +271,12 @@ n00b_adts = [
 ]
 
 n00b_io = [
-    'src/io/fd_events.c',
+    'src/io/fd_object.c',
+    'src/io/fd_pubsub.c',
+    'src/io/fd_io.c',
+    'src/io/fd_cache.c',
+    'src/io/fd_evloop.c',
+    'src/io/timers.c',
     'src/io/filter.c',    
     'src/io/filter_json.c',
     'src/io/observable.c',
@@ -281,7 +292,6 @@ n00b_io = [
     'src/io/terminal_io.c',
     'src/io/print.c',
     'src/io/proc.c',
-    'src/io/debug.c',    
     'src/io/session.c',
     'src/io/session_control.c',
     'src/io/session_capture.c',
@@ -296,10 +306,17 @@ n00b_io = [
     'src/io/http.c',    
 ]
 
+if get_option('dev_mode') == true
+  n00b_io = n00b_io + ['src/io/fd_debug.c']
+endif
+
 n00b_debug = [
     'src/debug/workflow.c',
     'src/debug/api.c',
     'src/debug/server.c',
+    'src/debug/memring.c',
+    'src/debug/dlogf.c',
+    'src/debug/streams.c',    
 ]
 
 n00b_compiler = [
@@ -342,7 +359,6 @@ n00b_util = [
     'src/util/memcheck.c',
     'src/util/deep_copy.c',
     'src/util/testgen.c',
-    'src/util/notify.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
@@ -361,7 +377,7 @@ n00b_cmd = [
 
 n00b_log = ['src/cmd/n00b_debug.c']
 
-n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts 
+n00b_base = n00b_core + n00b_mt + n00b_text + n00b_runtime + n00b_adts 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
 n00b_base = n00b_base + n00b_io + n00b_debug
 
@@ -445,9 +461,8 @@ libpcre_dep = subproject('pcre2').get_variable('libpcre2_8')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
 openssl_dep = subproject('openssl').get_variable('openssl_dep')
-# libcurl and libevent depend on openssl so override its dependency first
+# libcurl depends on openssl so override its dependency first
 libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
-libevent_dep = subproject('libevent').get_variable('libevent_dep')
 
 if get_option('show_preprocessor_config').enabled()
     c_args = c_args + ['-DN00B_SHOW_PREPROC_CONFIG']
@@ -456,7 +471,6 @@ endif
 deps = [
   libbacktrace_dep,
   libcurl_dep,
-  libevent_dep,
   libffi_dep,
   libpcre_dep,
   libmath_dep,

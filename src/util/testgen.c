@@ -66,7 +66,7 @@ gen_inject(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
 
 static inline void
 gen_expect(n00b_cap_event_t *event,
-           n00b_stream_t   *output,
+           n00b_stream_t    *output,
            bool              ansi,
            bool              hdr,
            bool              err)
@@ -109,22 +109,22 @@ gen_winch(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
     int64_t         row = ws->ws_row;
 
     n00b_queue(output,
-                       n00b_cformat("SIZE [|#|]:[|#|]\n", col, row));
+               n00b_cformat("SIZE [|#|]:[|#|]\n", col, row));
 }
 
 static inline void
 gen_spawn(n00b_session_t   *session,
           n00b_cap_event_t *event,
-          n00b_stream_t   *output)
+          n00b_stream_t    *output)
 {
     n00b_cap_spawn_info_t *info  = event->contents;
     n00b_duration_t       *start = session->start_time;
     n00b_date_time_t      *dt    = n00b_datetime_from_duration(start);
 
     n00b_queue(output,
-                       n00b_cformat("# Ran [|#|]:[|#|]\n", info->command, info->args));
+               n00b_cformat("# Ran [|#|]:[|#|]\n", info->command, info->args));
     n00b_queue(output,
-                       n00b_cformat("# @[|#|]\n", dt));
+               n00b_cformat("# @[|#|]\n", dt));
 }
 
 static inline void
@@ -141,13 +141,13 @@ build_testgen_script(n00b_session_t *session,
                      bool            merge)
 {
     n00b_stream_t *script              = n00b_tempfile(NULL, NULL);
-    n00b_string_t  *tname               = n00b_stream_get_name(script);
-    bool            gen_user_input      = false;
-    bool            show_inject_comment = true;
-    bool            show_expect_comment = true;
-    bool            show_prompt_comment = true;
-    bool            show_winch          = true;
-    bool            expect_stuff        = false;
+    n00b_string_t *tname               = n00b_stream_get_name(script);
+    bool           gen_user_input      = false;
+    bool           show_inject_comment = true;
+    bool           show_expect_comment = true;
+    bool           show_prompt_comment = true;
+    bool           show_winch          = true;
+    bool           expect_stuff        = false;
 
     int n = n00b_list_len(events);
 
@@ -756,6 +756,10 @@ n00b_testgen_run_one_test(n00b_testing_ctx *ctx, n00b_test_t *test)
 
     build_state_machine(s, test);
 
+    if (ctx->verbose) {
+        n00b_print(n00b_session_state_repr(s));
+    }
+
     uint64_t timeout;
 
     if (test->got_timeout) {
@@ -769,6 +773,7 @@ n00b_testgen_run_one_test(n00b_testing_ctx *ctx, n00b_test_t *test)
             timeout = N00B_TEST_TIMEOUT_SEC_DEFAULT;
         }
     }
+    s->end_time      = n00b_new(n00b_type_duration(), n00b_kw("sec", timeout));
     s->max_event_gap = n00b_new(n00b_type_duration(), n00b_kw("sec", timeout));
 
     n00b_string_t *pwd      = n00b_get_current_directory();
@@ -1192,19 +1197,26 @@ create_matrix(n00b_testing_ctx *ctx)
     n00b_tree_node_t *ci = n00b_new_layout();
     n00b_new_layout_cell(ci,
                          n00b_kw("min",
-                                 (int64_t)ctx->c1_width,
-                                 "preference",
-                                 (int64_t)ctx->c1_width));
-    n00b_new_layout_cell(ci,
-                         n00b_kw("min",
+                                 6LL,
+                                 "max",
                                  6LL,
                                  "preference",
                                  6LL));
     n00b_new_layout_cell(ci,
                          n00b_kw("min",
+                                 (int64_t)ctx->c1_width,
+                                 "max",
+                                 (int64_t)ctx->c1_width,
+                                 "preference",
+                                 (int64_t)ctx->c1_width));
+    n00b_new_layout_cell(ci,
+                         n00b_kw("min",
+                                 (int64_t)ctx->c2_width,
+                                 "max",
                                  (int64_t)ctx->c2_width,
                                  "preference",
-                                 (int64_t)(ctx->c2_width)));
+                                 (int64_t)ctx->c2_width));
+
     n00b_new_layout_cell(ci,
                          n00b_kw("min",
                                  (int64_t)ctx->c3_width,
@@ -1409,6 +1421,12 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
     if (t) {
         n00b_table_end(t);
     }
+
+#if defined(N00B_DEBUG)
+    if (ctx->debug) {
+        n00b_debug_log_dump();
+    }
+#endif
 
     return result;
 }

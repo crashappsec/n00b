@@ -286,7 +286,7 @@ void *
 n00b_session_run_replay_loop(n00b_session_t *session)
 {
     n00b_log_cursor_t *cap = &session->log_cursor;
-    n00b_stream_t    *log = cap->log;
+    n00b_stream_t     *log = cap->log;
 
     n00b_stream_set_absolute_position(log, 0);
 
@@ -311,7 +311,7 @@ n00b_session_run_replay_loop(n00b_session_t *session)
     cap->absolute_start = now;
 
     while (true) {
-        n00b_condition_lock_acquire(&cap->unpause_notify);
+        n00b_lock_acquire(&cap->unpause_notify);
         if (cap->paused) {
             n00b_condition_wait(&cap->unpause_notify);
             dur                 = n00b_duration_diff(now, n00b_now());
@@ -319,7 +319,7 @@ n00b_session_run_replay_loop(n00b_session_t *session)
             cap->paused         = false;
         }
 
-        n00b_condition_lock_release(&cap->unpause_notify);
+        n00b_lock_release(&cap->unpause_notify);
 
         now         = n00b_now();
         dur         = n00b_duration_diff(cap->absolute_start, now);
@@ -343,9 +343,9 @@ n00b_cinema_toggle_pause(n00b_session_t *s, n00b_trigger_t *t, void *thunk)
 {
     s->log_cursor.paused = !s->log_cursor.paused;
     if (!s->log_cursor.paused) {
-        n00b_condition_lock_acquire(&s->log_cursor.unpause_notify);
+        n00b_lock_acquire(&s->log_cursor.unpause_notify);
         n00b_condition_notify_one(&s->log_cursor.unpause_notify);
-        n00b_condition_lock_release(&s->log_cursor.unpause_notify);
+        n00b_lock_release(&s->log_cursor.unpause_notify);
     }
     return s->start_state;
 }
@@ -421,15 +421,15 @@ n00b_cinematic_replay_setup(n00b_stream_t *stream)
 
     c->cinematic  = true;
     c->time_scale = 1.0;
-    c->streams   = N00B_CAPTURE_STDIN | N00B_CAPTURE_STDOUT
-                | N00B_CAPTURE_STDERR | N00B_CAPTURE_WINCH;
+    c->streams    = N00B_CAPTURE_STDIN | N00B_CAPTURE_STDOUT
+               | N00B_CAPTURE_STDERR | N00B_CAPTURE_WINCH;
     c->stdin_dst  = n00b_stdout();
     c->stdout_dst = n00b_stdout();
     c->stderr_dst = n00b_stderr();
     c->log        = stream;
 
     n00b_session_replay_setup_default_controls(result);
-    n00b_named_condition_init(&c->unpause_notify, "pause");
+    n00b_named_lock_init(&c->unpause_notify, N00B_NLT_CV, "pause");
 
     return result;
 }

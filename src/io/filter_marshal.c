@@ -22,16 +22,8 @@
 // the same virtual heap reference.
 //
 // As of right now, this is only being used for STATIC marshalling use
-// cases. I urge you to treat it that way.
-//
-// That means, this code 100% assumes that the object we're marshaling
-// isn't being modified during the process. We can eventually enforce
-// that easily at the language-level during the processing of a single
-// object, but should probably never be much more than a convention in
-// the raw library.
-//
-// Note that this *does* prevent garbage collection from happening
-// when a marshal is in progress using a global r/w lock.
+// cases. I urge you to treat it that way; we're turning on the GIL
+// for marshals each time right now, but I may want to turn that off.
 //
 // For the buffered output allocations, we do our own memory
 // management so that we don't contribute to GC bloat (using our heap
@@ -551,15 +543,19 @@ n00b_get_virtual_heap_start(void)
 static inline void
 n00b_receive_unpickle_info(n00b_unpickle_ctx *ctx, n00b_buf_t *inbuf)
 {
+#ifdef N00B_DEBUG
     int dbg_old = 0;
     int dbg_new = n00b_buffer_len(inbuf);
+#endif
 
     if (!ctx->partial) {
         ctx->partial     = inbuf;
         ctx->part_cursor = inbuf->data;
     }
     else {
+#ifdef N00B_DEBUG
         dbg_old = n00b_buffer_len(ctx->partial);
+#endif
 
         // The add op will probably resize the thing.
         int offset       = ctx->part_cursor - ctx->partial->data;
@@ -884,12 +880,12 @@ marshal_setup(n00b_marshal_filter_t *c, int64_t opts)
             HATRACK_DICT_KEY_TYPE_CSTR,
             false,
             true);
-        n00b_static_lock_init(c->pickle.lock);
+        n00b_lock_init(&c->pickle.lock, N00B_NLT_MUTEX);
 #endif
     }
     else {
         c->unpickle.vaddr_info = n00b_list(n00b_type_ref());
-        n00b_static_lock_init(c->unpickle.lock);
+        n00b_lock_init(&c->unpickle.lock, N00B_NLT_MUTEX);
     }
 
     return NULL;
@@ -906,9 +902,11 @@ n00b_internal_marshal(n00b_pickle_ctx *ctx, void *addr)
         return NULL;
     }
 
+    n00b_stop_the_world();
     n00b_assert(dst->guard == N00B_MARSHAL_RECORD_GUARD);
     enqueue_write_record(ctx, src, dst, offset);
     process_queue(ctx);
+    n00b_restart_the_world();
 
     n00b_alloc_hdr *end = create_object_end_record(ctx);
     n00b_buf_t     *b   = bundle_result(ctx, end);

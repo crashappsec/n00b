@@ -15,12 +15,15 @@ extern void _n00b_print(void *, ...);
 #define n00b_eprintf(fmt, ...)                                              \
     {                                                                       \
         n00b_string_t *__str = n00b_cformat(fmt __VA_OPT__(, __VA_ARGS__)); \
-        _n00b_print(n00b_stderr(), __str, NULL);                       \
+        _n00b_print(n00b_stderr(), __str, NULL);                            \
     }
 
-#ifdef N00B_DEBUG
-void _n00b_cprintf(char *, int64_t, ...);
+extern void *__n00b_c_value(void *item);
+#define N00B_CVALUE(x) __n00b_c_value((void *)x)
 
-#define cprintf(fmt, ...) \
-    _n00b_cprintf(fmt, N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, __VA_ARGS__))
-#endif
+#define n00b_va_map(fn, ...) N00B_MAP_LIST(fn, __VA_ARGS__)
+
+#define cprintf(fmt, ...)                                            \
+    fprintf(stderr,                                                  \
+            fmt __VA_OPT__(, n00b_va_map(N00B_CVALUE, __VA_ARGS__)), \
+            NULL)

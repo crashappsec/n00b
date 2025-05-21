@@ -16,21 +16,21 @@ extern n00b_buf_t    *n00b_buffer_from_codepoint(n00b_codepoint_t);
     _n00b_buffer_find(buf_main, sub, N00B_VA(__VA_ARGS__))
 
 static inline n00b_buf_t *
-n00b_buffer_empty()
+n00b_buffer_empty(void)
 {
     return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
 }
 
 #define _n00b_buffer_acquire_w(b) \
-    n00b_rw_lock_acquire_for_write(&b->lock)
+    n00b_rw_write_lock(&b->lock)
 
 #define _n00b_buffer_acquire_r(b) \
-    n00b_rw_lock_acquire_for_read(&b->lock)
+    n00b_rw_read_lock(&b->lock)
 
 static inline void
 n00b_buffer_release(n00b_buf_t *b)
 {
-    n00b_rw_lock_release(&b->lock);
+    n00b_lock_release(&b->lock);
 }
 
 static inline n00b_string_t *

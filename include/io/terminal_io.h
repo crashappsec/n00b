@@ -22,6 +22,25 @@ n00b_terminal_width(void)
     return result;
 }
 
+static size_t         cols_from_env        = 0;
+static pthread_once_t env_checked_for_cols = PTHREAD_ONCE_INIT;
+
+static inline void
+n00b_lookup_from_env(void)
+{
+    int64_t        val;
+    n00b_string_t *s = n00b_get_env(n00b_cstring("COLS"));
+
+    if (!s) {
+        return;
+    }
+
+    if (n00b_parse_int64(s, &val) && !(val & ~0x0fff)) {
+        cols_from_env = val;
+    }
+    return;
+}
+
 static inline void
 n00b_termcap_get(struct termios *termcap)
 {
@@ -57,6 +76,11 @@ n00b_calculate_render_width(int width)
 {
     if (width <= 0) {
         width = n00b_terminal_width();
+        if (!width) {
+            pthread_once(&env_checked_for_cols, n00b_lookup_from_env);
+            width = cols_from_env;
+        }
+
         if (!width) {
             width = N00B_MIN_RENDER_WIDTH;
         }

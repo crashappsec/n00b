@@ -2,7 +2,7 @@
 #include "n00b/base.h"
 
 // I've removed both of these for the moment. Currently, we either
-// scan an entire allocation, or none of it.
+// scan an entire al
 //
 // I've also removed memcheck via shadow allocs and ASAN support.
 //
@@ -184,33 +184,33 @@ typedef struct {
 // make it static.
 
 struct n00b_heap_t {
-    int64_t                heap_id;
-    _Atomic n00b_crit_t    ptr;
-    char                  *cur_arena_end;
+    int64_t                 heap_id;
+    _Atomic n00b_crit_t     ptr;
+    char                   *cur_arena_end;
     // This is per-collection cycle; total_alloc_count below is
     // all-time.
-    _Atomic uint32_t       alloc_count;
-    uint32_t               inherit_count;
-    n00b_arena_t          *first_arena;
-    n00b_arena_t          *newest_arena;
-    hatrack_zarray_t      *roots;
-    n00b_finalizer_info_t *to_finalize;
-    char                  *name;
-    char                  *file;
-    int                    line;
-    uint32_t               total_alloc_count;
-    uint16_t               num_collects;
+    _Atomic uint32_t        alloc_count;
+    uint32_t                inherit_count;
+    n00b_arena_t           *first_arena;
+    _Atomic(n00b_arena_t *) newest_arena;
+    hatrack_zarray_t       *roots;
+    n00b_finalizer_info_t  *to_finalize;
+    char                   *name;
+    char                   *file;
+    int                     line;
+    uint32_t                total_alloc_count;
+    uint16_t                num_collects;
     // This prevents heaps from being collected at all. memory addreses
     // in pinned heaps cannot be moved.
-    unsigned int           pinned         : 1;
+    unsigned int            pinned         : 1;
     // This indicates that the heap record (which is static once
     // allocated) is for a fully freed heap. Eventually, this will get
     // reused.
-    unsigned int           released       : 1;
+    unsigned int            released       : 1;
     // This gets marked by the collector when collection is done, if
     // we didn't discard enough trash; in the next collection cycle,
     // the heap size will double.
-    unsigned int           expand         : 1;
+    unsigned int            expand         : 1;
     // Don't trace (or rewrite) pointers from the heap being collected
     // that are found in this heap (unless this heap is the one being
     // collected).
@@ -225,7 +225,7 @@ struct n00b_heap_t {
     // Again, if we do collect a heap with this set, will always trace
     // our own heap's pointers (we do this when out of room, unless
     // it's pinned).
-    unsigned int           no_trace       : 1;
+    unsigned int            no_trace       : 1;
     // For some heaps, we don't need to bother scanning 'global'
     // roots; ours are good enough. Other heaps will trace into this
     // heap though, unless no_trace is also set.
@@ -237,7 +237,7 @@ struct n00b_heap_t {
     // that every outside pointer into this heap is irrelevent and
     // that we will reach it with local roots, so don't scan
     // the whole world.
-    unsigned int           local_collects : 1;
+    unsigned int            local_collects : 1;
     // If private, calling 'n00b_addr_find_heap() or n00b_in_heap() on
     // an address will indicate that it is not a heap address, unless
     // the ask is coming from the 'current' heap. Lingering pointers
@@ -245,7 +245,7 @@ struct n00b_heap_t {
     // throw errors (but do not).
     //
     // This ALSO implies no-trace.
-    unsigned int private                  : 1;
+    unsigned int private                   : 1;
 };
 
 struct n00b_arena_t {
@@ -273,9 +273,9 @@ typedef union n00b_mem_ptr {
     uint64_t               nonpointer;
 } n00b_mem_ptr;
 
-extern uint64_t        n00b_gc_guard;
-extern int             __n00b_collector_running;
-extern pthread_mutex_t n00b_arena_protection_guard;
+extern uint64_t     n00b_gc_guard;
+extern _Atomic int  __n00b_collector_running;
+extern n00b_futex_t n00b_arena_protection_guard;
 
 #if defined(N00B_FULL_MEMCHECK)
 extern void n00b_run_memcheck(n00b_heap_t *);
@@ -283,7 +283,7 @@ extern void n00b_run_memcheck(n00b_heap_t *);
 #define n00b_run_memcheck(h)
 #endif
 
-#ifdef N00B_ADD_ALLOC_LOC_INFO
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 #define N00B_ALLOC_XTRA      , char *file, int line
 #define N00B_ALLOC_XPARAM    , file, line
 #define N00B_ALLOC_CALLPARAM , __FILE__, __LINE__
@@ -292,6 +292,9 @@ extern void n00b_run_memcheck(n00b_heap_t *);
 #define N00B_ALLOC_XPARAM
 #define N00B_ALLOC_CALLPARAM
 #endif
+
+// Needed forward declarations.
+static inline n00b_heap_t *n00b_current_heap(n00b_heap_t *);
 
 // The global heap.
 extern n00b_heap_t *n00b_default_heap;
@@ -559,14 +562,11 @@ n00b_round_up_to_given_power_of_2(uint64_t power, uint64_t n)
 #define N00B_ALLOC_OVERHEAD sizeof(n00b_header_t)
 
 extern void           n00b_add_arena(n00b_heap_t *, uint64_t);
-extern bool           _n00b_addr_in_one_heap(n00b_heap_t *, void *);
 extern n00b_string_t *noob_debug_repr_heap(n00b_heap_t *);
-extern void           n00b_debug_print_heap(n00b_heap_t *);
+extern void           n00b_debug_log_heap(n00b_heap_t *);
 extern n00b_string_t *n00b_debug_repr_all_heaps(void);
 extern void           n00b_debug_all_heaps(void);
-
-extern int          __n00b_collector_running;
-extern n00b_heap_t *__n00b_current_from_space;
+extern n00b_heap_t   *__n00b_current_from_space;
 
 extern n00b_heap_t *n00b_all_heaps;
 extern n00b_heap_t *n00b_cur_heap_page;
@@ -579,9 +579,9 @@ extern uint64_t     n00b_page_modulus;
 extern uint64_t     n00b_modulus_mask;
 // Heap entries per page, capculated once.
 extern int          n00b_heap_entries_pp;
-extern bool         n00b_collection_suspended;
 extern void         n00b_suspend_collections(void);
 extern void         n00b_allow_collections(void);
+extern bool         _n00b_addr_in_one_heap(n00b_heap_t *, void *);
 
 static inline bool
 n00b_addr_in_one_heap(n00b_heap_t *h, void *addr)
@@ -665,28 +665,13 @@ n00b_delete_arena(n00b_arena_t *a)
 static inline void
 n00b_lock_arena_header(n00b_arena_t *a)
 {
-    // This mprotect is supposed to ensure the header is read-only
-    // except in cases where we absolutely have to change it.  The
-    // mutex around it makes sure multiple threads won't edit the same
-    // arena at once, even though that is 'belt and suspenders'--
-    // should already be stop-the-world.
-    //
-    // But in any case, the mprotect() on mac is occasionally failing
-    // when trying to add the successor arena w/ a write permission
-    // problem, which makes no sense at all to me.
-    //
-    // So, for the time being, this is a noop, until I get around
-    // to my TODO list to figure out what's going on.
-
-    // mprotect(a, n00b_page_bytes, PROT_READ);
-    // pthread_mutex_unlock(&n00b_arena_protection_guard);
+    mprotect(a, n00b_page_bytes, PROT_READ);
 }
 
 static inline void
 n00b_unlock_arena_header(n00b_arena_t *a)
 {
-    // pthread_mutex_lock(&n00b_arena_protection_guard);
-    // mprotect(a, n00b_page_bytes, PROT_READ | PROT_WRITE);
+    mprotect(a, n00b_page_bytes, PROT_READ | PROT_WRITE);
 }
 
 #if defined(N00B_GC_ALLOW_DEBUG_BIT)

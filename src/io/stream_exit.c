@@ -8,10 +8,9 @@ launch_wait(n00b_stream_t *stream)
 
     n00b_exit_info_t *c = n00b_get_stream_cookie(stream);
 
-    n00b_thread_async_cancelable();
-    n00b_gts_suspend();
+    N00B_DBG_CALL(n00b_thread_suspend);
     int r = wait4(c->pid, &c->stats, 0, &c->usage);
-    n00b_gts_resume();
+    N00B_DBG_CALL(n00b_thread_resume);
     if (r == -1) {
         c->err = true;
     }

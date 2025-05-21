@@ -111,13 +111,13 @@ struct n00b_rdbuf_t {
 typedef struct {
     struct pollfd     *pollset;
     n00b_fd_stream_t **monitored_fds;
+    n00b_list_t       *empty_slots;
+    n00b_list_t       *eof_list;
     int                pollset_alloc;
     int                pollset_last;
     int                poll_interval;
-    n00b_list_t       *empty_slots;
     // The EOF list is a list of files we're monitoring for read where
     // we need to poll manually to see when they're really ready to read.
-    n00b_list_t       *eof_list;
     int                ops_in_pollset;
 } n00b_pevent_loop_t;
 
@@ -130,6 +130,9 @@ struct n00b_timer_t {
 };
 
 struct n00b_event_loop_t {
+    union {
+        n00b_pevent_loop_t poll;
+    } algo;
     n00b_list_t             *timers;
     n00b_event_impl_kind     kind;
     n00b_list_t             *pending;
@@ -138,10 +141,6 @@ struct n00b_event_loop_t {
     bool                     exit_loop;
     _Atomic(n00b_thread_t *) owner;
     _Atomic(n00b_list_t *)   conditions;
-
-    union {
-        n00b_pevent_loop_t poll;
-    } algo;
 };
 
 extern n00b_event_loop_t *n00b_system_dispatcher;
@@ -215,7 +214,86 @@ n00b_fd_is_other(n00b_fd_stream_t *s)
 
 #ifdef N00B_USE_INTERNAL_API
 typedef bool (*n00b_condition_test_fn)(void *);
-extern bool n00b_condition_poll(n00b_condition_test_fn, void *, int to);
+extern bool              n00b_condition_poll(n00b_condition_test_fn,
+                                             void *,
+                                             int64_t to);
+extern n00b_fd_stream_t *n00b_fd_cache_lookup(int, n00b_event_loop_t *);
+extern n00b_fd_stream_t *n00b_fd_cache_add(n00b_fd_stream_t *);
+extern void              n00b_fd_post(n00b_fd_stream_t *,
+                                      n00b_list_t *,
+                                      void *);
+extern void              n00b_fd_post_error(n00b_fd_stream_t *,
+                                            n00b_wq_item_t *,
+                                            int,
+                                            bool,
+                                            bool);
+extern void              n00b_fd_post_close(n00b_fd_stream_t *);
+extern bool              n00b_handle_one_read(n00b_fd_stream_t *);
+extern bool              n00b_handle_one_write(n00b_fd_stream_t *);
+extern void              n00b_end_system_io(void);
+
+extern n00b_dict_t *n00b_fd_cache;
+N00B_ONCE_PROTO(n00b_fd_init_io);
+
+// We don't expect a lot of contention, so we just use simple spin
+// locks.
+
+static inline void
+n00b_fd_become_worker(n00b_fd_stream_t *s)
+{
+    n00b_thread_t *expected = NULL;
+    n00b_thread_t *me       = n00b_thread_self();
+
+    n00b_barrier();
+
+    while (!CAS(&s->worker, &expected, me)) {
+        // Don't break the spin lock.
+        if (expected == me) {
+            break;
+        }
+        expected = NULL;
+    }
+
+    n00b_assert(atomic_read(&s->worker) == n00b_thread_self());
+}
+
+static inline void
+n00b_fd_worker_yield(n00b_fd_stream_t *s)
+{
+    atomic_store(&s->worker, NULL);
+}
+
+static inline void
+n00b_fd_stream_nonblocking(n00b_fd_stream_t *s)
+{
+    fcntl(s->fd, F_SETFL, fcntl(s->fd, F_GETFL) | O_NONBLOCK);
+}
+
+static inline void
+n00b_fd_stream_blocking(n00b_fd_stream_t *s)
+{
+    fcntl(s->fd, F_SETFL, fcntl(s->fd, F_GETFL) & ~O_NONBLOCK);
+}
+static inline void
+n00b_fd_discovered_read_close(n00b_fd_stream_t *s)
+{
+    s->read_closed = true;
+    if (s->write_closed) {
+        n00b_fd_post_close(s);
+    }
+}
+
+static inline bool
+n00b_fd_discovered_write_close(n00b_fd_stream_t *s)
+{
+    s->write_closed = true;
+    if (s->read_closed) {
+        n00b_fd_post_close(s);
+        return true;
+    }
+    return false;
+}
+
 #endif
 
 #define n00b_add_timer(time, action, ...) \
