@@ -92,11 +92,11 @@ n00b_bt_static_backtrace(void       *data,
 }
 
 static int
-n00b_bt_utf8(void       *data,
-             uintptr_t   pc,
-             const char *pathname,
-             int         n,
-             const char *function)
+n00b_bt_cstring(void       *data,
+                uintptr_t   pc,
+                const char *pathname,
+                int         n,
+                const char *function)
 {
     static const char *unavailable = "?? (unavailable)";
     n00b_tsi_t        *tsi         = n00b_get_tsi_ptr();
@@ -210,24 +210,24 @@ n00b_static_c_backtrace(void)
     backtrace_full(btstate, 0, n00b_bt_static_backtrace, n00b_bt_err, NULL);
 }
 
-n00b_string_t *
-n00b_backtrace_utf8(void)
+char *
+n00b_backtrace_cstring(void)
 {
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
     if (tsi->u8_backtracing) {
-        return NULL;
+        return "backtracing here";
     }
     tsi->u8_backtracing = true;
 
     tsi->bt_utf8_result = "Backtrace:\n";
-    backtrace_full(btstate, 0, n00b_bt_utf8, n00b_bt_err, NULL);
+    backtrace_full(btstate, 2, n00b_bt_cstring, n00b_bt_err, NULL);
 
     tsi->u8_backtracing = false;
+    char *result        = tsi->bt_utf8_result;
+    tsi->bt_utf8_result = NULL;
 
-    n00b_string_t *res = n00b_cstring(tsi->bt_utf8_result);
-
-    return res;
+    return result;
 }
 
 #else

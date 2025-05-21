@@ -80,7 +80,7 @@ internal_http_send(char              *ptr,
 {
     size_t      to_write  = size * nmemb;
     n00b_buf_t *out       = n00b_stream_unfiltered_read(self->to_send,
-                                                   to_write);
+                                                  to_write);
     size_t      to_return = n00b_buffer_len(out);
 
     memcpy(ptr, out->data, to_return);
@@ -166,12 +166,12 @@ _n00b_http_upload(n00b_string_t *url, n00b_buf_t *data, ...)
 static void
 n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
 {
-    int64_t         connect_timeout = -1;
-    int64_t         total_timeout   = -1;
-    n00b_string_t  *url             = NULL;
-    n00b_string_t  *aws_sig         = NULL;
-    n00b_string_t  *access_key      = NULL;
-    n00b_dict_t    *cookies         = NULL;
+    int64_t        connect_timeout = -1;
+    int64_t        total_timeout   = -1;
+    n00b_string_t *url             = NULL;
+    n00b_string_t *aws_sig         = NULL;
+    n00b_string_t *access_key      = NULL;
+    n00b_dict_t   *cookies         = NULL;
     n00b_stream_t *output_stream   = NULL;
 
     ensure_curl();
@@ -186,7 +186,7 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
     n00b_kw_ptr("url", url);
     n00b_kw_ptr("output_stream", output_stream);
 
-    n00b_lock_init(&self->lock);
+    n00b_lock_init(&self->lock, N00B_NLT_MUTEX);
 
     // TODO: Do these in the near future (after objects)
     // bool       cert_info  = false;

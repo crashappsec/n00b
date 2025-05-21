@@ -18,6 +18,10 @@ timer_2(n00b_timer_t *t, n00b_duration_t *time, void *param)
 void *
 input_callback(n00b_buf_t *b, void *capture)
 {
+    if (!b) {
+        return NULL;
+    }
+
     switch (b->data[0]) {
     case '\e':
         n00b_exit(0);
@@ -94,6 +98,8 @@ signal_demo2(int signal, siginfo_t *info, void *user_param)
 int
 main(void)
 {
+    n00b_futex_t futex = 100;
+    n00b_futex_init(&futex);
     n00b_terminal_app_setup();
 
     n00b_signal_register(SIGHUP, signal_demo, (void *)1ULL);
@@ -115,6 +121,7 @@ main(void)
     n00b_list_append(args, n00b_cstring("--color"));
     n00b_list_append(args, n00b_cstring("/"));
 
+    n00b_sleep_ms(500);
     n00b_proc_t *proc    = n00b_run_process(ls, args, true, true);
     n00b_buf_t  *capture = n00b_proc_get_stdout_capture(proc);
 

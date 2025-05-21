@@ -19,7 +19,8 @@ extern void         n00b_list_plus_eq(n00b_list_t *, n00b_list_t *);
 extern n00b_list_t *n00b_private_list_plus(n00b_list_t *, n00b_list_t *);
 extern n00b_list_t *n00b_list_plus(n00b_list_t *, n00b_list_t *);
 extern int64_t      n00b_list_len(const n00b_list_t *);
-extern n00b_list_t *n00b_list(n00b_type_t *);
+extern n00b_list_t *_n00b_list(n00b_type_t *);
+#define n00b_list(x) n00b_new(n00b_type_list(x), 0ULL)
 extern n00b_list_t *n00b_private_list_copy(n00b_list_t *);
 extern n00b_list_t *n00b_list_copy(n00b_list_t *);
 extern n00b_list_t *n00b_private_list_shallow_copy(n00b_list_t *);
@@ -68,13 +69,13 @@ n00b_list_contains(n00b_list_t *list, void *item)
 #define n00b_to_list(t, ...) \
     _n00b_to_list(t, N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)
 
-#define n00b_lock_list(x)                         \
-    if (x) {                                      \
-        n00b_rw_lock_acquire_for_write(&x->lock); \
+#define n00b_lock_list(x)            \
+    if (x) {                         \
+        n00b_lock_acquire(&x->lock); \
     }
-#define n00b_unlock_list(x)             \
-    if (x) {                            \
-        n00b_rw_lock_release(&x->lock); \
+#define n00b_unlock_list(x)          \
+    if (x) {                         \
+        n00b_lock_release(&x->lock); \
     }
 
 static inline void
@@ -84,7 +85,7 @@ n00b_list_enforce_uniqueness_when_adding(n00b_list_t *l)
 }
 
 #define n00b_lock_list_read(list_obj) \
-    n00b_rw_lock_acquire_for_read(&(list_obj->lock));
+    n00b_rw_read_lock(&(list_obj->lock));
 
 #define n00b_lock_list_write n00b_lock_list
 

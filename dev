@@ -335,7 +335,7 @@ function n00b_run {
 
 function debug_project {
     n00b_prebuild $@
-    CUR_EXE=$(cur_exe_loc)/${N00B_TEST_EXE}
+    CUR_EXE=$(cur_exe_loc)/${N00B_EXE}
 
     n00b_compile
 
@@ -349,7 +349,7 @@ function debug_project {
     fi
     log "Running debugger: ${DEBUGGER} for target:" $(color green '[==' $N00B_BUILD_TARGET '==]')
 
-    ${DEBUGGER} ${CUR_EXE} ${N00B_PASSTHROUGH_ARGS}
+    export COLS=$(tput cols); ${DEBUGGER} ${CUR_EXE} ${N00B_PASSTHROUGH_ARGS}
 }
 
 ensure_env_setup

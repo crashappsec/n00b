@@ -83,7 +83,7 @@ n00b_table_set_column_priority(n00b_table_t *table, int64_t col, int64_t pri)
 static void
 n00b_table_init(n00b_table_t *table, va_list args)
 {
-    n00b_stream_t         *outstream        = NULL;
+    n00b_stream_t          *outstream        = NULL;
     bool                    eject_on_render  = true;
     n00b_string_t          *theme_name       = NULL; // Default is "table"
     n00b_decoration_style_t decoration_style = N00B_TABLE_DEFAULT;
@@ -115,7 +115,7 @@ n00b_table_init(n00b_table_t *table, va_list args)
         theme = n00b_get_current_theme();
     }
 
-    n00b_lock_init(&table->lock);
+    n00b_mutex_init(&table->lock);
     table->theme            = theme;
     table->outstream        = outstream;
     table->stored_cells     = n00b_list(n00b_type_ref());
@@ -133,6 +133,7 @@ n00b_table_init(n00b_table_t *table, va_list args)
 
     if (column_widths) {
         table->column_specs = column_widths;
+        setup_table_rendering(table, 0);
     }
     else {
         table->column_specs = n00b_new_layout();
@@ -292,7 +293,7 @@ _n00b_table_add_cell(n00b_table_t *table, void *contents, ...)
     }
 
     n00b_table_acquire(table);
-    n00b_list_append(table->current_row, cell);
+    n00b_private_list_append(table->current_row, cell);
     if (span > 0) {
         table->col_cursor += span;
     }
@@ -786,7 +787,7 @@ set_column_preferences(n00b_table_t *table, int64_t width)
         n00b_tree_node_t *t      = n00b_tree_get_child(table->column_specs, i);
         n00b_layout_t    *layout = n00b_tree_get_contents(t);
 
-        if (layout->flex_multiple > 0) {
+        if (layout->flex_multiple > 0 || layout->pref.value.i) {
             continue;
         }
 

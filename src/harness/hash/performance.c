@@ -82,7 +82,7 @@ static testhat_t *table;
  * That way, we can look at not only the total time taken, but the
  * fastest and average threads.
  */
-static duration_t stop_times[HATRACK_THREADS_MAX];
+static hatrack_duration_t stop_times[HATRACK_THREADS_MAX];
 
 #define calculate_num_test_keys(n) hatrack_round_up_to_power_of_2(n)
 
@@ -327,7 +327,7 @@ shuffle_thread_run(void *v)
         next_key = (next_key + thread_step) & key_mod_mask;
     }
 
-    get_timestamp(&stop_times[thread->tid]);
+    hatrack_get_timestamp(&stop_times[thread->tid]);
 
     return NULL;
 }
@@ -414,7 +414,7 @@ shuffle_thread_run64(void *v)
         next_key = (next_key + thread_step) & key_mod_mask;
     }
 
-    get_timestamp(&stop_times[thread->tid]);
+    hatrack_get_timestamp(&stop_times[thread->tid]);
 
     return NULL;
 }
@@ -466,7 +466,7 @@ rand_thread_run(void *v)
         n = test_rand() % 100;
     }
 
-    get_timestamp(&stop_times[thread->tid]);
+    hatrack_get_timestamp(&stop_times[thread->tid]);
 
     return NULL;
 }
@@ -515,7 +515,7 @@ rand_thread_run64(void *v)
         n = test_rand() % 100;
     }
 
-    get_timestamp(&stop_times[thread->tid]);
+    hatrack_get_timestamp(&stop_times[thread->tid]);
 
     return NULL;
 }
@@ -574,14 +574,14 @@ clear_timestamps(void)
 }
 
 static double
-time_diff(duration_t *end, duration_t *start)
+time_diff(hatrack_duration_t *end, hatrack_duration_t *start)
 {
     return ((double)(end->tv_sec - start->tv_sec))
          + ((end->tv_nsec - start->tv_nsec) / 1000000000.0);
 }
 
 static void
-performance_report(char *hat, benchmark_t *config, duration_t *start)
+performance_report(char *hat, benchmark_t *config, hatrack_duration_t *start)
 {
     double cur, min, max;
 
@@ -617,13 +617,13 @@ performance_report(char *hat, benchmark_t *config, duration_t *start)
 void
 run_performance_test(benchmark_t *config)
 {
-    int          i = 0;
-    unsigned int j;
-    uint64_t     ops_per_thread;
-    uint32_t     tstep;
-    pthread_t    threads[config->num_threads];
-    duration_t   sspec;
-    alg_info_t  *alg_info;
+    int                i = 0;
+    unsigned int       j;
+    uint64_t           ops_per_thread;
+    uint32_t           tstep;
+    pthread_t          threads[config->num_threads];
+    hatrack_duration_t sspec;
+    alg_info_t        *alg_info;
 
     key_mod_mask = calculate_num_test_keys(config->key_range) - 1;
 

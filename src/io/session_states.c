@@ -252,6 +252,8 @@ successful_match(n00b_session_t *session,
             N00B_RAISE(n00b_cformat("No such state: [|#|]",
                                     trigger->next_state));
         }
+        n00b_dlog_io("session: Moving to state %s due to match.",
+                     trigger->next_state->data);
     }
     else {
         if (trigger->kind == N00B_TRIGGER_TIMEOUT) {

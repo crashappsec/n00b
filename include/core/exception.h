@@ -140,21 +140,19 @@ extern n00b_table_t *n00b_get_c_backtrace(int);
 #endif
 
 #define N00B_CRAISE(s, ...)                                      \
-    n00b_thread_suspend_locking(),                               \
-        fprintf(stderr, "Exception: %s\n", s),                   \
+    fprintf(stderr, "Exception: %s\n", s),                       \
         n00b_exception_raise(                                    \
             n00b_alloc_exception(s, __VA_OPT__(, ) __VA_ARGS__), \
             n00b_trace(),                                        \
             __FILE__,                                            \
             __LINE__)
 
-#define N00B_RAISE(s, ...)                                             \
-    n00b_thread_suspend_locking(),                                     \
-        n00b_exception_raise(                                          \
-            n00b_alloc_string_exception(s __VA_OPT__(, ) __VA_ARGS__), \
-            n00b_trace(),                                              \
-            __FILE__,                                                  \
-            __LINE__)
+#define N00B_RAISE(s, ...)                                         \
+    n00b_exception_raise(                                          \
+        n00b_alloc_string_exception(s __VA_OPT__(, ) __VA_ARGS__), \
+        n00b_trace(),                                              \
+        __FILE__,                                                  \
+        __LINE__)
 
 #define N00B_RERAISE()                                   \
     _n00bx_exception_state = N00B_EXCEPTION_NOT_HANDLED; \

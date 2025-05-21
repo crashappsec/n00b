@@ -3,7 +3,7 @@
 
 #ifdef N00B_USE_INTERNAL_API
 
-#define N00B_TEST_TIMEOUT_SEC_DEFAULT 10
+#define N00B_TEST_TIMEOUT_SEC_DEFAULT 2
 #endif
 
 typedef enum {
@@ -33,26 +33,26 @@ typedef struct {
 } n00b_test_cmd_t;
 
 typedef struct {
-    n00b_string_t  *name;
-    n00b_string_t  *path;
-    n00b_string_t  *group;
-    n00b_string_t  *fail_state;
-    n00b_list_t    *fail_state_triggers;
-    int64_t         id;
-    uint64_t        timeout_sec;
-    bool            enabled;
-    bool            run;
-    bool            pass;
-    bool            quiet;
-    bool            verbose;
-    bool            got_timeout;
-    bool            use_ansi;
-    bool            merge_io;
-    int             next_eventid;
-    n00b_list_t    *commands;
+    n00b_string_t *name;
+    n00b_string_t *path;
+    n00b_string_t *group;
+    n00b_string_t *fail_state;
+    n00b_list_t   *fail_state_triggers;
+    int64_t        id;
+    uint64_t       timeout_sec;
+    bool           enabled;
+    bool           run;
+    bool           pass;
+    bool           quiet;
+    bool           verbose;
+    bool           got_timeout;
+    bool           use_ansi;
+    bool           merge_io;
+    int            next_eventid;
+    n00b_list_t   *commands;
     n00b_stream_t *replay_stream;
-    n00b_table_t   *state_repr;
-    n00b_list_t    *aux_error;
+    n00b_table_t  *state_repr;
+    n00b_list_t   *aux_error;
 } n00b_test_t;
 
 typedef struct {
@@ -77,6 +77,9 @@ typedef struct {
     int            c1_width;
     int            c2_width;
     int            c3_width;
+#if defined(N00B_DEBUG)
+    bool debug;
+#endif
 } n00b_testing_ctx;
 
 extern void              n00b_testgen_record(n00b_string_t *, bool, bool, bool);

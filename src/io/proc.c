@@ -27,14 +27,13 @@ n00b_handle_winch(n00b_stream_t *sig, int64_t signal, n00b_proc_t *ctx)
 static void
 proc_exited(n00b_exit_info_t *result, n00b_proc_t *ctx)
 {
-    n00b_condition_lock_acquire(&ctx->cv);
     ctx->subproc_results = result;
     ctx->exited          = true;
 
     if (ctx->wait_for_exit) {
         n00b_condition_notify_all(&ctx->cv);
+        n00b_lock_release(&ctx->cv);
     }
-    n00b_condition_lock_release(&ctx->cv);
 }
 
 static void
@@ -64,6 +63,15 @@ pre_launch_prep(n00b_proc_t *proc, char ***argp)
         }
     }
 
+#if defined(N00B_DEBUG) && N00B_DLOG_IO_LEVEL >= 1
+
+    n00b_dlog_io1("Spawn: cmd = %s", proc->cmd->data);
+    for (int i = 0; i < n00b_list_len(proc->args); i++) {
+        n00b_string_t *s = n00b_list_get(proc->args, i, NULL);
+        n00b_dlog_io1("arg %d: %s", i, s->data);
+    }
+#endif
+
     *argp = (void *)n00b_make_cstr_array(args, NULL);
 }
 
@@ -72,11 +80,41 @@ setup_exit_obj(n00b_proc_t *ctx)
 {
     n00b_stream_t *result   = n00b_new_exit_stream(ctx->pid);
     n00b_stream_t *callback = n00b_new_callback_stream((void *)proc_exited,
-                                                         ctx);
+                                                       ctx);
     n00b_stream_set_name(callback, n00b_cstring("wait4 exit"));
     n00b_stream_subscribe_read(result, callback, true);
 
     ctx->exit_cb = callback;
+
+    return result;
+}
+
+static inline n00b_list_t *
+bulk_subscribe(n00b_stream_t *target, n00b_list_t *subs)
+{
+    n00b_list_t *result;
+
+    if (!n00b_list_len(subs)) {
+        return NULL;
+    }
+    // Let's make sure internal subscriptions run first.
+    n00b_list_reverse(subs);
+
+    // The list of streams to subscribe becomes a list of
+    // subscription objects we can use to unsubscribe,
+    // once this call completes.
+    result = n00b_observable_add_subscribers(&target->pub_info,
+                                             (void *)(int64_t)N00B_CT_R,
+                                             n00b_route_stream_message,
+                                             subs,
+                                             false);
+
+    for (int i = 0; i < n00b_list_len(subs); i++) {
+        n00b_stream_t   *dst = n00b_list_get(subs, i, NULL);
+        n00b_observer_t *sub = n00b_list_get(result, i, NULL);
+
+        n00b_list_append(dst->my_subscriptions, sub);
+    }
 
     return result;
 }
@@ -88,34 +126,8 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
 
     if (ctx->seeded_stdin && ctx->subproc_stdin) {
         n00b_queue(ctx->subproc_stdin,
-                           n00b_string_to_buffer(ctx->seeded_stdin));
+                   n00b_string_to_buffer(ctx->seeded_stdin));
         ctx->seeded_stdin = NULL;
-    }
-
-    if (ctx->flags & N00B_PROC_STDIN_PROXY) {
-        // Proxy parent's stdin to the subproc.
-        n00b_stream_subscribe_read(n00b_stdin(),
-                                    ctx->subproc_stdin,
-                                    false);
-    }
-
-    if (ctx->flags & (N00B_PROC_STDOUT_PROXY)) {
-        n00b_stream_subscribe_read(ctx->subproc_stdout,
-                                    n00b_stdout(),
-                                    false);
-
-        if (ctx->flags & N00B_PROC_MERGE_OUTPUT) {
-            n00b_stream_subscribe_read(ctx->subproc_stderr,
-                                        n00b_stdout(),
-                                        false);
-        }
-    }
-
-    if ((ctx->flags & N00B_PROC_STDERR_PROXY)
-        && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
-        n00b_stream_subscribe_read(ctx->subproc_stderr,
-                                    n00b_stderr(),
-                                    NULL);
     }
 
     n00b_buf_t *buf;
@@ -123,26 +135,26 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
     if (ctx->flags & N00B_PROC_STDIN_CAP) {
         buf         = n00b_buffer_empty();
         ctx->cap_in = n00b_outstream_buffer(buf, true);
-        n00b_stream_subscribe_read(n00b_stdin(), ctx->cap_in, false);
+        n00b_list_append(ctx->stdin_subs, ctx->cap_in);
         n00b_stream_set_name(ctx->cap_in,
-                              n00b_cformat("«#»«#» stdin cap«#»",
-                                           n00b_cached_lbracket(),
-                                           ctx->cmd,
-                                           n00b_cached_rbracket()));
+                             n00b_cformat("«#»«#» stdin cap«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
     }
 
     if (ctx->flags & N00B_PROC_STDOUT_CAP) {
         buf          = n00b_buffer_empty();
         ctx->cap_out = n00b_outstream_buffer(buf, true);
-        n00b_stream_subscribe_read(ctx->subproc_stdout, ctx->cap_out, false);
+        n00b_list_append(ctx->stdout_subs, ctx->cap_out);
         n00b_stream_set_name(ctx->cap_out,
-                              n00b_cformat("«#»«#» stdout cap«#»",
-                                           n00b_cached_lbracket(),
-                                           ctx->cmd,
-                                           n00b_cached_rbracket()));
+                             n00b_cformat("«#»«#» stdout cap«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
 
-        if (ctx->flags & N00B_PROC_MERGE_OUTPUT) {
-            n00b_stream_subscribe_read(ctx->subproc_stderr, ctx->cap_out, false);
+        if (ctx->flags & N00B_PROC_MERGE_OUTPUT && ctx->subproc_stderr) {
+            n00b_list_append(ctx->stderr_subs, ctx->cap_out);
         }
     }
 
@@ -150,29 +162,36 @@ post_spawn_subscription_setup(n00b_proc_t *ctx)
         && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
         buf          = n00b_buffer_empty();
         ctx->cap_err = n00b_outstream_buffer(buf, true);
-        n00b_stream_subscribe_read(ctx->subproc_stderr, ctx->cap_err, false);
+        n00b_list_append(ctx->stderr_subs, ctx->cap_err);
         n00b_stream_set_name(ctx->cap_err,
-                              n00b_cformat("«#»«#» stderr cap«#»",
-                                           n00b_cached_lbracket(),
-                                           ctx->cmd,
-                                           n00b_cached_rbracket()));
+                             n00b_cformat("«#»«#» stderr cap«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
     }
 
-    if (ctx->pending_stdout_subs != NULL) {
-        int n = n00b_list_len(ctx->pending_stdout_subs);
-        for (int i = 0; i < n; i++) {
-            n00b_stream_t *s = n00b_list_get(ctx->pending_stdout_subs, i, NULL);
-            n00b_stream_subscribe_read(ctx->subproc_stdout, s, false);
+    if (ctx->flags & N00B_PROC_STDIN_PROXY) {
+        // Proxy parent's stdin to the subproc.
+        n00b_list_append(ctx->stdin_subs, ctx->subproc_stdin);
+    }
+
+    if (ctx->flags & (N00B_PROC_STDOUT_PROXY)) {
+        n00b_list_append(ctx->stdout_subs, n00b_stdout());
+
+        if (ctx->flags & N00B_PROC_MERGE_OUTPUT && ctx->subproc_stderr
+            && ctx->subproc_stderr != ctx->subproc_stdout) {
+            n00b_list_append(ctx->stderr_subs, n00b_stdout());
         }
     }
 
-    if (ctx->pending_stderr_subs != NULL) {
-        int n = n00b_list_len(ctx->pending_stderr_subs);
-        for (int i = 0; i < n; i++) {
-            n00b_stream_t *s = n00b_list_get(ctx->pending_stderr_subs, i, NULL);
-            n00b_stream_subscribe_read(ctx->subproc_stderr, s, false);
-        }
+    if ((ctx->flags & N00B_PROC_STDERR_PROXY)
+        && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
+        n00b_list_append(ctx->stderr_subs, n00b_stderr());
     }
+
+    ctx->stdin_subs  = bulk_subscribe(n00b_stdin(), ctx->stdin_subs);
+    ctx->stdout_subs = bulk_subscribe(ctx->subproc_stdout, ctx->stdout_subs);
+    ctx->stderr_subs = bulk_subscribe(ctx->subproc_stderr, ctx->stderr_subs);
 
     write(ctx->gate, "x", 1);
     return;
@@ -321,13 +340,13 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
 static void
 should_exit_via_sig(int signal, siginfo_t *info, n00b_proc_t *ctx)
 {
-    n00b_condition_lock_acquire(&ctx->cv);
+    n00b_lock_acquire(&ctx->cv);
     n00b_proc_close(ctx);
     ctx->exited = true;
     if (ctx->wait_for_exit) {
         n00b_condition_notify_all(&ctx->cv);
     }
-    n00b_condition_lock_release(&ctx->cv);
+    n00b_lock_release(&ctx->cv);
 }
 
 static inline void
@@ -426,10 +445,10 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
             ctx->subproc_stdin  = ctx->subproc_stdout;
         }
         n00b_stream_set_name(ctx->subproc_stdin,
-                              n00b_cformat("«#»«#» pty«#»",
-                                           n00b_cached_lbracket(),
-                                           ctx->cmd,
-                                           n00b_cached_rbracket()));
+                             n00b_cformat("«#»«#» pty«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
 
         post_spawn_subscription_setup(ctx);
 
@@ -533,14 +552,12 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 void
 n00b_proc_spawn(n00b_proc_t *ctx)
 {
-    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
-    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
+    //    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    //    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
 
     if (!ctx->cmd) {
         N00B_CRAISE("Cannot spawn; no command set.");
     }
-
-    n00b_condition_lock_acquire(&(ctx->cv));
 
     if (ctx->flags & N00B_PROC_USE_PTY) {
         proc_spawn_with_tty(ctx);
@@ -548,19 +565,16 @@ n00b_proc_spawn(n00b_proc_t *ctx)
     else {
         proc_spawn_no_tty(ctx);
     }
-
-    n00b_condition_lock_release(&(ctx->cv));
 }
 
-void
+// Returns false if there's a timeout.
+bool
 n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 {
-    n00b_duration_t *end = NULL;
-    n00b_duration_t *now;
+    int64_t ns_tout = 0;
 
     if (timeout) {
-        now = n00b_now();
-        end = n00b_duration_add(now, timeout);
+        ns_tout = n00b_ns_from_duration(timeout);
     }
 
     ctx->wait_for_exit = true;
@@ -569,24 +583,15 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
         N00B_CRAISE("Cannot spawn; no command set.");
     }
 
-    if (end) {
-        n00b_condition_lock_acquire(&(ctx->cv));
-        n00b_proc_spawn(ctx);
-        if (!ctx->exited
-            && !_n00b_condition_timed_wait(&(ctx->cv),
-                                           end,
-                                           __FILE__,
-                                           __LINE__)) {
-            n00b_proc_close(ctx);
-        }
-    }
-    else {
-        n00b_condition_lock_acquire(&(ctx->cv));
-        n00b_proc_spawn(ctx);
-        n00b_condition_wait(&(ctx->cv));
-        n00b_proc_close(ctx);
-    }
-    n00b_condition_lock_release(&(ctx->cv));
+    n00b_lock_acquire(&ctx->cv);
+    n00b_proc_spawn(ctx);
+    bool result = !(bool)n00b_condition_wait(&ctx->cv,
+                                             n00b_kw("timeout",
+                                                     ns_tout,
+                                                     "auto_unlock",
+                                                     n00b_ka(true)));
+    n00b_proc_close(ctx);
+    return result;
 }
 
 // TODO: Do a proc_init
@@ -639,14 +644,24 @@ _n00b_run_process(n00b_string_t *cmd,
 
     n00b_proc_t *proc = n00b_gc_alloc_mapped(n00b_proc_t, N00B_GC_SCAN_ALL);
 
-    proc->pid                 = -1;
-    proc->cmd                 = cmd;
-    proc->args                = argv;
-    proc->hook                = hook;
-    proc->param               = param;
-    proc->pending_stdout_subs = stdout_subs;
-    proc->pending_stderr_subs = stderr_subs;
-    proc->seeded_stdin        = stdin_injection;
+    proc->pid          = -1;
+    proc->cmd          = cmd;
+    proc->args         = argv;
+    proc->hook         = hook;
+    proc->param        = param;
+    proc->stdout_subs  = stdout_subs;
+    proc->stderr_subs  = stderr_subs;
+    proc->seeded_stdin = stdin_injection;
+
+    if (!proc->stdout_subs) {
+        proc->stdout_subs = n00b_list(n00b_type_stream());
+    }
+
+    if (!proc->stderr_subs) {
+        proc->stderr_subs = n00b_list(n00b_type_stream());
+    }
+
+    proc->stdin_subs = n00b_list(n00b_type_stream());
 
     tcgetattr(0, &proc->initial_termcap);
     proc->parent_termcap = &proc->initial_termcap;
@@ -659,7 +674,7 @@ _n00b_run_process(n00b_string_t *cmd,
         proc->subproc_termcap_ptr = NULL;
     }
 
-    n00b_named_condition_init(&proc->cv, "process_exit_monitor");
+    n00b_named_lock_init(&proc->cv, N00B_NLT_CV, "process_exit_monitor");
 
     if (capture) {
         proc->flags = N00B_PROC_CAP_ALL;

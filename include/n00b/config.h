@@ -1,22 +1,23 @@
 #ifdef n00b_some_stuff_i_may_occasionally_enable_in_testing
 
-#define N00B_USE_LOCK_DEBUGGING
 #define N00B_ENABLE_ALLOC_DEBUG_OPT_IN
-#define N00B_GC_SHOW_COLLECT_STACK_TRACES
 #define N00B_DEBUG_GC_ROOTS
 #define N00B_GC_ALLOW_DEBUG_BIT
 #define N00B_MPROTECT_WRAPPED_ALLOCS
-#define N00B_FLOG_DEBUG
 #define N00B_FULL_MEMCHECK
-#define N00B_DEBUG_LOCKS
 #else
 #endif
 
-// #define N00B_GC_STATS
-//  #define N00B_DEBUG_GC_ROOTS
+// #define N00B_DLOG_COMPILE_OUT_THRESHOLD 4
+// #define N00B_DLOG_DEFAULT_DISABLE_LEVEL 2
+// #define N00B_DLOG_LOCK_DEFAULT_LAST_LEVEL 2 // Raise the cutoff for locks
+#define N00B_DLOG_GIL_DEFAULT_LAST_LEVEL 2
+// #define N00B_DLOG_ALLOC_DEFAULT_LAST_LEVEL 2
+// #define N00B_DLOG_GC_DEFAULT_LAST_LEVEL 4
+// #define N00B_GC_SHOW_COLLECT_STACK_TRACES
+// #define N00B_DEBUG_GC_ROOTS
 // #define N00B_FIND_SCRIBBLES
 // #define N00B_SCAN_ALLOC
-// #define N00B_USE_LOCK_DEBUGGING
 
 #pragma once
 // Home of anything remotely configurable. Don't change this file;
@@ -126,15 +127,20 @@
 #endif // N00B_DEBUG
 
 #ifndef N00B_MAX_KARGS_NESTING_DEPTH
-// Must be a power of two, and probably shouldn't be lower.
-#define N00B_MAX_KARGS_NESTING_DEPTH 32
+// Must be a power of two, and should never nest so doesn't need to be
+// more than 1... probably.
+#define N00B_MAX_KARGS_NESTING_DEPTH 1
 #endif
 
 // More accurately, max # of supported keywords.
 // We use a lot internally, and there's a max based on some macros in
 // an include file, so probably best not to mess w/ this one.
+//
+// Currently, the fn for style creation has about 50 kargs, so this
+// gives us a bit of headroom.
+
 #ifndef N00B_MAX_KEYWORD_SIZE
-#define N00B_MAX_KEYWORD_SIZE 50
+#define N00B_MAX_KEYWORD_SIZE 64
 #endif
 
 #ifndef N00B_EMPTY_BUFFER_ALLOC
@@ -143,7 +149,12 @@
 
 #ifndef N00B_DEFAULT_HEAP_SIZE
 // This is the size any test case that prints a thing grows to awfully fast.
-#define N00B_DEFAULT_HEAP_SIZE (1 << 26) // 30 == 1 g
+#define N00B_DEFAULT_HEAP_SIZE (1LL << 24LL) // 30 == 1 g
+#endif
+
+#ifndef N00B_DEFAULT_STW_HEAP_SIZE
+// Temporary heap default for allocations during a stop-the-world.
+#define N00B_DEFAULT_STW_HEAP_SIZE (1 << 18) // 256K
 #endif
 
 #ifndef N00B_MARSHAL_CHUNK_SIZE
@@ -281,7 +292,7 @@
 // is captured, etc.
 #ifndef N00B_STACK_SLOP
 // -32
-#define N00B_STACK_SLOP 0
+#define N00B_STACK_SLOP -32
 #endif
 
 // GC stops scanning a memory record for pointers when it sees this.
@@ -289,10 +300,6 @@
 // GC, when scanning backward to find an alloc header, jumps back a
 // page and a word when it sees this (to avoid an mprotect region)
 #define N00B_GC_PAGEJUMP 0xdfdfdfdffdfdfdfdULL
-
-#if defined(N00B_USE_LOCK_DEBUGGING)
-#define N00B_DEBUG_LOCKS
-#endif
 
 // Current N00b version info.
 #define N00B_VERS_MAJOR   0x00
@@ -345,3 +352,5 @@
 #if !defined(N00B_ENV_DBG_LOG)
 #define N00B_ENV_DBG_LOG "N00B_DEBUG_LOG"
 #endif
+
+#include "n00b/debug_config.h"

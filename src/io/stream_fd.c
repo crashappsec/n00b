@@ -1,7 +1,7 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-#if 0
+#if defined(N00B_DEBUG_DESCRIBE_FLAGS_ON_OPEN)
 // This was useful; will keep it around.
 void
 n00b_describe_open_flags(int f)
@@ -101,6 +101,8 @@ n00b_describe_open_flags(int f)
 
     printf("\n");
 }
+#else
+#define n00b_describe_open_flags(x)
 #endif
 
 void
@@ -131,6 +133,7 @@ fd_stream_on_read_event(n00b_fd_stream_t *s,
 void
 n00b_fd_stream_on_first_subscriber(n00b_stream_t *c, n00b_fd_cookie_t *p)
 {
+    n00b_dlog_io("Registering fd %d for reads", p->stream->fd);
     p->sub = _n00b_fd_read_subscribe(p->stream,
                                      (void *)fd_stream_on_read_event,
                                      2,
@@ -166,23 +169,29 @@ fd_stream_init(n00b_stream_t *stream, n00b_list_t *l)
 
     switch ((int64_t)n00b_list_pop(l)) {
     case FD_FILE:
-        stream->name = n00b_cformat("[|#|]: (fd [|#|])",
-                                    n00b_list_pop(l),
-                                    (int64_t)c->stream->fd);
+        stream->name    = n00b_list_pop(l);
+        c->stream->name = n00b_cformat("fd [|#|] (file)",
+                                       (int64_t)c->stream->fd);
         break;
     case FD_CONNECT:
-        c->addr      = n00b_list_pop(l);
-        stream->name = n00b_cformat("connect: [|#|] (fd [|#|])",
-                                    c->addr,
-                                    (int64_t)c->stream->fd);
+        c->addr         = n00b_list_pop(l);
+        stream->name    = n00b_to_string(c->addr);
+        c->stream->name = n00b_cformat("fd [|#|] (connect)",
+                                       (int64_t)c->stream->fd);
         break;
     default:
-        stream->name = n00b_cformat("[|#|]: (fd [|#|])",
-                                    n00b_fd_name(c->stream),
-                                    (int64_t)c->stream->fd);
-        break;
-    }
+        stream->name = n00b_fd_name(c->stream);
 
+        if (c->stream->socket) {
+            c->stream->name = n00b_cformat("fd [|#|] (socket)",
+                                           (int64_t)c->stream->fd);
+        }
+        else {
+            c->stream->name = n00b_cformat("fd [|#|] (pipe)",
+                                           (int64_t)c->stream->fd);
+            break;
+        }
+    }
     return c->stream->fd_flags & O_ACCMODE;
 }
 
@@ -283,6 +292,10 @@ fd_stream_write(n00b_stream_t *stream, void *msg, bool block)
     }
     else {
         b = msg;
+    }
+
+    if (!b) {
+        return;
     }
 
     if (block) {
@@ -577,6 +590,7 @@ _n00b_stream_open_file(n00b_string_t *filename, ...)
         }
     }
 
+    n00b_describe_open_flags(flags);
     int fd = -1;
 
     if (relative_fd) {

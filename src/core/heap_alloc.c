@@ -2,7 +2,7 @@
 #include "n00b.h"
 
 static _Atomic(uint64_t) heap_creation_lock        = 0;
-bool                     n00b_collection_suspended = false;
+static _Atomic bool      n00b_collection_suspended = false;
 
 void
 n00b_allow_collections(void)
@@ -127,6 +127,8 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
     // The second page is a guard page.
     // The final page of the heap is also a guard page.
 
+    n00b_stop_the_world();
+
     uint64_t total_len  = byte_len + N00B_ARENA_OVERHEAD;
     char    *true_start = mmap(NULL,
                             total_len,
@@ -136,7 +138,8 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
                             0);
 
     if (true_start == MAP_FAILED) {
-        printf("Out of memory.\n");
+        n00b_dlog_alloc("Out of memory.");
+        fprintf(stderr, "Out of memory.");
         abort();
     }
 
@@ -147,15 +150,27 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
     result->addr_end    = n00b_arena_rear_guard_start(result);
     result->last_issued = result->addr_end;
 
+    n00b_dlog_alloc("New arena for heap %d (heap @%p): %p-%p @%p",
+                    h->heap_id,
+                    h,
+                    result->addr_start,
+                    result->addr_end,
+                    result);
+
     n00b_assert(result->addr_start < result->addr_end);
 
+    if (!h->first_arena) {
+        h->first_arena = result;
+    }
     if (h->newest_arena) {
-        n00b_crit_t crit = atomic_read(&h->ptr);
+        n00b_crit_t   crit = atomic_read(&h->ptr);
+        n00b_arena_t *last = atomic_read(&h->newest_arena);
 
-        n00b_unlock_arena_header(h->newest_arena);
-        h->newest_arena->successor   = result;
-        h->newest_arena->last_issued = crit.next_alloc;
-        n00b_lock_arena_header(h->newest_arena);
+        n00b_unlock_arena_header(last);
+        last->successor   = result;
+        last->last_issued = crit.next_alloc;
+        n00b_lock_arena_header(last);
+        atomic_store(&h->newest_arena, result);
     }
 
     n00b_crit_t info = {
@@ -175,6 +190,7 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
     mprotect(end_guard, n00b_page_bytes, PROT_NONE);
 
     n00b_lock_arena_header(result);
+    n00b_restart_the_world();
 
     return result;
 }
@@ -190,11 +206,7 @@ n00b_add_arena(n00b_heap_t *h, uint64_t byte_len)
         byte_len <<= 1;
     }
 
-    n00b_arena_t *a = n00b_new_arena_pre_aligned(h, byte_len);
-
-    if (!h->first_arena) {
-        h->first_arena = a;
-    }
+    n00b_new_arena_pre_aligned(h, byte_len);
 }
 
 // The wrappers always use the global arena.
@@ -238,12 +250,11 @@ n00b_malloc_wrap(size_t size, void *arg, char *file, int line)
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     assert(file);
 #endif
-    void *result
-        = _n00b_heap_alloc(NULL,
-                           size,
-                           false,
-                           arg
-                               N00B_ALLOC_XPARAM);
+    void *result = _n00b_heap_alloc(NULL,
+                                    size,
+                                    false,
+                                    arg
+                                        N00B_ALLOC_XPARAM);
 
     return result;
 }
@@ -307,7 +318,7 @@ n00b_free_compat(void *p)
     // TODO-- finish this
 }
 
-static inline bool
+static bool
 need_space(n00b_arena_t *arena, n00b_crit_t entry, int64_t len)
 {
     return ((void *)entry.next_alloc) < arena->addr_start
@@ -323,11 +334,10 @@ _n00b_heap_alloc(n00b_heap_t *h,
 {
     h = n00b_current_heap(h);
 
-    n00b_crit_t   prev_entry;
-    n00b_crit_t   new_entry;
-    int64_t       alloc_len = n00b_calculate_alloc_len(request_len);
-    n00b_arena_t *newest_arena;
-    bool          expand = false;
+    n00b_crit_t prev_entry;
+    n00b_crit_t new_entry;
+    int64_t     alloc_len = n00b_calculate_alloc_len(request_len);
+    bool        expand    = false;
 
 #ifdef N00B_FIND_SCRIBBLES
     alloc_len = n00b_round_up_to_given_power_of_2(n00b_page_bytes, alloc_len);
@@ -336,24 +346,26 @@ _n00b_heap_alloc(n00b_heap_t *h,
     assert(file);
 #endif
     while (true) {
-        n00b_gts_checkin();
-        newest_arena = h->newest_arena;
-        prev_entry   = atomic_read(&h->ptr);
+        n00b_thread_checkin();
+        prev_entry = atomic_read(&h->ptr);
 
         // If there's not enough space, don't even try.
-        if (need_space(newest_arena, prev_entry, alloc_len)) {
-            n00b_gts_might_stop();
-
-            if (!need_space(newest_arena, prev_entry, alloc_len)) {
-                n00b_gts_wont_stop();
+        if (need_space(h->newest_arena, prev_entry, alloc_len)) {
+            n00b_dlog_alloc1(
+                "Not enough memory in arena %p for "
+                "%d byte alloc (user request: %d (not including hdr); available: %d)",
+                h->newest_arena,
+                alloc_len,
+                request_len,
+		((char *)h->newest_arena->addr_end) - (char *)prev_entry.next_alloc);
+            if (!need_space(h->newest_arena, prev_entry, alloc_len)) {
                 continue;
             }
 
             if (n00b_collection_suspended) {
-                size_t esize = (newest_arena->addr_end - newest_arena->addr_start) << 3;
+                size_t esize = (h->newest_arena->addr_end - h->newest_arena->addr_start) << 3;
                 esize        = n00b_max(alloc_len << 3, esize);
                 n00b_add_arena(h, esize);
-                n00b_gts_wont_stop();
             }
             else {
                 h->expand = expand;
@@ -381,15 +393,14 @@ _n00b_heap_alloc(n00b_heap_t *h,
     n00b_alloc_hdr *hdr = prev_entry.next_alloc;
 
 #ifdef N00B_FIND_SCRIBBLES
-    /*
-    printf("unlock %d bytes (%p:%p) for %s:%d\n",
-           alloc_len,
-           hdr,
-           hdr + alloc_len,
-           file,
-           line);
-    fflush(stdout);
-    */
+
+    n00b_dlog_alloc("scribble detector: unlock %d bytes (%p:%p) for %s:%d",
+                    alloc_len,
+                    hdr,
+                    hdr + alloc_len,
+                    file,
+                    line);
+
     assert(!mprotect(hdr, alloc_len, PROT_READ | PROT_WRITE));
 
 #endif
@@ -397,47 +408,6 @@ _n00b_heap_alloc(n00b_heap_t *h,
     char *pend = p + alloc_len;
 
     memset(p, 0, pend - p);
-#if 0
-#ifdef N00B_SCAN_ALLOC
-    int64_t *p    = (void *)hdr;
-    int64_t *pend = (int64_t *)((char *)p) + alloc_len;
-    if (pend > (int64_t *)h->cur_arena_end) {
-        pend = (int64_t *)h->cur_arena_end;
-    }
-
-    while (p < pend) {
-        if (*p) {
-            fprintf(stderr,
-                    "Error: When allocing at: %s:%d: "
-                    "previous allocation overflowed word #%ld (%x).\n",
-                    file,
-                    line,
-                    p - (int64_t *)hdr,
-                    *p);
-            fprintf(stderr, "New alloc hdr @%p\n", hdr);
-            n00b_alloc_hdr *old;
-            old = n00b_find_allocation_record(hdr - 1);
-            fprintf(stderr,
-                    "Prev alloc: %s:%d (sz: %d)\n",
-                    old->alloc_file,
-                    old->alloc_line,
-                    old->alloc_len);
-            while (*p && p < pend) {
-                if (*p) {
-                    printf("%p has: %x\n", p, *p);
-                }
-                p++;
-            }
-            fprintf(stderr,
-                    "%ld total words overwritten.\n",
-                    p - (int64_t *)hdr);
-            abort();
-        }
-        p++;
-    }
-
-#endif
-#endif
 
     hdr->guard     = n00b_gc_guard;
     hdr->alloc_len = alloc_len;
@@ -449,31 +419,14 @@ _n00b_heap_alloc(n00b_heap_t *h,
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     hdr->alloc_file = file;
     hdr->alloc_line = line;
-
-#if defined(N00B_ENABLE_ALLOC_DEBUG)
-    if (n00b_get_tsi_ptr()->show_alloc_locations && !__n00b_collector_running) {
-        fprintf(stderr,
-                "heap #%lld '%s' @%p @%p  (%s:%d)alloc of length %u\n",
-                h->heap_id,
-                h->name,
-                h,
-                hdr,
-                file,
-                line,
-                hdr->alloc_len);
-    }
-#endif
 #endif
 
-#if defined(N00B_FLOG_DEBUG)
-    fprintf(n00b_get_tsi_ptr()->flog_file,
-            "%p (hdr) %p (user): %d bytes (%s:%d)\n",
-            hdr,
-            hdr->data,
-            hdr->alloc_len,
-            hdr->alloc_file,
-            hdr->alloc_line);
-#endif
+    n00b_dlog_alloc1("heap #%lld @%p (%s:%d)alloc of length %u",
+                     h->heap_id,
+                     h,
+                     file,
+                     line,
+                     alloc_len);
 
     return hdr->data;
 }
@@ -534,12 +487,22 @@ finish_setup:
 
     n00b_heap_creation_lock_release();
 
+    n00b_dlog_alloc1("%s:%d: New heap @%p: id = %d; len = %d",
+                     result->file,
+                     result->line,
+                     result,
+                     result->heap_id,
+                     byte_len);
     return result;
 }
 
 void
 n00b_delete_heap(n00b_heap_t *h)
 {
+    n00b_dlog_alloc1("Deleting heap id = %d @%p",
+                     h->heap_id,
+                     h);
+
     n00b_heap_clear(h);
     bzero(((char *)h) + sizeof(int64_t),
           sizeof(n00b_heap_t) - sizeof(int64_t));

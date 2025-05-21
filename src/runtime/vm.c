@@ -1521,20 +1521,20 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 break;
             case N00B_ZLockMutex:
                 STACK_REQUIRE_VALUES(1);
-                n00b_lock_acquire((n00b_lock_t *)n00b_vm_variable(tstate,
-                                                                  i));
+                n00b_lock_acquire((n00b_mutex_t *)n00b_vm_variable(tstate,
+                                                                   i));
                 break;
             case N00B_ZUnlockMutex:
                 STACK_REQUIRE_VALUES(1);
-                n00b_lock_release((n00b_lock_t *)n00b_vm_variable(tstate,
-                                                                  i));
+                n00b_lock_release((n00b_mutex_t *)n00b_vm_variable(tstate,
+                                                                   i));
                 break;
             }
 
             ++tstate->pc;
             // Give the GC a chance to run if another thread needs
             // it. Probably could do this less often.
-            n00b_gts_checkin();
+            n00b_thread_checkin();
         }
     }
     N00B_EXCEPT

@@ -57,6 +57,8 @@ accept_debug(n00b_stream_t *stream, void *ignore)
     return NULL;
 }
 
+static volatile bool is_shutdown = false;
+
 static void *
 user_input(n00b_buf_t *buf, void *ingored)
 {
@@ -69,10 +71,15 @@ user_input(n00b_buf_t *buf, void *ingored)
             while ((stream = n00b_private_list_pop(active_connections)) != 0) {
                 n00b_close(stream);
             }
-            n00b_condition_lock_acquire(&exit_condition);
+            is_shutdown = true;
+
+            /*
+            n00b_lock_acquire(&exit_condition);
             n00b_condition_notify_all(&exit_condition);
-            n00b_condition_lock_release(&exit_condition);
+            n00b_lock_release(&exit_condition);
+            */
             return NULL;
+
         case '!':
             n00b_show_streams();
             continue;
@@ -134,12 +141,16 @@ n00b_start_log_listener(void)
     return result;
 }
 
+extern n00b_condition_t n00b_io_exit_request;
 int
 n00b_debug_entry(int argc, char **argv, char **envp)
 {
     n00b_terminal_app_setup();
     n00b_gc_register_root(&active_connections, 1);
     active_connections = n00b_list(n00b_type_stream());
+
+    n00b_condition_init(&exit_condition);
+    n00b_lock_acquire(&exit_condition);
 
     n00b_stream_t *listener = n00b_start_log_listener();
 
@@ -162,10 +173,9 @@ n00b_debug_entry(int argc, char **argv, char **envp)
                                n00b_new_callback_stream(user_input, NULL),
                                false);
 
-    n00b_condition_init(&exit_condition);
-    n00b_condition_lock_acquire(&exit_condition);
-    n00b_condition_wait(&exit_condition);
-    n00b_condition_lock_release(&exit_condition);
+    while (!is_shutdown) {
+        n00b_sleep_ms(100);
+    }
 
     n00b_eprint(n00b_crich("«em»Shutting down debugging server."));
     n00b_close(listener);

@@ -1,5 +1,7 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
+#pragma clang diagnostic ignored "-Wformat"
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
 
 #ifdef N00B_FULL_MEMCHECK
 
@@ -156,7 +158,7 @@ n00b_memcheck_arena(mc_state_t *state)
         mc_warn(state,
                 "Cached arena len doesn't match bounds (%d vs %d)",
                 a->user_length,
-                ((char *)a->addr_end) - p);
+                (void *)(((char *)a->addr_end) - p));
     }
 
     n00b_alloc_hdr *h           = (void *)p;
@@ -198,8 +200,7 @@ scan_for_next:
             continue;
         }
 
-	
-        if (h->alloc_len < 0 ||	h->alloc_len % 8) {
+        if (h->alloc_len < 0 || h->alloc_len % 8) {
             mc_err(state,
                    "Invalid alloc length for allocation at %p (%ld)",
                    h,
@@ -229,6 +230,7 @@ scan_for_next:
             mc_warn(state,
                     "Found %d invalid magic values in record",
                     extra_magic);
+
             extra_magic = 0;
         }
 

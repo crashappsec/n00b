@@ -12,7 +12,7 @@ typedef struct n00b_pickle_wl_item_t {
 } n00b_pickle_wl_item_t;
 
 typedef struct {
-    n00b_lock_t  lock;
+    n00b_mutex_t lock;
     n00b_dict_t *memos;
     n00b_dict_t *needed_patches;
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
@@ -52,7 +52,7 @@ typedef struct {
     // we're buffering.
     char                *part_cursor;
     n00b_list_t         *vaddr_info;
-    n00b_lock_t          lock;
+    n00b_mutex_t         lock;
     uint64_t             vaddr_start;
     // For the current object we're unmarshaling, what's our offset
     // from vaddr_start? This should map to the front of the buffer

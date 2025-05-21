@@ -51,6 +51,8 @@ extern void           n00b_mutex_release(n00b_lock_t *);
 extern void           n00b_mutex_release_all(n00b_lock_t *);
 extern n00b_string_t *n00b_lock_to_string(n00b_generic_lock_t *);
 
+// PTHREADS
+
 #define n00b_lock_init(ptr) \
     _n00b_lock_init(ptr, NULL, __FILE__, __LINE__)
 #define n00b_named_lock_init(l, n) \
@@ -101,6 +103,9 @@ extern void _n00b_rw_lock_release(n00b_rw_lock_t *, bool);
 #define n00b_rw_lock_release(l)     _n00b_rw_lock_release(l, false)
 #define n00b_rw_lock_release_all(l) _n00b_rw_lock_release(l, true)
 
+//
+#define n00b_lock_list(x)
+
 typedef struct n00b_condition_t {
     n00b_lock_t    mutex;
     pthread_cond_t cv;
@@ -148,11 +153,11 @@ extern void _n00b_condition_notify_all(n00b_condition_t *, char *, int);
 #define n00b_condition_wait(c, ...)                                       \
     n00b_condition_pre_wait((n00b_condition_t *)c);                       \
     __VA_ARGS__;                                                          \
-    n00b_gts_suspend();                                                   \
+    N00B_DBG_CALL(n00b_thread_suspend);                                   \
     n00b_assert(pthread_cond_wait(&(((n00b_condition_t *)c)->cv),         \
                                   (&((n00b_condition_t *)c)->mutex.lock)) \
                 != EINVAL);                                               \
-    n00b_gts_resume();                                                    \
+    N00B_DBG_CALL(n00b_thread_resume);                                    \
                                                                           \
     n00b_condition_post_wait((n00b_condition_t *)c, __FILE__, __LINE__)
 
@@ -199,24 +204,3 @@ extern void n00b_lock_release_all(void *);
 extern void n00b_release_locks_on_thread_exit(void);
 
 #endif
-
-typedef _Atomic(int64_t) n00b_spin_lock_t;
-
-static inline void
-n00b_spin_lock(n00b_spin_lock_t *lock)
-{
-    while (atomic_fetch_or(lock, 1))
-        ;
-}
-
-static inline void
-n00b_spin_unlock(n00b_spin_lock_t *lock)
-{
-    atomic_store(lock, 0ULL);
-}
-
-static inline void
-n00b_init_spin_lock(n00b_spin_lock_t *lock)
-{
-    n00b_spin_unlock(lock);
-}

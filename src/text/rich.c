@@ -857,7 +857,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
                 info[i].type = RICH_AS_TEXT;
                 continue;
             }
-            item = n00b_list_get(args, next_positional++, &err);
+            item = n00b_private_list_get(args, next_positional++, &err);
 
             if (err) {
                 info[i].type = RICH_AS_TEXT;
@@ -870,7 +870,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
         switch (*p) {
         case ':':
             p++;
-            item = n00b_list_get(args, next_positional++, &err);
+            item = n00b_private_list_get(args, next_positional++, &err);
             if (err) {
                 info[i].type = RICH_AS_TEXT;
                 continue;
@@ -931,7 +931,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
                 continue;
             }
 
-            item = n00b_list_get(args, num_spec, &err);
+            item = n00b_private_list_get(args, num_spec, &err);
             if (err) {
                 info[i].type = RICH_AS_TEXT;
                 continue;
@@ -947,7 +947,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
             continue;
         case '!':
             // Omitted : allowed if there's a !
-            item = n00b_list_get(args, next_positional++, &err);
+            item = n00b_private_list_get(args, next_positional++, &err);
             if (err) {
                 info[i].type = RICH_AS_TEXT;
                 continue;
@@ -1440,7 +1440,7 @@ _n00b_format(n00b_string_t *s, int nargs, ...)
 
         for (int i = 0; i < nargs; i++) {
             void *arg = va_arg(vlist, void *);
-            n00b_list_append(args, arg);
+            n00b_private_list_append(args, arg);
         }
     }
 

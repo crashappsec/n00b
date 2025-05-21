@@ -12,6 +12,9 @@ n00b_run_tests(n00b_cmdline_ctx *ctx)
                                                         "quiet",
                                                         n00b_cmd_quiet(ctx)));
 
+#if defined(N00B_DEBUG)
+    tctx->debug = true;
+#endif
     ctx->exit_code = n00b_testgen_run_tests(tctx);
 
     if (ctx->exit_code) {

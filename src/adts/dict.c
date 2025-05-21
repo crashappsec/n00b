@@ -178,7 +178,7 @@ n00b_new_unmanaged_dict(size_t hash, bool trace_keys, bool trace_vals)
 {
     n00b_dict_t *dict = n00b_gc_raw_alloc(
         sizeof(n00b_dict_t),
-        (n00b_mem_scan_fn)n00b_dict_gc_bits_raw);
+        N00B_GC_SCAN_ALL);
 
     n00b_setup_unmanaged_dict(dict, hash, trace_keys, trace_vals);
     return dict;
@@ -196,8 +196,8 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
 
     if (n00b_dict_type != NULL) {
         type_params = n00b_type_get_params(n00b_dict_type);
-        key_type    = n00b_list_get(type_params, 0, NULL);
-        value_type  = n00b_list_get(type_params, 1, NULL);
+        key_type    = n00b_private_list_get(type_params, 0, NULL);
+        value_type  = n00b_private_list_get(type_params, 1, NULL);
         info        = n00b_type_get_data_type_info(key_type);
         hash_fn     = info->hash_fn;
     }

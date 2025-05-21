@@ -2,11 +2,11 @@
 #include "n00b.h"
 
 typedef struct {
-    n00b_lock_t internal_lock;
-    int32_t     alloc_len;
-    char       *data;
-    char       *write_ptr;
-    char       *read_ptr;
+    n00b_mutex_t internal_lock;
+    int32_t      alloc_len;
+    char        *data;
+    char        *write_ptr;
+    char        *read_ptr;
 } n00b_bytering_t;
 
 extern n00b_bytering_t *n00b_bytering_copy(n00b_bytering_t *);

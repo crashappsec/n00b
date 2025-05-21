@@ -6,6 +6,7 @@
 char              **n00b_stashed_argv;
 static n00b_list_t *exit_handlers           = NULL;
 static n00b_dict_t *cached_environment_vars = NULL;
+bool                n00b_startup_complete   = false;
 
 static void
 n00b_on_exit(void)
@@ -352,7 +353,6 @@ n00b_add_static_symbols(void)
     FSTAT(n00b_list_contains);
 }
 
-extern void      n00b_fd_init_io(void);
 struct timespec *n00b_io_duration = NULL;
 
 static void *
@@ -372,8 +372,6 @@ n00b_initialize_library(void)
 
 extern void n00b_crash_init(void);
 
-bool n00b_startup_complete = false;
-
 __attribute__((constructor)) void
 n00b_init(int argc, char **argv, char **envp)
 {
@@ -383,7 +381,7 @@ n00b_init(int argc, char **argv, char **envp)
         return;
     }
 
-    static int inited = false;
+    static volatile int inited = false;
 
     if (!inited) {
         inited            = true;
@@ -393,10 +391,8 @@ n00b_init(int argc, char **argv, char **envp)
         // the thread setup for thread initialization that uses the heap
         // has to come after the GC is initialized. Therefore, sandwich
         // the GC startup with thread stuff.
-        n00b_threading_setup(); // thread.c
+        n00b_threading_setup(); // mt/thread_tsi.c
         n00b_initialize_gc();
-        n00b_finish_main_thread_initialization();
-
         n00b_gc_register_root(&n00b_root, 1);
         n00b_gc_register_root(&n00b_path, 1);
         n00b_gc_register_root(&n00b_extensions, 1);
@@ -416,5 +412,7 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_initialize_library();
 
         n00b_startup_complete = true;
+
+        n00b_dlog_thread("Main thread initialized.");
     }
 }

@@ -581,11 +581,20 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
-    [N00B_T_LOCK] = {
-        .name      = "lock",
-        .typeid    = N00B_T_LOCK,
-        .alloc_len = sizeof(n00b_lock_t),
-        .vtable    = &n00b_lock_vtable,
+    [N00B_T_MUTEX] = {
+        .name      = "mutex",
+        .typeid    = N00B_T_MUTEX,
+        .alloc_len = sizeof(n00b_mutex_t),
+        .vtable    = &n00b_mutex_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_RW_LOCK] = {
+        .name      = "rw_lock",
+        .typeid    = N00B_T_RW_LOCK,
+        .alloc_len = sizeof(n00b_rwlock_t),
+        .vtable    = &n00b_rwlock_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
@@ -664,7 +673,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
         .mutable   = true,
     },
-    /*
     [N00B_T_SESSION] = {
         .name      = "session",
         .typeid    = N00B_T_SESSION,
@@ -691,11 +699,11 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = false,
-        },*/
+    },
 
 };
 
-#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 n00b_obj_t
 _n00b_new(n00b_heap_t *heap, char *file, int line, n00b_type_t *type, ...)
 #else
@@ -791,7 +799,6 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
             "implemented.");
     }
 
-    va_end(args);
     return obj;
 }
 

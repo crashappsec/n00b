@@ -24,7 +24,6 @@ uint64_t            n00b_page_modulus;
 uint64_t            n00b_modulus_mask;
 uint64_t            n00b_next_heap_index;
 int                 n00b_heap_entries_pp;
-pthread_mutex_t     n00b_arena_protection_guard = PTHREAD_MUTEX_INITIALIZER;
 
 n00b_heap_t *
 n00b_addr_find_heap(void *p, bool any)
@@ -183,8 +182,9 @@ n00b_debug_repr_heap(n00b_heap_t *p)
 }
 
 void
-n00b_debug_print_heap(n00b_heap_t *p)
+n00b_debug_log_heap(n00b_heap_t *p)
 {
+#if N00B_DLOG_GC_LEVEL >= 0
     n00b_crit_t   crit = atomic_read(&p->ptr);
     char         *head = (char *)crit.next_alloc;
     int64_t       used = 0;
@@ -204,53 +204,41 @@ n00b_debug_print_heap(n00b_heap_t *p)
         a = a->successor;
     }
 
-    fprintf(stderr, "Heap ");
+    n00b_dlog_gc("Heap '%s' @%p (#%lld; %s:%d)%s%s%s%s; #gcs: %d; used: %lld b; free: %lld b",
+                 p->name ? p->name : "(anon)",
+                 p,
+                 (long long int)p->heap_id,
+                 p->file,
+                 p->line,
+                 p->pinned ? " (pinned)" : "",
+                 p->no_trace ? " (no-trace)" : "",
+                 p->local_collects ? " (local gc)" : "",
+                 p->private ? " (private)" : "",
+                 p->num_collects,
+                 (long long int)used,
+                 (long long int)free);
+    n00b_dlog_gc1("Allocs: since last collect: %d; Lifetime: %d\n",
+                  p->alloc_count,
+                  p->total_alloc_count);
 
-    if (p->name) {
-        fprintf(stderr, "'%s' ", p->name);
-    }
-
-    fprintf(stderr, "(#%lld; %s:%d)", (long long int)p->heap_id, p->file, p->line);
-
-    if (p->released) {
-        fprintf(stderr, " (released)\n");
-        return;
-    }
-    if (p->pinned) {
-        fprintf(stderr, " (pinned)");
-    }
-    if (p->no_trace) {
-        fprintf(stderr, " (no-trace)");
-    }
-    if (p->local_collects) {
-        fprintf(stderr, " (local gc)");
-    }
-    if (p->private) {
-        fprintf(stderr, " (private)");
-    }
-
-    fprintf(stderr,
-            "\nCollects: %d\nMemory used: %lld b; Free: %lld b\n",
-            p->num_collects,
-            (long long int)used,
-            (long long int)free);
-    fprintf(stderr,
-            "Allocs: Since collect: %d; Inherited: %d; Lifetime: %d\n",
-            p->alloc_count,
-            p->inherit_count,
-            p->total_alloc_count);
-
+#if defined(N00B_DLOG_GC_ON) && N00B_DLOG_GC_LEVEL >= 2
     a = p->first_arena;
 
     if (a) {
-        fprintf(stderr, "Next alloc: %p\nArenas:\n", crit.next_alloc);
-
+        n00b_dlog_gc2("Next alloc: %p", crit.next_alloc);
+        int i = 0;
         while (a) {
-            fprintf(stderr, "  %p-%p\n", a->addr_start, a->addr_end);
+            n00b_dlog_gc2("Arena %d (heap #%lld): %p-%p",
+                          ++i,
+                          (long long int)p->heap_id,
+                          a->addr_start,
+                          a->addr_end);
 
             a = a->successor;
         }
     }
+#endif
+#endif
 
     return;
 }
@@ -273,7 +261,7 @@ void
 n00b_debug_all_heaps(void)
 {
     for (unsigned int i = 0; i < n00b_next_heap_index; i++) {
-        n00b_debug_print_heap(n00b_all_heaps + i);
+        n00b_debug_log_heap(n00b_all_heaps + i);
     }
 }
 
@@ -327,7 +315,7 @@ n00b_long_term_pin(n00b_heap_t *h)
 {
     // Long-term pins a heap, which marks it as no_trace.
     n00b_heap_collect(h, 0);
-    n00b_gts_stop_the_world();
+    N00B_DBG_CALL(n00b_stop_the_world);
     n00b_crit_t crit = atomic_read(&h->ptr);
 
     if (!long_term_pins->first_arena) {
@@ -355,7 +343,7 @@ n00b_long_term_pin(n00b_heap_t *h)
     h->newest_arena = NULL;
     n00b_add_arena(h, long_term_pins->newest_arena->user_length);
 
-    n00b_gts_restart_the_world();
+    N00B_DBG_CALL(n00b_restart_the_world);
 }
 
 void
@@ -445,7 +433,7 @@ n00b_find_allocation_record(void *addr)
         if (!a) {
             return NULL;
         }
-        if (addr >= a->addr_start && addr < a->addr_end) {
+        if (addr >= a->addr_start && addr < a->last_issued) {
             break;
         }
         a = a->successor;

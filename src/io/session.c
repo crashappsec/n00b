@@ -10,7 +10,7 @@ n00b_session_init(n00b_session_t *session, va_list args)
     n00b_list_t     *execv_args         = NULL;
     n00b_dict_t     *execv_env          = NULL;
     n00b_string_t   *pwd                = NULL;
-    n00b_stream_t  *capture_stream     = NULL; // No more than one option
+    n00b_stream_t   *capture_stream     = NULL; // No more than one option
     n00b_string_t   *capture_filename   = NULL; // for capture is allowed.
     bool             capture_tmpfile    = false;
     bool             pass_input         = true;
@@ -101,9 +101,9 @@ static inline n00b_string_t *
 create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
 {
     n00b_stream_t *rc_file = n00b_tempfile(NULL, NULL);
-    *ctrl_file_ptr          = n00b_tempfile(NULL, NULL);
-    n00b_string_t *result   = n00b_stream_get_name(rc_file);
-    n00b_buf_t    *buf      = n00b_new(n00b_type_buffer(),
+    *ctrl_file_ptr         = n00b_tempfile(NULL, NULL);
+    n00b_string_t *result  = n00b_stream_get_name(rc_file);
+    n00b_buf_t    *buf     = n00b_new(n00b_type_buffer(),
                                n00b_kw("length",
                                        (int64_t)strlen(bash_setup_string),
                                        "ptr",
@@ -176,8 +176,8 @@ setup_shell_invocation(n00b_session_t *session)
     // we do the actual exec.
 
     n00b_stream_t *ctrl_stream;
-    n00b_string_t  *path;
-    n00b_list_t    *result = n00b_list(n00b_type_string());
+    n00b_string_t *path;
+    n00b_list_t   *result = n00b_list(n00b_type_string());
 
     session->rc_filename         = create_tmpfiles(&ctrl_stream);
     session->subproc_ctrl_stream = ctrl_stream;
