@@ -72,5 +72,5 @@ extern n00b_db_rule_t *n00b_drule_end(n00b_db_rule_t *);
 #ifdef N00B_USE_INTERNAL_API
 extern n00b_db_rule_t *n00b_get_topic_workflow(n00b_string_t *);
 extern void            n00b_apply_debug_workflow(n00b_debug_msg_t *);
-bool                   n00b_local_process_is_server;
+extern bool            n00b_local_process_is_server;
 #endif
