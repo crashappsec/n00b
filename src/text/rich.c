@@ -1261,12 +1261,12 @@ final_assembly(rich_ctrl_t *info, int n)
                 result->styling->styles[last_style].end = cp_ix;
                 last_style                              = -1;
             }
-            if (cur_props) {
-                di         = &result->styling->styles[next_style];
-                di->start  = cp_ix;
-                di->info   = cur_props;
-                last_style = next_style++;
-            }
+            // if (cur_props) {
+            //     di         = &result->styling->styles[next_style];
+            //     di->start  = cp_ix;
+            //     di->info   = cur_props;
+            //     last_style = next_style++;
+            // }
             cur_style = empty_props();
             extend    = false;
             continue;
@@ -1373,20 +1373,22 @@ final_assembly(rich_ctrl_t *info, int n)
             style = n00b_text_style_overlay(cur_style, cur_props);
             assert(style != cur_props);
 
-            di         = &result->styling->styles[next_style];
-            di->start  = cp_ix;
-            di->info   = style;
-            last_style = next_style++;
+            // di         = &result->styling->styles[next_style];
+            // di->start  = cp_ix;
+            // di->info   = style;
+            // last_style = next_style++;
             continue;
         case RICH_STYLE_RESET:
             if (last_style != -1) {
                 result->styling->styles[last_style].end = cp_ix;
+                last_style = -1;
             }
-            cur_style  = empty_props();
-            di         = &result->styling->styles[next_style];
-            di->start  = cp_ix;
-            di->info   = cur_style;
-            last_style = next_style++;
+            cur_style = empty_props();
+            cur_props = empty_props();
+            // di         = &result->styling->styles[next_style];
+            // di->start  = cp_ix;
+            // di->info   = cur_style;
+            // last_style = next_style++;
             extend     = false;
             continue;
         default:

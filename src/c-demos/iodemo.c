@@ -91,6 +91,26 @@ signal_demo2(int signal, siginfo_t *info, void *user_param)
         info->si_addr);
 }
 
+void
+print_eating_newline() {
+    n00b_string_t *rich = n00b_cformat(
+        "«b»b«/»«em3»em«/»«i»i«/i» [|em|]test2[|/em|][|em2|]test3[|/|] [|b|]b [|i|]&i[|/i|] b[|/b|] [|b|][|i|]b&i[|/|]"
+        // "[|b|]b[|/b|][|em|]em[|/|][|i|]i[|i|]"
+        // "[|b|][|em|][|i|]b[|/|]em_i[|/|]"
+    );
+    n00b_string_t *hello = n00b_cformat("«em3»Hello«/»");
+    n00b_string_t *world = n00b_cformat("«i»World«/»");
+
+    n00b_print(hello);
+    n00b_print(world);
+    n00b_print(rich);
+    n00b_printf("1 «em3»Hello«/em3» «i»World«/i» 2 «em3»Hello«/em3»«i»World«/i» 3 «em3»Hello«/» «i»World«/» 4 «em3»Hello«/»«i»World«/» 5 [|em3|]Hello[|/em3|] [|i|]World[|/i|] 6 [|em3|]Hello[|/em3|][|i|]World[|/i|] 7 [|em3|]Hello[|/|] [|i|]World[|/|] 8 [|em3|]Hello[|/|][|i|]World[|/|]");
+    n00b_printf("3 «em3»Hello«/» «i»World«/» 4 «em3»Hello«/»«i»World«/»");
+    n00b_printf("[|#|][|#|] [|#|] [|#|]", hello, world, hello, world);
+
+    return;
+}
+
 int
 main(void)
 {
@@ -99,73 +119,76 @@ main(void)
     n00b_signal_register(SIGHUP, signal_demo, (void *)1ULL);
     n00b_signal_register(SIGHUP, signal_demo2, (void *)2ULL);
 
-    // eprintf() and printf() use the stream API (n00b_printf() takes
-    // an optional stream parameter.
-    n00b_eprintf("[|red|]Welcome to the IO demo[|/|]");
-    n00b_eprintf("[|p|]");
+    // // eprintf() and printf() use the stream API (n00b_printf() takes
+    // // an optional stream parameter.
+    // n00b_eprintf("[|red|]Welcome to the IO demo[|/|]");
+    // n00b_eprintf("[|p|]");
 
-    // The process API uses the stream API extensively:
-    // 1) For routing data between parent and child.
-    // 2) For handling data capture.
-    // 3) For dealing w/ subprocess exit.
+    // // The process API uses the stream API extensively:
+    // // 1) For routing data between parent and child.
+    // // 2) For handling data capture.
+    // // 3) For dealing w/ subprocess exit.
 
-    n00b_list_t   *args = n00b_list(n00b_type_string());
-    n00b_string_t *ls   = n00b_cstring("/bin/ls");
+    // n00b_list_t   *args = n00b_list(n00b_type_string());
+    // n00b_string_t *ls   = n00b_cstring("/bin/ls");
 
-    n00b_list_append(args, n00b_cstring("--color"));
-    n00b_list_append(args, n00b_cstring("/"));
+    // n00b_list_append(args, n00b_cstring("--color"));
+    // n00b_list_append(args, n00b_cstring("/"));
 
-    n00b_proc_t *proc    = n00b_run_process(ls, args, true, true);
-    n00b_buf_t  *capture = n00b_proc_get_stdout_capture(proc);
+    // n00b_proc_t *proc    = n00b_run_process(ls, args, true, true);
+    // n00b_buf_t  *capture = n00b_proc_get_stdout_capture(proc);
 
-    uint64_t         port = 7879;
-    n00b_net_addr_t *addr = NULL;
-    n00b_stream_t   *srv;
+    // uint64_t         port = 7879;
+    // n00b_net_addr_t *addr = NULL;
+    // n00b_stream_t   *srv;
 
-    do {
-        N00B_TRY
-        {
-            addr = n00b_new(n00b_type_net_addr(),
-                            n00b_kw("address",
-                                    n00b_cstring("127.0.0.1"),
-                                    "port",
-                                    port));
-            srv  = n00b_create_listener(addr);
-        }
-        N00B_EXCEPT
-        {
-            port++;
-        }
-        N00B_TRY_END;
-    } while (!srv);
+    // do {
+    //     N00B_TRY
+    //     {
+    //         addr = n00b_new(n00b_type_net_addr(),
+    //                         n00b_kw("address",
+    //                                 n00b_cstring("127.0.0.1"),
+    //                                 "port",
+    //                                 port));
+    //         srv  = n00b_create_listener(addr);
+    //     }
+    //     N00B_EXCEPT
+    //     {
+    //         port++;
+    //     }
+    //     N00B_TRY_END;
+    // } while (!srv);
 
-    // The debug system uses the stream system, with logic to use a
-    // local debug server, or fail over to stderr, when not available.
-    n00b_debugf("test", "Address: [|#|]", addr);
+    // // The debug system uses the stream system, with logic to use a
+    // // local debug server, or fail over to stderr, when not available.
+    // n00b_debugf("test", "Address: [|#|]", addr);
 
-    n00b_stream_t *log = n00b_stream_open_file(n00b_cstring("/tmp/testlog"),
-                                               "write_only",
-                                               (int64_t) true,
-                                               "allow_file_creation",
-                                               (int64_t) true);
+    // n00b_stream_t *log = n00b_stream_open_file(n00b_cstring("/tmp/testlog"),
+    //                                            "write_only",
+    //                                            (int64_t) true,
+    //                                            "allow_file_creation",
+    //                                            (int64_t) true);
 
-    n00b_stream_t *cb = n00b_new_callback_stream(input_callback, capture);
-    n00b_stream_subscribe_read(n00b_stdin(), log, false);
-    n00b_stream_subscribe_read(n00b_stdin(), cb, false);
+    // n00b_stream_t *cb = n00b_new_callback_stream(input_callback, capture);
+    // n00b_stream_subscribe_read(n00b_stdin(), log, false);
+    // n00b_stream_subscribe_read(n00b_stdin(), cb, false);
 
-    n00b_stream_t *accept_cb = n00b_new_callback_stream(demo_accept, NULL);
-    n00b_stream_subscribe_read(srv, accept_cb, false);
+    // n00b_stream_t *accept_cb = n00b_new_callback_stream(demo_accept, NULL);
+    // n00b_stream_subscribe_read(srv, accept_cb, false);
 
-    n00b_eprintf("Your two minutes begins on the first tick.");
-    n00b_eprintf("ESC exits early; ! shows subscriptions.");
+    print_eating_newline();
 
-    for (int i = 0; i < 120; i++) {
-        n00b_sleep_ms(1000);
-        if (!(i % 15)) {
-            n00b_string_t *s = n00b_cformat("[|em1|]tick...");
-            n00b_debug("test", s);
-        }
-    }
-    n00b_eprintf("[|em4|]Boom!");
+    // n00b_eprintf("Your two minutes begins on the first tick.");
+    // n00b_eprintf("ESC exits early; ! shows subscriptions.");
+
+    // for (int i = 0; i < 120; i++) {
+    //     n00b_sleep_ms(1000);
+    //     if (!(i % 15)) {
+    //         n00b_string_t *s = n00b_cformat("[|em1|]tick...");
+    //         n00b_debug("test", s);
+    //     }
+    // }
+    // n00b_eprintf("[|em4|]Boom!");
+
     n00b_exit(0);
 }
