@@ -94,19 +94,13 @@ signal_demo2(int signal, siginfo_t *info, void *user_param)
 void
 print_eating_newline() {
     n00b_string_t *rich = n00b_cformat(
-        "«b»b«/»«em3»em«/»«i»i«/i» [|em|]test2[|/em|][|em2|]test3[|/|] [|b|]b [|i|]&i[|/i|] b[|/b|] [|b|][|i|]b&i[|/|]"
-        // "[|b|]b[|/b|][|em|]em[|/|][|i|]i[|i|]"
-        // "[|b|][|em|][|i|]b[|/|]em_i[|/|]"
+        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|i|]i[|/i|]\n"
+        "[|em|]one [|em2|]two[|/em2|] [|em3|]three[|/em3|] one[|/|]\n"
+        "[|b|]b [|i|]&i[|/i|] [|u|]&u[|/u|] [|i|]&i[|/i|] b[|/b|]\n"
+        "[|b|][|i|]b&i [|u|]&u[|/|]\n"
+        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|em2|]em2[|/em2|][|/|][|i|]i[|/i|] [|em|]em[|/em|][|em2|]em2[|/|] [|b|]b [|i|]&i[|/i|] b[|/b|] [|b|][|i|]b&i[|/|] [|em3|]em3[|/em|][|em4|]em4[|/|]\n"
     );
-    n00b_string_t *hello = n00b_cformat("«em3»Hello«/»");
-    n00b_string_t *world = n00b_cformat("«i»World«/»");
-
-    n00b_print(hello);
-    n00b_print(world);
     n00b_print(rich);
-    n00b_printf("1 «em3»Hello«/em3» «i»World«/i» 2 «em3»Hello«/em3»«i»World«/i» 3 «em3»Hello«/» «i»World«/» 4 «em3»Hello«/»«i»World«/» 5 [|em3|]Hello[|/em3|] [|i|]World[|/i|] 6 [|em3|]Hello[|/em3|][|i|]World[|/i|] 7 [|em3|]Hello[|/|] [|i|]World[|/|] 8 [|em3|]Hello[|/|][|i|]World[|/|]");
-    n00b_printf("3 «em3»Hello«/» «i»World«/» 4 «em3»Hello«/»«i»World«/»");
-    n00b_printf("[|#|][|#|] [|#|] [|#|]", hello, world, hello, world);
 
     return;
 }
