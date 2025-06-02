@@ -95,6 +95,20 @@ signal_demo2(int signal, siginfo_t *info, void *user_param)
         info->si_addr);
 }
 
+void
+print_eating_newline() {
+    n00b_string_t *rich = n00b_cformat(
+        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|i|]i[|/i|]\n"
+        "[|em|]one [|em2|]two[|/em2|] [|em3|]three[|/em3|] one[|/|]\n"
+        "[|b|]b [|i|]&i[|/i|] [|u|]&u[|/u|] [|i|]&i[|/i|] b[|/b|]\n"
+        "[|b|][|i|]b&i [|u|]&u[|/|]\n"
+        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|em2|]em2[|/em2|][|/|][|i|]i[|/i|] [|em|]em[|/em|][|em2|]em2[|/|] [|b|]b [|i|]&i[|/i|] b[|/b|] [|b|][|i|]b&i[|/|] [|em3|]em3[|/em|][|em4|]em4[|/|]\n"
+    );
+    n00b_print(rich);
+
+    return;
+}
+
 int
 main(void)
 {

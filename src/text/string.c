@@ -396,7 +396,7 @@ slice_styles(n00b_string_t *dst, n00b_string_t *src, int64_t start, int64_t end)
         int64_t enew = n00b_min(eold, end) - start;
 
         if (snew >= enew) {
-            break;
+            continue;
         }
 
         if (n00b_style_extends_front(&src->styling->styles[i])) {
