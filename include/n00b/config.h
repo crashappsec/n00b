@@ -353,4 +353,12 @@
 #define N00B_ENV_DBG_LOG "N00B_DEBUG_LOG"
 #endif
 
+#undef N00B_INIT_FD_LIMIT
+#if !defined(N00B_DONT_SET_FD_LIMIT)
+#define N00B_INIT_FD_LIMIT
+#if !defined(N00B_DEFAULT_FD_LIMIT)
+#define N00B_DEFAULT_FD_LIMIT -1
+#endif
+#endif
+
 #include "n00b/debug_config.h"
