@@ -27,7 +27,7 @@ n00b_bytering_init(n00b_bytering_t *self, va_list args)
         N00B_CRAISE("Cannot set 'string' and 'buffer' parameters at once.");
     }
 
-    n00b_static_lock_init(self->internal_lock);
+    n00b_mutex_init(&self->internal_lock);
 
     if (str) {
         copy_len = n00b_string_byte_len(str);

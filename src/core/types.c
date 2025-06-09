@@ -287,6 +287,8 @@ alloc_type_list(void)
     result->append_ix = 0;
     result->length    = 2;
 
+    n00b_rw_lock_init(&result->lock);
+
     return result;
 }
 
@@ -425,7 +427,7 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
     n00b_buf_t    *buf;
     uint64_t       result;
     n00b_type_t   *node = n00b_type_resolve(*nodeptr);
-    type_hash_ctx *ctx;
+    type_hash_ctx  ctx;
     n00b_dt_kind_t kind = n00b_type_get_kind(node);
 
     // Note that
@@ -444,22 +446,21 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
         return node->typeid;
     default:
         // I was leaving ctx on the stack but the GC was losing it :(
-        ctx           = n00b_gc_alloc_mapped(type_hash_ctx, N00B_GC_SCAN_ALL);
-        node->typeid  = 0;
-        ctx->sha      = n00b_new(n00b_type_hash());
-        ctx->tv_count = 0;
-        ctx->memos    = n00b_new_unmanaged_dict(HATRACK_DICT_KEY_TYPE_PTR,
-                                             false,
-                                             false);
+        node->typeid = 0;
+        ctx.sha      = n00b_new(n00b_type_hash());
+        ctx.tv_count = 0;
+        ctx.memos    = n00b_new_unmanaged_dict(HATRACK_DICT_KEY_TYPE_PTR,
+                                            false,
+                                            false);
 
-        internal_type_hash(node, ctx);
+        internal_type_hash(node, &ctx);
 
-        buf    = n00b_sha_finish(ctx->sha);
+        buf    = n00b_sha_finish(ctx.sha);
         result = ((uint64_t *)buf->data)[0];
 
         little_64(result);
 
-        if (ctx->tv_count == 0) {
+        if (ctx.tv_count == 0) {
             result &= ~(1LLU << 63);
         }
         else {
@@ -469,7 +470,8 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
         node->typeid = result;
 
         if (!n00b_universe_add(&n00b_type_universe, node)) {
-            n00b_type_t *o = n00b_universe_get(&n00b_type_universe, node->typeid);
+            n00b_type_t *o = n00b_universe_get(&n00b_type_universe,
+                                               node->typeid);
             if (!o) {
                 return result;
             }
@@ -1602,9 +1604,8 @@ setup_primitive_types(void)
 
     n00b_heap_register_root(n00b_default_heap,
                             &n00b_type_universe,
-                            sizeof(n00b_type_universe_t));
+                            sizeof(n00b_type_universe_t) / 8);
 
-    n00b_push_heap(n00b_internal_heap);
     n00b_alloc_base_type_object(N00B_T_TYPESPEC);
 
     for (int i = 0; i < N00B_NUM_BUILTIN_DTS; i++) {
@@ -1625,7 +1626,6 @@ setup_primitive_types(void)
             continue;
         }
     }
-    n00b_pop_heap();
 }
 
 static int inited = false;
@@ -1639,13 +1639,11 @@ n00b_initialize_global_types(void)
     }
 }
 
-#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 #define DECLARE_ONE_PARAM_FN(tname, idnumber)                      \
     n00b_type_t *                                                  \
         _n00b_type_##tname(n00b_type_t *sub, char *file, int line) \
     {                                                              \
-        n00b_push_heap(n00b_internal_heap);                        \
-                                                                   \
         n00b_type_t *ts                                            \
             = n00b_type_typespec();                                \
         n00b_type_t *result = _n00b_new(NULL,                      \
@@ -1658,7 +1656,6 @@ n00b_initialize_global_types(void)
         n00b_list_append(items, sub);                              \
                                                                    \
         type_hash_and_dedupe(&result);                             \
-        n00b_pop_heap();                                           \
                                                                    \
         return result;                                             \
     }
@@ -1668,14 +1665,12 @@ n00b_initialize_global_types(void)
     n00b_type_t *                                     \
         n00b_type_##tname(n00b_type_t *sub)           \
     {                                                 \
-        n00b_push_heap(n00b_internal_heap);           \
         n00b_type_t *ts     = n00b_type_typespec();   \
         n00b_type_t *result = n00b_new(ts, idnumber); \
         n00b_list_t *items  = result->items;          \
         n00b_list_append(items, sub);                 \
                                                       \
         type_hash_and_dedupe(&result);                \
-        n00b_pop_heap();                              \
                                                       \
         return result;                                \
     }
@@ -1685,20 +1680,26 @@ extern int n00b_current_test_case;
 extern int n00b_watch_case;
 extern int TMP_DEBUG;
 
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 n00b_type_t *
 _n00b_type_list(n00b_type_t *sub, char *file, int line)
 {
-    n00b_push_heap(n00b_internal_heap);
     n00b_type_t *result = _n00b_new(NULL,
                                     file,
                                     line,
                                     n00b_type_typespec(),
                                     N00B_T_LIST);
+#else
+n00b_type_t *
+_n00b_type_list(n00b_type_t *sub)
+{
+    n00b_type_t *result = _n00b_new(NULL,
+                                    n00b_type_typespec(),
+                                    N00B_T_LIST);
+#endif
     n00b_assert(result->base_index == N00B_T_LIST);
     n00b_private_list_append(result->items, sub);
     type_hash_and_dedupe(&result);
-
-    n00b_pop_heap();
     return result;
 }
 
@@ -1764,18 +1765,14 @@ n00b_type_box(n00b_type_t *sub)
 n00b_type_t *
 n00b_type_dict(n00b_type_t *sub1, n00b_type_t *sub2)
 {
-    n00b_push_heap(n00b_internal_heap);
-
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_DICT);
     n00b_list_t *items  = result->items;
 
-    n00b_list_append(items, sub1);
-    n00b_list_append(items, sub2);
+    n00b_private_list_append(items, sub1);
+    n00b_private_list_append(items, sub2);
 
     type_hash_and_dedupe(&result);
-
-    n00b_pop_heap();
 
     return result;
 }
@@ -1783,8 +1780,6 @@ n00b_type_dict(n00b_type_t *sub1, n00b_type_t *sub2)
 n00b_type_t *
 n00b_type_tuple(int64_t nitems, ...)
 {
-    n00b_push_heap(n00b_internal_heap);
-
     va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(), N00B_T_TUPLE);
     n00b_list_t *items  = result->items;
@@ -1792,7 +1787,6 @@ n00b_type_tuple(int64_t nitems, ...)
     va_start(args, nitems);
 
     if (nitems <= 1) {
-        n00b_pop_heap();
         N00B_CRAISE("Tuples must contain 2 or more items.");
     }
 
@@ -1803,22 +1797,17 @@ n00b_type_tuple(int64_t nitems, ...)
 
     type_hash_and_dedupe(&result);
 
-    n00b_pop_heap();
-
     return result;
 }
 
 n00b_type_t *
 n00b_type_tuple_from_list(n00b_list_t *items)
 {
-    n00b_push_heap(n00b_internal_heap);
-
     n00b_type_t *result = n00b_new(n00b_type_typespec(), N00B_T_TUPLE);
 
     result->items = items;
 
     type_hash_and_dedupe(&result);
-    n00b_pop_heap();
 
     return result;
 }
@@ -1826,8 +1815,6 @@ n00b_type_tuple_from_list(n00b_list_t *items)
 n00b_type_t *
 n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
 {
-    n00b_push_heap(n00b_internal_heap);
-
     va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_FUNCDEF);
@@ -1842,7 +1829,6 @@ n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
     n00b_list_append(items, return_type);
 
     type_hash_and_dedupe(&result);
-    n00b_pop_heap();
 
     return result;
 }
@@ -1852,8 +1838,6 @@ n00b_type_fn_va(n00b_type_t *return_type, int64_t nparams, ...)
 n00b_type_t *
 n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
 {
-    n00b_push_heap(n00b_internal_heap);
-
     va_list      args;
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_FUNCDEF);
@@ -1862,7 +1846,6 @@ n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
     va_start(args, nparams);
 
     if (nparams < 1) {
-        n00b_pop_heap();
         N00B_CRAISE("Varargs functions require at least one argument.");
     }
 
@@ -1874,7 +1857,6 @@ n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
     result->flags |= N00B_FN_TY_VARARGS;
 
     type_hash_and_dedupe(&result);
-    n00b_pop_heap();
 
     return result;
 }
@@ -1882,8 +1864,6 @@ n00b_type_varargs_fn(n00b_type_t *return_type, int64_t nparams, ...)
 n00b_type_t *
 n00b_type_fn(n00b_type_t *ret, n00b_list_t *params, bool va)
 {
-    n00b_push_heap(n00b_internal_heap);
-
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_FUNCDEF);
     n00b_list_t *items  = result->items;
@@ -1899,8 +1879,6 @@ n00b_type_fn(n00b_type_t *ret, n00b_list_t *params, bool va)
         result->flags |= N00B_FN_TY_VARARGS;
     }
     type_hash_and_dedupe(&result);
-
-    n00b_pop_heap();
 
     return result;
 }
@@ -2018,16 +1996,12 @@ n00b_get_promotion_type(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 n00b_type_t *
 n00b_new_typevar()
 {
-    n00b_push_heap(n00b_internal_heap);
-
     n00b_type_t *result = n00b_new(n00b_type_typespec(),
                                    N00B_T_GENERIC);
 
     result->options.container_options = n00b_get_all_containers_bitfield();
     result->items                     = n00b_list(n00b_type_typespec());
     result->flags                     = N00B_FN_UNKNOWN_TV_LEN;
-
-    n00b_pop_heap();
 
     return result;
 }

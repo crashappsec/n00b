@@ -1,6 +1,8 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+#define VARIABLE_ALLOC_SZ (~0U)
+
 static n00b_string_t *
 nil_repr(void *ignored)
 {
@@ -579,11 +581,20 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
-    [N00B_T_LOCK] = {
-        .name      = "lock",
-        .typeid    = N00B_T_LOCK,
-        .alloc_len = sizeof(n00b_lock_t),
-        .vtable    = &n00b_lock_vtable,
+    [N00B_T_MUTEX] = {
+        .name      = "mutex",
+        .typeid    = N00B_T_MUTEX,
+        .alloc_len = sizeof(n00b_mutex_t),
+        .vtable    = &n00b_mutex_vtable,
+        .dt_kind   = N00B_DT_KIND_primitive,
+        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
+        .mutable   = true,
+    },
+    [N00B_T_RW_LOCK] = {
+        .name      = "rw_lock",
+        .typeid    = N00B_T_RW_LOCK,
+        .alloc_len = sizeof(n00b_rwlock_t),
+        .vtable    = &n00b_rwlock_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
@@ -597,20 +608,12 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
+    // not alloc'd this way, right now.
     [N00B_T_STREAM] = {
         .name      = "stream",
         .typeid    = N00B_T_STREAM,
-        .alloc_len = sizeof(n00b_stream_t),
+        .alloc_len = VARIABLE_ALLOC_SZ,
         .vtable    = &n00b_stream_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
-    [N00B_T_MESSAGE] = {
-        .name      = "message",
-        .typeid    = N00B_T_MESSAGE,
-        .alloc_len = sizeof(n00b_message_t),
-        .vtable    = &n00b_message_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
@@ -620,15 +623,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .typeid    = N00B_T_BYTERING,
         .alloc_len = sizeof(n00b_bytering_t),
         .vtable    = &n00b_bytering_vtable,
-        .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
-    },
-    [N00B_T_FILE] = {
-        .name      = "file",
-        .typeid    = N00B_T_FILE,
-        .alloc_len = sizeof(n00b_stream_t),
-        .vtable    = &n00b_file_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
         .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
@@ -709,7 +703,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
 
 };
 
-#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 n00b_obj_t
 _n00b_new(n00b_heap_t *heap, char *file, int line, n00b_type_t *type, ...)
 #else
@@ -717,34 +711,33 @@ n00b_obj_t
 _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 #endif
 {
-    n00b_heap_t *__n00b_saved_heap           = NULL;
-    bool         clear_thread_heap_reference = false;
-
-    //    // Always use the internal heap for types.
-    if (type->typeid == N00B_T_TYPESPEC) {
-        __n00b_saved_heap           = n00b_internal_heap;
-        clear_thread_heap_reference = true;
-    }
-
-    // Thread heap overrides specified heaps.
-    if (heap && !n00b_thread_heap()) {
-        __n00b_saved_heap           = heap;
-        clear_thread_heap_reference = true;
-    }
+    va_list args;
+    va_start(args, type);
 
     type = n00b_type_resolve(type);
 
-    n00b_obj_t      obj;
-    va_list         args;
+    n00b_obj_t obj;
+
     n00b_dt_info_t *tinfo     = n00b_type_get_data_type_info(type);
     uint64_t        alloc_len = tinfo->alloc_len;
+
+    if (alloc_len == VARIABLE_ALLOC_SZ) {
+        va_list              argcopy;
+        void                *param;
+        n00b_obj_size_helper helper;
+
+        va_copy(argcopy, args);
+        param = va_arg(argcopy, void *);
+        va_end(argcopy);
+
+        helper    = (void *)tinfo->vtable->methods[N00B_BI_ALLOC_SZ];
+        alloc_len = (*helper)(param);
+    }
 
     if (!tinfo->vtable) {
         obj = n00b_gc_raw_alloc(alloc_len, N00B_GC_SCAN_ALL);
 
-        if (clear_thread_heap_reference) {
-            n00b_pop_heap();
-        }
+        va_end(args);
         return obj;
     }
 
@@ -754,7 +747,7 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
 #if defined(N00B_MPROTECT_GUARD_ALLOCS)
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
-    if (tsi->add_guard) {
+    if (tsi && tsi->add_guard) {
         tsi->add_guard = false;
         obj            = _n00b_heap_alloc(n00b_current_heap(heap),
                                alloc_len,
@@ -777,9 +770,10 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
                            N00B_ALLOC_XPARAM);
 #endif
 
-    n00b_alloc_hdr *hdr = &((n00b_alloc_hdr *)obj)[-1];
-    hdr->n00b_obj       = true;
-    hdr->type           = type;
+    n00b_alloc_hdr *hdr = (void *)obj;
+    --hdr;
+    hdr->n00b_obj = true;
+    hdr->type     = type;
 
     if (tinfo->vtable->methods[N00B_BI_FINALIZER] == NULL) {
         hdr->n00b_finalize = true;
@@ -794,23 +788,15 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     case N00B_DT_KIND_object:
     case N00B_DT_KIND_box:
         if (init_fn != NULL) {
-            va_start(args, type);
             (*init_fn)(obj, args);
             va_end(args);
         }
         break;
     default:
-        if (clear_thread_heap_reference) {
-            n00b_pop_heap();
-        }
 
         N00B_CRAISE(
             "Requested type is non-instantiable or not yet "
             "implemented.");
-    }
-
-    if (clear_thread_heap_reference) {
-        n00b_pop_heap();
     }
 
     return obj;
@@ -1093,6 +1079,33 @@ bool
 n00b_eq(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
 {
     n00b_dt_info_t *info = n00b_type_get_data_type_info(t);
+    n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
+    n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_EQ];
+
+    if (!ptr) {
+        return o1 == o2;
+    }
+
+    return (*ptr)(o1, o2);
+}
+
+// Will mostly replace n00b_eq at some point soon.
+bool
+n00b_equals(void *o1, void *o2)
+{
+    n00b_type_t *t1 = n00b_get_my_type(o1);
+    n00b_type_t *t2 = n00b_get_my_type(o2);
+    int          warn;
+    n00b_type_t *m = n00b_merge_types(t1, t2, &warn);
+
+    if (n00b_type_is_error(m)) {
+        return false;
+    }
+    if (!n00b_in_heap(o1) || !n00b_in_heap(o2)) {
+        return o1 == o2;
+    }
+
+    n00b_dt_info_t *info = n00b_type_get_data_type_info(m);
     n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_EQ];
 

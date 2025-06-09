@@ -6,6 +6,7 @@
 char              **n00b_stashed_argv;
 static n00b_list_t *exit_handlers           = NULL;
 static n00b_dict_t *cached_environment_vars = NULL;
+bool                n00b_startup_complete   = false;
 
 static void
 n00b_on_exit(void)
@@ -103,7 +104,6 @@ load_env(n00b_dict_t *environment_vars)
         hatrack_dict_put(environment_vars, key, value);
         n00b_assert(hatrack_dict_get(environment_vars, key, NULL) == value);
     }
-    n00b_gc_register_root(&cached_environment_vars, 1);
     cached_environment_vars = environment_vars;
 }
 
@@ -346,8 +346,6 @@ n00b_add_static_symbols(void)
     FSTAT(n00b_get_c_backtrace);
     FSTAT(n00b_lookup_color);
     FSTAT(n00b_to_vga);
-    FSTAT(n00b_read_utf8_file);
-    FSTAT(n00b_read_binary_file);
     FSTAT(n00b_list_resize);
     FSTAT(n00b_list_append);
     FSTAT(n00b_list_sort);
@@ -355,16 +353,34 @@ n00b_add_static_symbols(void)
     FSTAT(n00b_list_contains);
 }
 
+struct timespec *n00b_io_duration = NULL;
+
+static void *
+start_io(void *ignore)
+{
+    n00b_fd_run_evloop(n00b_system_dispatcher, n00b_io_duration);
+    return NULL;
+}
+
 static void
 n00b_initialize_library(void)
 {
     n00b_init_program_timestamp();
-    n00b_io_init();
+    n00b_fd_init_io();
+    n00b_thread_spawn((void *)start_io, NULL);
 }
 
 extern void n00b_crash_init(void);
 
-bool n00b_startup_complete = false;
+#if defined(N00B_INIT_FD_LIMIT)
+static inline void
+set_fd_limit(void)
+{
+    n00b_set_fd_limit(N00B_DEFAULT_FD_LIMIT);
+}
+#else
+#define set_fd_limit()
+#endif
 
 __attribute__((constructor)) void
 n00b_init(int argc, char **argv, char **envp)
@@ -375,40 +391,39 @@ n00b_init(int argc, char **argv, char **envp)
         return;
     }
 
-    static int inited = false;
+    static volatile int inited = false;
 
     if (!inited) {
         inited            = true;
         n00b_stashed_argv = argv;
 
+        set_fd_limit();
         // We need some basic thread data before starting the GC, but
         // the thread setup for thread initialization that uses the heap
         // has to come after the GC is initialized. Therefore, sandwich
         // the GC startup with thread stuff.
-        n00b_threading_setup(); // thread.c
+        n00b_threading_setup(); // mt/thread_tsi.c
         n00b_initialize_gc();
-        n00b_finish_main_thread_initialization();
-
         n00b_gc_register_root(&n00b_root, 1);
         n00b_gc_register_root(&n00b_path, 1);
         n00b_gc_register_root(&n00b_extensions, 1);
         n00b_gc_register_root(&cached_environment_vars, 1);
         n00b_gc_register_root(&mmm_free_tids, sizeof(mmm_free_tids) / 8);
+        n00b_gc_register_root(&exit_handlers, 1);
         n00b_initialize_global_types();
         n00b_init_common_string_cache();
         n00b_backtrace_init(n00b_stashed_argv[0]);
         n00b_gc_set_system_finalizer((void *)n00b_finalize_allocation);
+        n00b_setup_signals();
         n00b_crash_init();
         n00b_register_builtins();
         n00b_init_path();
         n00b_theme_initialization();
         n00b_assertion_init();
-        n00b_long_term_pin(n00b_internal_heap);
-        n00b_internal_io_setup();
         n00b_initialize_library();
 
         n00b_startup_complete = true;
 
-        n00b_launch_io_loop();
+        n00b_dlog_thread("Main thread initialized.");
     }
 }

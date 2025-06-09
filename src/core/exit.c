@@ -1,8 +1,11 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static bool exiting         = false;
-static int  saved_exit_code = 0;
+static bool             exiting         = false;
+static int              saved_exit_code = 0;
+extern n00b_condition_t n00b_io_exit_request;
+extern bool             n00b_io_exited;
+bool                    n00b_abort_signal = false;
 
 #ifdef N00B_DEBUG_EXIT_TRACE
 #define show_trace() n00b_static_c_backtrace()
@@ -11,43 +14,72 @@ static int  saved_exit_code = 0;
 #endif
 
 // Most of the work happens in tsi by the pthread destructor (n00b_tsi_cleanup)
-void
+_Noreturn void
 n00b_thread_exit(void *result)
 {
-    if (!exiting) {
-        n00b_ioqueue_dont_block_callbacks();
-    }
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
-    n00b_thread_cancel_other_threads();
-
+    n00b_dlog_thread1("n00b_thread_exit() called.");
     // This has a potential race condition, but given we always should
     // have an IO thread running until actual shutdown, I think it's
     // okay.
-    if (n00b_thread_run_count() == 1) {
+    if (!n00b_thread_run_count()) {
+        n00b_dlog_thread1("Last thread exiting.");
+
+        if (!tsi->thread_id) {
+            n00b_post_thread_cleanup(tsi);
+        }
         exit(saved_exit_code);
     }
+
+    n00b_dlog_thread1("After exit, %d threads remain.", n00b_thread_run_count());
+    if (!tsi->thread_id) {
+        n00b_post_thread_cleanup(tsi);
+    }
+
     pthread_exit(result);
 }
 
-void
+#if 0
+static void
+n00b_wait_on_io_shutdown(void)
+{
+    n00b_condition_t *c = &n00b_io_exit_request;
+
+    while (!n00b_io_exited) {
+        n00b_condition_lock(c);
+        n00b_condition_wait(c,
+                            n00b_kw("auto_unlock",
+                                    n00b_ka(true),
+                                    "timeout",
+                                    n00b_ka(100000)));
+    }
+}
+#endif
+
+_Noreturn void
 n00b_exit(int code)
 {
+    n00b_dlog_thread1("n00b_exit() called.");
+
+    // Wake any long-term blocked threads.
+    kill(getpid(), SIGINT);
     saved_exit_code = code;
     exiting         = true;
-    n00b_io_begin_shutdown();
     n00b_thread_cancel_other_threads();
+    //    n00b_wait_on_io_shutdown();
     n00b_thread_exit(NULL);
 }
 
-void
+_Noreturn void
 n00b_abort(void)
 {
-    saved_exit_code = 139;
-    exiting         = true;
-    n00b_gts_notify_abort();
-    n00b_io_begin_shutdown();
+    n00b_dlog_thread1("n00b_abort() called.");
+    saved_exit_code   = 139;
+    exiting           = true;
+    n00b_abort_signal = true;
+    //    n00b_wait_on_io_shutdown();
     n00b_thread_cancel_other_threads();
-    n00b_wait_for_io_shutdown();
     abort();
 }
 

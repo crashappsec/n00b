@@ -1,16 +1,26 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
+#define write_start(x) n00b_lock_list(x)
+#define write_end(x)   n00b_unlock_list(x)
+#define read_start(x)  n00b_lock_list_read(x)
+#define read_end(x)    n00b_unlock_list(x)
+
+int
+n00b_lexical_sort_fn(const n00b_string_t **s1, const n00b_string_t **s2)
+{
+    return strcmp((*s1)->data, (*s2)->data);
+}
+
 void
 n00b_list_init(n00b_list_t *list, va_list args)
 {
     int64_t length = 16;
 
-    list->noscan = N00B_NOSCAN;
-
     n00b_karg_va_init(args);
     n00b_kw_int64("length", length);
 
+    list->noscan    = N00B_NOSCAN;
     list->append_ix = 0;
     list->length    = n00b_max(length, 16);
 
@@ -24,12 +34,6 @@ n00b_list_init(n00b_list_t *list, va_list args)
     else {
         list->data = n00b_gc_array_value_alloc(uint64_t *, list->length);
     }
-}
-
-static void
-n00b_list_restore(n00b_list_t *list)
-{
-    n00b_rw_lock_init(&list->lock);
 }
 
 void
@@ -49,9 +53,9 @@ n00b_private_list_resize(n00b_list_t *list, size_t len)
 void
 n00b_list_resize(n00b_list_t *list, size_t len)
 {
-    n00b_rw_lock_acquire_for_write(&list->lock);
+    write_start(list);
     n00b_private_list_resize(list, len);
-    n00b_rw_lock_release(&list->lock);
+    write_end(list);
 }
 
 static inline void
@@ -59,12 +63,6 @@ list_auto_resize(n00b_list_t *list)
 {
     n00b_private_list_resize(list, list->length << 1);
 }
-
-#define lock_list(x)   n00b_lock_list(x)
-#define unlock_list(x) n00b_unlock_list(x)
-#define read_start(x)  n00b_rw_lock_acquire_for_read(&x->lock)
-#define read_end(x)    n00b_rw_lock_release(&x->lock)
-
 bool
 n00b_private_list_set(n00b_list_t *list, int64_t ix, void *item)
 {
@@ -78,7 +76,7 @@ n00b_private_list_set(n00b_list_t *list, int64_t ix, void *item)
 
     if (list->enforce_uniqueness && n00b_list_contains(list, item)) {
         // Just in case.
-        unlock_list(list);
+        write_end(list);
         N00B_CRAISE("Item already exists in list.");
     }
 
@@ -98,9 +96,9 @@ n00b_list_set(n00b_list_t *list, int64_t ix, void *item)
 {
     bool result;
 
-    lock_list(list);
+    write_start(list);
     result = n00b_private_list_set(list, ix, item);
-    unlock_list(list);
+    write_end(list);
 
     return result;
 }
@@ -113,7 +111,7 @@ n00b_private_list_append(n00b_list_t *list, void *item)
 
     if (list->enforce_uniqueness && n00b_list_contains(list, item)) {
         // Just in case.
-        unlock_list(list);
+        write_end(list);
         N00B_CRAISE("Item already exists in list.");
     }
 
@@ -129,23 +127,15 @@ n00b_private_list_append(n00b_list_t *list, void *item)
 void
 n00b_list_append(n00b_list_t *l, void *item)
 {
-    n00b_lock_list(l);
+    write_start(l);
     n00b_private_list_append(l, item);
-    n00b_unlock_list(l);
+    write_end(l);
 }
 
-void
-n00b_private_list_sort(n00b_list_t *list, n00b_sort_fn f)
+int
+n00b_lexical_sort(const n00b_string_t **s1, const n00b_string_t **s2)
 {
-    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
-}
-
-void
-n00b_list_sort(n00b_list_t *list, n00b_sort_fn f)
-{
-    lock_list(list);
-    qsort(list->data, list->append_ix, sizeof(int64_t *), f);
-    unlock_list(list);
+    return strcmp((*s1)->data, (*s2)->data);
 }
 
 static inline void *
@@ -188,14 +178,15 @@ n00b_private_list_get(n00b_list_t *list, int64_t ix, bool *err)
 void *
 n00b_list_get(n00b_list_t *list, int64_t ix, bool *err)
 {
-    lock_list(list);
+    read_start(list);
 
     if (ix < 0) {
         ix += list->append_ix;
     }
 
     void *result = n00b_list_get_base(list, ix, err);
-    unlock_list(list);
+
+    read_end(list);
 
     return result;
 }
@@ -205,13 +196,13 @@ n00b_list_add_if_unique(n00b_list_t *list,
                         void        *item,
                         bool (*fn)(void *, void *))
 {
-    lock_list(list);
+    write_start(list);
     // Really meant to be internal for debugging sets; use sets instead.
     for (int i = 0; i < n00b_list_len(list); i++) {
         void *x = n00b_list_get_base(list, i, NULL);
 
         if ((*fn)(x, item)) {
-            unlock_list(list);
+            write_end(list);
             return;
         }
     }
@@ -222,7 +213,7 @@ n00b_list_add_if_unique(n00b_list_t *list,
 
     list->data[list->append_ix++] = item;
 
-    unlock_list(list);
+    write_end(list);
 }
 
 void *
@@ -241,9 +232,9 @@ n00b_private_list_pop(n00b_list_t *list)
 void *
 n00b_list_pop(n00b_list_t *list)
 {
-    lock_list(list);
+    write_start(list);
     void *result = n00b_private_list_pop(list);
-    unlock_list(list);
+    write_end(list);
 
     return result;
 }
@@ -276,11 +267,11 @@ void
 n00b_list_plus_eq(n00b_list_t *l1, n00b_list_t *l2)
 {
     if (l1 && l2) {
-        n00b_lock_list(l1);
-        n00b_lock_list_read(l2);
+        write_start(l1);
+        read_start(l2);
         n00b_private_list_plus_eq(l1, l2);
-        n00b_unlock_list(l2);
-        n00b_unlock_list(l1);
+        read_end(l2);
+        write_end(l1);
     }
 }
 
@@ -370,9 +361,9 @@ n00b_list_len(const n00b_list_t *list)
 }
 
 n00b_list_t *
-n00b_list(n00b_type_t *x)
+_n00b_list(n00b_type_t *x)
 {
-    return n00b_new(n00b_type_list(x));
+    return n00b_new(n00b_type_list(x), 0ULL);
 }
 
 static n00b_string_t *
@@ -404,7 +395,8 @@ n00b_list_to_literal(n00b_list_t *list)
     n00b_string_t *result = n00b_string_join(items, sep);
 
     result = n00b_string_concat(n00b_cached_lbracket(),
-                                n00b_string_concat(result, n00b_cached_rbracket()));
+                                n00b_string_concat(result,
+                                                   n00b_cached_rbracket()));
 
     read_end(list);
 
@@ -418,7 +410,8 @@ n00b_list_coerce_to(n00b_list_t *list, n00b_type_t *dst_type)
 
     n00b_obj_t     result;
     n00b_dt_kind_t base          = n00b_type_get_kind(dst_type);
-    n00b_type_t   *src_item_type = n00b_type_get_param(n00b_get_my_type(list), 0);
+    n00b_type_t   *src_item_type = n00b_type_get_param(n00b_get_my_type(list),
+                                                     0);
     n00b_type_t   *dst_item_type = n00b_type_get_param(dst_type, 0);
     int64_t        len           = n00b_list_len(list);
 
@@ -479,7 +472,7 @@ n00b_list_copy(n00b_list_t *list)
 {
     read_start(list);
     n00b_list_t *result = n00b_private_list_copy(list);
-    unlock_list(list);
+    read_end(list);
     return result;
 }
 
@@ -491,7 +484,7 @@ n00b_private_list_shallow_copy(n00b_list_t *list)
     n00b_list_t *res     = n00b_new(my_type, n00b_kw("length", n00b_ka(len)));
 
     for (int i = 0; i < len; i++) {
-        n00b_list_set(res, i, n00b_list_get_base(list, i, NULL));
+        n00b_private_list_set(res, i, n00b_list_get_base(list, i, NULL));
     }
 
     return res;
@@ -502,7 +495,7 @@ n00b_list_shallow_copy(n00b_list_t *list)
 {
     read_start(list);
     n00b_list_t *result = n00b_private_list_shallow_copy(list);
-    unlock_list(list);
+    read_end(list);
     return result;
 }
 
@@ -541,8 +534,8 @@ n00b_private_list_get_slice(n00b_list_t *list, int64_t start, int64_t end)
     }
     else {
         if (start >= len) {
-            read_end(list);
-            return n00b_new(n00b_get_my_type(list), n00b_kw("length", n00b_ka(0)));
+            return n00b_new(n00b_get_my_type(list),
+                            n00b_kw("length", n00b_ka(0)));
         }
     }
     if (end < 0) {
@@ -555,7 +548,6 @@ n00b_private_list_get_slice(n00b_list_t *list, int64_t start, int64_t end)
     }
 
     if ((start | end) < 0 || start >= end) {
-        read_end(list);
         return n00b_new(n00b_get_my_type(list), n00b_kw("length", n00b_ka(0)));
     }
 
@@ -567,7 +559,6 @@ n00b_private_list_get_slice(n00b_list_t *list, int64_t start, int64_t end)
         n00b_list_set(res, i, item);
     }
 
-    read_end(list);
     return res;
 }
 
@@ -603,7 +594,7 @@ n00b_private_list_set_slice(n00b_list_t *list,
             if (!private_new) {
                 read_end(new);
             }
-            unlock_list(list);
+            write_end(list);
             N00B_CRAISE("Out of bounds slice.");
         }
     }
@@ -620,7 +611,7 @@ n00b_private_list_set_slice(n00b_list_t *list,
         if (!private_new) {
             read_end(new);
         }
-        unlock_list(list);
+        write_end(list);
         N00B_CRAISE("Out of bounds slice.");
     }
 
@@ -660,11 +651,11 @@ n00b_list_set_slice(n00b_list_t *list,
                     int64_t      end,
                     n00b_list_t *new)
 {
-    lock_list(list);
+    write_start(list);
 
     n00b_private_list_set_slice(list, start, end, new, false);
 
-    unlock_list(list);
+    write_end(list);
 }
 
 static void
@@ -675,7 +666,7 @@ list_remove_base(n00b_list_t *list, int64_t index)
     --list->append_ix;
 
     if (index + 1 == nitems) {
-        list->data[0] = NULL;
+        list->data[index] = NULL;
         return;
     }
 
@@ -715,7 +706,7 @@ n00b_private_list_remove(n00b_list_t *list, int64_t index)
 bool
 n00b_list_remove(n00b_list_t *list, int64_t index)
 {
-    lock_list(list);
+    write_start(list);
 
     int64_t nitems = list->append_ix;
 
@@ -724,17 +715,17 @@ n00b_list_remove(n00b_list_t *list, int64_t index)
     }
     else {
         if (index >= nitems) {
-            unlock_list(list);
+            write_end(list);
             return false;
         }
     }
     if (index < 0) {
-        unlock_list(list);
+        write_end(list);
         return false;
     }
 
     list_remove_base(list, index);
-    unlock_list(list);
+    write_end(list);
 
     return true;
 }
@@ -761,7 +752,7 @@ n00b_list_remove_item(n00b_list_t *list, void *item)
 {
     bool result = false;
 
-    lock_list(list);
+    write_start(list);
 
     int n = list->append_ix;
 
@@ -772,12 +763,12 @@ n00b_list_remove_item(n00b_list_t *list, void *item)
         }
     }
 
-    unlock_list(list);
+    write_end(list);
     return result;
 }
 
 void *
-n00b_list_private_dequeue(n00b_list_t *list)
+n00b_private_list_dequeue(n00b_list_t *list)
 {
     if (list->append_ix == 0) {
         return NULL;
@@ -792,47 +783,40 @@ n00b_list_private_dequeue(n00b_list_t *list)
 void *
 n00b_list_dequeue(n00b_list_t *list)
 {
-    lock_list(list);
+    write_start(list);
     if (list->append_ix == 0) {
-        unlock_list(list);
+        write_end(list);
         return NULL;
     }
 
     void *ret = n00b_list_get_base(list, 0, NULL);
     list_remove_base(list, 0);
 
-    unlock_list(list);
+    write_end(list);
 
     return ret;
 }
 
-bool
-n00b_private_list_contains(n00b_list_t *list, n00b_obj_t item)
+int64_t
+n00b_private_list_find(n00b_list_t *list, void *item)
 {
-    int64_t      len       = n00b_list_len(list);
-    n00b_type_t *list_type = n00b_get_my_type(list);
-    n00b_type_t *item_type = n00b_type_get_param(list_type, 0);
-
-    for (int i = 0; i < len; i++) {
-        if (n00b_type_is_ref(item_type)) {
-            return item == n00b_list_get_base(list, i, NULL);
-        }
-
-        if (n00b_eq(item_type, item, n00b_list_get_base(list, i, NULL))) {
-            return true;
+    int n = n00b_list_len(list);
+    for (int i = 0; i < n; i++) {
+        void *candidate = n00b_private_list_get(list, i, NULL);
+        if (n00b_equals(candidate, item)) {
+            return i;
         }
     }
 
-    return false;
+    return -1;
 }
 
-bool
-n00b_list_contains(n00b_list_t *list, n00b_obj_t item)
+int64_t
+n00b_list_find(n00b_list_t *list, void *item)
 {
+    int64_t result;
     read_start(list);
-
-    bool result = n00b_private_list_contains(list, item);
-
+    result = n00b_private_list_find(list, item);
     read_end(list);
     return result;
 }
@@ -882,9 +866,9 @@ n00b_private_list_reverse(n00b_list_t *l)
 void
 n00b_list_reverse(n00b_list_t *l)
 {
-    lock_list(l);
+    write_start(l);
     n00b_private_list_reverse(l);
-    unlock_list(l);
+    write_end(l);
 }
 
 static n00b_list_t *
@@ -909,7 +893,7 @@ _n00b_to_list(n00b_type_t *t, int nargs, ...)
     va_start(args, nargs);
 
     for (int i = 0; i < nargs; i++) {
-        n00b_list_append(result, va_arg(args, void *));
+        n00b_private_list_append(result, va_arg(args, void *));
     }
 
     return result;
@@ -924,7 +908,7 @@ _n00b_c_map(char *s, ...)
     va_start(args, s);
 
     while (s != NULL) {
-        n00b_list_append(result, n00b_cstring(s));
+        n00b_private_list_append(result, n00b_cstring(s));
         s = va_arg(args, char *);
     }
 
@@ -939,19 +923,13 @@ n00b_from_cstr_list(char **arr, int64_t n)
 
     for (int i = 0; i < n; i++) {
         n00b_string_t *s = n00b_cstring(arr[i]);
-        n00b_list_append(result, s);
+        n00b_private_list_append(result, s);
     }
 
     return result;
 }
 
 extern bool n00b_flexarray_can_coerce_to(n00b_type_t *, n00b_type_t *);
-
-void
-n00b_list_set_gc_bits(uint64_t *bitfield, void *alloc)
-{
-    // TODO: Do this up like dicts.
-}
 
 const n00b_vtable_t n00b_list_vtable = {
     .methods = {
@@ -970,8 +948,6 @@ const n00b_vtable_t n00b_list_vtable = {
         [N00B_BI_CONTAINER_LIT] = (n00b_vtable_entry)n00b_list_create,
         [N00B_BI_TO_LITERAL]    = (n00b_vtable_entry)n00b_list_to_literal,
         [N00B_BI_TO_STRING]     = (n00b_vtable_entry)n00b_list_to_literal,
-        [N00B_BI_GC_MAP]        = (n00b_vtable_entry)N00B_GC_SCAN_ALL,
-        [N00B_BI_RESTORE]       = (n00b_vtable_entry)n00b_list_restore,
         [N00B_BI_FINALIZER]     = NULL,
     },
 };

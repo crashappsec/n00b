@@ -3,7 +3,7 @@
 
 #ifdef N00B_USE_INTERNAL_API
 
-#define N00B_TEST_TIMEOUT_SEC_DEFAULT 5
+#define N00B_TEST_TIMEOUT_SEC_DEFAULT 2
 #endif
 
 typedef enum {
@@ -74,12 +74,18 @@ typedef struct {
     int            tests_in_test_dir;
     int            enabled_in_test_dir;
     int            groups_in_use;
+    int            c1_width;
+    int            c2_width;
+    int            c3_width;
+#if defined(N00B_DEBUG)
+    bool debug;
+#endif
 } n00b_testing_ctx;
 
 extern void              n00b_testgen_record(n00b_string_t *, bool, bool, bool);
 extern n00b_test_t      *n00b_testgen_load_test_file(n00b_string_t *, int);
 extern n00b_testing_ctx *_n00b_testgen_setup(N00B_OPT_KARGS);
-extern void              n00b_testgen_start_runner(n00b_testing_ctx *);
+extern int               n00b_testgen_run_tests(n00b_testing_ctx *);
 
 #define n00b_testgen_setup(...) \
     _n00b_testgen_setup(__VA_ARGS__ __VA_OPT__(, ) NULL)

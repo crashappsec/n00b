@@ -857,7 +857,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
                 info[i].type = RICH_AS_TEXT;
                 continue;
             }
-            item = n00b_list_get(args, next_positional++, &err);
+            item = n00b_private_list_get(args, next_positional++, &err);
 
             if (err) {
                 info[i].type = RICH_AS_TEXT;
@@ -870,7 +870,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
         switch (*p) {
         case ':':
             p++;
-            item = n00b_list_get(args, next_positional++, &err);
+            item = n00b_private_list_get(args, next_positional++, &err);
             if (err) {
                 info[i].type = RICH_AS_TEXT;
                 continue;
@@ -931,7 +931,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
                 continue;
             }
 
-            item = n00b_list_get(args, num_spec, &err);
+            item = n00b_private_list_get(args, num_spec, &err);
             if (err) {
                 info[i].type = RICH_AS_TEXT;
                 continue;
@@ -947,7 +947,7 @@ process_substitutions(rich_ctrl_t *info, int n, n00b_list_t *args)
             continue;
         case '!':
             // Omitted : allowed if there's a !
-            item = n00b_list_get(args, next_positional++, &err);
+            item = n00b_private_list_get(args, next_positional++, &err);
             if (err) {
                 info[i].type = RICH_AS_TEXT;
                 continue;
@@ -1183,6 +1183,10 @@ final_assembly(rich_ctrl_t *info, int n)
     n00b_text_element_t *cur_style = empty_props();
     n00b_text_element_t *style;
 
+    // this over-allocates because some of these nstyles will be props
+    n00b_text_element_t *style_stack[nstyles];
+    int                  style_ix = 0;
+
     if (nstyles) {
         result->styling = n00b_gc_flex_alloc(n00b_string_style_info_t,
                                              n00b_style_record_t,
@@ -1244,6 +1248,10 @@ final_assembly(rich_ctrl_t *info, int n)
                 result->styling->styles[last_style].end = cp_ix;
             }
 
+            if (style_ix < nstyles) {
+                style_stack[style_ix++] = cur_style;
+            }
+
             di         = &result->styling->styles[next_style];
             di->start  = cp_ix;
             last_style = next_style++;
@@ -1259,16 +1267,30 @@ final_assembly(rich_ctrl_t *info, int n)
         case RICH_STYLE_OFF:
             if (last_style != -1) {
                 result->styling->styles[last_style].end = cp_ix;
-                last_style                              = -1;
             }
-            if (cur_props) {
+            if (style_ix > 0) {
+                n00b_text_element_t *base_style = style_stack[--style_ix];
+                if (cur_props) {
+                    style = n00b_text_style_overlay(base_style, cur_props);
+                } else {
+                    style = base_style;
+                }
                 di         = &result->styling->styles[next_style];
                 di->start  = cp_ix;
-                di->info   = cur_props;
+                di->info   = style;
+                cur_style  = style;
                 last_style = next_style++;
+            } else if (cur_props) {
+                style      = n00b_text_style_overlay(cur_style, cur_props);
+                di         = &result->styling->styles[next_style];
+                di->start  = cp_ix;
+                di->info   = style;
+                cur_style  = style;
+                last_style = next_style++;
+            } else {
+                cur_style = empty_props();
             }
-            cur_style = empty_props();
-            extend    = false;
+            extend = false;
             continue;
         case RICH_PROP_ON:
             if (last_style != -1) {
@@ -1324,7 +1346,6 @@ final_assembly(rich_ctrl_t *info, int n)
         case RICH_PROP_OFF:
             if (last_style != -1) {
                 result->styling->styles[last_style].end = cp_ix;
-                last_style                              = -1;
             }
 
             if (!cur_props) {
@@ -1382,10 +1403,12 @@ final_assembly(rich_ctrl_t *info, int n)
             if (last_style != -1) {
                 result->styling->styles[last_style].end = cp_ix;
             }
-            cur_style  = empty_props();
+            style_ix = 0;
+            cur_style = empty_props();
+            cur_props = empty_props();
             di         = &result->styling->styles[next_style];
             di->start  = cp_ix;
-            di->info   = cur_style;
+            di->info   = style;
             last_style = next_style++;
             extend     = false;
             continue;
@@ -1440,7 +1463,7 @@ _n00b_format(n00b_string_t *s, int nargs, ...)
 
         for (int i = 0; i < nargs; i++) {
             void *arg = va_arg(vlist, void *);
-            n00b_list_append(args, arg);
+            n00b_private_list_append(args, arg);
         }
     }
 

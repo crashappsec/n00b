@@ -2,7 +2,7 @@
 #include "n00b.h"
 
 static _Atomic(uint64_t) heap_creation_lock        = 0;
-bool                     n00b_collection_suspended = false;
+static _Atomic bool      n00b_collection_suspended = false;
 
 void
 n00b_allow_collections(void)
@@ -127,33 +127,50 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
     // The second page is a guard page.
     // The final page of the heap is also a guard page.
 
-    uint64_t      total_len  = byte_len + N00B_ARENA_OVERHEAD;
-    char         *true_start = mmap(NULL,
+    n00b_stop_the_world();
+
+    uint64_t total_len  = byte_len + N00B_ARENA_OVERHEAD;
+    char    *true_start = mmap(NULL,
                             total_len,
                             PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANON,
                             -1,
                             0);
-    n00b_arena_t *result     = n00b_raw_alloc_to_arena_addr(true_start);
 
-    if (result == MAP_FAILED) {
-        n00b_raise_errno();
+    if (true_start == MAP_FAILED) {
+        n00b_dlog_alloc("Out of memory.");
+        fprintf(stderr, "Out of memory.");
+        abort();
     }
+
+    n00b_arena_t *result = n00b_raw_alloc_to_arena_addr(true_start);
 
     result->user_length = byte_len;
     result->addr_start  = n00b_arena_user_data_start(result);
     result->addr_end    = n00b_arena_rear_guard_start(result);
     result->last_issued = result->addr_end;
 
+    n00b_dlog_alloc("New arena for heap %d (heap @%p): %p-%p @%p",
+                    h->heap_id,
+                    h,
+                    result->addr_start,
+                    result->addr_end,
+                    result);
+
     n00b_assert(result->addr_start < result->addr_end);
 
+    if (!h->first_arena) {
+        h->first_arena = result;
+    }
     if (h->newest_arena) {
-        n00b_crit_t crit = atomic_read(&h->ptr);
+        n00b_crit_t   crit = atomic_read(&h->ptr);
+        n00b_arena_t *last = atomic_read(&h->newest_arena);
 
-        n00b_unlock_arena_header(h->newest_arena);
-        h->newest_arena->successor   = result;
-        h->newest_arena->last_issued = crit.next_alloc;
-        n00b_lock_arena_header(h->newest_arena);
+        n00b_unlock_arena_header(last);
+        last->successor   = result;
+        last->last_issued = crit.next_alloc;
+        n00b_lock_arena_header(last);
+        atomic_store(&h->newest_arena, result);
     }
 
     n00b_crit_t info = {
@@ -173,6 +190,7 @@ n00b_new_arena_pre_aligned(n00b_heap_t *h, uint64_t byte_len)
     mprotect(end_guard, n00b_page_bytes, PROT_NONE);
 
     n00b_lock_arena_header(result);
+    n00b_restart_the_world();
 
     return result;
 }
@@ -188,11 +206,7 @@ n00b_add_arena(n00b_heap_t *h, uint64_t byte_len)
         byte_len <<= 1;
     }
 
-    n00b_arena_t *a = n00b_new_arena_pre_aligned(h, byte_len);
-
-    if (!h->first_arena) {
-        h->first_arena = a;
-    }
+    n00b_new_arena_pre_aligned(h, byte_len);
 }
 
 // The wrappers always use the global arena.
@@ -236,12 +250,11 @@ n00b_malloc_wrap(size_t size, void *arg, char *file, int line)
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     assert(file);
 #endif
-    void *result
-        = _n00b_heap_alloc(NULL,
-                           size,
-                           false,
-                           arg
-                               N00B_ALLOC_XPARAM);
+    void *result = _n00b_heap_alloc(NULL,
+                                    size,
+                                    false,
+                                    arg
+                                        N00B_ALLOC_XPARAM);
 
     return result;
 }
@@ -305,6 +318,13 @@ n00b_free_compat(void *p)
     // TODO-- finish this
 }
 
+static bool
+need_space(n00b_arena_t *arena, n00b_crit_t entry, int64_t len)
+{
+    return ((void *)entry.next_alloc) < arena->addr_start
+        || ((char *)entry.next_alloc) + len >= (char *)arena->addr_end;
+}
+
 void *
 _n00b_heap_alloc(n00b_heap_t *h,
                  size_t       request_len,
@@ -314,153 +334,99 @@ _n00b_heap_alloc(n00b_heap_t *h,
 {
     h = n00b_current_heap(h);
 
-    n00b_crit_t   prev_entry;
-    n00b_crit_t   new_entry;
-    int64_t       alloc_len = n00b_calculate_alloc_len(request_len);
-    int64_t       guarded_alloc_len;
-    n00b_arena_t *newest_arena;
+    n00b_crit_t prev_entry;
+    n00b_crit_t new_entry;
+    int64_t     alloc_len = n00b_calculate_alloc_len(request_len);
+    bool        expand    = false;
 
+#ifdef N00B_FIND_SCRIBBLES
+    alloc_len = n00b_round_up_to_given_power_of_2(n00b_page_bytes, alloc_len);
+#endif
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     assert(file);
 #endif
-
-    // #if defined(N00B_DEBUG) && defined(N00B_ADD_ALLOC_LOC_INFO)
-    //     _n00b_watch_scan(file, line);
-    // #endif
-
-    // Since other heaps than ours need to collect too, always
-    // check in at least once.
-    n00b_gts_checkin();
-
     while (true) {
-        newest_arena = h->newest_arena;
-        prev_entry   = atomic_read(&h->ptr);
+        n00b_thread_checkin();
+        prev_entry = atomic_read(&h->ptr);
 
-        if (((void *)prev_entry.next_alloc) < newest_arena->addr_start
-            || ((void *)prev_entry.next_alloc) >= newest_arena->addr_end) {
-            // Someone should be installing a new arena (if h->pinned)
-            // or collecting otherwise.
-            if (n00b_collection_suspended || __n00b_collector_running) {
-                goto emergency_arena;
-            }
-
-            n00b_gts_checkin();
-            continue;
-        }
-        // Try to reserve things.
-
-#if defined(N00B_MPROTECT_GUARD_ALLOCS)
-        if (add_guard) {
-            uint64_t end = ((uint64_t)prev_entry.next_alloc) + alloc_len;
-            // Make 'end' end on a page boundry.
-            end          = n00b_round_up_to_given_power_of_2(n00b_page_bytes,
-                                                    end);
-
-            guarded_alloc_len = end - (uint64_t)prev_entry.next_alloc;
-            // 2 int64_ts to maintain proper alignment.
-            guarded_alloc_len += n00b_page_bytes + 2 * sizeof(int64_t);
-        }
-        else {
-            guarded_alloc_len = alloc_len;
-        }
-#else
-        guarded_alloc_len = alloc_len;
-#endif
-        new_entry.next_alloc = (void *)((char *)prev_entry.next_alloc)
-                             + guarded_alloc_len;
-        new_entry.thread = n00b_thread_self();
-
-        if (!h->pinned && !__n00b_collector_running
-            && !n00b_collection_suspended
-            && ((void *)new_entry.next_alloc) > newest_arena->addr_end) {
-            h->expand = true;
-            n00b_heap_collect(h, alloc_len);
-            continue;
-        }
-
-        if (CAS(&h->ptr, &prev_entry, new_entry)) {
-            int64_t esize;
-            if (((void *)new_entry.next_alloc) >= newest_arena->addr_end) {
-                // We won, but we lost because there's not enough
-                // room left in the current arena.
-                if (n00b_heap_is_pinned(h) || __n00b_collector_running
-                    || n00b_collection_suspended) {
-emergency_arena:
-                    esize = newest_arena->addr_end - newest_arena->addr_start;
-                    esize *= 8;
-                    esize = n00b_max(guarded_alloc_len, esize);
-                    n00b_add_arena(h,
-                                   n00b_max(guarded_alloc_len,
-                                            N00B_START_SCRATCH_HEAP_SIZE));
-                    continue;
-                }
-                else {
-                    n00b_heap_collect(h, alloc_len);
-                }
+        // If there's not enough space, don't even try.
+        if (need_space(h->newest_arena, prev_entry, alloc_len)) {
+            n00b_dlog_alloc1(
+                "Not enough memory in arena %p for "
+                "%d byte alloc (user request: %d (not including hdr); available: %d)",
+                h->newest_arena,
+                alloc_len,
+                request_len,
+		((char *)h->newest_arena->addr_end) - (char *)prev_entry.next_alloc);
+            if (!need_space(h->newest_arena, prev_entry, alloc_len)) {
                 continue;
             }
 
-            break;
+            if (n00b_collection_suspended) {
+                size_t esize = (h->newest_arena->addr_end - h->newest_arena->addr_start) << 3;
+                esize        = n00b_max(alloc_len << 3, esize);
+                n00b_add_arena(h, esize);
+            }
+            else {
+                h->expand = expand;
+
+                n00b_heap_collect(h, alloc_len);
+                h      = n00b_current_heap(h);
+                expand = true;
+            }
         }
 
-        n00b_gts_checkin();
+        // Here, we know there's enough space, IF we win the race.
+        new_entry.next_alloc = (void *)((char *)prev_entry.next_alloc)
+                             + alloc_len;
+        new_entry.thread = n00b_thread_self();
+
+        if (CAS(&h->ptr, &prev_entry, new_entry)) {
+            break;
+        }
+        // Otherwise, we lost, and need to check again that there's
+        // enough space to try again.
     }
 
     atomic_fetch_add(&h->alloc_count, 1);
 
     n00b_alloc_hdr *hdr = prev_entry.next_alloc;
 
+#ifdef N00B_FIND_SCRIBBLES
+
+    n00b_dlog_alloc("scribble detector: unlock %d bytes (%p:%p) for %s:%d",
+                    alloc_len,
+                    hdr,
+                    hdr + alloc_len,
+                    file,
+                    line);
+
+    assert(!mprotect(hdr, alloc_len, PROT_READ | PROT_WRITE));
+
+#endif
+    char *p    = (void *)hdr;
+    char *pend = p + alloc_len;
+
+    memset(p, 0, pend - p);
+
     hdr->guard     = n00b_gc_guard;
-    hdr->alloc_len = guarded_alloc_len;
+    hdr->alloc_len = alloc_len;
 
     if (scan != N00B_GC_SCAN_NONE) {
         hdr->n00b_ptr_scan = true;
     }
 
-#ifdef N00B_MPROTECT_GUARD_ALLOCS
-    if (add_guard) {
-        char *end             = ((char *)hdr) + hdr->alloc_len;
-        char *guard_loc       = end - n00b_page_bytes - 2 * sizeof(int64_t);
-        *(int64_t *)guard_loc = N00B_NOSCAN;
-
-        if (mprotect(guard_loc, n00b_page_bytes, PROT_READ)) {
-            fprintf(stderr, "mprotect failed??\n");
-            abort();
-        }
-        uint64_t *sentinel_loc = ((uint64_t *)end) - 1;
-        *sentinel_loc          = N00B_GC_PAGEJUMP;
-    }
-
-#endif
-
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     hdr->alloc_file = file;
     hdr->alloc_line = line;
-
-#if defined(N00B_ENABLE_ALLOC_DEBUG)
-    if (n00b_get_tsi_ptr()->show_alloc_locations && !__n00b_collector_running) {
-        fprintf(stderr,
-                "heap #%lld '%s' @%p @%p  (%s:%d)alloc of length %u\n",
-                h->heap_id,
-                h->name,
-                h,
-                hdr,
-                file,
-                line,
-                hdr->alloc_len);
-    }
-#endif
 #endif
 
-#if defined(N00B_FLOG_DEBUG)
-    fprintf(n00b_get_tsi_ptr()->flog_file,
-            "%p (hdr) %p (user): %d bytes (%s:%d)\n",
-            hdr,
-            hdr->data,
-            hdr->alloc_len,
-            hdr->alloc_file,
-            hdr->alloc_line);
-#endif
+    n00b_dlog_alloc1("heap #%lld @%p (%s:%d)alloc of length %u",
+                     h->heap_id,
+                     h,
+                     file,
+                     line,
+                     alloc_len);
 
     return hdr->data;
 }
@@ -521,12 +487,22 @@ finish_setup:
 
     n00b_heap_creation_lock_release();
 
+    n00b_dlog_alloc1("%s:%d: New heap @%p: id = %d; len = %d",
+                     result->file,
+                     result->line,
+                     result,
+                     result->heap_id,
+                     byte_len);
     return result;
 }
 
 void
 n00b_delete_heap(n00b_heap_t *h)
 {
+    n00b_dlog_alloc1("Deleting heap id = %d @%p",
+                     h->heap_id,
+                     h);
+
     n00b_heap_clear(h);
     bzero(((char *)h) + sizeof(int64_t),
           sizeof(n00b_heap_t) - sizeof(int64_t));

@@ -138,7 +138,7 @@ _n00b_layout_const_obj(n00b_compile_ctx *cctx, n00b_obj_t obj, ...)
 
     n00b_module_t    *fctx = va_arg(args, n00b_module_t *);
     n00b_tree_node_t *loc  = NULL;
-    n00b_string_t      *name = NULL;
+    n00b_string_t    *name = NULL;
 
     if (fctx != NULL) {
         loc  = va_arg(args, n00b_tree_node_t *);
@@ -268,7 +268,7 @@ layout_func(n00b_module_t *ctx,
                                                       sizeof(bool),
                                                       8);
         decl->sc_lock_offset = n00b_layout_static_obj(ctx,
-                                                      sizeof(n00b_lock_t),
+                                                      sizeof(n00b_mutex_t),
                                                       8);
         decl->sc_memo_offset = n00b_layout_static_obj(ctx,
                                                       sizeof(void *),

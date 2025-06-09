@@ -24,12 +24,16 @@ static void
 crash_print_trace(char *title, n00b_table_t *tbl)
 {
     n00b_string_t *t = n00b_crich(title);
+#include "util/nowarn.h"
     cprintf("%s\n%s\n", t, n00b_to_string(tbl));
+#include "util/nowarn_pop.h"
 }
 
 static void
 n00b_crash_handler(int n)
 {
+    n00b_debug_log_dump();
+
     n00b_vmthread_t *runtime    = n00b_thread_runtime_acquire();
     n00b_table_t    *n00b_trace = NULL;
     n00b_table_t    *ct         = NULL;
@@ -39,7 +43,13 @@ n00b_crash_handler(int n)
     }
 
     n00b_string_t *s = n00b_crich("«em5»Program crashed due to SIGSEGV.");
+#include "util/nowarn.h"
     cprintf("%s", s);
+#include "util/nowarn_pop.h"
+
+#ifdef N00B_DEBUG
+
+#endif
 
 #if defined(N00B_BACKTRACE_SUPPORTED)
     if (n00b_show_c_trace_on_crash) {

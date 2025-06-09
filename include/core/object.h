@@ -130,7 +130,7 @@ n00b_is_renderable(n00b_obj_t user_object)
 
 extern void n00b_scan_header_only(uint64_t *, int);
 
-#if defined(N00B_GC_STATS) || defined(N00B_DEBUG)
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 extern n00b_obj_t _n00b_new(n00b_heap_t *, char *, int, n00b_type_t *, ...);
 
 #define n00b_new(tid, ...) \
@@ -153,6 +153,7 @@ extern n00b_obj_t   n00b_mul(n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_div(n00b_obj_t, n00b_obj_t);
 extern n00b_obj_t   n00b_mod(n00b_obj_t, n00b_obj_t);
 extern bool         n00b_eq(n00b_type_t *, n00b_obj_t, n00b_obj_t);
+extern bool         n00b_equals(n00b_obj_t, n00b_obj_t);
 extern bool         n00b_lt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
 extern bool         n00b_gt(n00b_type_t *, n00b_obj_t, n00b_obj_t);
 extern int64_t      n00b_len(n00b_obj_t);
@@ -216,12 +217,12 @@ extern const n00b_vtable_t n00b_parser_vtable;
 extern const n00b_vtable_t n00b_gopt_parser_vtable;
 extern const n00b_vtable_t n00b_gopt_command_vtable;
 extern const n00b_vtable_t n00b_gopt_option_vtable;
-extern const n00b_vtable_t n00b_lock_vtable;
+extern const n00b_vtable_t n00b_mutex_vtable;
+extern const n00b_vtable_t n00b_rwlock_vtable;
 extern const n00b_vtable_t n00b_condition_vtable;
 extern const n00b_vtable_t n00b_stream_vtable;
 extern const n00b_vtable_t n00b_message_vtable;
 extern const n00b_vtable_t n00b_bytering_vtable;
-extern const n00b_vtable_t n00b_file_vtable;
 extern const n00b_vtable_t n00b_text_element_vtable;
 extern const n00b_vtable_t n00b_box_props_vtable;
 extern const n00b_vtable_t n00b_theme_vtable;

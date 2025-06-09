@@ -171,23 +171,24 @@ _n00b_kw_float(n00b_karg_info_t *provided, char *name, double *ptr)
 #define n00b_kw_uint16(a, b)    _n00b_kw_int16(_n00b_karg, a, (int16_t *)&b)
 #define n00b_kw_char(a, b)      _n00b_kw_int8(_n00b_karg, a, (char *)&b)
 #define n00b_kw_int8(a, b)      _n00b_kw_int8(_n00b_karg, a, (int8_t *)&b)
-#define n00b_kw_unt8(a, b)      _n00b_kw_int8(_n00b_karg, a, (int8_t *)&b)
+#define n00b_kw_uint8(a, b)     _n00b_kw_int8(_n00b_karg, a, (int8_t *)&b)
 #define n00b_kw_bool(a, b)      _n00b_kw_bool(_n00b_karg, a, (bool *)&b)
-#define n00b_kw_float(a, b)     _n00b_kw_float(_n00b_karg, a, (double_t *)&b)
-
-// print(foo, bar, boz, kw("file", stdin, "sep", ' ', "end", '\n',
-//                         "flush", false ));
+#define n00b_kw_float(a, b)     _n00b_kw_float(_n00b_karg, a, (double *)&b)
 
 #define n00b_ka(x) ((int64_t)x)
 
 #ifdef N00B_DEBUG_KARGS
-#define n00b_kw(...) n00b_pass_kargs(N00B_PP_NARG(__VA_ARGS__), \
-                                     (char *)__FILE__,          \
-                                     (int)__LINE__,             \
-                                     __VA_ARGS__),              \
-                     NULL
+#define n00b_kw(...) n00b_pass_kargs(N00B_PP_NARG(__VA_ARGS__),     \
+                                     (char *)__FILE__,              \
+                                     (int)__LINE__                  \
+                                         __VA_OPT__(, __VA_ARGS__), \
+                                     0ULL),                         \
+                     0ULL
 #else
-#define n00b_kw(...) n00b_pass_kargs(N00B_PP_NARG(__VA_ARGS__), __VA_ARGS__), NULL
+#define n00b_kw(...) n00b_pass_kargs(N00B_PP_NARG(__VA_ARGS__)      \
+                                         __VA_OPT__(, __VA_ARGS__), \
+                                     0ULL),                         \
+                     0ULL
 #endif
 #define n00b_karg_only_init(last)                             \
     va_list _args;                                            \

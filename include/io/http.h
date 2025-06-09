@@ -15,7 +15,7 @@ typedef struct {
     n00b_stream_t *output_stream;
     char          *errbuf;
     // Internal lock makes sure that two threads don't call at once.
-    n00b_lock_t    lock;
+    n00b_mutex_t   lock;
     CURLcode       code; // Holds the last result code.
 } n00b_basic_http_t;
 

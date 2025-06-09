@@ -217,7 +217,9 @@ n00b_init_literal_handling()
 }
 
 n00b_compile_error_t
-n00b_parse_simple_lit(n00b_token_t *tok, n00b_lit_syntax_t *kptr, n00b_string_t **lm)
+n00b_parse_simple_lit(n00b_token_t      *tok,
+                      n00b_lit_syntax_t *kptr,
+                      n00b_string_t    **lm)
 {
     n00b_init_literal_handling();
 

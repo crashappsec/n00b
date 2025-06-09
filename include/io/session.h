@@ -55,7 +55,7 @@ typedef struct {
     n00b_duration_t  *min_input_gap;
     n00b_condition_t  unpause_notify;
     double            time_scale;
-    int               channels;
+    int               streams;
     bool              cinematic;
     bool              paused;
     bool              finished;
@@ -173,6 +173,7 @@ extern bool            n00b_session_run_cinematic(n00b_session_t *);
 extern void            n00b_session_set_replay_stream(n00b_session_t *,
                                                       n00b_stream_t *);
 extern n00b_table_t   *n00b_session_state_repr(n00b_session_t *);
+extern void            n00b_session_start_replay(n00b_session_t *);
 
 static inline void
 n00b_session_set_proxy_input(n00b_session_t *s, bool value)
@@ -193,7 +194,7 @@ n00b_session_stop(n00b_session_t *s)
 }
 
 static inline void
-n00b_session_inject(n00b_session_t *s, n00b_string_t *data)
+n00b_session_inject(n00b_session_t *s, void *data)
 {
     if (!s->stdin_injection) {
         N00B_CRAISE("Session does not support input injection.");
@@ -205,7 +206,7 @@ n00b_session_inject(n00b_session_t *s, n00b_string_t *data)
 
     assert(!n00b_type_is_list(n00b_get_my_type(data)));
 
-    n00b_write_blocking(s->stdin_injection, data, NULL);
+    n00b_write(s->stdin_injection, data);
 }
 
 static inline void
@@ -223,9 +224,8 @@ n00b_session_write_to_user(n00b_session_t *s, void *data, bool stdout)
     if (n00b_type_is_string(n00b_get_my_type(data))) {
         data = (void *)n00b_string_to_buffer((void *)data);
     }
-    assert(!n00b_type_is_list(n00b_get_my_type(data)));
 
-    n00b_write_blocking(stream, data, NULL);
+    n00b_write(stream, data);
 }
 
 static inline void
@@ -258,14 +258,14 @@ n00b_session_continue_replay(n00b_session_t *s)
         N00B_CRAISE("No replay session");
     }
 
-    n00b_condition_lock_acquire(&cursor->unpause_notify);
+    n00b_lock_acquire(&cursor->unpause_notify);
 
     if (cursor->pause_before_input) {
         cursor->got_unpause = true;
     }
     cursor->paused = false;
     n00b_condition_notify_one(&cursor->unpause_notify);
-    n00b_condition_lock_release(&cursor->unpause_notify);
+    n00b_lock_release(&cursor->unpause_notify);
 }
 
 static inline void
@@ -338,7 +338,7 @@ n00b_session_capture_extractor(n00b_session_t *session, int events)
     n00b_string_t *fname  = n00b_session_capture_filename(session);
     n00b_close(stream);
 
-    stream = n00b_new(n00b_type_file(), fname, n00b_fm_read_only);
+    stream = n00b_stream_open_file(fname, "read_only", n00b_ka(true));
 
     session->unproxied_capture = stream;
 
@@ -641,6 +641,9 @@ static inline void
 n00b_session_exit(n00b_session_t *s)
 {
     s->early_exit = true;
+    if (s->subprocess) {
+        n00b_proc_close(s->subprocess);
+    }
 }
 
 static inline void
@@ -712,7 +715,6 @@ n00b_session_disable_ansi_matching(n00b_session_t *session)
 #define N00B_SESSION_SHELL_BASH "--rcfile"
 
 extern void n00b_session_setup_control_stream(n00b_session_t *);
-extern void n00b_session_setup_replay(n00b_session_t *);
 
 extern void                  n00b_session_setup_state_handling(n00b_session_t *);
 extern void                  n00b_session_run_control_loop(n00b_session_t *);
@@ -724,8 +726,6 @@ extern void                  n00b_capture_launch(n00b_session_t *,
                                                  n00b_list_t *);
 extern void                  n00b_session_finish_capture(n00b_session_t *);
 extern void                  n00b_session_setup_user_read_cb(n00b_session_t *s);
-extern void                  n00b_subproc_read_stdout(n00b_stream_t *, void *, void *);
-extern void                  n00b_subproc_read_stderr(n00b_stream_t *, void *, void *);
 extern void                  n00b_truncate_all_match_data(n00b_session_t *,
                                                           n00b_string_t *,
                                                           n00b_capture_t);

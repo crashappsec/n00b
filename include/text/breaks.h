@@ -24,7 +24,8 @@ static inline n00b_break_info_t *
 n00b_alloc_break_structure(n00b_string_t *s, int shift)
 {
     n00b_break_info_t *result;
-    int32_t            alloc_slots = n00b_max(n00b_string_codepoint_len(s) >> shift,
+    int32_t            alloc_slots = n00b_max(n00b_string_codepoint_len(s)
+                                       >> shift,
                                    n00b_minimum_break_slots);
 
     result = n00b_gc_flex_alloc(n00b_break_info_t, int32_t, alloc_slots, NULL);

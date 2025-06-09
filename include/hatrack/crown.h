@@ -87,6 +87,8 @@ HATRACK_EXTERN void           *crown_put_mmm      (crown_t *, mmm_thread_t *, ha
 HATRACK_EXTERN void           *crown_put          (crown_t *, hatrack_hash_t, void *, bool *);
 HATRACK_EXTERN void           *crown_replace_mmm  (crown_t *, mmm_thread_t *, hatrack_hash_t, void *, bool *);
 HATRACK_EXTERN void           *crown_replace      (crown_t *, hatrack_hash_t, void *, bool *);
+HATRACK_EXTERN void           *crown_cas_mmm  (crown_t *, mmm_thread_t *, hatrack_hash_t, void *, void *, bool *);
+HATRACK_EXTERN void           *crown_cas      (crown_t *, hatrack_hash_t, void *, void *, bool *);
 HATRACK_EXTERN bool            crown_add_mmm      (crown_t *, mmm_thread_t *, hatrack_hash_t, void *);
 HATRACK_EXTERN bool            crown_add          (crown_t *, hatrack_hash_t, void *);
 HATRACK_EXTERN void           *crown_remove_mmm   (crown_t *, mmm_thread_t *, hatrack_hash_t, bool *);

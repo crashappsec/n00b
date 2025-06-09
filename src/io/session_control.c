@@ -102,110 +102,103 @@ n00b_process_control_buffer(n00b_session_t *session, n00b_string_t *s)
 }
 
 static void
-control_cb(n00b_stream_t *stream, void *msg, void *aux)
+control_cb(n00b_buf_t *buf, n00b_session_t *session)
 {
-    n00b_buf_t     *buf     = msg;
-    n00b_session_t *session = aux;
-    n00b_string_t  *s       = n00b_utf8(buf->data, buf->byte_len);
+    n00b_string_t *s = n00b_utf8(buf->data, buf->byte_len);
 
-    n00b_condition_lock_acquire(&session->control_notify);
+    n00b_dlog_io("Control callback beginning.");
+    n00b_lock_acquire(&session->control_notify);
     n00b_process_control_buffer(session, s);
     n00b_condition_notify_one(&session->control_notify);
-    n00b_condition_lock_release(&session->control_notify);
+    n00b_lock_release(&session->control_notify);
+    n00b_dlog_io("Control callback ending.");
 }
 
 void
 n00b_session_setup_control_stream(n00b_session_t *s)
 {
-    n00b_stream_t *cb = n00b_callback_open(control_cb,
-                                           s,
-                                           n00b_cstring("control stream"));
-    n00b_line_buffer_writes(cb);
-    n00b_io_subscribe_to_reads(s->subproc_ctrl_stream, cb, NULL);
+    n00b_filter_spec_t *lb = n00b_filter_apply_line_buffering();
+    n00b_stream_t      *cb = n00b_new_callback_stream((void *)control_cb,
+                                                 s,
+                                                 lb);
+    n00b_stream_subscribe_read(s->subproc_ctrl_stream, cb, false);
 }
 static void
-user_read_cb(n00b_stream_t *stream, void *msg, void *aux)
+user_read_cb(n00b_buf_t *data, n00b_session_t *session)
 {
-    n00b_buf_t     *data    = msg;
-    n00b_session_t *session = aux;
-
-    n00b_condition_lock_acquire(&session->control_notify);
-
+    n00b_dlog_io("User input callback beginning.");
     capture(session, N00B_CAPTURE_STDIN, data);
+
+    n00b_lock_acquire(&session->control_notify);
     session->got_user_input = true;
     add_buf_to_match_buffer(session, N00B_CAPTURE_STDIN, data);
-    n00b_condition_notify_one(&session->control_notify);
-    n00b_condition_lock_release(&session->control_notify);
+    n00b_condition_notify(&session->control_notify,
+                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_dlog_io("User input callback ending.");
 }
 
 static void
-subproc_injection_cb(n00b_stream_t *stream, void *msg, void *aux)
+subproc_injection_cb(void *msg, n00b_session_t *session)
 {
+    n00b_dlog_io("Injection callback beginning.");
+
     if (n00b_type_is_list(n00b_get_my_type(msg))) {
         msg = n00b_ansi_nodes_to_string(msg, true);
     }
 
-    n00b_buf_t     *input   = msg;
-    n00b_session_t *session = aux;
+    n00b_buf_t *input = msg;
 
-    n00b_condition_lock_acquire(&session->control_notify);
+    n00b_lock_acquire(&session->control_notify);
     capture(session, N00B_CAPTURE_INJECTED, input);
     session->got_injection = true;
-    n00b_write(session->subprocess->subproc_stdin, input);
+    n00b_queue(session->subprocess->subproc_stdin, input);
     add_buf_to_match_buffer(session, N00B_CAPTURE_INJECTED, input);
-    n00b_condition_notify_one(&session->control_notify);
-    n00b_condition_lock_release(&session->control_notify);
+    n00b_condition_notify(&session->control_notify,
+                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_dlog_io("Injection callback ending.");
 }
 
 void
-n00b_subproc_read_stdout(n00b_stream_t *stream, void *msg, void *aux)
+n00b_subproc_read_stdout(n00b_list_t *ansi_nodes, n00b_session_t *session)
 {
-    n00b_list_t    *ansi_nodes = msg;
-    n00b_session_t *session    = aux;
-
-    n00b_condition_lock_acquire(&session->control_notify);
+    n00b_dlog_io("stdout callback beginning.");
+    n00b_lock_acquire(&session->control_notify);
     capture(session, N00B_CAPTURE_STDOUT, ansi_nodes);
     session->got_stdout = true;
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDOUT, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-        // Can't use n00b_write until we add a way to cut through filters,
-        // or send parameters to them anyway.
-        // n00b_write(n00b_stdout(), s);
-        write(1, s->data, s->u8_bytes);
+        n00b_queue(n00b_stdout(), s);
     }
-    n00b_condition_notify_one(&session->control_notify);
-    n00b_condition_lock_release(&session->control_notify);
+
+    n00b_condition_notify(&session->control_notify,
+                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_dlog_io("stdout callback ending.");
 }
 
 void
-n00b_subproc_read_stderr(n00b_stream_t *stream, void *msg, void *aux)
+n00b_subproc_read_stderr(n00b_list_t    *ansi_nodes,
+                         n00b_session_t *session)
 {
-    n00b_list_t    *ansi_nodes = msg;
-    n00b_session_t *session    = aux;
-
-    n00b_condition_lock_acquire(&session->control_notify);
+    n00b_dlog_io("stderr callback beginning.");
+    n00b_lock_acquire(&session->control_notify);
     capture(session, N00B_CAPTURE_STDERR, ansi_nodes);
     session->got_stderr = true;
     add_ansi_to_match_buffer(session, N00B_CAPTURE_STDERR, ansi_nodes);
     if (session->passthrough_output) {
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
-
-        //  Per above.
-        // n00b_write(n00b_stdout(), s);
-        write(2, s->data, s->u8_bytes);
+        n00b_queue(n00b_stderr(), s);
     }
-    n00b_condition_notify_one(&session->control_notify);
-    n00b_condition_lock_release(&session->control_notify);
+    n00b_condition_notify(&session->control_notify,
+                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_dlog_io("stderr callback ending.");
 }
 
 void
 n00b_session_setup_user_read_cb(n00b_session_t *s)
 {
-    n00b_stream_t *cb = n00b_callback_open(user_read_cb,
-                                           s,
-                                           n00b_cstring("user input"));
-    n00b_io_subscribe_to_reads(n00b_stdin(), cb, NULL);
+    n00b_stream_t *cb = n00b_new_callback_stream(user_read_cb, s);
+    n00b_stream_subscribe_read(n00b_stdin(), cb, false);
 }
 
 void
@@ -221,25 +214,24 @@ n00b_session_setup_state_handling(n00b_session_t *s)
     n00b_stream_t *cb;
     n00b_session_setup_user_read_cb(s);
 
-    cb = n00b_callback_open(subproc_injection_cb,
-                            s,
-                            n00b_cstring("terminal injector"));
-    n00b_ansi_ctrl_parse_on_write(cb);
+    cb                 = n00b_new_callback_stream(subproc_injection_cb,
+                                  s,
+                                  n00b_filter_parse_ansi(false));
     s->stdin_injection = cb;
 
-    cb = n00b_callback_open(n00b_subproc_read_stdout,
-                            s,
-                            n00b_cstring("terminal stdout"));
-    n00b_ansi_ctrl_parse_on_write(cb);
+    cb           = n00b_new_callback_stream(n00b_subproc_read_stdout,
+                                  s,
+                                  n00b_filter_parse_ansi(false));
     s->stdout_cb = n00b_list(n00b_type_stream());
+
     n00b_list_append(s->stdout_cb, cb);
 
     if (!s->merge_output) {
-        cb = n00b_callback_open(n00b_subproc_read_stderr,
-                                s,
-                                n00b_cstring("terminal stderr"));
-        n00b_ansi_ctrl_parse_on_write(cb);
+        cb           = n00b_new_callback_stream(n00b_subproc_read_stderr,
+                                      s,
+                                      n00b_filter_parse_ansi(false));
         s->stderr_cb = n00b_list(n00b_type_stream());
+
         n00b_list_append(s->stderr_cb, cb);
     }
 
@@ -247,7 +239,9 @@ n00b_session_setup_state_handling(n00b_session_t *s)
         s->cur_user_state = n00b_session_find_state(s, s->start_state);
     }
 
-    n00b_named_condition_init(&s->control_notify, "session control");
+    n00b_named_lock_init(&s->control_notify,
+                         N00B_NLT_CV,
+                         "session control");
 }
 
 static inline void
@@ -267,50 +261,76 @@ check_for_total_timeout(n00b_session_t *s)
     }
 }
 
+static inline bool
+should_stop(n00b_session_t *s)
+{
+    if (s->subprocess && s->subprocess->exited) {
+        s->early_exit = true;
+        return true;
+    }
+
+    if (s->log_cursor.finished && s->log_cursor.cinematic) {
+        return true;
+    }
+
+    return s->early_exit;
+}
+
 void
 n00b_session_run_control_loop(n00b_session_t *s)
 {
-    n00b_duration_t  iota    = {.tv_sec = 0, .tv_nsec = 1000000};
-    n00b_duration_t *timeout = NULL;
-    n00b_duration_t *now     = n00b_now();
-    n00b_duration_t *target;
+    int64_t timeout = 0;
+    int64_t iota    = 10000000;
+    int64_t now;
+    int64_t last;
+    int64_t target;
 
-    n00b_condition_lock_acquire(&s->control_notify);
-
+    // Avoid notification while scanning for matches.
+    n00b_lock_acquire(&s->control_notify);
     n00b_session_scan_for_matches(s);
 
-    while (!s->subprocess->exited && !s->early_exit) {
+    while (!should_stop(s)) {
+        now = n00b_ns_timestamp();
         if (s->max_event_gap) {
-            timeout = n00b_duration_add(now, s->max_event_gap);
+            timeout = n00b_ns_from_duration(s->max_event_gap);
         }
-        target = n00b_duration_add(now, &iota);
+
+        if (timeout < iota) {
+            target = timeout;
+        }
+        else {
+            target = iota;
+        }
 
         // This loop polls in 1/1000th of a second increments to see
         // if it should exit, even if there's no timeout. If there is
         // a timeout, it checks at each poll spot to see if it should
         // bail.
+        last = now;
         while (true) {
-            if (n00b_condition_timed_wait(&s->control_notify, target)) {
-                n00b_condition_lock_release(&s->control_notify);
-                if (timeout) {
-                    now = n00b_now();
-                    if (n00b_duration_gt(now, timeout)) {
-                        capture(s, N00B_CAPTURE_TIMEOUT, NULL);
-                        s->got_timeout = true;
-                        break;
-                    }
+            if (n00b_condition_wait(&s->control_notify,
+                                    n00b_kw("timeout",
+                                            target,
+                                            "auto_unlock",
+                                            true))) {
+                // If the branch is true, we got a timeout.
+                // It returns NULL when we
+                now = n00b_ns_timestamp();
+                if (last + target < now) {
+                    capture(s, N00B_CAPTURE_TIMEOUT, NULL);
+                    //                    s->got_timeout = true;
+                    break;
                 }
-                if (s->subprocess->exited || s->early_exit) {
-                    goto on_exit;
-                }
-                n00b_condition_lock_acquire(&s->control_notify);
-                n00b_session_scan_for_matches(s);
+                last = now;
+                // We still scan for matches on our timeout, so
+                // we don't automatically condinue;
             }
         }
         n00b_session_scan_for_matches(s);
         check_for_total_timeout(s);
-        now = n00b_now();
+        if (should_stop(s)) {
+            return;
+        }
+        now = n00b_ns_timestamp();
     }
-on_exit:
-    n00b_session_scan_for_matches(s);
 }

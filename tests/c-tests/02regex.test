@@ -1,0 +1,16 @@
+# The capture merged stdout/stderr. This command ensures replays do too.
+# @2025-04-26 07:06:39 PM -0400
+# This sets the width and height of the test terminal.
+MERGE
+ANSI
+SIZE 153:62
+# PROMPT matches whenever the starting shell is bash, 
+# and that shell gives you a prompt.
+# If you run tasks in the foreground, it will match
+# on processes exiting.
+PROMPT
+INJECT . ./setup.sh regex.c\n
+EXPECT reassemble
+EXPECT \e[
+PROMPT
+

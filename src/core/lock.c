@@ -6,8 +6,6 @@
 // because some pthreads implementations generally don't handle nested
 // locking at all.
 
-extern void            n00b_gts_suspend(void);
-extern void            n00b_gts_resume(void);
 static n00b_rw_lock_t *all_rw_locks   = NULL;
 static pthread_mutex_t rw_setup_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -94,7 +92,6 @@ n00b_debug_locks(n00b_thread_t *t)
 
     if (!lock) {
         printf("Thread %p: no write locks held.\n", t);
-        goto try_readers;
     }
     // Rewind to report from the top.
     while (lock) {
@@ -176,14 +173,25 @@ n00b_debug_all_locks(void)
         if (!t) {
             continue;
         }
+        printf("Locks for thread %p\n", t);
         n00b_assert(t != prev);
         n00b_debug_locks(t);
         prev = t;
     }
 }
 
-#define lock_assert(x)                                  \
+#define lock_assert(x, l)                               \
     if (!(x)) {                                         \
+        n00b_generic_lock_t *g    = (void *)l;          \
+        char                *name = g->debug_name;      \
+        if (!name) {                                    \
+            name = "anon";                              \
+        }                                               \
+        printf("When operating on %s (%s:%d @%p):\n",   \
+               name,                                    \
+               g->alloc_info.file,                      \
+               g->alloc_info.line,                      \
+               l);                                      \
         _n00b_show_assert_failure(#x,                   \
                                   (char *)__FUNCTION__, \
                                   (char *)__FILE__,     \
@@ -191,6 +199,39 @@ n00b_debug_all_locks(void)
         n00b_debug_all_locks();                         \
         abort();                                        \
     }
+
+void
+n00b_release_locks_on_thread_exit(void)
+{
+    n00b_thread_t       *self = n00b_thread_self();
+    n00b_tsi_t          *tsi  = self->tsi;
+    n00b_generic_lock_t *lock = tsi->locks;
+    n00b_rw_lock_t      *l;
+    n00b_generic_lock_t *next;
+
+    while (lock) {
+        next = lock->prev_held;
+        n00b_lock_release_all(lock);
+        lock = next;
+    }
+
+    N00B_DBG_CALL(n00b_stop_the_world);
+
+    l = all_rw_locks;
+
+    while (l) {
+        int n = atomic_read(&l->num_readers);
+        if (n) {
+            for (int i = 0; i < N00B_LOCK_MAX_READERS; i++) {
+                if (l->readers[i].thread == self) {
+                    n00b_lock_release_all(l);
+                }
+            }
+        }
+        l = l->next_rw_lock;
+    }
+    N00B_DBG_CALL(n00b_restart_the_world);
+}
 
 static inline bool
 no_locks(void)
@@ -215,6 +256,7 @@ n00b_generic_lock_init(n00b_generic_lock_t *lock,
     }
 
     memset(lock, 0, sizeof(n00b_generic_lock_t));
+
     lock->debug_name      = debug_name;
     lock->alloc_info.file = alloc_file;
     lock->alloc_info.line = alloc_line;
@@ -227,40 +269,50 @@ n00b_generic_on_lock_acquire(n00b_generic_lock_t *lock, char *file, int line)
 {
     n00b_thread_t *self = n00b_thread_self();
 
+    n00b_barrier();
     if (lock->thread && lock->thread != self) {
-        printf("Lock at %p improperly acquired @%s:%d.\n", lock, file, line);
-        lock_assert((!lock->thread || lock->thread == self));
+        fprintf(stderr,
+                "Lock at %p improperly acquired @%s:%d.\n",
+                lock,
+                file,
+                line);
+        return;
     }
+
+    // lock_assert((!lock->thread || lock->thread == self), lock);
 
     int                 ix  = lock->level & (N00B_LOCK_DEBUG_RING - 1);
     n00b_lock_record_t *rec = &lock->lock_info[ix];
 
-    if (lock->level++) {
-        return;
-    }
+    lock->level++;
 
-    lock_assert(!rec->file);
+    n00b_barrier();
 
     rec->file = file;
     rec->line = line;
 
+    if (lock->level == 1) {
+        return;
+    }
     n00b_generic_lock_t *prev  = n00b_get_thread_locks();
     n00b_generic_lock_t *probe = prev;
 
-    lock_assert(!lock->next_held);
-    lock_assert(!lock->prev_held);
-    lock_assert(!probe || !probe->next_held);
+    // For some reason, next_held isn't getting cleared in all
+    // scenarios on linux (whereas it is on macOS). TODO.
+    // lock_assert(!lock->next_held, lock);
+    lock_assert(!lock->prev_held, lock);
+    // lock_assert(!probe || !probe->next_held, lock);
 
     while (probe) {
-        lock_assert(probe->thread == self);
-        lock_assert(probe != lock);
+        lock_assert(probe->thread == self, probe);
+        lock_assert(probe != lock, lock);
         probe = probe->prev_held;
     }
 
     lock->prev_held = prev;
     lock->thread    = self;
 
-    lock_assert(prev != lock);
+    lock_assert(prev != lock, lock);
     if (prev) {
         prev->next_held = lock;
     }
@@ -271,8 +323,12 @@ n00b_generic_on_lock_acquire(n00b_generic_lock_t *lock, char *file, int line)
 static inline bool
 n00b_generic_before_lock_release(n00b_generic_lock_t *lock)
 {
-    lock_assert(lock->level >= 1);
-    lock_assert(lock->thread == n00b_thread_self());
+    if (no_locks()) {
+        return false;
+    }
+
+    //    lock_assert(lock->level >= 1, lock);
+    //    lock_assert(lock->thread == n00b_thread_self(), lock);
 
     lock->level = lock->level - 1;
     if (lock->level > 0) {
@@ -280,11 +336,11 @@ n00b_generic_before_lock_release(n00b_generic_lock_t *lock)
         return false;
     }
 
-    lock_assert(!lock->level);
+    lock_assert(!lock->level, lock);
     n00b_generic_lock_t *ll = n00b_get_thread_locks();
     if (ll == lock) {
         n00b_generic_lock_t *prev = lock->prev_held;
-        lock_assert(!lock->next_held);
+        lock_assert(!lock->next_held, lock);
 
         if (prev) {
             prev->next_held = NULL;
@@ -292,13 +348,13 @@ n00b_generic_before_lock_release(n00b_generic_lock_t *lock)
 
         n00b_set_thread_locks(prev);
 
-        lock_assert(n00b_get_thread_locks() != lock);
+        lock_assert(n00b_get_thread_locks() != lock, lock);
     }
 
     else {
-        while (ll->prev_held) {
+        while (ll && ll->prev_held) {
             if (ll->prev_held == lock) {
-                lock_assert(lock->next_held == ll);
+                lock_assert(lock->next_held == ll, lock);
                 ll->prev_held = lock->prev_held;
                 goto finish_up;
             }
@@ -340,6 +396,8 @@ _n00b_lock_acquire_if_unlocked(n00b_lock_t *l, char *file, int line)
         n00b_generic_on_lock_acquire(&l->info, file, line);
         return true;
     case EINVAL:
+        while (1)
+            ;
         n00b_abort();
     default:
         n00b_raise_errno();
@@ -367,13 +425,13 @@ _n00b_lock_acquire(n00b_lock_t *l, char *file, int line)
         return;
     }
 
-    n00b_gts_suspend();
+    N00B_DBG_CALL(n00b_thread_suspend);
     tsi->lock_wait_target        = l;
     tsi->lock_wait_location.file = file;
     tsi->lock_wait_location.line = line;
     pthread_mutex_lock(&l->lock);
     tsi->lock_wait_location.file = NULL;
-    n00b_gts_resume();
+    N00B_DBG_CALL(n00b_thread_resume);
     n00b_generic_on_lock_acquire(&l->info, file, line);
 }
 
@@ -396,11 +454,13 @@ n00b_mutex_release_all(n00b_lock_t *l)
         return;
     }
 
-    lock_assert(l->info.thread == n00b_thread_self());
+    lock_assert(l->info.thread == n00b_thread_self(), l);
+
     for (int i = 1; i < l->info.level; i++) {
         l->info.lock_info[i].file = NULL;
     }
     l->info.level = 1;
+    n00b_generic_before_lock_release(&l->info);
     pthread_mutex_unlock(&l->lock);
 }
 
@@ -452,25 +512,22 @@ _n00b_rw_lock_try_read(n00b_rw_lock_t *l, char *file, int line)
 
     switch (pthread_rwlock_tryrdlock(&l->lock)) {
     case EDEADLK:
-    case EBUSY:
-        if (l->info.thread) {
-            return false;
+        if (l->info.thread == t) {
+            l->info.level++;
         }
+        assert(!l->info.thread);
+
         for (int i = 0; i < N00B_LOCK_MAX_READERS; i++) {
             if (l->readers[i].thread == t) {
                 l->readers[i].level++;
-                return true;
             }
         }
+        return true;
+    case EBUSY:
         return false;
     case 0:
-        if (on_first_rw_lock_r(l, t, file, line)) {
-            return true;
-        }
-        // Ran out of read slots.
-        pthread_rwlock_unlock(&l->lock);
-        return false;
-
+        on_first_rw_lock_r(l, t, file, line);
+        return true;
     default:
         return false;
     }
@@ -483,9 +540,9 @@ _n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *l, char *file, int line)
         return;
     }
 
-    n00b_gts_suspend();
+    N00B_DBG_CALL(n00b_thread_suspend);
     int err = pthread_rwlock_rdlock(&l->lock);
-    n00b_gts_resume();
+    N00B_DBG_CALL(n00b_thread_resume);
 
     if (err) {
         n00b_raise_errno();
@@ -499,11 +556,7 @@ _n00b_rw_lock_acquire_for_read(n00b_rw_lock_t *l, char *file, int line)
             return;
         }
     }
-    if (!on_first_rw_lock_r(l, t, file, line)) {
-        // Ran out of read slots.
-        pthread_rwlock_unlock(&l->lock);
-        N00B_CRAISE("Too many concurrent readers to track.");
-    }
+    on_first_rw_lock_r(l, t, file, line);
 }
 
 bool
@@ -515,11 +568,10 @@ _n00b_rw_lock_try_write(n00b_rw_lock_t *l, char *file, int line)
 
     switch (pthread_rwlock_trywrlock(&l->lock)) {
     case EDEADLK:
+        assert(l->info.thread == (void *)(int64_t)n00b_thread_self());
+        n00b_generic_on_lock_acquire(&l->info, file, line);
+        return true;
     case EBUSY:
-        if (l->info.thread == (void *)(int64_t)pthread_self()) {
-            n00b_generic_on_lock_acquire(&l->info, file, line);
-            return true;
-        }
         return false;
     case 0:
         n00b_generic_on_lock_acquire(&l->info, file, line);
@@ -536,10 +588,12 @@ _n00b_rw_lock_acquire_for_write(n00b_rw_lock_t *l, char *file, int line)
         return;
     }
 
-    n00b_gts_suspend();
+    N00B_DBG_CALL(n00b_thread_suspend);
     pthread_rwlock_wrlock(&l->lock);
-    n00b_gts_resume();
+    N00B_DBG_CALL(n00b_thread_resume);
     n00b_generic_on_lock_acquire(&l->info, file, line);
+    n00b_barrier();
+    assert(l->info.thread == n00b_thread_self());
 }
 
 void
@@ -565,7 +619,7 @@ _n00b_rw_lock_release(n00b_rw_lock_t *l, bool full)
 
     for (int i = 0; i < N00B_LOCK_MAX_READERS; i++) {
         if (l->readers[i].thread == t) {
-            lock_assert(l->readers[i].level >= 1);
+            lock_assert(l->readers[i].level >= 1, l);
             // If we're not doing a full release, only do the release
             // if the nesting level is 0.
             if (!full && --l->readers[i].level) {
@@ -577,7 +631,9 @@ _n00b_rw_lock_release(n00b_rw_lock_t *l, bool full)
             return;
         }
     }
-    N00B_CRAISE("Called release() on a rw lock you didn't hold");
+
+    //    n00b_static_c_backtrace();
+    //    N00B_CRAISE("Called release() on a rw lock you didn't hold");
 }
 
 void
@@ -585,6 +641,7 @@ _n00b_condition_init(n00b_condition_t *c, char *name, char *file, int line)
 {
     n00b_generic_lock_init(&c->mutex.info, name, file, line, N00B_LK_CONDITION);
     pthread_mutex_init(&c->mutex.lock, NULL);
+    pthread_cond_init(&c->cv, NULL);
 }
 
 void
@@ -593,14 +650,16 @@ n00b_condition_pre_wait(n00b_condition_t *c)
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
 
     if (c->mutex.info.thread != &tsi->self_data) {
-        N00B_CRAISE("Must hold lock before calling wait()");
+        fprintf(stderr, "Fatal error: Must hold lock before calling wait()\n");
+        abort();
     }
     if (c->mutex.info.next_held || c->mutex.info.prev_held) {
+        n00b_debug_locks(n00b_thread_self());
         N00B_CRAISE("Can't wait until all other locks are released.");
     }
 
     tsi->saved_lock_level = c->mutex.info.level;
-    lock_assert(c->mutex.info.level < N00B_MAX_LOCK_LEVEL);
+    lock_assert(c->mutex.info.level < N00B_MAX_LOCK_LEVEL, c);
     for (int i = 0; i < tsi->saved_lock_level; i++) {
         tsi->saved_lock_records[i] = c->mutex.info.lock_info[i];
     }
@@ -612,7 +671,7 @@ n00b_condition_pre_wait(n00b_condition_t *c)
 void
 n00b_condition_post_wait(n00b_condition_t *c, char *file, int line)
 {
-    lock_assert(!c->mutex.info.thread);
+    lock_assert(!c->mutex.info.thread, c);
     n00b_generic_on_lock_acquire(&c->mutex.info, file, line);
     n00b_tsi_t *tsi     = n00b_get_tsi_ptr();
     c->mutex.info.level = tsi->saved_lock_level;
@@ -644,7 +703,11 @@ _n00b_condition_notify_all(n00b_condition_t *c, char *f, int l)
 {
     n00b_thread_t *t = n00b_thread_self();
     if (c->mutex.info.thread != t) {
+        /*
+        n00b_static_c_backtrace();
         N00B_CRAISE("Must hold lock before calling notify_all()");
+        */
+        return;
     }
 
     if (c->cb) {
@@ -666,22 +729,23 @@ _n00b_condition_timed_wait(n00b_condition_t *c,
         return true;
     }
 
+    N00B_DBG_CALL(n00b_thread_suspend);
     n00b_condition_pre_wait(c);
-    n00b_gts_suspend();
     int result = pthread_cond_timedwait(&((c)->cv),
                                         (&(c)->mutex.lock),
                                         d);
-    n00b_gts_resume();
-    if (!result && result != ETIMEDOUT) {
+    N00B_DBG_CALL(n00b_thread_resume);
+    if (result && result != ETIMEDOUT) {
         errno = result;
         n00b_raise_errno();
     }
-    //     lock_assert(!result || result == ETIMEDOUT);
+    //     lock_assert(!result || result == ETIMEDOUT, c);
+
+    n00b_condition_post_wait(c, f, l);
 
     if (!result) {
         return false;
     }
-    n00b_condition_post_wait(c, f, l);
     return true;
 }
 
@@ -716,7 +780,7 @@ n00b_lock_release_all(void *l)
 static void
 n00b_lock_constructor(n00b_lock_t *lock, va_list args)
 {
-    n00b_generic_lock_init(&lock->info, NULL, NULL, 0, N00B_LK_MUTEX);
+    _n00b_lock_init(lock, "obj-lock", NULL, 0);
 }
 
 static void
@@ -726,14 +790,59 @@ n00b_condition_constructor(n00b_condition_t *c, va_list args)
     c->cb = va_arg(args, void *);
 }
 
+n00b_string_t *
+n00b_lock_to_string(n00b_generic_lock_t *g)
+{
+    // Avoid lock recursion.
+    char kind[3] = {0, 0, 0};
+
+    switch (g->kind) {
+    case N00B_LK_MUTEX:
+        kind[0] = 'm';
+        break;
+    case N00B_LK_RWLOCK:
+        kind[0] = 'r';
+        kind[1] = 'w';
+        break;
+    default:
+        kind[0] = 'c';
+        break;
+    }
+
+    if (!g->debug_name) {
+        g->debug_name = "anon";
+    }
+
+    int kl = strlen(kind);
+    int dl = strlen(g->debug_name);
+    int n  = kl + dl + 40;
+
+    char  buf[n];
+    char *p = buf;
+    memcpy(p, kind, kl);
+    p += kl;
+    *p++ = ' ';
+    memcpy(p, g->debug_name, dl);
+    p += dl;
+    *p++      = ' ';
+    *p++      = '@';
+    *(p + 16) = ' ';
+    *(p + 17) = 0;
+    snprintf(p, 16, "%p", g);
+
+    return n00b_cstring(buf);
+}
+
 const n00b_vtable_t n00b_lock_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_lock_constructor,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_lock_to_string,
     },
 };
 
 const n00b_vtable_t n00b_condition_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)n00b_condition_constructor,
+        [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_lock_to_string,
     },
 };

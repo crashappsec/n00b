@@ -35,6 +35,7 @@ extern n00b_list_t   *n00b_find_command_paths(n00b_string_t *,
 extern n00b_string_t *n00b_rename(n00b_string_t *, n00b_string_t *);
 extern n00b_list_t   *n00b_path_parts(n00b_string_t *);
 extern n00b_list_t   *_n00b_list_directory(n00b_string_t *, ...);
+extern n00b_string_t *n00b_path_get_extension(n00b_string_t *);
 extern n00b_string_t *n00b_path_remove_extension(n00b_string_t *);
 
 // n00b_tempfile actually returns a n00b_stream_t * but it's not
@@ -160,6 +161,9 @@ n00b_path_get_file(n00b_string_t *s)
 }
 
 #ifdef N00B_USE_INTERNAL_API
-// Strips IN PLACE.
-extern void n00b_path_strip_slashes_both_ends(n00b_string_t *);
+extern int            n00b_lexical_sort_fn(const n00b_string_t **,
+                                           const n00b_string_t **);
+// These two strip IN PLACE.
+extern void           n00b_path_strip_slashes_both_ends(n00b_string_t *);
+extern n00b_string_t *n00b_path_chop_extension(n00b_string_t *);
 #endif

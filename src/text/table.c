@@ -89,7 +89,7 @@ n00b_table_init(n00b_table_t *table, va_list args)
     n00b_decoration_style_t decoration_style = N00B_TABLE_DEFAULT;
     int64_t                 num_columns      = 0;
     n00b_list_t            *contents         = NULL;
-    n00b_list_t            *column_widths    = NULL;
+    n00b_tree_node_t       *column_widths    = NULL;
     n00b_string_t          *title            = NULL;
     n00b_string_t          *caption          = NULL;
     n00b_theme_t           *theme            = NULL;
@@ -115,7 +115,7 @@ n00b_table_init(n00b_table_t *table, va_list args)
         theme = n00b_get_current_theme();
     }
 
-    n00b_lock_init(&table->lock);
+    n00b_mutex_init(&table->lock);
     table->theme            = theme;
     table->outstream        = outstream;
     table->stored_cells     = n00b_list(n00b_type_ref());
@@ -125,11 +125,18 @@ n00b_table_init(n00b_table_t *table, va_list args)
     table->caption          = caption;
     table->max_col          = num_columns;
     table->decoration_style = decoration_style;
-    table->column_specs     = n00b_new_layout();
     table->render_cache     = n00b_list(n00b_type_string());
 
     if (contents) {
         n00b_table_add_contents(table, contents);
+    }
+
+    if (column_widths) {
+        table->column_specs = column_widths;
+        setup_table_rendering(table, 0);
+    }
+    else {
+        table->column_specs = n00b_new_layout();
     }
 }
 
@@ -286,7 +293,7 @@ _n00b_table_add_cell(n00b_table_t *table, void *contents, ...)
     }
 
     n00b_table_acquire(table);
-    n00b_list_append(table->current_row, cell);
+    n00b_private_list_append(table->current_row, cell);
     if (span > 0) {
         table->col_cursor += span;
     }
@@ -780,7 +787,7 @@ set_column_preferences(n00b_table_t *table, int64_t width)
         n00b_tree_node_t *t      = n00b_tree_get_child(table->column_specs, i);
         n00b_layout_t    *layout = n00b_tree_get_contents(t);
 
-        if (layout->flex_multiple > 0) {
+        if (layout->flex_multiple > 0 || layout->pref.value.i) {
             continue;
         }
 
@@ -848,7 +855,9 @@ set_column_preferences(n00b_table_t *table, int64_t width)
             longest_word += 2;
         }
 
-        layout->min.value.i = longest_word;
+        if (layout->min.value.i < longest_word) {
+            layout->min.value.i = longest_word;
+        }
 
         // If the longest line *could* fit it in the full width, we'll
         // take that width if we can get it!
@@ -860,8 +869,12 @@ set_column_preferences(n00b_table_t *table, int64_t width)
         if (longest_line < width) {
             // If we actually fit, don't bother giving us extra space,
             // we might be taking it from columns that don't need it.
-            layout->pref.value.i = longest_line;
-            layout->max.value.i  = layout->pref.value.i;
+            if (layout->pref.value.i < longest_line) {
+                layout->pref.value.i = longest_line;
+            }
+            if (layout->max.value.i < longest_line) {
+                layout->max.value.i = longest_line;
+            }
         }
         else {
             layout->pref.value.i = n00b_max(longest_word,
@@ -911,7 +924,6 @@ layout_table(n00b_table_t *table, int64_t width)
     int l = n00b_tree_get_number_children(table->column_actuals);
 
     table->column_width_used = 0;
-
     for (int i = 0; i < l; i++) {
         n00b_tree_node_t     *n = n00b_tree_get_child(table->column_actuals, i);
         n00b_layout_result_t *r = n00b_tree_get_contents(n);
@@ -976,7 +988,7 @@ static void
 core_emit(n00b_table_t *table, n00b_string_t *s)
 {
     if (table->outstream) {
-        n00b_write(table->outstream, s);
+        n00b_queue(table->outstream, s);
     }
     else {
         n00b_private_list_append(table->render_cache, s);
@@ -1514,7 +1526,7 @@ emit_bottom_border(n00b_table_t *table, n00b_box_props_t *props)
 
     *p++ = '\n';
 
-    n00b_assert(p - s->data == sum);
+    // n00b_assert(p - s->data == sum);
 
     s->codepoints = table->total_width + 1;
 

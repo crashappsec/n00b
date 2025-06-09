@@ -8,12 +8,12 @@ n00b_proc_proxy_winch(n00b_proc_t *ctx)
 
     ioctl(1, TIOCGWINSZ, &ctx->dimensions);
     if (ctx->subproc_stdout) {
-        fd = n00b_fileno(ctx->subproc_stdout);
+        fd = n00b_stream_fileno(ctx->subproc_stdout);
         ioctl(fd, TIOCSWINSZ, &ctx->dimensions);
     }
 
     if (ctx->subproc_stderr) {
-        fd = n00b_fileno(ctx->subproc_stderr);
+        fd = n00b_stream_fileno(ctx->subproc_stderr);
         ioctl(fd, TIOCSWINSZ, &ctx->dimensions);
     }
 }
@@ -25,17 +25,15 @@ n00b_handle_winch(n00b_stream_t *sig, int64_t signal, n00b_proc_t *ctx)
 }
 
 static void
-proc_exited(n00b_exitinfo_t *result, int64_t stats, n00b_proc_t *ctx)
+proc_exited(n00b_exit_info_t *result, n00b_proc_t *ctx)
 {
-    n00b_condition_lock_acquire(&ctx->cv);
-
     ctx->subproc_results = result;
     ctx->exited          = true;
 
     if (ctx->wait_for_exit) {
         n00b_condition_notify_all(&ctx->cv);
+        n00b_lock_release(&ctx->cv);
     }
-    n00b_condition_lock_release(&ctx->cv);
 }
 
 static void
@@ -65,32 +63,58 @@ pre_launch_prep(n00b_proc_t *proc, char ***argp)
         }
     }
 
+#if defined(N00B_DEBUG) && N00B_DLOG_IO_LEVEL >= 1
+
+    n00b_dlog_io1("Spawn: cmd = %s", proc->cmd->data);
+    for (int i = 0; i < n00b_list_len(proc->args); i++) {
+        n00b_string_t *s = n00b_list_get(proc->args, i, NULL);
+        n00b_dlog_io1("arg %d: %s", i, s->data);
+    }
+#endif
+
     *argp = (void *)n00b_make_cstr_array(args, NULL);
 }
 
 static n00b_stream_t *
 setup_exit_obj(n00b_proc_t *ctx)
 {
-    n00b_list_t *l = NULL;
+    n00b_stream_t *result   = n00b_new_exit_stream(ctx->pid);
+    n00b_stream_t *callback = n00b_new_callback_stream((void *)proc_exited,
+                                                       ctx);
+    n00b_stream_set_name(callback, n00b_cstring("wait4 exit"));
+    n00b_stream_subscribe_read(result, callback, true);
 
-    if (ctx->subproc_stdout) {
-        l = n00b_list(n00b_type_stream());
-        n00b_list_append(l, ctx->subproc_stdout);
+    ctx->exit_cb = callback;
+
+    return result;
+}
+
+static inline n00b_list_t *
+bulk_subscribe(n00b_stream_t *target, n00b_list_t *subs)
+{
+    n00b_list_t *result;
+
+    if (!n00b_list_len(subs)) {
+        return NULL;
     }
+    // Let's make sure internal subscriptions run first.
+    n00b_list_reverse(subs);
 
-    if (ctx->subproc_stderr) {
-        if (!l) {
-            l = n00b_list(n00b_type_stream());
-        }
-        n00b_list_append(l, ctx->subproc_stderr);
+    // The list of streams to subscribe becomes a list of
+    // subscription objects we can use to unsubscribe,
+    // once this call completes.
+    result = n00b_observable_add_subscribers(&target->pub_info,
+                                             (void *)(int64_t)N00B_CT_R,
+                                             n00b_route_stream_message,
+                                             subs,
+                                             false);
+
+    for (int i = 0; i < n00b_list_len(subs); i++) {
+        n00b_stream_t   *dst = n00b_list_get(subs, i, NULL);
+        n00b_observer_t *sub = n00b_list_get(result, i, NULL);
+
+        n00b_list_append(dst->my_subscriptions, sub);
     }
-
-    n00b_stream_t *result   = n00b_pid_monitor(ctx->pid, l);
-    n00b_stream_t *callback = n00b_callback_open((void *)proc_exited,
-                                                 ctx,
-                                                 n00b_cstring("wait4 exit"));
-
-    n00b_io_subscribe(result, callback, NULL, n00b_io_sk_read);
 
     return result;
 }
@@ -98,106 +122,79 @@ setup_exit_obj(n00b_proc_t *ctx)
 static void
 post_spawn_subscription_setup(n00b_proc_t *ctx)
 {
-    defer_on();
-
-    // We need to lock anything we might be reading from during the
-    // subscription process to prevent delivery till we have
-    // everything set up.  Just go ahead and lock stdio as a matter of
-    // course.
-
-    n00b_acquire_party(ctx->subproc_stdin);
-    n00b_acquire_party(ctx->subproc_stdout);
-    n00b_acquire_party(ctx->subproc_stderr);
-
     ctx->subproc_pid = setup_exit_obj(ctx);
 
-    if (ctx->flags & N00B_PROC_STDIN_PROXY) {
-        // Proxy parent's stdin to the subproc.
-        n00b_io_subscribe_to_reads(n00b_stdin(), ctx->subproc_stdin, NULL);
+    if (ctx->seeded_stdin && ctx->subproc_stdin) {
+        n00b_queue(ctx->subproc_stdin,
+                   n00b_string_to_buffer(ctx->seeded_stdin));
+        ctx->seeded_stdin = NULL;
     }
 
-    if (ctx->flags & (N00B_PROC_STDOUT_PROXY)) {
-        n00b_io_subscribe_to_reads(ctx->subproc_stdout,
-                                   n00b_stdout(),
-                                   NULL);
-
-        if (ctx->flags & N00B_PROC_MERGE_OUTPUT) {
-            n00b_io_subscribe_to_reads(ctx->subproc_stderr,
-                                       n00b_stdout(),
-                                       NULL);
-        }
-    }
-
-    if ((ctx->flags & N00B_PROC_STDERR_PROXY)
-        && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
-        n00b_io_subscribe_to_reads(ctx->subproc_stderr,
-                                   n00b_stderr(),
-                                   NULL);
-    }
-
-    n00b_stream_t *buf;
+    n00b_buf_t *buf;
 
     if (ctx->flags & N00B_PROC_STDIN_CAP) {
-        ctx->cap_in = n00b_buffer_empty();
-        buf         = n00b_outstream_buffer(ctx->cap_in, true);
-        n00b_io_subscribe_to_reads(n00b_stdin(), buf, NULL);
-        n00b_io_set_repr(buf,
-                         n00b_cformat("«#»«#» stdin cap«#»",
-                                      n00b_cached_lbracket(),
-                                      ctx->cmd,
-                                      n00b_cached_rbracket()));
+        buf         = n00b_buffer_empty();
+        ctx->cap_in = n00b_outstream_buffer(buf, true);
+        n00b_list_append(ctx->stdin_subs, ctx->cap_in);
+        n00b_stream_set_name(ctx->cap_in,
+                             n00b_cformat("«#»«#» stdin cap«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
     }
 
     if (ctx->flags & N00B_PROC_STDOUT_CAP) {
-        ctx->cap_out = n00b_buffer_empty();
-        buf          = n00b_outstream_buffer(ctx->cap_out, true);
-        n00b_io_subscribe_to_reads(ctx->subproc_stdout, buf, NULL);
-        n00b_io_set_repr(buf,
-                         n00b_cformat("«#»«#» stdout cap«#»",
-                                      n00b_cached_lbracket(),
-                                      ctx->cmd,
-                                      n00b_cached_rbracket()));
+        buf          = n00b_buffer_empty();
+        ctx->cap_out = n00b_outstream_buffer(buf, true);
+        n00b_list_append(ctx->stdout_subs, ctx->cap_out);
+        n00b_stream_set_name(ctx->cap_out,
+                             n00b_cformat("«#»«#» stdout cap«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
 
-        if (ctx->flags & N00B_PROC_MERGE_OUTPUT) {
-            n00b_io_subscribe_to_reads(ctx->subproc_stderr, buf, NULL);
+        if (ctx->flags & N00B_PROC_MERGE_OUTPUT && ctx->subproc_stderr) {
+            n00b_list_append(ctx->stderr_subs, ctx->cap_out);
         }
     }
 
     if (ctx->flags & N00B_PROC_STDERR_CAP
         && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
-        ctx->cap_err = n00b_buffer_empty();
-        buf          = n00b_outstream_buffer(ctx->cap_err, true);
-        n00b_io_subscribe_to_reads(ctx->subproc_stderr, buf, NULL);
-        n00b_io_set_repr(buf,
-                         n00b_cformat("«#»«#» stderr cap«#»",
-                                      n00b_cached_lbracket(),
-                                      ctx->cmd,
-                                      n00b_cached_rbracket()));
+        buf          = n00b_buffer_empty();
+        ctx->cap_err = n00b_outstream_buffer(buf, true);
+        n00b_list_append(ctx->stderr_subs, ctx->cap_err);
+        n00b_stream_set_name(ctx->cap_err,
+                             n00b_cformat("«#»«#» stderr cap«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
     }
 
-    if (ctx->pending_stdout_subs != NULL) {
-        int n = n00b_list_len(ctx->pending_stdout_subs);
-        for (int i = 0; i < n; i++) {
-            n00b_stream_t *s = n00b_list_get(ctx->pending_stdout_subs, i, NULL);
-            n00b_io_subscribe_to_reads(ctx->subproc_stdout, s, NULL);
+    if (ctx->flags & N00B_PROC_STDIN_PROXY) {
+        // Proxy parent's stdin to the subproc.
+        n00b_list_append(ctx->stdin_subs, ctx->subproc_stdin);
+    }
+
+    if (ctx->flags & (N00B_PROC_STDOUT_PROXY)) {
+        n00b_list_append(ctx->stdout_subs, n00b_stdout());
+
+        if (ctx->flags & N00B_PROC_MERGE_OUTPUT && ctx->subproc_stderr
+            && ctx->subproc_stderr != ctx->subproc_stdout) {
+            n00b_list_append(ctx->stderr_subs, n00b_stdout());
         }
     }
 
-    if (ctx->pending_stderr_subs != NULL) {
-        int n = n00b_list_len(ctx->pending_stderr_subs);
-        for (int i = 0; i < n; i++) {
-            n00b_stream_t *s = n00b_list_get(ctx->pending_stderr_subs, i, NULL);
-            n00b_io_subscribe_to_reads(ctx->subproc_stderr, s, NULL);
-        }
+    if ((ctx->flags & N00B_PROC_STDERR_PROXY)
+        && !(ctx->flags & N00B_PROC_MERGE_OUTPUT) && ctx->subproc_stderr) {
+        n00b_list_append(ctx->stderr_subs, n00b_stderr());
     }
 
-    n00b_release_party(ctx->subproc_stderr);
-    n00b_release_party(ctx->subproc_stdout);
-    n00b_release_party(ctx->subproc_stdin);
+    ctx->stdin_subs  = bulk_subscribe(n00b_stdin(), ctx->stdin_subs);
+    ctx->stdout_subs = bulk_subscribe(ctx->subproc_stdout, ctx->stdout_subs);
+    ctx->stderr_subs = bulk_subscribe(ctx->subproc_stderr, ctx->stderr_subs);
 
-    Return;
-
-    defer_func_end();
+    write(ctx->gate, "x", 1);
+    return;
 }
 
 static inline bool
@@ -221,7 +218,7 @@ close_read_side(bool proxy, int filedes[2])
         return false;
     }
 
-    close(filedes[0]);
+    n00b_raw_fd_close(filedes[0]);
     return true;
 }
 
@@ -232,7 +229,7 @@ close_write_side(bool proxy, int filedes[2])
         return false;
     }
 
-    close(filedes[1]);
+    n00b_raw_fd_close(filedes[1]);
     return true;
 }
 
@@ -240,9 +237,11 @@ static void
 try_execve(n00b_proc_t *ctx, char *argv[], char *envp[])
 {
     char *cmd = n00b_string_to_cstr(ctx->cmd);
+    char  buf[1];
+
+    read(ctx->gate, buf, 1);
 
     execve(cmd, argv, envp);
-
     n00b_raise_errno();
 }
 
@@ -256,10 +255,13 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     int    stdin_pipe[2];
     int    stdout_pipe[2];
     int    stderr_pipe[2];
+    int    gate[2];
     char **argp;
     char **envp;
 
     pre_launch_prep(ctx, &argp);
+
+    pipe(gate);
 
     open_pipe(proxy_in, stdin_pipe);
     open_pipe(proxy_out, stdout_pipe);
@@ -286,37 +288,26 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     pid = fork();
 
     if (pid != 0) {
+        ctx->gate = gate[1];
+        close(gate[0]);
         ctx->pid = pid;
 
         if (proxy_in) {
-            ctx->subproc_stdin = n00b_fd_open(stdin_pipe[1]);
-            n00b_io_set_repr(ctx->subproc_stdin,
-                             n00b_cformat("«#»«#» stdin«#»",
-                                          n00b_cached_lbracket(),
-                                          ctx->cmd,
-                                          n00b_cached_rbracket()));
+            ctx->subproc_stdin = n00b_stream_fd_open(stdin_pipe[1]);
         }
         if (proxy_out) {
-            ctx->subproc_stdout = n00b_fd_open(stdout_pipe[0]);
-            n00b_io_set_repr(ctx->subproc_stdout,
-                             n00b_cformat("«#»«#» stdout«#»",
-                                          n00b_cached_lbracket(),
-                                          ctx->cmd,
-                                          n00b_cached_rbracket()));
+            ctx->subproc_stdout = n00b_stream_fd_open(stdout_pipe[0]);
         }
         if (proxy_err) {
-            ctx->subproc_stderr = n00b_fd_open(stderr_pipe[0]);
-            n00b_io_set_repr(ctx->subproc_stderr,
-                             n00b_cformat("«#»«#» stderr«#»",
-                                          n00b_cached_lbracket(),
-                                          ctx->cmd,
-                                          n00b_cached_rbracket()));
+            ctx->subproc_stderr = n00b_stream_fd_open(stderr_pipe[0]);
         }
         post_spawn_subscription_setup(ctx);
 
         return;
     }
 
+    ctx->gate = gate[0];
+    close(gate[1]);
     close_write_side(proxy_in, stdin_pipe);
     close_read_side(proxy_out, stdout_pipe);
     close_read_side(proxy_err, stderr_pipe);
@@ -332,7 +323,7 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     }
 
     if (ctx->hook) {
-        (*ctx->hook)(ctx->thunk);
+        (*ctx->hook)(ctx->param);
     }
 
     if (ctx->env) {
@@ -346,73 +337,16 @@ proc_spawn_no_tty(n00b_proc_t *ctx)
     try_execve(ctx, argp, envp);
 }
 
-// I was using this to proxy stderr writes, but might actually need to
-// run it in reverse to copy input into stderr.  In that case, we will
-// also need to periodically tcflush() the queue for it to have a
-// chance in heck of working at all.
-//
-// Otherwise, will just nix this, and the '+err' mode will be "use at
-// your own risk".
-#if 0
-static inline void
-run_stderr_proxy(void)
-{
-    fd_set fdset;
-    FD_ZERO(&fdset);
-
-    int flags = fcntl(0, F_GETFL) | O_NONBLOCK;
-    fcntl(0, F_SETFL, flags);
-
-    while (true) {
-        FD_SET(0, &fdset);
-        select(0, &fdset, NULL, NULL, NULL);
-        char    buf[PIPE_BUF];
-        ssize_t len = read(0, buf, PIPE_BUF);
-        switch (len) {
-        case -1:
-            if (errno == EAGAIN || errno == EINTR) {
-                continue;
-            }
-            close(1);
-            _exit(-1);
-        case 0:
-            close(1);
-            _exit(0);
-        default:
-            break;
-        }
-
-        char *p = &buf[0];
-
-        while (len) {
-            ssize_t w = write(1, p, len);
-
-            if (w == -1) {
-                if (errno == EAGAIN || errno == EINTR) {
-                    continue;
-                }
-                close(1);
-                _exit(-2);
-            }
-            len -= w;
-            p += w;
-        }
-    }
-}
-#endif
-
 static void
-should_exit_via_sig(n00b_stream_t *sig, int64_t signal, n00b_proc_t *ctx)
+should_exit_via_sig(int signal, siginfo_t *info, n00b_proc_t *ctx)
 {
-    n00b_condition_lock_acquire(&ctx->cv);
-    n00b_close(ctx->subproc_stdin);
-    n00b_close(ctx->subproc_stdout);
-    n00b_close(ctx->subproc_stderr);
+    n00b_lock_acquire(&ctx->cv);
+    n00b_proc_close(ctx);
     ctx->exited = true;
     if (ctx->wait_for_exit) {
         n00b_condition_notify_all(&ctx->cv);
     }
-    n00b_condition_lock_release(&ctx->cv);
+    n00b_lock_release(&ctx->cv);
 }
 
 static inline void
@@ -427,13 +361,13 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     int             aux_fd;
     char          **argp;
     char          **envp;
-
-    n00b_io_register_signal_handler(SIGCHLD, (void *)should_exit_via_sig, ctx);
-    n00b_io_register_signal_handler(SIGPIPE, (void *)should_exit_via_sig, ctx);
+    int             gate[2];
+    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
 
     pre_launch_prep(ctx, &argp);
 
-    if (!n00b_is_tty(n00b_stdin())) {
+    if (!n00b_stream_is_tty(n00b_stdin())) {
         win_ptr = NULL;
     }
     else {
@@ -463,12 +397,16 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         // can write a little input proxy.
         openpty(&aux_fd, &subproc_aux, NULL, term_ptr, win_ptr);
 
-        ctx->subproc_stderr = n00b_fd_open(aux_fd);
+        ctx->subproc_stderr = n00b_stream_fd_open(aux_fd);
     }
 
     int pmain[2];
 
     if (pipe(pmain)) {
+        n00b_raise_errno();
+    }
+
+    if (pipe(gate)) {
         n00b_raise_errno();
     }
 
@@ -480,34 +418,37 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
     int err_code;
     if (pid != 0) {
-        close(subproc_fd);
-        close(pmain[1]);
+        n00b_raw_fd_close(subproc_fd);
+        n00b_raw_fd_close(pmain[1]);
+
+        close(gate[0]);
+        ctx->gate = gate[1];
 
         if (read(pmain[0], &err_code, sizeof(err_code)) > 0) {
             int status;
             waitpid(pid, &status, 0);
-            pid   = -1;
-            errno = err_code;
-            close(pmain[0]);
+            ctx->pid = -1;
+            errno    = err_code;
+            n00b_raw_fd_close(pmain[0]);
             n00b_raise_errno();
         }
-        close(pmain[0]);
+        n00b_raw_fd_close(pmain[0]);
 
         ctx->pid = pid;
         if (use_aux) {
             ctx->subproc_stdout = ctx->subproc_stderr;
-            ctx->subproc_stderr = n00b_fd_open(pty_fd);
+            ctx->subproc_stderr = n00b_stream_fd_open(pty_fd);
             ctx->subproc_stdin  = ctx->subproc_stderr;
         }
         else {
-            ctx->subproc_stdout = n00b_fd_open(pty_fd);
+            ctx->subproc_stdout = n00b_stream_fd_open(pty_fd);
             ctx->subproc_stdin  = ctx->subproc_stdout;
         }
-        n00b_io_set_repr(ctx->subproc_stdin,
-                         n00b_cformat("«#»«#» pty«#»",
-                                      n00b_cached_lbracket(),
-                                      ctx->cmd,
-                                      n00b_cached_rbracket()));
+        n00b_stream_set_name(ctx->subproc_stdin,
+                             n00b_cformat("«#»«#» pty«#»",
+                                          n00b_cached_lbracket(),
+                                          ctx->cmd,
+                                          n00b_cached_rbracket()));
 
         post_spawn_subscription_setup(ctx);
 
@@ -517,15 +458,15 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 
         if (ctx->flags & N00B_PROC_HANDLE_WIN_SIZE) {
             n00b_proc_proxy_winch(ctx);
-            n00b_io_register_signal_handler(SIGWINCH,
-                                            (void *)n00b_handle_winch,
-                                            ctx);
+            n00b_signal_register(SIGWINCH,
+                                 (void *)n00b_handle_winch,
+                                 ctx);
         }
 
         fcntl(pty_fd, F_SETFL, flags);
 
         if (use_aux) {
-            close(subproc_aux);
+            n00b_raw_fd_close(subproc_aux);
             fcntl(aux_fd, F_SETFL, flags);
         }
 
@@ -536,10 +477,13 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
         return;
     }
 
-    close(pty_fd);
+    close(gate[1]);
+    ctx->gate = gate[0];
+
+    n00b_raw_fd_close(pty_fd);
 
     if (use_aux) {
-        close(aux_fd);
+        n00b_raw_fd_close(aux_fd);
     }
     close(pmain[0]);
 
@@ -591,7 +535,7 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
     signal(SIGWINCH, SIG_DFL);
 
     if (ctx->hook) {
-        (*ctx->hook)(ctx->thunk);
+        (*ctx->hook)(ctx->param);
     }
     // Do this after the hook so that it sticks.
     if (ctx->env) {
@@ -608,11 +552,12 @@ proc_spawn_with_tty(n00b_proc_t *ctx)
 void
 n00b_proc_spawn(n00b_proc_t *ctx)
 {
+    //    n00b_signal_register(SIGCHLD, (void *)should_exit_via_sig, ctx);
+    //    n00b_signal_register(SIGPIPE, (void *)should_exit_via_sig, ctx);
+
     if (!ctx->cmd) {
         N00B_CRAISE("Cannot spawn; no command set.");
     }
-
-    n00b_condition_lock_acquire(&(ctx->cv));
 
     if (ctx->flags & N00B_PROC_USE_PTY) {
         proc_spawn_with_tty(ctx);
@@ -620,37 +565,36 @@ n00b_proc_spawn(n00b_proc_t *ctx)
     else {
         proc_spawn_no_tty(ctx);
     }
-
-    n00b_condition_lock_release(&(ctx->cv));
 }
 
-void
+// Returns false if there's a timeout.
+bool
 n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 {
-#if 0
-    n00b_duration_t *end;
-    n00b_duration_t *now;
+    int64_t ns_tout = 0;
 
-    // TODO: timeout.
     if (timeout) {
-        now = n00b_now();
-        end = n00b_duration_add(now, timeout);
+        ns_tout = n00b_ns_from_duration(timeout);
     }
-#endif
+
     ctx->wait_for_exit = true;
 
     if (!ctx->cmd) {
         N00B_CRAISE("Cannot spawn; no command set.");
     }
 
-    n00b_condition_lock_acquire(&(ctx->cv));
-    n00b_condition_wait(&(ctx->cv), n00b_proc_spawn(ctx));
-    n00b_condition_lock_release(&(ctx->cv));
+    n00b_lock_acquire(&ctx->cv);
+    n00b_proc_spawn(ctx);
+    bool result = !(bool)n00b_condition_wait(&ctx->cv,
+                                             n00b_kw("timeout",
+                                                     ns_tout,
+                                                     "auto_unlock",
+                                                     n00b_ka(true)));
+    n00b_proc_close(ctx);
+    return result;
 }
 
 // TODO: Do a proc_init
-// ALSO NOTE: Timeout is not implemented yet.
-// Add initial stdin??
 // Close stdin after??
 
 n00b_proc_t *
@@ -660,27 +604,30 @@ _n00b_run_process(n00b_string_t *cmd,
                   bool           capture,
                   ...)
 {
-    n00b_list_t          *stdout_subs  = NULL;
-    n00b_list_t          *stderr_subs  = NULL;
-    n00b_list_t          *env          = NULL;
-    n00b_duration_t      *timeout      = NULL;
-    n00b_post_fork_hook_t hook         = NULL;
-    struct termios       *termcap      = NULL;
-    void                 *thunk        = NULL;
-    bool                  pty          = false;
-    bool                  raw_argv     = false;
-    bool                  run          = true;
-    bool                  spawn        = false;
-    bool                  merge_output = true;
-    bool                  err_pty      = false;
-    bool                  handle_winch = true;
+    n00b_string_t        *stdin_injection = NULL;
+    n00b_list_t          *stdout_subs     = NULL;
+    n00b_list_t          *stderr_subs     = NULL;
+    n00b_list_t          *env             = NULL;
+    // Timeout doesn't get used if 'run' is not true.
+    n00b_duration_t      *timeout         = NULL;
+    n00b_post_fork_hook_t hook            = NULL;
+    struct termios       *termcap         = NULL;
+    void                 *param           = NULL;
+    bool                  pty             = false;
+    bool                  raw_argv        = false;
+    bool                  run             = true;
+    bool                  spawn           = false;
+    bool                  merge_output    = true;
+    bool                  err_pty         = false;
+    bool                  handle_winch    = true;
 
     n00b_karg_only_init(capture);
+    n00b_kw_ptr("stdin_injection", stdin_injection);
     n00b_kw_ptr("env", env);
     n00b_kw_ptr("termcap", termcap);
     n00b_kw_ptr("timeout", timeout);
     n00b_kw_ptr("pre_exec_hook", hook);
-    n00b_kw_ptr("hook_param", thunk);
+    n00b_kw_ptr("hook_param", param);
     n00b_kw_ptr("stdout_subs", stdout_subs);
     n00b_kw_ptr("stderr_subs", stderr_subs);
     n00b_kw_bool("pty", pty);
@@ -697,13 +644,24 @@ _n00b_run_process(n00b_string_t *cmd,
 
     n00b_proc_t *proc = n00b_gc_alloc_mapped(n00b_proc_t, N00B_GC_SCAN_ALL);
 
-    proc->pid                 = -1;
-    proc->cmd                 = cmd;
-    proc->args                = argv;
-    proc->hook                = hook;
-    proc->thunk               = thunk;
-    proc->pending_stdout_subs = stdout_subs;
-    proc->pending_stderr_subs = stderr_subs;
+    proc->pid          = -1;
+    proc->cmd          = cmd;
+    proc->args         = argv;
+    proc->hook         = hook;
+    proc->param        = param;
+    proc->stdout_subs  = stdout_subs;
+    proc->stderr_subs  = stderr_subs;
+    proc->seeded_stdin = stdin_injection;
+
+    if (!proc->stdout_subs) {
+        proc->stdout_subs = n00b_list(n00b_type_stream());
+    }
+
+    if (!proc->stderr_subs) {
+        proc->stderr_subs = n00b_list(n00b_type_stream());
+    }
+
+    proc->stdin_subs = n00b_list(n00b_type_stream());
 
     tcgetattr(0, &proc->initial_termcap);
     proc->parent_termcap = &proc->initial_termcap;
@@ -716,7 +674,7 @@ _n00b_run_process(n00b_string_t *cmd,
         proc->subproc_termcap_ptr = NULL;
     }
 
-    n00b_condition_init(&proc->cv);
+    n00b_named_lock_init(&proc->cv, N00B_NLT_CV, "process_exit_monitor");
 
     if (capture) {
         proc->flags = N00B_PROC_CAP_ALL;
@@ -750,4 +708,43 @@ _n00b_run_process(n00b_string_t *cmd,
     }
 
     return proc;
+}
+
+void
+n00b_proc_close(n00b_proc_t *proc)
+{
+    if (proc->subproc_stdin) {
+        n00b_close(proc->subproc_stdin);
+    }
+    if (proc->subproc_stdout) {
+        n00b_close(proc->subproc_stdout);
+    }
+    if (proc->subproc_stderr) {
+        n00b_close(proc->subproc_stderr);
+    }
+    if (proc->subproc_pid) {
+        n00b_close(proc->subproc_pid);
+    }
+    if (proc->cap_in) {
+        n00b_close(proc->cap_in);
+    }
+    if (proc->cap_out) {
+        n00b_close(proc->cap_out);
+    }
+    if (proc->cap_err) {
+        n00b_close(proc->cap_err);
+    }
+
+    if (proc->exit_cb) {
+        n00b_close(proc->exit_cb);
+    }
+
+    n00b_signal_unregister(SIGCHLD, (void *)should_exit_via_sig, proc);
+    n00b_signal_unregister(SIGPIPE, (void *)should_exit_via_sig, proc);
+
+    if (proc->flags & N00B_PROC_USE_PTY) {
+        n00b_signal_unregister(SIGWINCH,
+                               (void *)n00b_handle_winch,
+                               proc);
+    }
 }

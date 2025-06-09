@@ -115,6 +115,10 @@ if get_option('dev_mode') == true
     if get_option('use_asan').enabled()
         c_args = c_args + ['-fsanitize=address', '-fsanitize-recover=all']
         link_args = link_args + ['-fsanitize=address', '-fsanitize-recover=all']
+
+        if (host_machine.system() == 'darwin')
+        c_args = c_args + ['-fsanitize-blacklist=../.sanitize_ignore']
+        endif
     endif
 
     if get_option('use_ubsan').enabled()
@@ -206,10 +210,18 @@ n00b_core = [
     'src/core/literals.c',
     'src/core/object.c',
     'src/core/validation.c',
-    'src/core/thread.c',        # Basic thread interface
-    'src/core/thread_tsi.c',    # Internal API; thread specific data
-    'src/core/thread_coop.c',   # Mainly internal API for stop-the-world support
-    'src/core/lock.c',     
+    'src/core/signal.c',
+    'src/core/type_hash.c'      # New type implementation coming soon.
+]
+
+n00b_mt = [
+    'src/mt/gil.c',
+    'src/mt/lock_accounting.c',
+    'src/mt/mutex.c',
+    'src/mt/condition.c',    
+    'src/mt/rwlock.c',
+    'src/mt/thread.c',        # Basic thread interface
+    'src/mt/thread_tsi.c',    # Internal API; thread specific data
 ]
 
 n00b_runtime = [
@@ -259,33 +271,52 @@ n00b_adts = [
 ]
 
 n00b_io = [
-    'src/io/iocore.c',
-    'src/io/ioqueue.c',
-    'src/io/filters.c',
-    'src/io/marshal.c',
-    'src/io/file.c',
-    'src/io/socket.c',
-    'src/io/listener.c',
-    'src/io/signal.c',
-    'src/io/timer.c',
-    'src/io/exitinfo.c',
-    'src/io/condition.c',
-    'src/io/callback.c',
-    'src/io/topic.c',
-    'src/io/subproxy.c',
-    'src/io/buffer.c',
-    'src/io/strstream.c',
-    'src/io/colorterm.c',
+    'src/io/fd_object.c',
+    'src/io/fd_pubsub.c',
+    'src/io/fd_io.c',
+    'src/io/fd_cache.c',
+    'src/io/fd_evloop.c',
+    'src/io/timers.c',
+    'src/io/filter.c',    
+    'src/io/filter_json.c',
+    'src/io/observable.c',
+    'src/io/stream.c',
+    'src/io/stream_fd.c',
+    'src/io/stream_callback.c',
+    'src/io/stream_buffer.c',
+    'src/io/stream_topic.c',
+    'src/io/stream_listener.c',
+    'src/io/stream_exit.c',
+    'src/io/stream_proxy.c',
+    'src/io/stream_string.c',    
+    'src/io/terminal_io.c',
     'src/io/print.c',
-    'src/io/term.c',
-    'src/io/http.c',
     'src/io/proc.c',
-    'src/io/debug.c',
     'src/io/session.c',
     'src/io/session_control.c',
     'src/io/session_capture.c',
     'src/io/session_replay.c',
     'src/io/session_states.c',
+    'src/io/filter_color.c',
+    'src/io/filter_linebuf.c',
+    'src/io/filter_hexdump.c',
+    'src/io/filter_json.c',
+    'src/io/filter_marshal.c',
+    'src/io/filter_ansi.c',
+    'src/io/http.c',    
+]
+
+if get_option('dev_mode') == true
+  n00b_io = n00b_io + ['src/io/fd_debug.c']
+endif
+
+n00b_debug = [
+    'src/debug/workflow.c',
+    'src/debug/api.c',
+    'src/debug/server.c',
+    'src/debug/memring.c',
+    'src/debug/dlogf.c',
+    'src/debug/streams.c',    
 ]
 
 n00b_compiler = [
@@ -328,7 +359,7 @@ n00b_util = [
     'src/util/memcheck.c',
     'src/util/deep_copy.c',
     'src/util/testgen.c',
-    'src/util/notify.c',
+    'src/util/limits.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
@@ -339,6 +370,7 @@ n00b_cmd = [
     'src/cmd/compile.c',
     'src/cmd/run.c',
     'src/cmd/record.c',
+    'src/cmd/play.c',    
     'src/cmd/test.c',                        
     'src/cmd/debug.c',
 ]
@@ -346,11 +378,11 @@ n00b_cmd = [
 
 n00b_log = ['src/cmd/n00b_debug.c']
 
-n00b_base = n00b_core + n00b_text + n00b_runtime + n00b_adts + n00b_io 
+n00b_base = n00b_core + n00b_mt + n00b_text + n00b_runtime + n00b_adts 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
+n00b_base = n00b_base + n00b_io + n00b_debug
 
 n00b_src = n00b_base + n00b_cmd
-log_src = n00b_base + n00b_log
 
 hat_primary = [
     'src/hatrack/support/hatrack_common.c',
@@ -430,9 +462,8 @@ libpcre_dep = subproject('pcre2').get_variable('libpcre2_8')
 libunibreak_dep = subproject('libunibreak').get_variable('libunibreak_dep')
 libutf8proc_dep = subproject('libutf8proc').get_variable('utf8proc_dep')
 openssl_dep = subproject('openssl').get_variable('openssl_dep')
-# libcurl and libevent depend on openssl so override its dependency first
+# libcurl depends on openssl so override its dependency first
 libcurl_dep = subproject('libcurl').get_variable('libcurl_dep')
-libevent_dep = subproject('libevent').get_variable('libevent_dep')
 
 if get_option('show_preprocessor_config').enabled()
     c_args = c_args + ['-DN00B_SHOW_PREPROC_CONFIG']
@@ -441,7 +472,6 @@ endif
 deps = [
   libbacktrace_dep,
   libcurl_dep,
-  libevent_dep,
   libffi_dep,
   libpcre_dep,
   libmath_dep,
@@ -480,9 +510,40 @@ if get_option('build_n00b_dll').enabled()
     )
 endif
 
+# executable(
+#    'n00btest',
+#    test_src,
+#    include_directories: incdir,
+#    dependencies: deps,
+#    c_args: c_args,
+#    link_args: exe_link_args,
+#    link_with: link_with,
+#)
+
 executable(
-    'n00btest',
-    test_src,
+   'io_demo',
+   ['src/c-demos/iodemo.c'],
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)   
+   
+executable(
+   'n00b',
+   n00b_src,    
+   include_directories: incdir,
+   dependencies: deps,
+   c_args: c_args,
+   link_args: exe_link_args,
+   link_with: link_with,
+   )
+
+
+executable(
+    'ctest',
+    ['tests/c-tests/__cur.c'],
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,
@@ -491,23 +552,14 @@ executable(
 )
 
 executable(
-    'n00b',
-    n00b_src,
-    include_directories: incdir,
-    dependencies: deps,
-    c_args: c_args,
-    link_args: exe_link_args,
-    link_with: link_with,
-)
-
-executable(
- 'n00blog',
- log_src,
-    include_directories: incdir,
-    dependencies: deps,
-    c_args: c_args,
-    link_args: exe_link_args,
-    link_with: link_with,
+'n00blog',
+     n00b_base,
+     include_directories: incdir,
+     dependencies: deps,
+     c_args: c_args  + ['-DN00B_DEBUG_SERVER',
+                      '-Dn00b_debug_entry=main'],
+     link_args: exe_link_args,
+     link_with: link_with,
 )
 
 if get_option('build_hatrack').enabled()

@@ -140,20 +140,19 @@ extern n00b_table_t *n00b_get_c_backtrace(int);
 #endif
 
 #define N00B_CRAISE(s, ...)                                      \
-    n00b_thread_suspend_locking(),                               \
+    fprintf(stderr, "Exception: %s\n", s),                       \
         n00b_exception_raise(                                    \
             n00b_alloc_exception(s, __VA_OPT__(, ) __VA_ARGS__), \
             n00b_trace(),                                        \
             __FILE__,                                            \
             __LINE__)
 
-#define N00B_RAISE(s, ...)                                             \
-    n00b_thread_suspend_locking(),                                     \
-        n00b_exception_raise(                                          \
-            n00b_alloc_string_exception(s __VA_OPT__(, ) __VA_ARGS__), \
-            n00b_trace(),                                              \
-            __FILE__,                                                  \
-            __LINE__)
+#define N00B_RAISE(s, ...)                                         \
+    n00b_exception_raise(                                          \
+        n00b_alloc_string_exception(s __VA_OPT__(, ) __VA_ARGS__), \
+        n00b_trace(),                                              \
+        __FILE__,                                                  \
+        __LINE__)
 
 #define N00B_RERAISE()                                   \
     _n00bx_exception_state = N00B_EXCEPTION_NOT_HANDLED; \
@@ -205,23 +204,33 @@ n00b_exception_get_message(n00b_exception_t *exception)
 
 void n00b_exception_register_uncaught_handler(void (*)(n00b_exception_t *));
 
-#define N00B_RAISE_SYS()                                                      \
-    {                                                                         \
-        char buf[BUFSIZ];                                                     \
-        strerror_r(errno, buf, BUFSIZ);                                       \
-        N00B_RAISE(n00b_cstring(buf), n00b_kw("error_code", n00b_ka(errno))); \
+#ifdef _GNU_SOURCE
+#define N00B_TURN_ON_GS
+#undef _GNU_SOURCE
+#endif
+
+static inline n00b_string_t *
+get_errno_message(int code)
+{
+    char buf[BUFSIZ];
+    if (strerror_r(code, buf, BUFSIZ) != 0) {
+        return n00b_cstring("Unknown error");
     }
 
-#define n00b_raise_errcode(code)            \
-    {                                       \
-        char msg[2048] = {                  \
-            0,                              \
-        };                                  \
-        if (strerror_r(code, msg, 2048)) {} \
-        N00B_RAISE(n00b_cstring(msg));      \
-    }
+    return n00b_cstring(buf);
+}
 
-#define n00b_raise_errno() n00b_raise_errcode(errno)
+#ifdef N00B_TURN_ON_GS
+#define _GNU_SOURCE
+#endif
+
+#define n00b_raise_errcode(code) N00B_RAISE(get_errno_message((code)))
+
+#define n00b_raise_errno()                                 \
+    {                                                      \
+        N00B_RAISE(get_errno_message(errno),               \
+                   n00b_kw("error_code", n00b_ka(errno))); \
+    }
 
 #define n00b_unreachable()                                    \
     {                                                         \

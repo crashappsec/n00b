@@ -3,17 +3,6 @@
 
 #define capture(x, y, z) n00b_session_capture(x, y, z)
 
-/*
-static inline n00b_stream_filter_t *
-n00b_capture_encoder(void)
-{
-    return n00b_new_filter(n00b_capture_encode,
-                           NULL,
-                           n00b_cstring("capture-encoder"),
-                           0);
-}
-*/
-
 static inline void
 write_capture_header(n00b_stream_t *s)
 {
@@ -25,7 +14,7 @@ write_capture_header(n00b_stream_t *s)
 
     *mp = (int64_t)N00B_SESSION_MAGIC;
     memcpy(p, d, sizeof(n00b_duration_t));
-    n00b_stream_raw_fd_write(s, b);
+    n00b_stream_unfiltered_write(s, b);
 }
 
 static inline void
@@ -41,7 +30,7 @@ add_record_header(n00b_cap_event_t *event, n00b_stream_t *s)
     p += sizeof(n00b_duration_t);
     *(int16_t *)p = (int16_t)event->kind;
 
-    n00b_stream_raw_fd_write(s, b);
+    n00b_stream_unfiltered_write(s, b);
 }
 
 static inline void
@@ -58,8 +47,10 @@ add_capture_payload_str(n00b_string_t *s, n00b_stream_t *strm)
                                       (int64_t)s->u8_bytes,
                                       "ptr",
                                       s->data));
-    n00b_stream_raw_fd_write(strm, b1);
-    n00b_stream_raw_fd_write(strm, b2);
+
+    n00b_stream_unfiltered_write(strm, b1);
+    n00b_stream_unfiltered_write(strm, b2);
+    n00b_dlog_io("%capture: %s\n", s->data);
 }
 
 static inline void
@@ -78,7 +69,7 @@ add_capture_winch(struct winsize *dims, n00b_stream_t *strm)
                                      (int64_t)sizeof(struct winsize),
                                      "ptr",
                                      dims));
-    n00b_stream_raw_fd_write(strm, b);
+    n00b_stream_unfiltered_write(strm, b);
 }
 
 static inline void
@@ -91,7 +82,7 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
                              n00b_kw("length", sizeof(uint32_t)));
 
     *(int32_t *)b->data = n;
-    n00b_stream_raw_fd_write(strm, b);
+    n00b_stream_unfiltered_write(strm, b);
 
     for (int i = 0; i < n; i++) {
         n00b_string_t *s = n00b_list_get(si->args, i, NULL);
@@ -99,44 +90,81 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
     }
 }
 
-static void
-n00b_capture_encode(n00b_stream_t *strm, void *ignore, void *msg)
+typedef struct cap_cookie_t {
+    n00b_stream_t *s;
+} cap_cookie_t;
+
+static n00b_list_t *
+n00b_capture_encode(cap_cookie_t *cookie, n00b_cap_event_t *event)
 {
-    n00b_cap_event_t *event = msg;
+    n00b_stream_t *stream = cookie->s;
+    n00b_list_t   *result = n00b_list(n00b_type_ref());
 
     if (!event) {
-        return;
+        return result;
     }
 
+    n00b_list_append(result, event);
+
     if (!event->id) {
-        write_capture_header(strm);
+        write_capture_header(stream);
     }
     // Since captures may already take up a lot of space, we are going to
     // avoid a full marshal and do a somewhat more compact encoding. At some
     // point we should hook up compression too.
-    add_record_header(event, strm);
+    add_record_header(event, stream);
 
     switch (event->kind) {
     case N00B_CAPTURE_STDIN:
     case N00B_CAPTURE_CMD_RUN:
-        add_capture_payload_str(event->contents, strm);
+        add_capture_payload_str(event->contents, stream);
         break;
     case N00B_CAPTURE_INJECTED:
     case N00B_CAPTURE_STDOUT:
     case N00B_CAPTURE_STDERR:
-        add_capture_payload_ansi(event->contents, strm);
+        add_capture_payload_ansi(event->contents, stream);
         break;
     case N00B_CAPTURE_WINCH:
-        add_capture_winch(event->contents, strm);
+        add_capture_winch(event->contents, stream);
         break;
     case N00B_CAPTURE_SPAWN:
-        add_capture_spawn(event->contents, strm);
+        add_capture_spawn(event->contents, stream);
         break;
     default:
         break;
     }
+
+    return result;
 }
 
+static void *
+cap_encode_setup(cap_cookie_t *ctx, n00b_stream_t *stream)
+{
+    ctx->s = stream;
+
+    return NULL;
+}
+
+static n00b_filter_impl cap_encode = {
+    .cookie_size = sizeof(cap_cookie_t),
+    .setup_fn    = (void *)cap_encode_setup,
+    .write_fn    = (void *)n00b_capture_encode,
+    .name        = NULL,
+};
+
+static inline n00b_filter_spec_t *
+n00b_capture_encoder(n00b_stream_t *param)
+{
+    if (!cap_encode.name) {
+        cap_encode.name = n00b_cstring("capture-encoder");
+    }
+    n00b_filter_spec_t *result = n00b_gc_alloc(n00b_filter_spec_t);
+    result->impl               = &cap_encode;
+    result->policy             = N00B_FILTER_WRITE;
+    result->param              = param;
+
+    return result;
+}
 void
 n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
 {
@@ -166,9 +194,7 @@ n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
     e->contents = contents;
     e->kind     = kind;
 
-    // TODO: Something isn't working???
-    // n00b_write(s->capture_stream, e);
-    n00b_capture_encode(s->unproxied_capture, NULL, e);
+    n00b_write(s->capture_stream, e);
 }
 
 // proc does proxy WINCH, so we don't have to do that. However, we do need to
@@ -177,7 +203,7 @@ n00b_session_capture(n00b_session_t *s, n00b_capture_t kind, void *contents)
 // ourselves when capture is on.
 
 static void
-record_winch(n00b_stream_t *sig, int64_t signal, n00b_session_t *session)
+record_winch(int64_t signal, siginfo_t *sinfo, n00b_session_t *session)
 {
     struct winsize *dims = n00b_gc_alloc_mapped(struct winsize,
                                                 N00B_GC_SCAN_ALL);
@@ -203,14 +229,13 @@ n00b_setup_capture(n00b_session_t *s, n00b_stream_t *target, int policy)
     s->cap_filename      = n00b_stream_get_name(target);
     s->unproxied_capture = target;
 
-    n00b_stream_t *p = n00b_new_subscription_proxy();
-
-    //    n00b_add_write_filter(p, n00b_capture_encoder());
-    n00b_io_subscribe_to_delivery(p, target, NULL);
-
+    n00b_stream_t *p  = n00b_new_stream_proxy(target);
     s->capture_stream = p;
     s->capture_policy = policy;
-    n00b_io_register_signal_handler(SIGWINCH, (void *)record_winch, s);
+
+    n00b_filter_add(p, n00b_capture_encoder(p));
+
+    n00b_signal_register(SIGWINCH, (void *)record_winch, s);
 }
 
 void
@@ -227,7 +252,7 @@ n00b_capture_launch(n00b_session_t *s, n00b_string_t *cmd, n00b_list_t *args)
     info->args    = args;
 
     capture(s, N00B_CAPTURE_SPAWN, info);
-    record_winch(NULL, SIGWINCH, s);
+    record_winch(SIGWINCH, NULL, s);
 }
 
 void

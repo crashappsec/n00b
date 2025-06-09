@@ -4,18 +4,18 @@ static inline void
 n00b_do_write(n00b_stream_t *stream, void *data, bool noblock)
 {
     if (noblock) {
-        n00b_write(stream, data);
+        n00b_queue(stream, data);
     }
     else {
-        n00b_write_blocking(stream, data, NULL);
+        n00b_write(stream, data);
     }
 }
 
 void
-_n00b_print(n00b_obj_t first, ...)
+_n00b_print(void *first, ...)
 {
     va_list           args;
-    n00b_obj_t        cur        = first;
+    void             *cur        = first;
     n00b_karg_info_t *_n00b_karg = NULL;
     n00b_stream_t    *stream     = NULL;
     n00b_codepoint_t  sep        = ' ';
@@ -34,9 +34,9 @@ _n00b_print(n00b_obj_t first, ...)
 
     n00b_type_t *t = n00b_get_my_type(first);
 
-    if (n00b_type_is_stream(t) || n00b_type_is_file(t)) {
+    if (n00b_type_is_stream(t)) {
         stream = first;
-        first  = va_arg(args, n00b_obj_t);
+        first  = va_arg(args, void *);
         cur    = first;
         if (!first) {
             n00b_do_write(n00b_stdout(), n00b_cached_newline(), true);
@@ -51,14 +51,13 @@ _n00b_print(n00b_obj_t first, ...)
 
         if (numargs < 0) {
             numargs = 0;
+            cur     = va_arg(args, void *);
         }
-        cur = va_arg(args, n00b_obj_t);
+        else {
+            _n00b_karg = n00b_get_kargs_and_count(args, &numargs);
+            numargs++;
+        }
     }
-    else {
-        _n00b_karg = n00b_get_kargs_and_count(args, &numargs);
-        numargs++;
-    }
-
     if (_n00b_karg != NULL) {
         if (!stream) {
             n00b_kw_ptr("stream", stream);
@@ -92,7 +91,7 @@ _n00b_print(n00b_obj_t first, ...)
         }
 
         n00b_do_write(stream, s, noblock);
-        cur = va_arg(args, n00b_obj_t);
+        cur = va_arg(args, void *);
     }
 
     if (end) {
@@ -100,120 +99,25 @@ _n00b_print(n00b_obj_t first, ...)
         n00b_do_write(stream, s, noblock);
     }
 
-#if 0
-// CURRENTLY needs implementing
-    if (flush) {
-        n00b_flush(stream);
-    }
-#endif
-
     va_end(args);
 }
 
-#ifdef N00B_DEBUG
-void
-_n00b_cprintf(char *fmt, int64_t num_params, ...)
+void *
+__n00b_c_value(void *item)
 {
-    va_list args, copy;
+    if (!n00b_in_heap(item)) {
+        return item;
+    }
+    n00b_type_t *t = n00b_get_my_type(item);
 
-    va_start(args, num_params);
-    va_copy(copy, args);
-
-    char  *p   = fmt;
-    char  *end = p + strlen(fmt);
-    void  *obj;
-    void **start     = (void *)args;
-    int    arg_index = 0;
-
-    while (p < end) {
-        if (*p != '%' || (*++p == '%')) {
-            p++;
-            continue;
-        }
-
-        int l_ct = 0;
-        while (p < end) {
-            switch (*p) {
-            case 'l':
-                l_ct++;
-                p++;
-                break;
-            case 'd':
-            case 'i':
-            case 'u':
-            case 'o':
-            case 'x':
-            case 'X':
-                if (!l_ct) {
-                    va_arg(args, int32_t);
-                    arg_index++;
-                }
-                else {
-                    va_arg(args, int64_t);
-                    arg_index++;
-                }
-                p++;
-                break;
-            case 'f':
-            case 'F':
-            case 'e':
-            case 'E':
-            case 'g':
-            case 'G':
-            case 'a':
-            case 'A':
-            case 'p':
-                va_arg(args, int64_t);
-                arg_index++;
-                p++;
-                break;
-            case 'c':
-                // Might need to IFDEF this based on platform.
-                va_arg(args, int32_t);
-                arg_index++;
-                p++;
-                break;
-            case '%':
-                break;
-            case 'n':
-                p++;
-                break;
-            case 's':
-                obj = va_arg(args, void *);
-                n00b_string_t *s;
-
-                if (n00b_in_heap(obj)) {
-                    if (n00b_type_is_string(n00b_get_my_type(obj))) {
-                        s = obj;
-                    }
-                    else {
-                        s = n00b_cformat("«#»", obj);
-                    }
-                }
-                else {
-                    s = n00b_cformat("«#»", obj);
-                }
-
-                start[arg_index] = n00b_rich_to_ansi(s, NULL);
-
-                p++;
-                arg_index++;
-
-                break;
-            default:
-                p++;
-                continue;
-            }
-            // break from inner while loop.
-            p++;
-            break;
-        }
+    if (!t) {
+        return item;
     }
 
-    int result;
+    if (n00b_type_is_string(t)) {
+        n00b_string_t *s = item;
+        return s->data;
+    }
 
-    result = vfprintf(stderr, fmt, copy);
-    // Can happen when stderr has O_NONBLOCK set.
-    n00b_assert(result >= 0);
+    return item;
 }
-#endif

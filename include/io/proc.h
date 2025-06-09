@@ -26,22 +26,23 @@ typedef void (*n00b_post_fork_hook_t)(void *);
 
 typedef struct {
     n00b_string_t        *cmd;
+    n00b_string_t        *seeded_stdin;
     n00b_list_t          *args;
     n00b_list_t          *env;
     n00b_stream_t        *subproc_stdin;
     n00b_stream_t        *subproc_stdout;
     n00b_stream_t        *subproc_stderr;
     n00b_stream_t        *subproc_pid;
-    n00b_exitinfo_t      *subproc_results;
-    n00b_list_t          *pending_stdout_subs;
-    n00b_list_t          *pending_stderr_subs;
-    n00b_lock_t           run_lock;
-    n00b_condition_t      cv;
-    n00b_buf_t           *cap_in;
-    n00b_buf_t           *cap_out;
-    n00b_buf_t           *cap_err;
+    n00b_exit_info_t     *subproc_results;
+    n00b_list_t          *stdin_subs;
+    n00b_list_t          *stdout_subs;
+    n00b_list_t          *stderr_subs;
+    n00b_stream_t        *cap_in;
+    n00b_stream_t        *cap_out;
+    n00b_stream_t        *cap_err;
+    n00b_stream_t        *exit_cb;
     n00b_post_fork_hook_t hook;
-    void                 *thunk;
+    void                 *param;
     struct winsize        dimensions;
     struct termios       *parent_termcap;
     struct termios       *subproc_termcap_ptr;
@@ -56,6 +57,8 @@ typedef struct {
     bool                  exited;
     bool                  timeout;
     bool                  wait_for_exit;
+    int                   gate;
+    n00b_condition_t      cv;  
 } n00b_proc_t;
 
 #define n00b_proc_check_and_set(p, operation)              \
@@ -71,23 +74,6 @@ typedef struct {
     }
 
 #define n00b_proc_post_check(p)
-
-static inline void
-n00b_proc_close(n00b_proc_t *proc)
-{
-    if (proc->subproc_stdin) {
-        n00b_close(proc->subproc_stdin);
-    }
-    if (proc->subproc_stdout) {
-        n00b_close(proc->subproc_stdout);
-    }
-    if (proc->subproc_stderr) {
-        n00b_close(proc->subproc_stderr);
-    }
-    if (proc->subproc_pid) {
-        n00b_close(proc->subproc_pid);
-    }
-}
 
 static inline void
 n00b_proc_set_command(n00b_proc_t *proc, n00b_string_t *cmd)
@@ -182,7 +168,7 @@ n00b_proc_get_stdout_capture(n00b_proc_t *proc)
     if (!proc->cap_out) {
         N00B_CRAISE("stdout was not monitored for this process.");
     }
-    return proc->cap_out;
+    return n00b_stream_extract_buffer(proc->cap_out);
 }
 
 static inline n00b_buf_t *
@@ -193,7 +179,7 @@ n00b_proc_get_stderr_capture(n00b_proc_t *proc)
     if (!proc->cap_err) {
         N00B_CRAISE("stderr was not monitored for this process.");
     }
-    return proc->cap_err;
+    return n00b_stream_extract_buffer(proc->cap_err);
 }
 
 static inline n00b_buf_t *
@@ -205,7 +191,7 @@ n00b_proc_get_stdin_capture(n00b_proc_t *proc)
         N00B_CRAISE("stdin was not monitored for this process.");
     }
 
-    return proc->cap_in;
+    return n00b_stream_extract_buffer(proc->cap_in);
 }
 
 static inline bool
@@ -268,7 +254,8 @@ extern n00b_proc_t *_n00b_run_process(n00b_string_t *cmd,
                                       ...);
 
 extern void n00b_proc_spawn(n00b_proc_t *);
-extern void n00b_proc_run(n00b_proc_t *, n00b_duration_t *);
+extern bool n00b_proc_run(n00b_proc_t *, n00b_duration_t *);
+extern void n00b_proc_close(n00b_proc_t *);
 
 #define n00b_run_process(cmd, proxy, capture, ...) \
     _n00b_run_process(cmd, proxy, capture, N00B_VA(__VA_ARGS__))
