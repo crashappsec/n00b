@@ -13,9 +13,8 @@
 // #define N00B_DLOG_LOCK_DEFAULT_LAST_LEVEL 2 // Raise the cutoff for locks
 // #define N00B_DLOG_GIL_DEFAULT_LAST_LEVEL 2
 // #define N00B_DLOG_ALLOC_DEFAULT_LAST_LEVEL 2
-// #define N00B_DLOG_GC_DEFAULT_LAST_LEVEL 4
 // #define N00B_GC_SHOW_COLLECT_STACK_TRACES
-// #define N00B_DEBUG_GC_ROOTS
+// #define N00B_USE_GC_DEBUG_BIT // To see scanning of specific allocs
 // #define N00B_FIND_SCRIBBLES
 // #define N00B_SCAN_ALLOC
 
@@ -292,7 +291,7 @@
 // is captured, etc.
 #ifndef N00B_STACK_SLOP
 // -32
-#define N00B_STACK_SLOP -32
+#define N00B_STACK_SLOP 0
 #endif
 
 // GC stops scanning a memory record for pointers when it sees this.

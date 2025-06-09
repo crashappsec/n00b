@@ -8,7 +8,28 @@ n00b_session_find_state(n00b_session_t *s, n00b_string_t *name)
         return s->global_actions;
     }
 
-    return hatrack_dict_get(s->user_states, name, NULL);
+    n00b_session_state_t *result;
+
+    result = hatrack_dict_get(s->user_states, name, NULL);
+
+    /*
+     n00b_printf("Lookup for state [|#|]: [|#:x|]", name, result);
+    if (!result) {
+        return NULL;
+    }
+    int l = n00b_list_len((n00b_list_t *)result);
+
+    for (int i = 0; i < l; i++) {
+        n00b_trigger_t *trigger = n00b_list_get((void *)result, i, NULL);
+        n00b_printf("Item [|#|]: [|#:x|]", i, trigger);
+        n00b_alloc_hdr *h = n00b_find_allocation_record(trigger);
+        n00b_printf("Alloc: [|#|]:[|#|]",
+                    n00b_cstring(h->alloc_file),
+                    h->alloc_line);
+    }
+    */
+
+    return result;
 }
 
 static inline n00b_string_t *
@@ -245,6 +266,12 @@ successful_match(n00b_session_t *session,
         n00b_session_state_t *l = n00b_session_find_state(session,
                                                           trigger->next_state);
         if (l) {
+            /*
+            n00b_eprintf("State transition: [|#|] to [|#|]",
+                         session->cur_state_name,
+                         trigger->next_state);
+            */
+
             session->cur_user_state = l;
             session->cur_state_name = trigger->next_state;
         }
@@ -429,6 +456,8 @@ n00b_session_scan_for_matches(n00b_session_t *s)
 {
     n00b_trigger_t *last = NULL;
     n00b_trigger_t *cur;
+
+    // n00b_print(n00b_session_state_repr(s));
 
     while (true) {
         // Skip through "any" matches.

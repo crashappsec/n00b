@@ -132,7 +132,7 @@ N00B_DBG_DECL(n00b_stop_the_world)
                    stw_nesting,
                    __file,
                    __line);
-    
+
     n00b_thread_resume();
 }
 
@@ -155,13 +155,13 @@ N00B_DBG_DECL(n00b_restart_the_world)
         return;
     }
 
-#if 0    
+#if 0
     n00b_dlog_gil2("rtw(start); level: %d->%d; file = %s; line = %d",
                    stw_nesting,
                    stw_nesting - 1,
                    __file,
                    __line);
-#endif    
+#endif
 
     int n = HATRACK_THREADS_MAX;
 
@@ -208,9 +208,9 @@ wait_for_gil_release(void)
     int32_t cur = atomic_read(&n00b_gil);
 
     if (cur == tsi->thread_id) {
-	return;
+        return;
     }
-    
+
     atomic_fetch_or(&tsi->self_lock, N00B_BLOCKING);
 
     while (cur != N00B_NO_OWNER) {
@@ -263,19 +263,19 @@ N00B_DBG_DECL(n00b_thread_suspend)
     int val = atomic_read(&n00b_gil);
 
     if (val == tsi->thread_id) {
-#if 0	
+#if 0
         n00b_dlog_gil2("ignored op: suspend; file = %s; line = %d",
                        __file,
                        __line);
-#endif	
+#endif
         return;
     }
 
-#if 0    
+#if 0
     n00b_dlog_gil2("op: suspend; file = %s; line = %d",
                    __file,
                    __line);
-#endif    
+#endif
 
 #if defined(N00B_DLOG_GIL)
     if (atomic_fetch_or(&tsi->self_lock, N00B_SUSPEND) & N00B_SUSPEND) {
@@ -312,11 +312,11 @@ N00B_DBG_DECL(n00b_thread_resume)
         n00b_dlog_thread("Exiting thread due to cancelation");
         n00b_thread_exit(N00B_CANCEL_EXIT);
     }
-#if 0    
+#if 0
     n00b_dlog_gil2("op: resume; file = %s; line = %d",
                    __file,
                    __line);
-#endif    
+#endif
 
 #if defined(N00B_DLOG_GIL)
     if (!(atomic_fetch_and(&tsi->self_lock, ~N00B_SUSPEND)
@@ -353,11 +353,15 @@ typedef struct mheap_pageset_t {
     char                    heap_start[];
 } mheap_pageset_t;
 
-_Atomic(mheap_pageset_t *) stw_heap = NULL;
+_Atomic(mheap_pageset_t *) stw_heap   = NULL;
+static _Atomic int32_t     mheap_lock = 0;
 
 void
 mheap_add_pages(int size)
 {
+    while (atomic_fetch_or(&mheap_lock, 1))
+        ;
+
     mheap_pageset_t *ps;
 
     size += sizeof(mheap_pageset_t);
@@ -379,7 +383,8 @@ mheap_add_pages(int size)
     ps->next_pageset = atomic_read(&stw_heap);
     ps->next_alloc   = ps->heap_start;
     atomic_store(&stw_heap, ps);
-#if 0    
+    atomic_store(&mheap_lock, 0);
+#if 0
     n00b_dlog_gil("STW scratch heap @%p: %p-%p (next @%p)",
 		  ps, ps->next_alloc, ps->pageset_end, ps->next_pageset);
 #endif
@@ -392,8 +397,13 @@ mheap_abandon(void)
         return;
     }
 
+    while (atomic_fetch_or(&mheap_lock, 1))
+        ;
+
     mheap_pageset_t *cur = atomic_read(&stw_heap);
     mheap_pageset_t *next;
+
+    atomic_store(&stw_heap, NULL);
 
     while (cur) {
         int len = cur->pageset_end - (char *)cur;
@@ -406,7 +416,8 @@ mheap_abandon(void)
         cur = next;
     }
 
-    atomic_store(&stw_heap, NULL);
+    assert(!atomic_read(&stw_heap));
+    atomic_store(&mheap_lock, 0);
 }
 
 static inline bool
@@ -438,7 +449,7 @@ N00B_DBG_DECL(n00b_gil_alloc_len, int n)
 
     char *result;
 
-    int              sz = n00b_round_up_to_given_power_of_2(N00B_FORCED_ALIGNMENT,
+    int sz = n00b_round_up_to_given_power_of_2(N00B_FORCED_ALIGNMENT,
                                                n);
 
     mheap_pageset_t *ps = atomic_read(&stw_heap);
@@ -454,6 +465,6 @@ N00B_DBG_DECL(n00b_gil_alloc_len, int n)
     }
     result = ps->next_alloc;
     ps->next_alloc += sz;
-    
+
     return result;
 }

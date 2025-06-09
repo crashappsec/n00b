@@ -119,6 +119,7 @@ enqueue_work(n00b_work_list_t *wl, n00b_alloc_hdr *hdr)
 
     wl->write_page[n] = (int64_t)hdr;
     wl->total_items++;
+    n00b_dlog_gc1("Enqueued scan of hdr @%p", hdr);
 }
 
 static inline n00b_alloc_hdr *
@@ -139,6 +140,7 @@ dequeue_work(n00b_work_list_t *wl)
         n              = 0;
     }
 
+    n00b_dlog_gc1("About to scan scan hdr @%p", wl->read_page[n]);
     return (n00b_alloc_hdr *)(void *)wl->read_page[n];
 }
 
@@ -190,6 +192,18 @@ new_alloc_reached(n00b_collection_ctx *ctx, n00b_alloc_hdr *hdr, bool in_heap)
 {
     record_new_alloc(ctx, in_heap);
     hdr->n00b_traced = true;
+
+#if defined(N00B_GC_ALLOW_DEBUG_BIT)
+    if (hdr->n00b_debug || !n00b_using_debug_bit) {
+        n00b_dlog_gc1("Reached %s at %p (%s:%d) (%s)\n",
+                      get_alloc_type(hdr),
+                      hdr,
+                      hdr->alloc_file,
+                      hdr->alloc_line,
+                      in_heap ? "queuing scan" : "queuing out-of-heap scan");
+    }
+#endif
+
     enqueue_work(&ctx->scan_work, hdr);
 
     // List of out-of-heap pointers traced; we need to remove the
@@ -197,16 +211,6 @@ new_alloc_reached(n00b_collection_ctx *ctx, n00b_alloc_hdr *hdr, bool in_heap)
     if (!in_heap) {
         enqueue_work(&ctx->cleanup_work, hdr);
     }
-
-#if defined(N00B_GC_ALLOW_DEBUG_BIT)
-    if (hdr->n00b_debug || !n00b_using_debug_bit) {
-        n00b_dlog_gc3("Reached %s at %p (%s:%d) (queuing scan)\n",
-                      get_alloc_type(hdr),
-                      hdr,
-                      hdr->alloc_file,
-                      hdr->alloc_line);
-    }
-#endif
 }
 
 static inline void
@@ -271,14 +275,21 @@ check_one_word(n00b_collection_ctx *ctx, void *addr)
 
     if (record->n00b_traced) {
         if (in_gc_heap) {
+            n00b_dlog_gc1("Reached alloc %p another time (via %p) and should be copied",
+                          record,
+                          addr);
             alloc_reached_again(ctx);
             return record;
         }
+        n00b_dlog_gc1("Reached alloc %p another time (via %p), but not in heap",
+                      record,
+                      addr);
+
         return NULL;
     }
 
+    n00b_dlog_gc1("First reach of alloc %p via pointer to %p", record, addr);
     new_alloc_reached(ctx, record, in_gc_heap);
-    n00b_dlog_gc3("Reached alloc %p via pointer to %p", record, addr);
 
     // We *might* have queued a record to scan, but the caller doesn't
     // need to do any rewriting.
@@ -316,17 +327,19 @@ scan_one_alloc(n00b_collection_ctx *ctx, n00b_alloc_hdr *scanning)
     int64_t       **to_p    = NULL;
     int             alen    = scanning->alloc_len - sizeof(n00b_alloc_hdr);
     int             n_words = alen / sizeof(void *);
-    // Applies to this alloc. We only copy if we're in the same heap.
-    bool            copying = n00b_addr_in_one_heap(ctx->from_space, scanning);
     // Applies to individual memory cells that might be pointers.
     n00b_alloc_hdr *record;
     int             i = 0;
+
+    // Applies to this alloc. We only copy if we're in the same heap.
+    scanning->n00b_moving = n00b_addr_in_one_heap(ctx->from_space, scanning);
+    bool copying          = scanning->n00b_moving;
 
 #if defined(N00B_GC_ALLOW_DEBUG_BIT)
     if (scanning->n00b_debug || !n00b_using_debug_bit) {
         char *typename = get_alloc_type(scanning);
 
-        n00b_dlog_gc2("%p (%s:%d): Scanning %s alloc of %d words ",
+        n00b_dlog_gc1("%p (%s:%d): Scanning %s alloc of %d words ",
                       from_p,
                       scanning->alloc_file,
                       scanning->alloc_line,
@@ -334,7 +347,7 @@ scan_one_alloc(n00b_collection_ctx *ctx, n00b_alloc_hdr *scanning)
                       n_words);
 
         if (copying) {
-            n00b_dlog_gc2("Moving to %p",
+            n00b_dlog_gc1("Moving to %p",
                           ((n00b_alloc_record_t *)scanning)->cached_hash[0]);
         }
     }
@@ -361,6 +374,18 @@ copy_only:
 
     for (; i < n_words; i++) {
         record = check_one_word(ctx, (void *)*from_p);
+
+#if defined(N00B_GC_ALLOW_DEBUG_BIT)
+        if (record && scanning->n00b_debug) {
+            record->n00b_debug = true;
+            n00b_dlog_gc1("Propogate n00b_debug from %p to allocation at %p (%s:%d) (%s)\n",
+                          scanning,
+                          record,
+                          record->alloc_file,
+                          record->alloc_line,
+                          get_alloc_type(record));
+        }
+#endif
 
         // First, cover the case where we didn't find an in-heap pointer.
         //
@@ -397,7 +422,26 @@ copy_only:
         // allocation we're scanning is in the heap we're collecting,
         // we copy over the current word into the new space.
 
+#if defined(N00B_GC_ALLOW_DEBUG_BIT)
+        if (record && scanning->n00b_debug) {
+            n00b_dlog_gc1("Rewrite pointer at %p (old value %p)",
+                          (void *)from_p,
+                          (void *)*from_p);
+        }
+#endif
+
         *from_p = (int64_t)rewrite_pointer(record, *from_p);
+
+#if defined(N00B_GC_ALLOW_DEBUG_BIT)
+        if (record && scanning->n00b_debug) {
+            n00b_dlog_gc1("Rewrite pointer at %p (NEW value %p)",
+                          (void *)from_p,
+                          (void *)*from_p);
+            n00b_dlog_gc1("Old header: %p; new header: %p",
+                          (void *)record,
+                          ((n00b_alloc_record_t *)record)->cached_hash[0]);
+        }
+#endif
 
         if (copying) {
             *to_p++ = (int64_t *)*from_p;
@@ -412,6 +456,8 @@ run_all_scans(n00b_collection_ctx *ctx)
     n00b_alloc_hdr *item = dequeue_work(&ctx->scan_work);
 
     while (item) {
+        n00b_dlog_gc3("Begin scan of alloc @%p", item);
+
         n00b_type_t *t = item->type;
 
         if (t) {
@@ -442,8 +488,11 @@ _scan_root_set(n00b_collection_ctx *ctx, int64_t **start, int num_words)
         val = *p;
         rec = check_one_word(ctx, val);
 
+        n00b_dlog_gc1("scan root @ %p (found: %p) (word # %d)", p, rec, i);
+
         if (rec) {
-            *p = rewrite_pointer(rec, (int64_t)val);
+            int64_t *v = rewrite_pointer(rec, (int64_t)val);
+            *p         = v;
         }
         p++;
     }
@@ -688,31 +737,6 @@ trace_tsi_roots(n00b_collection_ctx *ctx)
 }
 
 static inline void
-trace_stack(n00b_collection_ctx *ctx)
-{
-    // Here, we trace the stack for every thread.
-
-    n00b_thread_stack_region(n00b_thread_self());
-
-    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
-        n00b_thread_t *t = atomic_read(&n00b_global_thread_list[i]);
-        if (!t) {
-            continue;
-        }
-        if (t->cur) {
-            int num_words = (((char *)t->base) - (char *)t->cur) / 8;
-            n00b_dlog_gc1("Scanning stack for thread #%x: %p-%p (%d words)",
-                          ((n00b_tsi_t *)t->tsi)->thread_id,
-                          t->cur,
-                          t->base,
-                          num_words);
-            scan_root_set(ctx, t->cur, num_words);
-        }
-        run_all_scans(ctx);
-    }
-}
-
-static inline void
 finish_collection(n00b_collection_ctx *ctx, n00b_heap_t *h)
 {
     cleanup_work_lists(ctx);
@@ -751,7 +775,7 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 
     atomic_fetch_add(&__n00b_collector_running, 1);
     N00B_DBG_CALL(n00b_stop_the_world);
-    
+
 #if defined(N00B_DEBUG) && defined(N00B_DLOG_GC_ON)
     n00b_duration_t  start;
     n00b_duration_t  end;
@@ -771,8 +795,8 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
         trace_all_roots(&ctx);
     }
 
+    n00b_thread_stack_region(n00b_thread_self());
     trace_tsi_roots(&ctx);
-    trace_stack(&ctx);
 
     finish_collection(&ctx, h);
 

@@ -1181,7 +1181,7 @@ calculate_tg_column_widths(n00b_testing_ctx *ctx, int n)
     }
 
     // Add 2 to each column for pad.
-    ctx->c1_width = 3;
+    ctx->c1_width = 8;
     while (largest_group_sz) {
         ctx->c1_width++;
         largest_group_sz /= 10;
@@ -1197,11 +1197,11 @@ create_matrix(n00b_testing_ctx *ctx)
     n00b_tree_node_t *ci = n00b_new_layout();
     n00b_new_layout_cell(ci,
                          n00b_kw("min",
-                                 6LL,
+                                 10LL,
                                  "max",
-                                 6LL,
+                                 10LL,
                                  "preference",
-                                 6LL));
+                                 10LL));
     n00b_new_layout_cell(ci,
                          n00b_kw("min",
                                  (int64_t)ctx->c1_width,

@@ -690,11 +690,21 @@ n00b_stop_using_debug_bit(void)
 }
 
 static inline void *
-n00b_debug_alloc(void *addr)
+n00b_add_debug_alloc(void *addr)
 {
     n00b_alloc_hdr *h = n00b_find_allocation_record(addr);
 
     h->n00b_debug = true;
+
+    return addr;
+}
+
+static inline void *
+n00b_remove_debug_alloc(void *addr)
+{
+    n00b_alloc_hdr *h = n00b_find_allocation_record(addr);
+
+    h->n00b_debug = false;
 
     return addr;
 }
