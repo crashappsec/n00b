@@ -8,15 +8,10 @@ n00b_futex_t   n00b_cancel_completed = 0;
 void
 n00b_thread_stack_region(n00b_thread_t *t)
 {
-    pthread_t self = pthread_self();
+    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
+    size_t      size;
 
-    pthread_attr_t attrs;
-
-    pthread_getattr_np(self, &attrs);
-
-    size_t size;
-
-    pthread_attr_getstack(&attrs, (void **)&t->cur, &size);
+    pthread_attr_getstack(&tsi->attrs, (void **)&t->cur, &size);
 #if 0
     t->base = __builtin_frame_address(0);
 #else

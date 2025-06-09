@@ -34,6 +34,9 @@ struct n00b_tsi_t {
     // State associated with any condition variable we are waiting on.
     n00b_condition_thread_state_t cv_info;
     n00b_lock_base_t             *lock_wait_target;
+#if defined(__linux__)
+    pthread_attr_t attrs;
+#endif
 #ifdef N00B_DEBUG
     char *lock_wait_file;
     int   lock_wait_line;

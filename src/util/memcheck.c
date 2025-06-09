@@ -1,7 +1,5 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
-#pragma clang diagnostic ignored "-Wformat"
-#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
 
 #ifdef N00B_FULL_MEMCHECK
 
@@ -86,28 +84,30 @@ n00b_print_possible_loc(n00b_alloc_hdr *h, n00b_alloc_hdr *prev)
     }
 
     if (!h->alloc_file) {
+#include "util/nowarn.h"
         cprintf(" (no alloc location info) ");
         if (prev) {
             cprintf(" previous header @%p", prev);
             n00b_print_possible_loc(prev, NULL);
         }
+#include "util/nowarn_pop.h"
     }
     else {
         fprintf(stderr, " %s:%d", h->alloc_file, h->alloc_line);
     }
 }
 
-#define mc_warn(state, msg, ...)                                         \
-    {                                                                    \
-        if (state->cur_alloc) {                                          \
-            fprintf(stderr,                                              \
-                    "record %d@%p: ",                                    \
-                    state->alloc_ix,                                     \
-                    state->cur_alloc);                                   \
-        }                                                                \
-        cprintf("n00b_memcheck: warn: " msg __VA_OPT__(, ) __VA_ARGS__); \
-        n00b_print_possible_loc(state->cur_alloc, state->prev_alloc);    \
-        cprintf("\n");                                                   \
+#define mc_warn(state, ...)                                           \
+    {                                                                 \
+        if (state->cur_alloc) {                                       \
+            fprintf(stderr,                                           \
+                    "record %d@%p: ",                                 \
+                    state->alloc_ix,                                  \
+                    state->cur_alloc);                                \
+        }                                                             \
+        cprintf("n00b_memcheck: warn: " __VA_ARGS__);                 \
+        n00b_print_possible_loc(state->cur_alloc, state->prev_alloc); \
+        cprintf("\n");                                                \
     }
 
 #define mc_err(state, msg, ...)                                           \
@@ -155,10 +155,12 @@ n00b_memcheck_arena(mc_state_t *state)
     char *end = n00b_min(a->addr_end, a->last_issued);
 
     if (p + a->user_length != a->addr_end) {
+#include "util/nowarn.h"
         mc_warn(state,
                 "Cached arena len doesn't match bounds (%d vs %d)",
                 a->user_length,
                 (void *)(((char *)a->addr_end) - p));
+#include "util/nowarn_pop.h"
     }
 
     n00b_alloc_hdr *h           = (void *)p;
@@ -178,7 +180,10 @@ n00b_memcheck_arena(mc_state_t *state)
             if (alloc_is_blank(h)) {
                 break;
             }
+#include "util/nowarn.h"
             mc_err(state, "Expected alloc record, but missing magic.");
+#include "util/nowarn_pop.h"
+
 scan_for_next:
             assert(aligned_end <= (uint64_t *)a->last_issued);
             while (aligned < aligned_end) {
@@ -201,19 +206,23 @@ scan_for_next:
         }
 
         if (h->alloc_len < 0 || h->alloc_len % 8) {
+#include "util/nowarn.h"
             mc_err(state,
                    "Invalid alloc length for allocation at %p (%ld)",
                    h,
                    h->alloc_len);
+#include "util/nowarn_pop.h"
             goto scan_for_next;
         }
         p += h->alloc_len;
         expected_next = (uint64_t *)p;
 
         if (expected_next > aligned_end) {
+#include "util/nowarn.h"
             mc_err(state,
                    "Allocation record at %p has end beyond the arena bounds",
                    h);
+#include "util/nowarn_pop.h"
             expected_next = aligned_end;
         }
 
@@ -227,9 +236,11 @@ scan_for_next:
         }
 
         if (extra_magic) {
+#include "util/nowarn.h"
             mc_warn(state,
                     "Found %d invalid magic values in record",
                     extra_magic);
+#include "util/nowarn_pop.h"
 
             extra_magic = 0;
         }

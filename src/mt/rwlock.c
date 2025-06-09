@@ -277,8 +277,8 @@ N00B_DBG_DECL(n00b_rw_unlock, n00b_rwlock_t *lock)
     n00b_lock_log_t *log = get_read_lock_record(lock, tsi);
 
     if (!log) {
-        // Should warn or possibly error for this.
-        abort();
+        // Should warn or possibly error for this.  Though, no records
+        // live in the lock if debugging is off.
         return true;
     }
     if (--log->thread_id) { // thread_id slot is used for nesting level.

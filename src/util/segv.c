@@ -1,8 +1,5 @@
 #include "n00b.h"
 
-#pragma clang diagnostic ignored "-Wformat"
-#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
-
 extern n00b_table_t *n00b_get_backtrace(n00b_vmthread_t *);
 extern int16_t      *n00b_calculate_col_widths(n00b_table_t *,
                                                int16_t,
@@ -27,7 +24,9 @@ static void
 crash_print_trace(char *title, n00b_table_t *tbl)
 {
     n00b_string_t *t = n00b_crich(title);
+#include "util/nowarn.h"
     cprintf("%s\n%s\n", t, n00b_to_string(tbl));
+#include "util/nowarn_pop.h"
 }
 
 static void
@@ -44,7 +43,9 @@ n00b_crash_handler(int n)
     }
 
     n00b_string_t *s = n00b_crich("«em5»Program crashed due to SIGSEGV.");
+#include "util/nowarn.h"
     cprintf("%s", s);
+#include "util/nowarn_pop.h"
 
 #ifdef N00B_DEBUG
 
