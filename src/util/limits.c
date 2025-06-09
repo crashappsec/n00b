@@ -1,5 +1,6 @@
 #include <sys/resource.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #define limit_fn_gen(name, cval)                   \
     int n00b_current_##name##_limit(void)          \

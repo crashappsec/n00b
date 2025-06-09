@@ -11,7 +11,7 @@
 // #define N00B_DLOG_COMPILE_OUT_THRESHOLD 4
 // #define N00B_DLOG_DEFAULT_DISABLE_LEVEL 2
 // #define N00B_DLOG_LOCK_DEFAULT_LAST_LEVEL 2 // Raise the cutoff for locks
-#define N00B_DLOG_GIL_DEFAULT_LAST_LEVEL 2
+// #define N00B_DLOG_GIL_DEFAULT_LAST_LEVEL 2
 // #define N00B_DLOG_ALLOC_DEFAULT_LAST_LEVEL 2
 // #define N00B_DLOG_GC_DEFAULT_LAST_LEVEL 4
 // #define N00B_GC_SHOW_COLLECT_STACK_TRACES
@@ -128,8 +128,8 @@
 
 #ifndef N00B_MAX_KARGS_NESTING_DEPTH
 // Must be a power of two, and should never nest so doesn't need to be
-// more than 1... probably.
-#define N00B_MAX_KARGS_NESTING_DEPTH 1
+// more than a couple... probably.
+#define N00B_MAX_KARGS_NESTING_DEPTH 4
 #endif
 
 // More accurately, max # of supported keywords.

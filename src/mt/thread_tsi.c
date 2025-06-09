@@ -42,9 +42,13 @@ _n00b_init_self_tsi(int32_t acquired_thread_slot)
     n00b_thread_t *desired = &tsi->self_data;
     n00b_thread_t *expected;
 
-    // I'm not sure why I'm keeping this TBQH.
     tsi->self_data.pthread_id = pthread_self();
-    tsi->thread_sleeping      = true;
+#if defined(__linux__)
+    pthread_getattr_np(tsi->self_data.pthread_id, &tsi->attrs);
+#endif
+
+    // Didn't I stop using this?? TODO: Probably remove.
+    tsi->thread_sleeping = true;
 
     n00b_thread_stack_region(&tsi->self_data);
     atomic_fetch_add(&n00b_live_threads, 1);

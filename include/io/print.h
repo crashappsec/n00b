@@ -19,7 +19,8 @@ extern void _n00b_print(void *, ...);
     }
 
 extern void *__n00b_c_value(void *item);
-#define N00B_CVALUE(x) __n00b_c_value((void *)x)
+
+#define N00B_CVALUE(argument) __n00b_c_value((void *)argument)
 
 #define n00b_va_map(fn, ...) N00B_MAP_LIST(fn, __VA_ARGS__)
 

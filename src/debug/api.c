@@ -62,12 +62,9 @@ n00b_debug_log_dump(void)
                                n00b_cformat("-dbg"));
     }
     printf("Dumping debug state to directory %s for pid %d\n", td->data, pid);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat"
-#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+#include "util/nowarn.h"
     cprintf("Dumping debug state to directory %s for pid %d\n", td, pid);
-#pragma clang diagnostic pop
-
+#include "util/nowarn_pop.h"
     n00b_string_t *f1 = n00b_cformat("[|#|]/locks.[|#|].log", td, pid);
     n00b_debug_all_locks(f1->data);
     n00b_string_t *f2 = n00b_cformat("[|#|]/mem.[|#|].log", td, pid);
