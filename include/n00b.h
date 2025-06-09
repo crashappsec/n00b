@@ -248,6 +248,7 @@ extern bool n00b_gc_inited;
 #include "util/parsing.h"  // generic parser via Earley parsing.
 #include "util/getopt.h"   // Getopt parsing.
 #include "text/markdown.h" // Wrap of vendored md4c.
+#include "util/limits.h"
 
 // Helper functions for object marshal implementations to
 // marshal primitive values.

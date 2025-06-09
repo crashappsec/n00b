@@ -372,6 +372,16 @@ n00b_initialize_library(void)
 
 extern void n00b_crash_init(void);
 
+#if defined(N00B_INIT_FD_LIMIT)
+static inline void
+set_fd_limit(void)
+{
+    n00b_set_fd_limit(N00B_DEFAULT_FD_LIMIT);
+}
+#else
+#define set_fd_limit()
+#endif
+
 __attribute__((constructor)) void
 n00b_init(int argc, char **argv, char **envp)
 {
@@ -387,6 +397,7 @@ n00b_init(int argc, char **argv, char **envp)
         inited            = true;
         n00b_stashed_argv = argv;
 
+        set_fd_limit();
         // We need some basic thread data before starting the GC, but
         // the thread setup for thread initialization that uses the heap
         // has to come after the GC is initialized. Therefore, sandwich

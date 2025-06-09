@@ -359,6 +359,7 @@ n00b_util = [
     'src/util/memcheck.c',
     'src/util/deep_copy.c',
     'src/util/testgen.c',
+    'src/util/limits.c',
 ]
 
 n00b_crypto = ['src/crypto/sha.c']
