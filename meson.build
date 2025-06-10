@@ -362,7 +362,7 @@ n00b_util = [
     'src/util/limits.c',
 ]
 
-n00b_crypto = ['src/crypto/sha.c']
+n00b_crypto = ['src/cryptography/sha.c']
 
 n00b_cmd = [
     'src/cmd/main.c',

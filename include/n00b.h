@@ -211,7 +211,7 @@ extern bool n00b_gc_inited;
 #include "util/path.h"
 
 // Yes we use cryptographic hashes internally for type IDing.
-#include "crypto/sha.h"
+#include "cryptography/sha.h"
 
 #include "compiler/module.h"
 
