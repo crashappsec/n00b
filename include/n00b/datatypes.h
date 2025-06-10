@@ -5,7 +5,7 @@
 #include "util/dt_tree_patterns.h"
 #include "core/dt_types.h"
 #include "adts/dt_buffers.h"
-#include "crypto/dt_crypto.h"
+#include "cryptography/dt_crypto.h"
 #include "adts/dt_mixed.h"
 #include "adts/dt_tuples.h"
 #include "compiler/dt_lex.h"
