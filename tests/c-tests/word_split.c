@@ -12,7 +12,7 @@ main()
     n00b_list_t *l1 = n00b_string_split_words(for_testing);
 
     for (int i = 0; i < n00b_list_len(l1); i++) {
-        n00b_printf("Word [|#:i|]: [|#|]",
+        n00b_printf("Word [=#:i=]: [=#=]",
                     (int64_t)i,
                     n00b_list_get(l1, i, NULL));
     }

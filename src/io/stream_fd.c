@@ -170,24 +170,24 @@ fd_stream_init(n00b_stream_t *stream, n00b_list_t *l)
     switch ((int64_t)n00b_list_pop(l)) {
     case FD_FILE:
         stream->name    = n00b_list_pop(l);
-        c->stream->name = n00b_cformat("fd [|#|] (file)",
+        c->stream->name = n00b_cformat("fd [=#=] (file)",
                                        (int64_t)c->stream->fd);
         break;
     case FD_CONNECT:
         c->addr         = n00b_list_pop(l);
         stream->name    = n00b_to_string(c->addr);
-        c->stream->name = n00b_cformat("fd [|#|] (connect)",
+        c->stream->name = n00b_cformat("fd [=#=] (connect)",
                                        (int64_t)c->stream->fd);
         break;
     default:
         stream->name = n00b_fd_name(c->stream);
 
         if (c->stream->socket) {
-            c->stream->name = n00b_cformat("fd [|#|] (socket)",
+            c->stream->name = n00b_cformat("fd [=#=] (socket)",
                                            (int64_t)c->stream->fd);
         }
         else {
-            c->stream->name = n00b_cformat("fd [|#|] (pipe)",
+            c->stream->name = n00b_cformat("fd [=#=] (pipe)",
                                            (int64_t)c->stream->fd);
             break;
         }

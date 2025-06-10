@@ -102,17 +102,17 @@ repr_perms(n00b_stream_t *stream)
             case 0:
                 break;
             case 1:
-                pstr = n00b_cformat("[|#|]!r", pstr);
+                pstr = n00b_cformat("[=#=]!r", pstr);
                 break;
             case 2:
-                pstr = n00b_cformat("[|#|]!w", pstr);
+                pstr = n00b_cformat("[=#=]!w", pstr);
                 break;
             default:
-                pstr = n00b_cformat("[|#|]!rw", pstr);
+                pstr = n00b_cformat("[=#=]!rw", pstr);
                 break;
             }
 
-            return n00b_cformat("[|#|] ([|#|])",
+            return n00b_cformat("[=#=] ([=#=])",
                                 s,
                                 pstr);
         }
@@ -149,7 +149,7 @@ prep_read_subs(n00b_stream_t *stream)
             // the data structure.
             n00b_observer_t *item   = n00b_list_get(r, i, NULL);
             n00b_stream_t   *target = (void *)item->subscriber;
-            n00b_list_append(items, n00b_cformat("[|#:x|]", target->stream_id));
+            n00b_list_append(items, n00b_cformat("[=#:x=]", target->stream_id));
         }
     }
 
@@ -157,7 +157,7 @@ prep_read_subs(n00b_stream_t *stream)
         for (int i = 0; i < n00b_list_len(raw); i++) {
             n00b_observer_t *item   = n00b_list_get(raw, i, NULL);
             n00b_stream_t   *target = (void *)item->subscriber;
-            n00b_list_append(items, n00b_cformat("[|#:x|] (raw)", target->stream_id));
+            n00b_list_append(items, n00b_cformat("[=#:x=] (raw)", target->stream_id));
         }
     }
 
@@ -189,7 +189,7 @@ prep_filters(n00b_stream_t *stream)
             }
         }
 
-        n00b_list_append(l, n00b_cformat("[|#|] ([|#|])", f->impl->name, mode));
+        n00b_list_append(l, n00b_cformat("[=#=] ([=#=])", f->impl->name, mode));
         f = f->next_write_step;
     }
 
@@ -223,7 +223,7 @@ prep_write_subs(n00b_stream_t *stream)
             n00b_observer_t *item   = n00b_list_get(q, i, NULL);
             n00b_stream_t   *target = (void *)item->subscriber;
             n00b_list_append(items,
-                             n00b_cformat("[|#:x|] (q)",
+                             n00b_cformat("[=#:x=] (q)",
                                           target->stream_id));
         }
     }
@@ -236,7 +236,7 @@ prep_write_subs(n00b_stream_t *stream)
             }
             n00b_stream_t *target = (void *)item->subscriber;
             n00b_list_append(items,
-                             n00b_cformat("[|#:x|] (deliver)",
+                             n00b_cformat("[=#:x=] (deliver)",
                                           target->stream_id));
         }
     }
@@ -251,14 +251,14 @@ prep_one_stream(n00b_stream_t *stream)
 {
     n00b_list_t *row = n00b_list(n00b_type_string());
     n00b_private_list_append(row,
-                             n00b_cformat("[|#:x|]",
+                             n00b_cformat("[=#:x=]",
                                           (int64_t)stream->stream_id));
 
     n00b_string_t *name     = n00b_to_string(stream);
     n00b_string_t *fd_extra = n00b_get_fd_repr(stream);
 
     if (fd_extra) {
-        name = n00b_cformat("[|#|]: [|#|]", name, fd_extra);
+        name = n00b_cformat("[=#=]: [=#=]", name, fd_extra);
     }
 
     n00b_private_list_append(row, name);

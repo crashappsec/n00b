@@ -35,25 +35,25 @@ Hello, world! Here's emphasis for my table:
 ┗┅┅┅┅┅┅┅┅┅┅┻┅┅┅┅┅┅┅┅┅┻┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┛
 """
 
-r = "[|em2|]Hello, world!"'r
+r = "[=em2=]Hello, world!"'r
 
 
 n =  [["Name",           "Country",   "City"],
-      ["[|em|]John"'r,     "USA",     "NYC"],
-      ["[|em|]Brandon"'r,  "USA",     "NYC"],
-      ["[|em|]Liming"'r,   "USA",     "NYC"],
-      ["[|em|]Miroslav"'r, "USA",     "Lawn Guy Land"],
-      ["[|em|]Rich"'r,     "USA",     "Providence, RI"],
-      ["[|em|]Matt"'r,     "USA",     "Orange"],
-      ["[|em|]Mark"'r,     "UK",      "Brighton"],
-      ["[|em|]Hugo"'r,     "UK",      "Brighton"],
-      ["[|em|]James"'r,    "UK",      "Brighton"],
-      ["[|em|]Max"'r,      "UK",      "Brighton"],
-      ["[|em|]Theo"'r,     "Greece",  "Athens"],
-      ["[|em|]Thomas"'r,   "Greece",  "Athens"],
-      ["[|em|]James II"'r, "Germany", "Berlin"]]'table
+      ["[=em=]John"'r,     "USA",     "NYC"],
+      ["[=em=]Brandon"'r,  "USA",     "NYC"],
+      ["[=em=]Liming"'r,   "USA",     "NYC"],
+      ["[=em=]Miroslav"'r, "USA",     "Lawn Guy Land"],
+      ["[=em=]Rich"'r,     "USA",     "Providence, RI"],
+      ["[=em=]Matt"'r,     "USA",     "Orange"],
+      ["[=em=]Mark"'r,     "UK",      "Brighton"],
+      ["[=em=]Hugo"'r,     "UK",      "Brighton"],
+      ["[=em=]James"'r,    "UK",      "Brighton"],
+      ["[=em=]Max"'r,      "UK",      "Brighton"],
+      ["[=em=]Theo"'r,     "Greece",  "Athens"],
+      ["[=em=]Thomas"'r,   "Greece",  "Athens"],
+      ["[=em=]James II"'r, "Germany", "Berlin"]]'table
 
-print(r + " Here's " + "[|em|]emphasis"'r + " for my table: ")
+print(r + " Here's " + "[=em=]emphasis"'r + " for my table: ")
 print(n)
 
 # also if I try to put the litmod on the n, that shouldn't crash either.

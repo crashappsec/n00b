@@ -29,11 +29,11 @@ build_target_name(n00b_capture_t kind, bool regex)
     }
 
     if (info != kind) {
-        s = n00b_string_concat(s, n00b_cformat(" [|em|](bad spec)"));
+        s = n00b_string_concat(s, n00b_cformat(" [=em=](bad spec)"));
     }
 
     if (!info) {
-        return n00b_string_concat(s, n00b_cformat(" [|em|]missing spec"));
+        return n00b_string_concat(s, n00b_cformat(" [=em=]missing spec"));
     }
 
     if (kind & N00B_CAPTURE_STDIN) {
@@ -49,7 +49,7 @@ build_target_name(n00b_capture_t kind, bool regex)
         n00b_private_list_append(parts, n00b_cstring("errors"));
     }
 
-    return n00b_cformat("[|#|] [|#|]",
+    return n00b_cformat("[=#=] [=#=]",
                         s,
                         n00b_string_join(parts, n00b_cached_comma_padded()));
 }
@@ -98,7 +98,7 @@ add_one_trigger(n00b_table_t *tbl, n00b_string_t *state_name, n00b_trigger_t *t)
     }
 
     if (t->fn) {
-        n00b_table_add_cell(tbl, n00b_cformat("callback @[|#:p|]", t->fn));
+        n00b_table_add_cell(tbl, n00b_cformat("callback @[=#:p=]", t->fn));
     }
     else {
         n00b_table_add_cell(tbl, n00b_cstring(" "));
@@ -135,7 +135,7 @@ n00b_session_state_repr(n00b_session_t *s)
         if (!state) {
             n00b_table_add_cell(tbl, state_name);
             n00b_table_add_cell(tbl,
-                                n00b_cstring("[|red|]Error:[|/|] no state info "
+                                n00b_cstring("[=red=]Error:[=/=] no state info "
                                              "found."),
                                 -1);
             continue;
@@ -161,7 +161,7 @@ n00b_session_state_repr(n00b_session_t *s)
 
         if (!hatrack_set_contains(memos, name)) {
             n00b_table_add_cell(tbl,
-                                n00b_cformat("[|red|]Error:[|/|] state [|#|] "
+                                n00b_cformat("[=red=]Error:[=/=] state [=#=] "
                                              "is defined, but unreachable.",
                                              name),
                                 -1);
@@ -170,7 +170,7 @@ n00b_session_state_repr(n00b_session_t *s)
 
 add_global:
     if (s->global_actions) {
-        n00b_table_add_cell(tbl, n00b_crich("[|em4|]Global defaults"), -1);
+        n00b_table_add_cell(tbl, n00b_crich("[=em4=]Global defaults"), -1);
         n                    = n00b_list_len((n00b_list_t *)s->global_actions);
         n00b_string_t *empty = n00b_cstring(" ");
 
@@ -249,7 +249,7 @@ successful_match(n00b_session_t *session,
             session->cur_state_name = trigger->next_state;
         }
         else {
-            N00B_RAISE(n00b_cformat("No such state: [|#|]",
+            N00B_RAISE(n00b_cformat("No such state: [=#=]",
                                     trigger->next_state));
         }
         n00b_dlog_io("session: Moving to state %s due to match.",
@@ -722,7 +722,7 @@ n00b_session_state_init(n00b_session_state_t *state, va_list args)
                                    n00b_type_session_state());
     }
     if (!hatrack_dict_add(s->user_states, n, state)) {
-        err = n00b_cformat("State name [|em|][|#|] already exists.", n);
+        err = n00b_cformat("State name [=em=][=#=] already exists.", n);
         N00B_RAISE(err);
     }
 }

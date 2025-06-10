@@ -153,7 +153,7 @@ n00b_nonterm_init(n00b_nonterm_t *nonterm, va_list args)
 
     if (found) {
 bail:
-        err = n00b_cformat("Duplicate ruleset name: [|em|][|#|][/]",
+        err = n00b_cformat("Duplicate ruleset name: [=em=][=#=][/]",
                            nonterm->name);
         N00B_RAISE(err);
     }
@@ -359,7 +359,7 @@ n00b_group_items(n00b_grammar_t *g, n00b_list_t *pitems, int min, int max)
                                                     N00B_GC_SCAN_ALL);
 
     group->gid                = n00b_rand16();
-    n00b_string_t  *tmp_name  = n00b_cformat("$$group_nt_[|#|]", group->gid);
+    n00b_string_t  *tmp_name  = n00b_cformat("$$group_nt_[=#=]", group->gid);
     n00b_pitem_t   *tmp_nt_pi = n00b_pitem_nonterm_raw(g, tmp_name);
     n00b_nonterm_t *nt        = n00b_pitem_get_ruleset(g, tmp_nt_pi);
 
@@ -531,7 +531,7 @@ create_one_error_rule_set(n00b_grammar_t *g, int rule_ix)
         }
         tok_ct++;
 
-        n00b_string_t  *name   = n00b_cformat("$term-[|#0|]-[|#1|]-[|#2|]",
+        n00b_string_t  *name   = n00b_cformat("$term-[=#0=]-[=#1=]-[=#2=]",
                                            cur->nt->name,
                                            rule_ix,
                                            tok_ct);

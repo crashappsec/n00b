@@ -22,9 +22,9 @@ enable_opt(int socket, int opt)
 
 extern void
 fd_stream_on_read_event(n00b_fd_stream_t *s,
-                     n00b_fd_sub_t    *sub,
-                     void             *msg,
-                     void             *thunk);
+                        n00b_fd_sub_t    *sub,
+                        void             *msg,
+                        void             *thunk);
 
 extern void
 on_fd_close(n00b_fd_stream_t *s, n00b_stream_t *c);
@@ -65,7 +65,7 @@ listener_open(n00b_stream_t *stream, n00b_list_t *args)
     c->stream->listener = true;
 
     stream->fd_backed = true;
-    stream->name      = n00b_cformat("listen: [|#|] (fd [|#|])",
+    stream->name      = n00b_cformat("listen: [=#=] (fd [=#=])",
                                 addr,
                                 (int64_t)sock);
 

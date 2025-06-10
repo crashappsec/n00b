@@ -13,7 +13,7 @@ ansi_test(n00b_buf_t *b)
     int len = n00b_list_len(r);
     for (int i = 0; i < len; i++) {
         n00b_ansi_node_t *n = n00b_list_get(r, i, NULL);
-        n00b_printf("[|#|]: [|#|]", (int64_t)(i + 1), n00b_ansi_node_repr(n));
+        n00b_printf("[=#=]: [=#=]", (int64_t)(i + 1), n00b_ansi_node_repr(n));
     }
 
     //    char *p = b->data;
@@ -21,14 +21,14 @@ ansi_test(n00b_buf_t *b)
 
     n00b_printf("Okay, reassemble, stripping:\n");
     // printf("\e[?69h\e[8;40;40t");
-    n00b_printf("[|#|]\n", n00b_ansi_nodes_to_string(r, false));
+    n00b_printf("[=#=]\n", n00b_ansi_nodes_to_string(r, false));
     n00b_printf("Okay, reassemble, NOT stripping:\n");
 
     n00b_list_t *parts = n00b_string_split(n00b_ansi_nodes_to_string(r, true),
                                            n00b_cached_newline());
 
     for (int i = 0; i < n00b_list_len(parts); i++) {
-        n00b_printf("[|#|]", n00b_list_get(parts, i, NULL));
+        n00b_printf("[=#=]", n00b_list_get(parts, i, NULL));
         printf("\n");
     }
 
@@ -64,7 +64,7 @@ regex_test(n00b_buf_t *b)
             cap = n00b_cstring("<<None>>");
         }
 
-        n00b_printf("Match [|#|] ([|#|]-[|#|]): [|#|]",
+        n00b_printf("Match [=#=] ([=#=]-[=#=]): [=#=]",
                     (int64_t)(i + 1),
                     m->start,
                     m->end,

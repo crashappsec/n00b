@@ -59,9 +59,9 @@ gen_inject(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
         n00b_queue(output, INJECT_HDR);
     }
 
-    s = n00b_cformat("[|#|]\n", event->contents);
+    s = n00b_cformat("[=#=]\n", event->contents);
     s = n00b_string_escape(s);
-    n00b_queue(output, n00b_cformat("INJECT [|#|]\n", s));
+    n00b_queue(output, n00b_cformat("INJECT [=#=]\n", s));
 }
 
 static inline void
@@ -80,10 +80,10 @@ gen_expect(n00b_cap_event_t *event,
     }
 
     if (err) {
-        n00b_queue(output, n00b_cformat("ERR_EXPECT [|#|]\n", s));
+        n00b_queue(output, n00b_cformat("ERR_EXPECT [=#=]\n", s));
     }
     else {
-        n00b_queue(output, n00b_cformat("EXPECT [|#|]\n", s));
+        n00b_queue(output, n00b_cformat("EXPECT [=#=]\n", s));
     }
 }
 
@@ -109,7 +109,7 @@ gen_winch(n00b_cap_event_t *event, n00b_stream_t *output, bool hdr)
     int64_t         row = ws->ws_row;
 
     n00b_queue(output,
-               n00b_cformat("SIZE [|#|]:[|#|]\n", col, row));
+               n00b_cformat("SIZE [=#=]:[=#=]\n", col, row));
 }
 
 static inline void
@@ -122,9 +122,9 @@ gen_spawn(n00b_session_t   *session,
     n00b_date_time_t      *dt    = n00b_datetime_from_duration(start);
 
     n00b_queue(output,
-               n00b_cformat("# Ran [|#|]:[|#|]\n", info->command, info->args));
+               n00b_cformat("# Ran [=#=]:[=#=]\n", info->command, info->args));
     n00b_queue(output,
-               n00b_cformat("# @[|#|]\n", dt));
+               n00b_cformat("# @[=#=]\n", dt));
 }
 
 static inline void
@@ -212,7 +212,7 @@ build_testgen_script(n00b_session_t *session,
 
     n00b_close(script);
 
-    n00b_string_t *dst = n00b_cformat("[|#|].test", base_path);
+    n00b_string_t *dst = n00b_cformat("[=#=].test", base_path);
     n00b_rename(tname, dst);
 
     return dst;
@@ -231,11 +231,11 @@ n00b_testgen_record(n00b_string_t *test_name, bool quiet, bool ansi, bool merge)
 
     if (!n00b_string_codepoint_len(ext)) {
         ext  = n00b_cstring("cap10");
-        path = n00b_cformat("[|#|].[|#|]", base, ext);
+        path = n00b_cformat("[=#=].[=#=]", base, ext);
     }
 
     if (!quiet) {
-        n00b_eprintf("[|em4|]Beginning test shell.");
+        n00b_eprintf("[=em4=]Beginning test shell.");
     }
 
     // Interactive shell that gets recorded.
@@ -248,7 +248,7 @@ n00b_testgen_record(n00b_string_t *test_name, bool quiet, bool ansi, bool merge)
     n00b_session_run(session);
 
     if (!quiet) {
-        n00b_eprintf("[|em4|]Test shell exited.");
+        n00b_eprintf("[=em4=]Test shell exited.");
     }
     events   = n00b_session_capture_extractor(session, N00B_CAPTURE_ALL);
     filename = n00b_session_capture_filename(session);
@@ -256,7 +256,7 @@ n00b_testgen_record(n00b_string_t *test_name, bool quiet, bool ansi, bool merge)
     path = n00b_rename(filename, path);
 
     if (!quiet) {
-        n00b_eprintf("[|em2|]Capture saved to: [|i|][|#|]", path);
+        n00b_eprintf("[=em2=]Capture saved to: [=i=][=#=]", path);
     }
     n00b_string_t *scr = build_testgen_script(session,
                                               events,
@@ -264,7 +264,7 @@ n00b_testgen_record(n00b_string_t *test_name, bool quiet, bool ansi, bool merge)
                                               ansi,
                                               merge);
     if (!quiet) {
-        n00b_eprintf("[|em2|]Draft script saved to: [|i|][|#|]", scr);
+        n00b_eprintf("[=em2=]Draft script saved to: [=i=][=#=]", scr);
     }
 }
 
@@ -394,7 +394,7 @@ static bool
 n00b_parse_test_file(n00b_test_t *test)
 {
     n00b_string_t *base     = test->path;
-    n00b_string_t *full     = n00b_cformat("[|#|].test", base);
+    n00b_string_t *full     = n00b_cformat("[=#=].test", base);
     n00b_string_t *contents = n00b_read_file(full);
     n00b_string_t *icmd     = n00b_cstring("INJECT ");
     n00b_string_t *x1cmd    = n00b_cstring("EXPECT ");
@@ -411,8 +411,8 @@ n00b_parse_test_file(n00b_test_t *test)
 
     if (!contents) {
         n00b_eprintf(
-            "[|red|]Error:[|/|] Couldn't load test file: "
-            "[|em|][|#|]",
+            "[=red=]Error:[=/=] Couldn't load test file: "
+            "[=em=][=#=]",
             full);
         return false;
     }
@@ -479,8 +479,8 @@ n00b_parse_test_file(n00b_test_t *test)
         }
 
         n00b_eprintf(
-            "[|red|]Error:[|/|] "
-            "Invalid command in test file: [|em|][|#|]:[|#|]",
+            "[=red=]Error:[=/=] "
+            "Invalid command in test file: [=em=][=#=]:[=#=]",
             full,
             (i + 1));
         return false;
@@ -518,7 +518,7 @@ n00b_testgen_load_test_file(n00b_string_t *s, int id)
 static inline n00b_string_t *
 new_state(n00b_session_t *s, int64_t n)
 {
-    n00b_string_t *name = n00b_cformat("state #[|#|]", n);
+    n00b_string_t *name = n00b_cformat("state #[=#=]", n);
     n00b_new(n00b_type_session_state(), s, name);
 
     return name;
@@ -816,9 +816,9 @@ n00b_testgen_load_one_group(n00b_testing_ctx *ctx,
     if (!n) {
         if (ctx->verbose) {
             n00b_eprintf(
-                "[|yellow|]Warning:[|/|] Directory [|em|][|#|][|/|] "
+                "[=yellow=]Warning:[=/=] Directory [=em=][=#=][=/=] "
                 "contains no test files. Test files must use the "
-                "file extension [|i|].test[|/|].",
+                "file extension [=i=].test[=/=].",
                 group->path);
         }
         return;
@@ -844,7 +844,7 @@ n00b_testgen_load_one_group(n00b_testing_ctx *ctx,
     if (n == bad_cases) {
         if (ctx->verbose) {
             n00b_eprintf(
-                "[|yellow|]Warning:[|/|] Directory [|em|][|#|][|/|] "
+                "[=yellow=]Warning:[=/=] Directory [=em=][=#=][=/=] "
                 "contains no VALID test files.");
         }
         return;
@@ -861,13 +861,13 @@ n00b_testgen_load_all_groups(n00b_testing_ctx *ctx)
 
     if (!n00b_path_is_directory(ctx->test_root)) {
         if (ctx->supplied_tdir) {
-            n00b_eprintf("Could not open test directory: [|em|][|#|][|/|].",
+            n00b_eprintf("Could not open test directory: [=em=][=#=][=/=].",
                          ctx->test_root);
         }
         else {
             n00b_eprintf(
-                "Could not find a [|em|]tests[|/|] directory under "
-                "$N00B_ROOT ([|em|][|#|][|/|]",
+                "Could not find a [=em=]tests[=/=] directory under "
+                "$N00B_ROOT ([=em=][=#=][=/=]",
                 n00b_n00b_root());
         }
         n00b_exit(-1);
@@ -887,7 +887,7 @@ n00b_testgen_load_all_groups(n00b_testing_ctx *ctx)
 
     if (!n) {
         n00b_eprintf(
-            "[|red|]Error: [|/|]"
+            "[=red=]Error: [=/=]"
             "Currently, tests must be structured inside directories "
             "that group test cases. All 'dot files' (files or directories "
             "starting with a period) get ignored.");
@@ -932,8 +932,8 @@ enable_specific_group_test(n00b_test_group_t *g, n00b_string_t *tname)
     }
 
     n00b_eprintf(
-        "[|red|]Error: [|/|] No test named [|em|][|#|][|/|] "
-        "found in group [|em|][|#|][|/|]",
+        "[=red=]Error: [=/=] No test named [=em=][=#=][=/=] "
+        "found in group [=em=][=#=][=/=]",
         tname,
         g->name);
 }
@@ -981,7 +981,7 @@ start_looking:
     }
 
     n00b_eprintf(
-        "[|red|]Error:[|/|] Can't find a test group named [|em|][|#|][|/|]",
+        "[=red=]Error:[=/=] Can't find a test group named [=em=][=#=][=/=]",
         group);
 
     return;
@@ -1244,11 +1244,11 @@ create_matrix(n00b_testing_ctx *ctx)
     n00b_table_add_cell(result, n00b_cstring("Test"));
     n00b_table_add_cell(result, n00b_cstring("Test Result"));
 #else
-    n00b_table_add_cell(result, n00b_crich("[|head|]Action"));
-    n00b_table_add_cell(result, n00b_crich("[|head|]Number"));
-    n00b_table_add_cell(result, n00b_crich("[|head|]Group"));
-    n00b_table_add_cell(result, n00b_crich("[|head|]Test"));
-    n00b_table_add_cell(result, n00b_crich("[|head|]Test Result"));
+    n00b_table_add_cell(result, n00b_crich("[=head=]Action"));
+    n00b_table_add_cell(result, n00b_crich("[=head=]Number"));
+    n00b_table_add_cell(result, n00b_crich("[=head=]Group"));
+    n00b_table_add_cell(result, n00b_crich("[=head=]Test"));
+    n00b_table_add_cell(result, n00b_crich("[=head=]Test Result"));
 #endif
 
     return result;
@@ -1284,8 +1284,8 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
 
         if (!quiet) {
             tmp = n00b_cformat(
-                "[|h4|]Entering group:[|h1|] [|#|] "
-                "([|#|]/[|#|] enabled) [|h4|] ",
+                "[=h4=]Entering group:[=h1=] [=#=] "
+                "([=#=]/[=#=] enabled) [=h4=] ",
                 g->name,
                 g->num_enabled,
                 m);
@@ -1299,7 +1299,7 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
             n00b_test_t   *tc      = n00b_list_get(g->tests, j, NULL);
             if (!tc->enabled) {
                 if (!quiet) {
-                    n00b_table_add_cell(t, n00b_crich("[|h6|]Skip"));
+                    n00b_table_add_cell(t, n00b_crich("[=h6=]Skip"));
                     n00b_table_add_cell(t, testnum);
                     n00b_table_add_cell(t, g->name);
                     n00b_table_add_cell(t, tc->name);
@@ -1312,7 +1312,7 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
             tc->pass  = false; // Just incase we do multiple runs.
 
             if (!quiet) {
-                n00b_table_add_cell(t, n00b_crich("[|h5|]Run"));
+                n00b_table_add_cell(t, n00b_crich("[=h5=]Run"));
                 n00b_table_add_cell(t, testnum);
                 n00b_table_add_cell(t, g->name);
                 n00b_table_add_cell(t, tc->name);
@@ -1323,20 +1323,20 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
 
             if (!quiet) {
                 fprintf(stderr, "\r");
-                n00b_table_add_cell(t, n00b_crich("[|h6|]Done"));
+                n00b_table_add_cell(t, n00b_crich("[=h6=]Done"));
                 n00b_table_add_cell(t, testnum);
                 n00b_table_add_cell(t, g->name);
                 n00b_table_add_cell(t, tc->name);
 
                 if (tc->pass) {
-                    n00b_table_add_cell(t, n00b_crich("[|green|]PASSED  "));
+                    n00b_table_add_cell(t, n00b_crich("[=green=]PASSED  "));
                 }
                 else {
                     if (tc->got_timeout) {
-                        n00b_table_add_cell(t, n00b_crich("[|red|]TIMEOUT"));
+                        n00b_table_add_cell(t, n00b_crich("[=red=]TIMEOUT"));
                     }
                     else {
-                        n00b_table_add_cell(t, n00b_crich("[|red|]FAILED "));
+                        n00b_table_add_cell(t, n00b_crich("[=red=]FAILED "));
                     }
                 }
 
@@ -1352,8 +1352,8 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
 
         if (!quiet) {
             tmp = n00b_cformat(
-                "[|h5|]Exiting group:  [|h1|][|#|] "
-                "([|#|]/[|#|] passed)",
+                "[=h5=]Exiting group:  [=h1=][=#=] "
+                "([=#=]/[=#=] passed)",
                 g->name,
                 g->passed,
                 g->num_enabled);
@@ -1367,12 +1367,12 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
     }
 
     if (!quiet) {
-        n00b_table_add_cell(t, n00b_cformat("[|h4|] "), -1);
+        n00b_table_add_cell(t, n00b_cformat("[=h4=] "), -1);
         n00b_table_end_row(t);
-        n00b_table_add_cell(t, n00b_cformat("[|h4|]SUMMARY:"), -1);
+        n00b_table_add_cell(t, n00b_cformat("[=h4=]SUMMARY:"), -1);
         n00b_table_end_row(t);
-        n00b_table_add_cell(t, n00b_crich("[|h1|]Passed:"), 3);
-        tmp = n00b_cformat("[|h2|][|#|]/[|#|][|/|] run tests.",
+        n00b_table_add_cell(t, n00b_crich("[=h1=]Passed:"), 3);
+        tmp = n00b_cformat("[=h2=][=#=]/[=#=][=/=] run tests.",
                            total_run - result,
                            total_run);
         n00b_table_add_cell(t, tmp, 2);
@@ -1389,7 +1389,7 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
         for (int64_t i = 0; i < n; i++) {
             n00b_test_t   *tc = n00b_list_pop(fails);
             n00b_string_t *tn = n00b_to_string((void *)(i + 1));
-            n00b_table_add_cell(t, n00b_crich("[|h6|]Failure"));
+            n00b_table_add_cell(t, n00b_crich("[=h6=]Failure"));
             n00b_table_add_cell(t, tn);
             n00b_table_add_cell(t, tc->group);
             n00b_table_add_cell(t, tc->name, 2);
@@ -1404,7 +1404,7 @@ n00b_testgen_run_tests(n00b_testing_ctx *ctx)
 
             if (tc->aux_error) {
                 if (quiet) {
-                    n00b_eprintf("Test [|#|] ([|#|]/[|#|]) [|red|]FAILED.",
+                    n00b_eprintf("Test [=#=] ([=#=]/[=#=]) [=red=]FAILED.",
                                  tn,
                                  tc->name,
                                  tc->name);

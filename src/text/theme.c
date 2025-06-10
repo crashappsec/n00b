@@ -1085,7 +1085,7 @@ n00b_lookup_style_by_tag(n00b_string_t *tag)
     }
 
     if (!result) {
-        N00B_RAISE(n00b_cformat("Invalid style: [|#|]", tag));
+        N00B_RAISE(n00b_cformat("Invalid style: [=#=]", tag));
     }
 
     return result;

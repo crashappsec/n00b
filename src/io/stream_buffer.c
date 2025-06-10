@@ -5,7 +5,7 @@ static int
 buffer_stream_init(n00b_stream_t *stream, n00b_list_t *args)
 {
     n00b_buffer_cookie_t *c   = n00b_get_stream_cookie(stream);
-    int                    ret = (int64_t)n00b_list_pop(args);
+    int                   ret = (int64_t)n00b_list_pop(args);
 
     c->buffer = n00b_list_pop(args);
 
@@ -13,7 +13,7 @@ buffer_stream_init(n00b_stream_t *stream, n00b_list_t *args)
         N00B_CRAISE("Invalid parameters for buffer");
     }
 
-    stream->name = n00b_cformat("Buffer @[|#:p|]", c->buffer);
+    stream->name = n00b_cformat("Buffer @[=#:p=]", c->buffer);
 
     if (n00b_list_pop(args)) {
         c->wposition = c->buffer->byte_len;
@@ -26,8 +26,8 @@ static n00b_buf_t *
 buffer_stream_read(n00b_stream_t *stream, bool *err)
 {
     n00b_buffer_cookie_t *c   = n00b_get_stream_cookie(stream);
-    n00b_buf_t            *src = c->buffer;
-    n00b_buf_t            *result;
+    n00b_buf_t           *src = c->buffer;
+    n00b_buf_t           *result;
 
     while (true) {
         _n00b_buffer_acquire_r(src);
@@ -52,8 +52,8 @@ static void
 buffer_stream_write(n00b_stream_t *stream, void *msg, bool blocking)
 {
     n00b_buffer_cookie_t *c      = n00b_get_stream_cookie(stream);
-    n00b_buf_t            *target = c->buffer;
-    n00b_buf_t            *src    = msg;
+    n00b_buf_t           *target = c->buffer;
+    n00b_buf_t           *src    = msg;
 
     defer_on();
     n00b_buffer_acquire_w(target);
@@ -181,9 +181,9 @@ static n00b_stream_impl n00b_bufchan_impl = {
 
 n00b_stream_t *
 n00b_stream_from_buffer(n00b_buf_t  *b,
-                         int64_t      mode,
-                         n00b_list_t *filters,
-                         bool         end)
+                        int64_t      mode,
+                        n00b_list_t *filters,
+                        bool         end)
 {
     n00b_list_t *args = n00b_list(n00b_type_ref());
 
