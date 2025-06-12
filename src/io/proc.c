@@ -597,6 +597,12 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 // TODO: Do a proc_init
 // Close stdin after??
 
+typedef struct {
+    int64_t location;
+    char   *name;
+    bool    found;
+} ka_info;
+
 n00b_proc_t *
 _n00b_run_process(n00b_string_t *cmd,
                   n00b_list_t   *argv,

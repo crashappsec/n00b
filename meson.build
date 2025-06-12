@@ -27,8 +27,7 @@ endif
 
 render_width = get_option('minimum_render_width').to_string()
 
-c_args = [
-    '-Wextra',
+c_args = [    '-Wextra',
     '-g',
     '-Wno-unused-parameter',
     '-Wno-cast-function-type',
@@ -39,6 +38,20 @@ c_args = [
     '-DN00B_MIN_RENDER_WIDTH=' + render_width,
     '-DN00B_BACKTRACE_SUPPORTED',
 ]
+
+ncpp_exe = executable(
+'ncpp',
+  ['src/ncpp/ncpp.c'],
+  c_args: [     '-Wextra',
+    '-g',
+    '-Wno-unused-parameter',
+    '-Wno-cast-function-type',
+    '-fno-omit-frame-pointer',
+    '-ffunction-sections'])
+
+ncpp = generator(ncpp_exe, output : '@BASENAME@.c',
+                arguments : ['@INPUT@', '@OUTPUT@'])
+
 
 if (host_machine.cpu_family() == 'x86_64' and cc.get_id() == 'clang')
     c_args = c_args + ['-Wno-atomic-alignment']
@@ -581,3 +594,4 @@ if get_option('build_hatrack').enabled()
         c_args: exe_c_args,
     )
 endif
+

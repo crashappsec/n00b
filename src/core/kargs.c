@@ -27,9 +27,8 @@ n00b_kargs_acquire()
         tsi->init_kargs = true;
     }
 
-    tsi->kargs_next_entry &= kargs_cache_mod;
-
     n00b_karg_info_t *result = &tsi->kcache[tsi->kargs_next_entry++].ka;
+    tsi->kargs_next_entry &= kargs_cache_mod;
 
     return result;
 }
