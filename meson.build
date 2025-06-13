@@ -210,192 +210,6 @@ exe_c_args = c_args + ['-flto', '-DHATRACK_REFERENCE_ALGORITHMS']
 n00b_c_args = c_args
 
 
-n00b_core = [
-    'src/core/init.c',
-    'src/core/exit.c',
-    'src/core/heap.c',
-    'src/core/heap_alloc.c',
-    'src/core/heap_collect.c',
-    'src/core/kargs.c',
-    'src/core/exceptions.c',
-    'src/core/types.c',
-    'src/core/typestore.c',
-    'src/core/literals.c',
-    'src/core/object.c',
-    'src/core/validation.c',
-    'src/core/signal.c',
-    'src/core/type_hash.c'      # New type implementation coming soon.
-]
-
-n00b_mt = [
-    'src/mt/gil.c',
-    'src/mt/lock_accounting.c',
-    'src/mt/mutex.c',
-    'src/mt/condition.c',    
-    'src/mt/rwlock.c',
-    'src/mt/thread.c',        # Basic thread interface
-    'src/mt/thread_tsi.c',    # Internal API; thread specific data
-]
-
-n00b_runtime = [
-    'src/runtime/rtsetup.c',
-    'src/runtime/attrstore.c',
-    'src/runtime/vm.c',
-    'src/runtime/ffi.c',
-]
-
-n00b_text = [
-    'src/text/string.c',
-    'src/text/style.c',
-    'src/text/colors.c',
-    'src/text/breaks.c',
-    'src/text/rich.c',
-    'src/text/fmt_numbers.c',
-    'src/text/fptostr.c',
-    'src/text/markdown.c',
-    'src/text/theme.c',
-    'src/text/table_utils.c',
-    'src/text/table.c',
-    'src/text/layout.c',
-    'src/text/word_breaks.c',
-    'src/text/ansi.c',
-    'src/text/regex.c',    
-]
-
-
-n00b_adts = [
-    'src/adts/buffer.c',
-    'src/adts/dict.c',
-    'src/adts/set.c',
-    'src/adts/hatlists.c',
-    'src/adts/list.c',
-    'src/adts/tree.c',
-    'src/adts/numbers.c',
-    'src/adts/mixed.c',
-    'src/adts/tuple.c',
-    'src/adts/net_addr.c',
-    'src/adts/datetime.c',
-    'src/adts/size.c',
-    'src/adts/duration.c',
-    'src/adts/callback.c',
-    'src/adts/flags.c',
-    'src/adts/box.c',
-    'src/adts/bytering.c',
-]
-
-n00b_io = [
-    'src/io/fd_object.c',
-    'src/io/fd_pubsub.c',
-    'src/io/fd_io.c',
-    'src/io/fd_cache.c',
-    'src/io/fd_evloop.c',
-    'src/io/timers.c',
-    'src/io/filter.c',    
-    'src/io/filter_json.c',
-    'src/io/observable.c',
-    'src/io/stream.c',
-    'src/io/stream_fd.c',
-    'src/io/stream_callback.c',
-    'src/io/stream_buffer.c',
-    'src/io/stream_topic.c',
-    'src/io/stream_listener.c',
-    'src/io/stream_exit.c',
-    'src/io/stream_proxy.c',
-    'src/io/stream_string.c',    
-    'src/io/terminal_io.c',
-    'src/io/print.c',
-    'src/io/proc.c',
-    'src/io/session.c',
-    'src/io/session_control.c',
-    'src/io/session_capture.c',
-    'src/io/session_replay.c',
-    'src/io/session_states.c',
-    'src/io/filter_color.c',
-    'src/io/filter_linebuf.c',
-    'src/io/filter_hexdump.c',
-    'src/io/filter_json.c',
-    'src/io/filter_marshal.c',
-    'src/io/filter_ansi.c',
-    'src/io/http.c',    
-]
-
-if get_option('dev_mode') == true
-  n00b_io = n00b_io + ['src/io/fd_debug.c']
-endif
-
-n00b_debug = [
-    'src/debug/workflow.c',
-    'src/debug/api.c',
-    'src/debug/server.c',
-    'src/debug/memring.c',
-    'src/debug/dlogf.c',
-    'src/debug/streams.c',    
-]
-
-n00b_compiler = [
-    'src/compiler/compile.c',
-    'src/compiler/module.c',
-    'src/compiler/lex.c',
-    'src/compiler/parse.c',
-    'src/compiler/errors.c',
-    'src/compiler/scope.c',
-    'src/compiler/specs.c',
-    'src/compiler/cfg_build.c',
-    'src/compiler/cfg.c',
-    'src/compiler/ast_utils.c',
-    'src/compiler/decl_pass.c',
-    'src/compiler/check_pass.c',
-    'src/compiler/memory_layout.c',
-    'src/compiler/codegen.c',
-    'src/compiler/disasm.c',
-]
-
-n00b_util = [
-    'src/util/hex.c',
-    'src/util/tree_pattern.c',
-    'src/util/path.c',
-    'src/util/watch.c',
-    'src/util/wrappers.c',
-    'src/util/ctrace.c',
-    'src/util/static_config.c',
-    'src/util/segv.c',
-    'src/util/grammar.c',
-    'src/util/parsing.c',
-    'src/util/parse_tree.c',
-    'src/util/parse_repr.c',
-    'src/util/getopt.c',
-    'src/util/getopt_tokenize.c',
-    'src/util/getopt_parse.c',
-    'src/util/getopt_docs.c',
-    'src/util/json.c',
-    'src/util/assert.c',
-    'src/util/memcheck.c',
-    'src/util/deep_copy.c',
-    'src/util/testgen.c',
-    'src/util/limits.c',
-]
-
-n00b_crypto = ['src/crypto/sha.c']
-
-n00b_cmd = [
-    'src/cmd/main.c',
-    'src/cmd/setup.c',
-    'src/cmd/compile.c',
-    'src/cmd/run.c',
-    'src/cmd/record.c',
-    'src/cmd/play.c',    
-    'src/cmd/test.c',                        
-    'src/cmd/debug.c',
-]
-
-
-n00b_log = ['src/cmd/n00b_debug.c']
-
-n00b_base = n00b_core + n00b_mt + n00b_text + n00b_runtime + n00b_adts 
-n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
-n00b_base = n00b_base + n00b_io + n00b_debug
-
-n00b_src = n00b_base + n00b_cmd
 
 hat_primary = [
     'src/hatrack/support/hatrack_common.c',
@@ -448,20 +262,201 @@ if not using_osx and not using_glibc
     hat_primary = hat_primary + quark_files
 endif
 
-lib_src = n00b_base + hat_primary
-
-test_src = [
-    'src/harness/n00b_base/test.c',
-    'src/harness/n00b_base/scan.c',
-    'src/harness/n00b_base/run.c',
-    'src/harness/n00b_base/validation.c',
-    'src/harness/n00b_base/results.c',
-]
+libhatrack = static_library('libhatrack',
+    hat_primary,
+    include_directories: incdir,
+    c_args: c_args)
 
 # baked into meson - guaranteed to be present hence not a subproject
 libatomic_dep = cc.find_library('atomic', required : false)
 libmath_dep = cc.find_library('m', required : false)
 libthreads_dep = dependency('threads', required : true)
+
+
+n00b_core = [
+    'src/core/init.nc',
+    'src/core/exit.nc',
+    'src/core/heap.nc',
+    'src/core/heap_alloc.nc',
+    'src/core/heap_collect.nc',
+    'src/core/kargs.nc',
+    'src/core/exceptions.nc',
+    'src/core/types.nc',
+    'src/core/typestore.nc',
+    'src/core/literals.nc',
+    'src/core/object.nc',
+    'src/core/validation.nc',
+    'src/core/signal.nc',
+    'src/core/type_hash.nc'      # New type implementation coming soon.
+]
+
+n00b_mt = [
+    'src/mt/gil.nc',
+    'src/mt/lock_accounting.nc',
+    'src/mt/mutex.nc',
+    'src/mt/condition.nc',    
+    'src/mt/rwlock.nc',
+    'src/mt/thread.nc',        # Basic thread interface
+    'src/mt/thread_tsi.nc',    # Internal API; thread specific data
+]
+
+n00b_runtime = [
+    'src/runtime/rtsetup.nc',
+    'src/runtime/attrstore.nc',
+    'src/runtime/vm.nc',
+    'src/runtime/ffi.nc',
+]
+
+n00b_text = [
+    'src/text/string.nc',
+    'src/text/style.nc',
+    'src/text/colors.nc',
+    'src/text/breaks.nc',
+    'src/text/rich.nc',
+    'src/text/fmt_numbers.nc',
+    'src/text/fptostr.nc',
+    'src/text/markdown.nc',
+    'src/text/theme.nc',
+    'src/text/table_utils.nc',
+    'src/text/table.nc',
+    'src/text/layout.nc',
+    'src/text/word_breaks.nc',
+    'src/text/ansi.nc',
+    'src/text/regex.nc',    
+]
+
+
+n00b_adts = [
+    'src/adts/buffer.nc',
+    'src/adts/dict.nc',
+    'src/adts/set.nc',
+    'src/adts/hatlists.nc',
+    'src/adts/list.nc',
+    'src/adts/tree.nc',
+    'src/adts/numbers.nc',
+    'src/adts/mixed.nc',
+    'src/adts/tuple.nc',
+    'src/adts/net_addr.nc',
+    'src/adts/datetime.nc',
+    'src/adts/size.nc',
+    'src/adts/duration.nc',
+    'src/adts/callback.nc',
+    'src/adts/flags.nc',
+    'src/adts/box.nc',
+    'src/adts/bytering.nc',
+]
+
+n00b_io = [
+    'src/io/fd_object.nc',
+    'src/io/fd_pubsub.nc',
+    'src/io/fd_io.nc',
+    'src/io/fd_cache.nc',
+    'src/io/fd_evloop.nc',
+    'src/io/timers.nc',
+    'src/io/filter.nc',    
+    'src/io/filter_json.nc',
+    'src/io/observable.nc',
+    'src/io/stream.nc',
+    'src/io/stream_fd.nc',
+    'src/io/stream_callback.nc',
+    'src/io/stream_buffer.nc',
+    'src/io/stream_topic.nc',
+    'src/io/stream_listener.nc',
+    'src/io/stream_exit.nc',
+    'src/io/stream_proxy.nc',
+    'src/io/stream_string.nc',    
+    'src/io/terminal_io.nc',
+    'src/io/print.nc',
+    'src/io/proc.nc',
+    'src/io/session.nc',
+    'src/io/session_control.nc',
+    'src/io/session_capture.nc',
+    'src/io/session_replay.nc',
+    'src/io/session_states.nc',
+    'src/io/filter_color.nc',
+    'src/io/filter_linebuf.nc',
+    'src/io/filter_hexdump.nc',
+    'src/io/filter_marshal.nc',
+    'src/io/filter_ansi.nc',
+    'src/io/http.nc',    
+]
+
+if get_option('dev_mode') == true
+  n00b_io = n00b_io + ['src/io/fd_debug.nc']
+endif
+
+n00b_debug = [
+    'src/debug/workflow.nc',
+    'src/debug/api.nc',
+    'src/debug/server.nc',
+    'src/debug/memring.nc',
+    'src/debug/dlogf.nc',
+    'src/debug/streams.nc',    
+]
+
+n00b_compiler = [
+    'src/compiler/compile.nc',
+    'src/compiler/module.nc',
+    'src/compiler/lex.nc',
+    'src/compiler/parse.nc',
+    'src/compiler/errors.nc',
+    'src/compiler/scope.nc',
+    'src/compiler/specs.nc',
+    'src/compiler/cfg_build.nc',
+    'src/compiler/cfg.nc',
+    'src/compiler/ast_utils.nc',
+    'src/compiler/decl_pass.nc',
+    'src/compiler/check_pass.nc',
+    'src/compiler/memory_layout.nc',
+    'src/compiler/codegen.nc',
+    'src/compiler/disasm.nc',
+]
+
+n00b_util = [
+    'src/util/hex.nc',
+    'src/util/tree_pattern.nc',
+    'src/util/path.nc',
+    'src/util/watch.nc',
+    'src/util/wrappers.nc',
+    'src/util/ctrace.nc',
+    'src/util/static_config.nc',
+    'src/util/segv.nc',
+    'src/util/grammar.nc',
+    'src/util/parsing.nc',
+    'src/util/parse_tree.nc',
+    'src/util/parse_repr.nc',
+    'src/util/getopt.nc',
+    'src/util/getopt_tokenize.nc',
+    'src/util/getopt_parse.nc',
+    'src/util/getopt_docs.nc',
+    'src/util/json.nc',
+    'src/util/assert.nc',
+    'src/util/memcheck.nc',
+    'src/util/deep_copy.nc',
+    'src/util/testgen.nc',
+    'src/util/limits.nc',
+]
+
+n00b_crypto = ['src/crypto/sha.nc']
+
+n00b_cmd = [
+    'src/cmd/main.nc',
+    'src/cmd/setup.nc',
+    'src/cmd/compile.nc',
+    'src/cmd/run.nc',
+    'src/cmd/record.nc',
+    'src/cmd/play.nc',    
+    'src/cmd/test.nc',                        
+    'src/cmd/debug.nc',
+]
+
+
+n00b_log = ['src/cmd/n00b_debug.c']
+
+n00b_base = n00b_core + n00b_mt + n00b_text + n00b_runtime + n00b_adts 
+n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
+n00b_base = n00b_base + n00b_io + n00b_debug
+n00b_src  = ncpp.process(n00b_base)
 
 # https://stackoverflow.com/questions/73053163/how-to-force-meson-to-use-only-wrap-subproject
 if (host_machine.system() == 'darwin')
@@ -494,15 +489,15 @@ deps = [
   linuxheaders_dep,
   openssl_dep,
 ]
-link_with = [
-]
+
+link_with = [libhatrack]
 
 if using_glibc and libatomic_dep.found()
   deps = deps + [libatomic_dep]
 endif
 
 n00b = static_library('n00b',
-    lib_src,
+    n00b_src,
     include_directories: incdir,
     dependencies: deps,
     c_args: n00b_c_args,
@@ -545,7 +540,7 @@ executable(
    
 executable(
    'n00b',
-   n00b_src,    
+   ncpp.process(n00b_cmd),
    include_directories: incdir,
    dependencies: deps,
    c_args: c_args,
@@ -566,7 +561,7 @@ executable(
 
 executable(
 'n00blog',
-     n00b_base,
+     n00b_src,
      include_directories: incdir,
      dependencies: deps,
      c_args: c_args  + ['-DN00B_DEBUG_SERVER',
@@ -576,21 +571,13 @@ executable(
 )
 
 if get_option('build_hatrack').enabled()
-    libhat = static_library(
-        'hatrack',
-        lib_src,
-        include_directories: incdir,
-        c_args: c_args,
-        link_args: link_args,
-    )
-
     executable(
         'hash',
         hash_test_src,
         include_directories: incdir,
         dependencies: deps,
         link_args: exe_link_args,
-        link_with: [libhat],
+        link_with: [libhatrack],
         c_args: exe_c_args,
     )
 endif

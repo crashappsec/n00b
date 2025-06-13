@@ -6,9 +6,6 @@ test_func(int arg, ...) {
 	int64_t test2_kw(blah) = 100;
 	char *idfk             = NULL;
     }
-
-
-
 }
 #endif
 
@@ -47,23 +44,23 @@ typedef int8_t ttype_t;
 #define TT_UNKNOWN 8
 
 typedef struct {
-    buf_t   *replacement;
-    ttype_t  type;
-    uint16_t offset;
-    uint16_t len;
+    buf_t  *replacement;
+    ttype_t type;
+    int32_t offset;
+    int32_t len;
     // Tokens we choose to rewrite get "skipped", but the "replacement"
     // text will all live in the first token of the rewrite.
-    uint8_t  skip_emit : 1;
+    uint8_t skip_emit : 1;
 } tok_t;
 
 typedef struct {
-    int    num_toks;
-    buf_t *input;
-    tok_t *toks;
-    int    offset;
-    char  *cur;
-    char  *end;
-    bool   line_start;
+    int32_t num_toks;
+    buf_t  *input;
+    tok_t  *toks;
+    int32_t offset;
+    char   *cur;
+    char   *end;
+    bool    line_start;
 } lex_t;
 
 typedef struct {
@@ -1009,6 +1006,25 @@ skip_forward_to_punct(xform_t *ctx, char punc)
     return NULL;
 }
 
+char *
+extract_line(xform_t *ctx, tok_t *t)
+{
+    char *start = ctx->input->data + t->offset;
+    char *end   = ctx->input->data + ctx->input->len;
+    char *p     = start;
+
+    while (++p < end) {
+        if (*p == '\n') {
+            break;
+        }
+    }
+
+    char *result = calloc(1, p - start + 1);
+    memcpy(result, start, p - start);
+
+    return result;
+}
+
 // This appends its declaration (which it returns), and then
 // creates a new buffer for the check within the loop, which is
 // passed through the second parameter.
@@ -1031,6 +1047,7 @@ next_kw_param(buf_t *decl_buf, buf_t **loop_buf, xform_t *ctx)
     char  *kw_name   = NULL;
     buf_t *type_name; // Stashed for the cast.
     char  *var_name;
+    char  *msg;
 
     // This loop is a state machine for everything up to the assignment
     // operator.
@@ -1085,14 +1102,18 @@ next_kw_param(buf_t *decl_buf, buf_t **loop_buf, xform_t *ctx)
             }
             goto syntax_err;
         case '*':
-            if (id_found || got_star || got_paren) {
+            if (id_done || got_paren) {
                 goto syntax_err;
             }
             got_star = true;
             continue;
         default:
 syntax_err:
-            fprintf(stderr, "Invalid syntax for keyword block.\n");
+            msg = extract_line(ctx, start);
+            fprintf(stderr,
+                    "Invalid syntax for keyword block for keyword: %s.\n",
+                    msg);
+            free(msg);
             return NULL;
         }
 
