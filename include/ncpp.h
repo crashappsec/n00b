@@ -63,12 +63,15 @@ typedef struct {
 } tok_t;
 
 typedef struct {
-    int32_t num_toks;
     buf_t  *input;
     tok_t  *toks;
-    int32_t offset;
     char   *cur;
     char   *end;
+    char   *in_file;
+    char   *out_file;
+    int32_t num_toks;
+    int32_t offset;
+    int32_t line_no;
     bool    line_start;
 } lex_t;
 
@@ -84,16 +87,15 @@ typedef struct {
 extern buf_t *concat(buf_t *, char *, int);
 extern buf_t *concat_static(buf_t *, char *);
 extern buf_t *read_file(char *);
-extern bool   write_to_file(FILE *f, char *, int);
 extern tok_t *alloc_tokens(buf_t *);
+extern int    count_newlines(lex_t *, tok_t *);
 
-extern void print_tokens(lex_t *);
-extern bool output_new_file(lex_t *, char *);
 // In output.c
 // First one is for debugging the token stream.
 extern void print_tokens(lex_t *);
 // This generates the output file.
 extern bool output_new_file(lex_t *, char *);
+extern bool write_to_file(FILE *f, char *, int);
 
 // In tokenize.c
 extern void   lex(lex_t *);

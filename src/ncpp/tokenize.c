@@ -39,9 +39,10 @@ tok_punct(lex_t *state)
 {
     state->line_start              = false;
     state->toks[state->num_toks++] = (tok_t){
-        .type   = TT_PUNCT,
-        .offset = state->offset++,
-        .len    = 1,
+        .type    = TT_PUNCT,
+        .offset  = state->offset++,
+        .len     = 1,
+        .line_no = state->line_no,
     };
 
     state->cur++;
@@ -52,9 +53,10 @@ tok_unk(lex_t *state)
 {
     state->line_start              = false;
     state->toks[state->num_toks++] = (tok_t){
-        .type   = TT_PUNCT,
-        .offset = state->offset++,
-        .len    = 1,
+        .type    = TT_PUNCT,
+        .offset  = state->offset++,
+        .len     = 1,
+        .line_no = state->line_no,
     };
 
     state->cur++;
@@ -67,8 +69,9 @@ tok_char(lex_t *state)
     tok_t *t          = &state->toks[state->num_toks++];
 
     *t = (tok_t){
-        .type   = TT_CHR,
-        .offset = state->offset,
+        .type    = TT_CHR,
+        .offset  = state->offset,
+        .line_no = state->line_no,
     };
 
     char *p = state->cur + 1;
@@ -83,13 +86,16 @@ tok_char(lex_t *state)
             return;
         case '\\':
             p++;
-            p++;
+            if (*p++ == '\n') {
+                state->line_no++;
+            }
             continue;
         case '\n':
             t->type = TT_ERR;
             t->len  = p - state->cur;
             state->offset += p - state->cur;
             state->cur = p;
+            state->line_no++;
             return;
         default:
             p++;
@@ -111,8 +117,9 @@ tok_string(lex_t *state)
     tok_t *t          = &state->toks[state->num_toks++];
 
     *t = (tok_t){
-        .type   = TT_STR,
-        .offset = state->offset,
+        .type    = TT_STR,
+        .offset  = state->offset,
+        .line_no = state->line_no,
     };
 
     char *p = state->cur + 1;
@@ -127,11 +134,14 @@ tok_string(lex_t *state)
             return;
         case '\\':
             p++;
-            p++;
+            if (*p++ == '\n') {
+                state->line_no++;
+            }
             continue;
         case '\n':
             t->type = TT_ERR;
             t->len  = p - state->cur;
+            state->line_no++;
             state->offset += p - state->cur;
             state->cur = p;
             return;
@@ -228,8 +238,9 @@ tok_id_or_num(lex_t *state, bool num)
     char  *p          = state->cur;
 
     *t = (tok_t){
-        .type   = num ? TT_NUM : TT_ID,
-        .offset = state->offset,
+        .type    = num ? TT_NUM : TT_ID,
+        .offset  = state->offset,
+        .line_no = state->line_no,
     };
 
     while (++p < state->end) {
@@ -250,9 +261,14 @@ tok_ws(lex_t *state)
     char  *p = state->cur;
 
     *t = (tok_t){
-        .type   = TT_WS,
-        .offset = state->offset,
+        .type    = TT_WS,
+        .offset  = state->offset,
+        .line_no = state->line_no,
     };
+
+    if (*p == '\n') {
+        state->line_no++;
+    }
 
     while (++p < state->end) {
         switch (*p) {
@@ -261,6 +277,7 @@ tok_ws(lex_t *state)
             continue;
         case '\n':
             state->line_start = true;
+            state->line_no++;
             continue;
         default:
             break;
@@ -280,16 +297,20 @@ tok_preproc(lex_t *state)
     char  *p = state->cur;
 
     *t = (tok_t){
-        .type   = TT_PREPROC,
-        .offset = state->offset,
+        .type    = TT_PREPROC,
+        .offset  = state->offset,
+        .line_no = state->line_no,
     };
 
     while (++p < state->end) {
         switch (*p) {
         case '\\':
-            ++p;
+            if (*++p == '\n') {
+                state->line_no++;
+            }
             continue;
         case '\n':
+            state->line_no++;
             ++p; // Count this in the preproc statement.
             break;
         default:
@@ -310,12 +331,14 @@ line_comment(lex_t *state)
     char  *p = state->cur;
 
     *t = (tok_t){
-        .type   = TT_COMMENT,
-        .offset = state->offset,
+        .type    = TT_COMMENT,
+        .offset  = state->offset,
+        .line_no = state->line_no,
     };
 
     while (++p < state->end) {
         if (*p == '\n') {
+            state->line_no++;
             p++;
             break;
         }
@@ -332,8 +355,9 @@ match_comment(lex_t *state)
     char  *p = state->cur;
 
     *t = (tok_t){
-        .type   = TT_COMMENT,
-        .offset = state->offset,
+        .type    = TT_COMMENT,
+        .offset  = state->offset,
+        .line_no = state->line_no,
     };
 
     while (++p < state->end - 1) {
@@ -380,7 +404,7 @@ lex(lex_t *state)
     state->num_toks   = 0;
     state->cur        = state->input->data;
     state->end        = state->cur + state->input->len;
-    //    state->line_no    = 1;
+    state->line_no    = 1;
     state->line_start = true;
 
     while (state->cur < state->end) {

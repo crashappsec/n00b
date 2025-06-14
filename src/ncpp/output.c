@@ -27,6 +27,21 @@ repr_type(ttype_t ty)
     }
 }
 
+#define MAX_HASH_LINE_LEN 256
+
+static inline void
+write_line_directive(FILE *f, char *fname, int lineno)
+{
+    char buf[MAX_HASH_LINE_LEN];
+    int  n = snprintf(buf,
+                     MAX_HASH_LINE_LEN,
+                     "#line %d \"%s\"\n",
+                     lineno,
+                     fname);
+
+    write_to_file(f, buf, n);
+}
+
 static char *
 repr_ws(lex_t *state, tok_t *t)
 {
@@ -104,7 +119,7 @@ print_tokens(lex_t *state)
 
         char *s1 = repr_type(t->type);
         char *s2 = repr_tok(state, t);
-        printf("%04d: %s: %s\n", i, s1, s2);
+        printf("%04d: %s: %s (line %d)\n", i, s1, s2, t->line_no);
         free(s2); // s1 is always static.
     }
 }
@@ -112,6 +127,9 @@ print_tokens(lex_t *state)
 bool
 output_new_file(lex_t *state, char *fname)
 {
+    // Start w/ false so if we copy out the gate, we add a line directive.
+    bool  using_in_file = false;
+    int   out_line_no   = 1;
     FILE *f;
 
     if (!strcmp(fname, "-")) {
@@ -128,9 +146,15 @@ output_new_file(lex_t *state, char *fname)
         tok_t *t = &state->toks[i];
 
         if (t->replacement) {
+            if (using_in_file) {
+                using_in_file = false;
+                write_line_directive(f, state->out_file, ++out_line_no);
+            }
+            out_line_no += count_newlines(state, t);
             if (!write_to_file(f, t->replacement->data, t->replacement->len)) {
                 return false;
             }
+
             continue;
         }
 
@@ -138,9 +162,34 @@ output_new_file(lex_t *state, char *fname)
             continue;
         }
 
+        if (!using_in_file) {
+            using_in_file = true;
+            write_line_directive(f, state->in_file, t->line_no);
+            out_line_no += 1;
+        }
+
+        out_line_no += count_newlines(state, t);
+
         if (!write_to_file(f, &state->input->data[t->offset], t->len)) {
             return false;
         }
+    }
+
+    return true;
+}
+
+bool
+write_to_file(FILE *f, char *p, int len)
+{
+    while (len) {
+        int l = fwrite(p, 1, len, f);
+
+        if (!l) {
+            return false;
+        }
+
+        p += l;
+        len -= l;
     }
 
     return true;

@@ -52,23 +52,6 @@ read_file(char *fname)
     return result;
 }
 
-bool
-write_to_file(FILE *f, char *p, int len)
-{
-    while (len) {
-        int l = fwrite(p, 1, len, f);
-
-        if (!l) {
-            return false;
-        }
-
-        p += l;
-        len -= l;
-    }
-
-    return true;
-}
-
 tok_t *
 alloc_tokens(buf_t *b)
 {
@@ -86,4 +69,29 @@ alloc_tokens(buf_t *b)
                 MAP_PRIVATE | MAP_ANON,
                 -1,
                 0);
+}
+
+int
+count_newlines(lex_t *state, tok_t *t)
+{
+    int   result = 0;
+    char *p;
+    char *end;
+
+    if (t->replacement) {
+        p   = t->replacement->data;
+        end = p + t->replacement->len;
+    }
+    else {
+        p   = &state->input->data[t->offset];
+        end = p + t->len;
+    }
+
+    while (p < end) {
+        if (*p++ == '\n') {
+            result++;
+        }
+    }
+
+    return result;
 }

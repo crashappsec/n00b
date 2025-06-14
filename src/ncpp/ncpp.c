@@ -25,6 +25,8 @@ main(int argc, char *argv[], char *envp[])
         .cur        = NULL,
         .end        = NULL,
         .line_start = true,
+        .in_file    = argv[base],
+        .out_file   = argv[base + 1],
     };
 
     if (!state.input) {
