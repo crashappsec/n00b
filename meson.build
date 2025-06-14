@@ -41,13 +41,21 @@ c_args = [    '-Wextra',
 
 ncpp_exe = executable(
 'ncpp',
-  ['src/ncpp/ncpp.c'],
+  [
+    'src/ncpp/ncpp.c',
+    'src/ncpp/utils.c',
+    'src/ncpp/tokenize.c',
+    'src/ncpp/output.c',
+    'src/ncpp/xforms.c',
+    'src/ncpp/x_keyword.c',
+  ],
   c_args: [     '-Wextra',
     '-g',
     '-Wno-unused-parameter',
     '-Wno-cast-function-type',
     '-fno-omit-frame-pointer',
-    '-ffunction-sections'])
+    '-ffunction-sections'],
+    include_directories: incdir)    
 
 ncpp = generator(ncpp_exe, output : '@BASENAME@.c',
                 arguments : ['@INPUT@', '@OUTPUT@'])
