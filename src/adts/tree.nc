@@ -42,7 +42,7 @@ n00b_tree_add_node(n00b_tree_node_t *t, void *item)
     n00b_list_t      *type_params = n00b_type_get_params(tree_type);
     n00b_type_t      *item_type   = n00b_list_get(type_params, 0, NULL);
     n00b_tree_node_t *kid         = n00b_new(n00b_type_tree(item_type),
-                                     n00b_kw("contents", n00b_ka(item)));
+                                     contents : item);
 
     n00b_tree_adopt_node(t, kid);
 
@@ -83,7 +83,7 @@ n00b_tree_prepend_node(n00b_tree_node_t *t, void *item)
     n00b_list_t      *type_params = n00b_type_get_params(tree_type);
     n00b_type_t      *item_type   = n00b_list_get(type_params, 0, NULL);
     n00b_tree_node_t *kid         = n00b_new(n00b_type_tree(item_type),
-                                     n00b_kw("contents", n00b_ka(item)));
+                                     contents : item);
 
     n00b_tree_adopt_and_prepend(t, kid);
 
@@ -108,8 +108,7 @@ n00b_tree_children(n00b_tree_node_t *t)
     n00b_type_t *item_type   = n00b_list_get(type_params, 0, NULL);
     n00b_list_t *result;
 
-    result = n00b_new(n00b_type_list(item_type),
-                      n00b_kw("length", n00b_ka(t->num_kids)));
+    result = n00b_new(n00b_type_list(item_type), length : t->num_kids);
 
     for (int i = 0; i < t->num_kids; i++) {
         n00b_list_append(result, t->children[i]);
@@ -129,7 +128,7 @@ n00b_tree_string_transform(n00b_tree_node_t *t, n00b_string_t *(*fn)(void *))
 
     n00b_string_t    *str    = fn(n00b_tree_get_contents(t));
     n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_string()),
-                                        n00b_kw("contents", n00b_ka(str)));
+                                        contents : str);
 
     for (int64_t i = 0; i < t->num_kids; i++) {
         n00b_tree_adopt_node(result, n00b_tree_string_transform(t->children[i], fn));

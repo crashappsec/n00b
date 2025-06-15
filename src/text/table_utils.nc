@@ -232,7 +232,7 @@ n00b_tree_format(n00b_tree_node_t *tree,
         props->ipad = 1;
     }
 
-    n00b_table_t *result = n00b_table("style", n00b_ka(N00B_TABLE_FLOW));
+    n00b_table_t *result = n00b_table(style : N00B_TABLE_FLOW);
 
     tree_fmt_t fmt_info = {
         .table       = result,
@@ -282,12 +282,8 @@ n00b_ordered_list(n00b_list_t *items, n00b_string_t *template)
     if (!template) {
         template = n00b_cstring("«#:i».");
     }
-    n00b_table_t *result = n00b_table("columns",
-                                      n00b_ka(2),
-                                      "style",
-                                      n00b_ka(N00B_TABLE_OL));
-
-    int n = n00b_list_len(items);
+    n00b_table_t *result = n00b_table(columns : 2, style : N00B_TABLE_OL);
+    int           n      = n00b_list_len(items);
 
     for (int i = 0; i < n; i++) {
         n00b_table_add_cell(result, n00b_format(template, i + 1));
@@ -306,12 +302,8 @@ n00b_unordered_list(n00b_list_t *items, n00b_string_t *bullet)
         bullet = n00b_cstring("•");
     }
 
-    n00b_table_t *result = n00b_table("columns",
-                                      n00b_ka(2),
-                                      "style",
-                                      n00b_ka(N00B_TABLE_UL));
-
-    int n = n00b_list_len(items);
+    n00b_table_t *result = n00b_table(columns : 2, style : N00B_TABLE_UL);
+    int           n      = n00b_list_len(items);
 
     for (int i = 0; i < n; i++) {
         n00b_table_add_cell(result, bullet);

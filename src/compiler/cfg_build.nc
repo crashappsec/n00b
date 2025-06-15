@@ -456,9 +456,9 @@ n00b_cfg_build_repr(n00b_cfg_node_t  *node,
             label = n00b_cstring("block");
         }
         result                 = n00b_new(n00b_type_tree(n00b_type_string()),
-                          n00b_kw("contents", label));
+                          contents : label);
         n00b_tree_node_t *sub1 = n00b_new(n00b_type_tree(n00b_type_string()),
-                                          n00b_kw("contents", n00b_ka(str)));
+                                          contents : str);
 
         n00b_tree_adopt_node(tree_parent, result);
         n00b_tree_adopt_node(result, sub1);
@@ -480,14 +480,13 @@ n00b_cfg_build_repr(n00b_cfg_node_t  *node,
             str = n00b_cformat("@«#:x»: «em»branch", node_addr);
         }
 
-        result = n00b_new(n00b_type_tree(n00b_type_string()),
-                          n00b_kw("contents", str));
+        result = n00b_new(n00b_type_tree(n00b_type_string()), contents : str);
         n00b_tree_adopt_node(tree_parent, result);
 
         for (int64_t i = 0; i < node->contents.branches.num_branches; i++) {
             n00b_string_t    *label = n00b_cformat("b«#»", i);
             n00b_tree_node_t *sub   = n00b_new(n00b_type_tree(n00b_type_string()),
-                                             n00b_kw("contents", n00b_ka(label)));
+                                             contents : label);
             n00b_cfg_node_t  *kid   = node->contents.branches.branch_targets[i];
 
             n00b_assert(kid != NULL);
@@ -552,9 +551,7 @@ n00b_cfg_build_repr(n00b_cfg_node_t  *node,
     if (node->kind == n00b_cfg_block_entrance) {
     }
 
-    result = n00b_new(n00b_type_tree(n00b_type_string()),
-                      n00b_kw("contents", n00b_ka(str)));
-
+    result = n00b_new(n00b_type_tree(n00b_type_string()), contents : str);
     n00b_tree_adopt_node(tree_parent, result);
 
     switch (node->kind) {

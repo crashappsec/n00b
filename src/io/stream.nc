@@ -345,8 +345,7 @@ wait_for_read(n00b_stream_t   *stream,
     }
 
     int64_t as_int = end ? 0 : n00b_ns_from_duration(end);
-    void   *res    = n00b_condition_wait(cond,
-                                    n00b_kw("timeout", as_int));
+    void   *res    = n00b_condition_wait(cond, timeout : as_int);
 
     if (res) {
         *err = true;

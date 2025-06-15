@@ -3,7 +3,7 @@
 
 #ifdef N00B_DEV
 #define gen_debug(debug_arg) \
-    emit(ctx, N00B_ZDebug, n00b_kw("arg", n00b_ka(debug_arg)))
+    emit(ctx, N00B_ZDebug, n00b_kargs_obj("arg", (int64_t)debug_arg))
 #define debug_label(cstr) \
     gen_label(ctx, n00b_cstring(cstr))
 #else
@@ -166,7 +166,7 @@ gen_jump_raw(gen_ctx          *ctx,
 
     n00b_zinstruction_t *instr;
 
-    emit(ctx, opcode, n00b_kw("arg", n00b_ka(arg), "instrptr", n00b_ka(&instr)));
+    emit(ctx, opcode, arg : arg, instrptr : &instr);
 
     if (result) {
         jmp_info->to_patch      = instr;
@@ -232,7 +232,7 @@ gen_tcall(gen_ctx *ctx, n00b_builtin_type_fn fn, n00b_type_t *t)
         }
     }
 
-    emit(ctx, N00B_ZTCall, n00b_kw("arg", n00b_ka(fn), "type", n00b_ka(t)));
+    emit(ctx, N00B_ZTCall, arg : fn, type : t);
 }
 
 // Two operands have been pushed onto the stack. But if it's a primitive
@@ -279,7 +279,7 @@ set_stack_offset(gen_ctx *ctx, n00b_symbol_t *sym)
 static void
 gen_load_immediate(gen_ctx *ctx, int64_t value)
 {
-    emit(ctx, N00B_ZPushImm, n00b_kw("immediate", n00b_ka(value)));
+    emit(ctx, N00B_ZPushImm, immediate : value);
 }
 
 // TODO: when we add refs, these should change the types written to
@@ -309,18 +309,14 @@ gen_load_const_obj(gen_ctx *ctx, n00b_obj_t obj)
 
     uint32_t offset = n00b_layout_const_obj(ctx->cctx, obj);
 
-    emit(ctx,
-         N00B_ZPushConstObj,
-         n00b_kw("arg", n00b_ka(offset), "type", n00b_ka(type)));
+    emit(ctx, N00B_ZPushConstObj, arg : offset, type : type);
     return;
 }
 
 static void
 gen_load_const_by_offset(gen_ctx *ctx, uint32_t offset, n00b_type_t *type)
 {
-    emit(ctx,
-         N00B_ZPushConstObj,
-         n00b_kw("arg", n00b_ka(offset), "type", n00b_ka(type)));
+    emit(ctx, N00B_ZPushConstObj, arg : offset, type : type);
 }
 
 static inline void
@@ -333,7 +329,7 @@ gen_sym_load_const(gen_ctx *ctx, n00b_symbol_t *sym, bool addressof)
     }
     emit(ctx,
          addressof ? N00B_ZPushConstRef : N00B_ZPushConstObj,
-         n00b_kw("arg", n00b_ka(sym->static_offset), "type", n00b_ka(type)));
+         arg : sym->static_offset, type : type);
 }
 
 static inline void
@@ -342,17 +338,11 @@ gen_sym_load_attr(gen_ctx *ctx, n00b_symbol_t *sym, bool addressof)
     int64_t offset = n00b_add_static_string(sym->name, ctx->cctx);
 
     if (!addressof) {
-        emit(ctx,
-             N00B_ZPushConstObj,
-             n00b_kw("arg", n00b_ka(offset), "type", n00b_ka(sym->type)));
-        emit(ctx,
-             N00B_ZLoadFromAttr,
-             n00b_kw("arg", n00b_ka(addressof), "type", n00b_ka(sym->type)));
+        emit(ctx, N00B_ZPushConstObj, arg : offset, type : sym->type);
+        emit(ctx, N00B_ZLoadFromAttr, arg : addressof, type : sym->type);
     }
     else {
-        emit(ctx,
-             N00B_ZPushConstObj,
-             n00b_kw("arg", n00b_ka(offset), "type", n00b_ka(sym->type)));
+        emit(ctx, N00B_ZPushConstObj, arg : offset, type : sym->type);
         ctx->assign_method = assign_to_attribute;
     }
 }
@@ -365,10 +355,8 @@ gen_sym_load_attr_and_found(gen_ctx *ctx, n00b_symbol_t *sym, bool skipload)
     int64_t flag   = skipload ? N00B_F_ATTR_SKIP_LOAD : N00B_F_ATTR_PUSH_FOUND;
     int64_t offset = n00b_add_static_string(sym->name, ctx->cctx);
 
-    emit(ctx,
-         N00B_ZPushConstObj,
-         n00b_kw("arg", n00b_ka(offset), "type", n00b_ka(sym->type)));
-    emit(ctx, N00B_ZLoadFromAttr, n00b_kw("immediate", n00b_ka(flag)));
+    emit(ctx, N00B_ZPushConstObj, arg : offset, type : sym->type);
+    emit(ctx, N00B_ZLoadFromAttr, immediate : flag);
 }
 
 static inline void
@@ -376,10 +364,10 @@ gen_sym_load_stack(gen_ctx *ctx, n00b_symbol_t *sym, bool addressof)
 {
     // This is measured in stack value slots.
     if (addressof) {
-        emit(ctx, N00B_ZPushLocalRef, n00b_kw("arg", n00b_ka(sym->static_offset)));
+        emit(ctx, N00B_ZPushLocalRef, arg : sym->static_offset);
     }
     else {
-        emit(ctx, N00B_ZPushLocalObj, n00b_kw("arg", n00b_ka(sym->static_offset)));
+        emit(ctx, N00B_ZPushLocalObj, arg : sym->static_offset);
     }
 }
 
@@ -390,18 +378,12 @@ gen_sym_load_static(gen_ctx *ctx, n00b_symbol_t *sym, bool addressof)
     if (addressof) {
         emit(ctx,
              N00B_ZPushStaticRef,
-             n00b_kw("arg",
-                     n00b_ka(sym->static_offset),
-                     "module_id",
-                     n00b_ka(sym->local_module_id)));
+             arg : sym->static_offset, module_id : sym->local_module_id);
     }
     else {
         emit(ctx,
              N00B_ZPushStaticObj,
-             n00b_kw("arg",
-                     n00b_ka(sym->static_offset),
-                     "module_id",
-                     n00b_ka(sym->local_module_id)));
+             arg : sym->static_offset, module_id : sym->local_module_id);
     }
 }
 
@@ -475,7 +457,7 @@ gen_sym_store(gen_ctx *ctx, n00b_symbol_t *sym, bool pop_and_lock)
         arg = n00b_add_static_string(sym->name, ctx->cctx);
         gen_load_const_by_offset(ctx, arg, n00b_type_string());
 
-        emit(ctx, N00B_ZAssignAttr, n00b_kw("arg", n00b_ka(pop_and_lock)));
+        emit(ctx, N00B_ZAssignAttr, arg : pop_and_lock);
         return;
     case N00B_SK_VARIABLE:
     case N00B_SK_FORMAL:
@@ -500,7 +482,7 @@ static inline void
 gen_load_string(gen_ctx *ctx, n00b_string_t *s)
 {
     int64_t offset = n00b_add_static_string(s, ctx->cctx);
-    emit(ctx, N00B_ZPushConstObj, n00b_kw("arg", n00b_ka(offset)));
+    emit(ctx, N00B_ZPushConstObj, arg : offset);
 }
 
 static void
@@ -518,7 +500,7 @@ gen_label(gen_ctx *ctx, n00b_string_t *s)
     }
 
     int64_t offset = n00b_add_static_string(s, ctx->cctx);
-    emit(ctx, N00B_ZNop, n00b_kw("arg", n00b_ka(1), "immediate", n00b_ka(offset)));
+    emit(ctx, N00B_ZNop, arg : 1, immediate : offset);
 
     return true;
 }
@@ -572,7 +554,7 @@ gen_test_param_flag(gen_ctx                  *ctx,
     uint64_t index = param->param_index / 64;
     uint64_t flag  = 1 << (param->param_index % 64);
 
-    emit(ctx, N00B_ZPushStaticObj, n00b_kw("arg", n00b_ka(index)));
+    emit(ctx, N00B_ZPushStaticObj, arg : index);
     gen_load_immediate(ctx, flag);
     emit(ctx, N00B_ZBAnd); // Will be non-zero if the param is set.
 }
@@ -612,12 +594,10 @@ gen_run_internal_callback(gen_ctx *ctx, n00b_callback_info_t *cb)
                                           NULL));
 
     gen_load_const_by_offset(ctx, offset, n00b_get_my_type(cb));
-    emit(ctx,
-         N00B_ZRunCallback,
-         n00b_kw("arg", n00b_ka(nargs), "immediate", n00b_ka(useret)));
+    emit(ctx, N00B_ZRunCallback, arg : nargs, immediate : useret);
 
     if (nargs) {
-        emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(-1 * nargs)));
+        emit(ctx, N00B_ZMoveSp, arg : -1 * nargs);
     }
 
     if (useret) {
@@ -647,7 +627,7 @@ gen_box_if_needed(gen_ctx          *ctx,
     // We've already type checked, so we can play fast and loose
     // with the test here.
     if (!n00b_type_is_value_type(param_type)) {
-        emit(ctx, N00B_ZBox, n00b_kw("type", n00b_ka(actual_type)));
+        emit(ctx, N00B_ZBox, type : actual_type);
     }
 }
 static inline void
@@ -672,7 +652,7 @@ gen_unbox_if_needed(gen_ctx          *ctx,
     // We've already type checked, so we can play fast and loose
     // with the test here.
     if (!n00b_type_is_value_type(param_type)) {
-        emit(ctx, N00B_ZUnbox, n00b_kw("type", n00b_ka(actual_type)));
+        emit(ctx, N00B_ZUnbox, type : actual_type);
     }
 }
 
@@ -705,9 +685,7 @@ gen_native_call(gen_ctx *ctx, n00b_symbol_t *fsym)
     target_module        = decl->module_id;
     target_fn_id         = decl->local_id;
 
-    emit(ctx,
-         N00B_Z0Call,
-         n00b_kw("arg", n00b_ka(target_fn_id), "module_id", target_module));
+    emit(ctx, N00B_Z0Call, arg : target_fn_id, module_id : target_module);
 
     if (target_fn_id == 0) {
         n00b_call_backpatch_info_t *bp;
@@ -722,7 +700,7 @@ gen_native_call(gen_ctx *ctx, n00b_symbol_t *fsym)
     n = decl->signature_info->num_params;
 
     if (n != 0) {
-        emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(-n)));
+        emit(ctx, N00B_ZMoveSp, arg : -n);
     }
 
     if (!decl->signature_info->void_return) {
@@ -744,10 +722,10 @@ gen_extern_call(gen_ctx *ctx, n00b_symbol_t *fsym)
         }
     }
 
-    emit(ctx, N00B_ZFFICall, n00b_kw("arg", n00b_ka(decl->global_ffi_call_ix)));
+    emit(ctx, N00B_ZFFICall, arg : decl->global_ffi_call_ix);
 
     if (decl->num_ext_params != 0) {
-        emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(-decl->num_ext_params)));
+        emit(ctx, N00B_ZMoveSp, arg : -decl->num_ext_params);
     }
 
     if (!decl->local_params->void_return) {
@@ -790,17 +768,10 @@ gen_run_callback(gen_ctx *ctx, n00b_call_resolution_info_t *info)
     n00b_type_t *sig = n00b_type_fn(rettype, params, false);
 
     emit(ctx, N00B_ZPushFromR3);
-    emit(ctx,
-         N00B_ZRunCallback,
-         n00b_kw("arg",
-                 n00b_ka(n - 1),
-                 "immediate",
-                 n00b_ka(use_ret),
-                 "type",
-                 n00b_ka(sig)));
+    emit(ctx, N00B_ZRunCallback, arg : n - 1, immediate : use_ret, type : sig);
 
     if (n > 1) {
-        emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(-1 * (n - 1))));
+        emit(ctx, N00B_ZMoveSp, arg : -1 * (n - 1));
     }
 
     // Restore the saved register;
@@ -929,9 +900,9 @@ gen_module(gen_ctx *ctx)
 
     int num_params = gen_parameter_checks(ctx);
 
-    emit(ctx, N00B_ZModuleEnter, n00b_kw("arg", n00b_ka(num_params)));
+    emit(ctx, N00B_ZModuleEnter, arg : num_params);
     ctx->module_patch_loc = ctx->instruction_counter;
-    emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(0)));
+    emit(ctx, N00B_ZMoveSp, arg : 0);
     gen_kids(ctx);
 }
 
@@ -1348,7 +1319,7 @@ gen_ranged_for(gen_ctx *ctx, n00b_loop_info_t *li)
         gen_one_kid(ctx, ctx->cur_node->num_kids - 1);
         gen_j(ctx, &ji_top));
     gen_apply_waiting_patches(ctx, &li->branch_info);
-    emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(-3)));
+    emit(ctx, N00B_ZMoveSp, arg : -3);
 }
 
 static inline void
@@ -1430,7 +1401,7 @@ gen_container_for(gen_ctx *ctx, n00b_loop_info_t *li)
     emit(ctx, N00B_ZUnsteal);
     // The bit length is actually encoded by taking log base 2; here
     // were expand it back out before going into the loop.
-    emit(ctx, N00B_ZShlI, n00b_kw("arg", n00b_ka(0x1)));
+    emit(ctx, N00B_ZShlI, arg : 0x1);
 
     // On top of this, put the iteration count, which at the start of
     // each turn through the loop, will be the second item.
@@ -1466,7 +1437,7 @@ gen_container_for(gen_ctx *ctx, n00b_loop_info_t *li)
     GEN_JNZ(emit(ctx, N00B_ZPopToR2);
             deal_with_iteration_count(ctx, li, have_index_var);
             emit(ctx, N00B_ZPopToR1);
-            emit(ctx, N00B_ZLoadFromView, n00b_kw("arg", n00b_ka(have_kv_pair)));
+            emit(ctx, N00B_ZLoadFromView, arg : have_kv_pair);
             store_view_item(ctx, li);
             emit(ctx, N00B_ZPushFromR1); // Re-groom the stack; iter count
             emit(ctx, N00B_ZPushFromR2); // container len
@@ -1477,7 +1448,7 @@ gen_container_for(gen_ctx *ctx, n00b_loop_info_t *li)
     // 2. Move the stack down four items, popping the count, len, item size,
     //    and container.
     gen_apply_waiting_patches(ctx, &li->branch_info);
-    emit(ctx, N00B_ZMoveSp, n00b_kw("arg", n00b_ka(-5)));
+    emit(ctx, N00B_ZMoveSp, arg : -5);
 }
 
 static inline void
@@ -1770,7 +1741,7 @@ gen_box_if_value_type(gen_ctx *ctx, int pos)
         }
     }
 
-    emit(ctx, N00B_ZBox, n00b_kw("type", n00b_ka(t)));
+    emit(ctx, N00B_ZBox, type : t);
 }
 
 static inline void
@@ -1810,30 +1781,26 @@ gen_callback_literal(gen_ctx *ctx)
     int64_t arg = n00b_add_static_string(scb->target_symbol_name, ctx->cctx);
     gen_load_const_by_offset(ctx, arg, n00b_type_string());
 
+    // clang-format off
     if (scb->binding.ffi) {
         n00b_ffi_decl_t *f = scb->binding.implementation.ffi_interface;
 
         emit(ctx,
-             N00B_ZPushFfiPtr,
-             n00b_kw("arg",
-                     n00b_ka(f->global_ffi_call_ix),
-                     "type",
-                     n00b_ka(scb->target_type),
-                     "immediate",
-                     n00b_ka(f->skip_boxes)));
+	     N00B_ZPushFfiPtr,
+	     arg: f->global_ffi_call_ix,
+	     type: scb->target_type,
+	     immediate: f->skip_boxes);
     }
     else {
         n00b_fn_decl_t *f = scb->binding.implementation.local_interface;
 
         emit(ctx,
              N00B_ZPushVmPtr,
-             n00b_kw("arg",
-                     n00b_ka(f->local_id),
-                     "module_id",
-                     n00b_ka(f->module_id),
-                     "type",
-                     n00b_ka(scb->target_type)));
+             arg      : f->local_id,
+	     module_id: f->module_id,
+	     type     : scb->target_type);
     }
+    // clang-format on
 }
 
 static inline void
@@ -1926,9 +1893,7 @@ gen_assign(gen_ctx *ctx)
         }
         if (is_tuple_assignment(ctx)) {
             emit(ctx, N00B_ZPopToR1);
-            emit(ctx,
-                 N00B_ZUnpack,
-                 n00b_kw("arg", n00b_ka(n00b_type_get_num_params(t))));
+            emit(ctx, N00B_ZUnpack, arg : n00b_type_get_num_params(t));
         }
         else {
             emit(ctx, N00B_ZSwap);
@@ -1940,9 +1905,7 @@ gen_assign(gen_ctx *ctx)
         break;
     case assign_to_attribute:
 handle_attribute:
-        emit(ctx,
-             N00B_ZAssignAttr,
-             n00b_kw("arg", n00b_ka(ctx->attr_lock), "type", n00b_ka(t)));
+        emit(ctx, N00B_ZAssignAttr, arg : ctx->attr_lock, type : t);
         break;
     case assign_via_len_then_slice_set_call:
         // Need to call len() on the object for the 2nd slice
@@ -2148,7 +2111,7 @@ gen_unary_op(gen_ctx *ctx)
 
     if (n->extra_info != NULL) {
         gen_kids(ctx);
-        emit(ctx, N00B_ZNot, n00b_kw("type", n00b_ka(n00b_type_bool())));
+        emit(ctx, N00B_ZNot, type : n00b_type_bool());
     }
     else {
         gen_load_immediate(ctx, -1);
@@ -2184,9 +2147,7 @@ gen_use(gen_ctx *ctx)
     n00b_module_t *tocall;
 
     tocall = (n00b_module_t *)ctx->cur_pnode->value;
-    emit(ctx,
-         N00B_ZCallModule,
-         n00b_kw("module_id", n00b_ka(tocall->module_id)));
+    emit(ctx, N00B_ZCallModule, module_id : tocall->module_id);
 }
 
 static inline void
@@ -2375,7 +2336,7 @@ gen_set_once_memo(gen_ctx *ctx, n00b_fn_decl_t *decl)
     }
 
     emit(ctx, N00B_ZPushFromR0);
-    emit(ctx, N00B_ZPushStaticRef, n00b_kw("arg", n00b_ka(decl->sc_memo_offset)));
+    emit(ctx, N00B_ZPushStaticRef, arg : decl->sc_memo_offset);
     emit(ctx, N00B_ZAssignToLoc);
 }
 
@@ -2386,7 +2347,7 @@ gen_return_once_memo(gen_ctx *ctx, n00b_fn_decl_t *decl)
         return;
     }
 
-    emit(ctx, N00B_ZPushStaticObj, n00b_kw("arg", n00b_ka(decl->sc_memo_offset)));
+    emit(ctx, N00B_ZPushStaticObj, arg : decl->sc_memo_offset);
     emit(ctx, N00B_ZRet);
 }
 
@@ -2424,31 +2385,18 @@ gen_function(gen_ctx       *ctx,
     if (decl->once) {
         fn_info_for_obj->static_lock = decl->sc_lock_offset;
 
-        emit(ctx,
-             N00B_ZPushStaticObj,
-             n00b_kw("arg", n00b_ka(n00b_ka(decl->sc_bool_offset))));
+        emit(ctx, N00B_ZPushStaticObj, arg : decl->sc_bool_offset);
         GEN_JZ(gen_return_once_memo(ctx, decl));
-        emit(ctx,
-             N00B_ZLockMutex,
-             n00b_kw("arg", n00b_ka(decl->sc_lock_offset)));
-        emit(ctx,
-             N00B_ZPushStaticObj,
-             n00b_kw("arg", n00b_ka(decl->sc_bool_offset)));
+        emit(ctx, N00B_ZLockMutex, arg : decl->sc_lock_offset);
+        emit(ctx, N00B_ZPushStaticObj, arg : decl->sc_bool_offset);
         // If it's not zero, we grabbed the lock, but waited while
         // someone else computed the memo.
-        GEN_JZ(emit(ctx,
-                    N00B_ZUnlockMutex,
-                    n00b_kw("arg",
-                            n00b_ka(decl->sc_lock_offset)));
-               emit(ctx,
-                    N00B_ZPushStaticObj,
-                    n00b_kw("arg", n00b_ka(decl->sc_memo_offset)));
+        GEN_JZ(emit(ctx, N00B_ZUnlockMutex, arg : decl->sc_lock_offset);
+               emit(ctx, N00B_ZPushStaticObj, arg : decl->sc_memo_offset);
                emit(ctx, N00B_ZRet););
         // Set the boolean to true.
         gen_load_immediate(ctx, 1);
-        emit(ctx,
-             N00B_ZPushStaticRef,
-             n00b_kw("arg", n00b_ka(decl->sc_bool_offset)));
+        emit(ctx, N00B_ZPushStaticRef, arg : decl->sc_bool_offset);
         emit(ctx, N00B_ZAssignToLoc);
     }
 
@@ -2467,9 +2415,7 @@ gen_function(gen_ctx       *ctx,
 
     if (decl->once) {
         gen_set_once_memo(ctx, decl);
-        emit(ctx,
-             N00B_ZUnlockMutex,
-             n00b_kw("arg", n00b_ka(decl->sc_lock_offset)));
+        emit(ctx, N00B_ZUnlockMutex, arg : decl->sc_lock_offset);
     }
 
     if (ctx->retsym) {

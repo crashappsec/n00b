@@ -84,14 +84,14 @@ static const char *bash_setup_string = N00B_SESSION_BASH_SETUP;
 static inline n00b_string_t *
 create_tmpfiles(n00b_stream_t **ctrl_file_ptr)
 {
+    // clang-format off
     n00b_stream_t *rc_file = n00b_tempfile(NULL, NULL);
     *ctrl_file_ptr         = n00b_tempfile(NULL, NULL);
     n00b_string_t *result  = n00b_stream_get_name(rc_file);
     n00b_buf_t    *buf     = n00b_new(n00b_type_buffer(),
-                               n00b_kw("length",
-                                       (int64_t)strlen(bash_setup_string),
-                                       "ptr",
-                                       bash_setup_string));
+				      length: strlen(bash_setup_string),
+				      ptr:    bash_setup_string);
+    // clang-format on
 
     n00b_write(rc_file, buf);
     n00b_close(rc_file);
@@ -212,22 +212,17 @@ setup_user_command(n00b_session_t *s)
 
     err_pty = (int64_t)((bool)s->using_pty & (bool)!s->merge_output);
 
+    // clang-format off
     s->subprocess = n00b_run_process(s->launch_command,
                                      s->launch_args,
                                      false,
                                      false,
-                                     n00b_kw("pty",
-                                             (int64_t)s->using_pty,
-                                             "stdout_subs",
-                                             s->stdout_cb,
-                                             "stderr_subs",
-                                             s->stderr_cb,
-                                             "run",
-                                             false,
-                                             "merge",
-                                             (int64_t)s->merge_output,
-                                             "err_pty",
-                                             err_pty));
+				     pty:         s->using_pty,
+				     stdout_subs: s->stdout_cb,
+				     stderr_subs: s->stderr_cb,
+				     run:         false,
+				     merge:       s->merge_output,
+				     err_pty:     err_pty);
 
     n00b_capture_launch(s, s->launch_command, s->launch_args);
 }
@@ -242,26 +237,20 @@ setup_shell(n00b_session_t *s)
     n00b_capture_launch(s, cmd, argv);
     // We don't use the run_process capture facility because it doesn't
     // record timestamps or worry about ansi, etc.
+
     s->subprocess = n00b_run_process(cmd,
                                      argv,
                                      false,
                                      false,
-                                     n00b_kw("pre_exec_hook",
-                                             post_fork_hook,
-                                             "hook_param",
-                                             s,
-                                             "stdout_subs",
-                                             s->stdout_cb,
-                                             "stderr_subs",
-                                             s->stderr_cb,
-                                             "run",
-                                             false,
-                                             "pty",
-                                             (int64_t)s->using_pty,
-                                             "merge",
-                                             (int64_t)s->merge_output,
-                                             "err_pty",
-                                             err_pty));
+				     pre_exec_hook: post_fork_hook,
+				     hook_param:    s,
+				     stdout_subs:   s->stdout_cb,
+				     stderr_subs:   s->stderr_cb,
+				     run:           false,
+				     pty:           s->using_pty,
+				     merge:         s->merge_output,
+				     err_pty:       err_pty);
+    // clang-format on
 }
 
 static inline bool

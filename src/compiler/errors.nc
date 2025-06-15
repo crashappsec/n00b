@@ -1501,7 +1501,7 @@ n00b_format_runtime_errors(n00b_list_t *errors)
         return NULL;
     }
 
-    n00b_table_t *table = n00b_table("columns", 3);
+    n00b_table_t *table = n00b_table(columns : 3);
 
     for (int i = 0; i < n; i++) {
         n00b_compile_error *err = n00b_list_get(errors, i, NULL);
@@ -1550,12 +1550,10 @@ n00b_format_errors(n00b_compile_ctx *cctx)
         return NULL;
     }
 
-    n00b_table_t *table       = n00b_table("columns",
-                                     n00b_ka(3),
-                                     "style",
-                                     n00b_ka(N00B_TABLE_SIMPLE));
-    int           n           = 0;
-    uint64_t      num_modules = 0;
+    n00b_table_t *table = n00b_table(columns : 3, style : N00B_TABLE_SIMPLE);
+
+    int      n           = 0;
+    uint64_t num_modules = 0;
 
     n00b_table_next_column_fit(table);
     n00b_table_next_column_fit(table);

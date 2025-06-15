@@ -13,7 +13,7 @@ typedef struct {
 #define tpat_debug(ctx, txt) n00b_print(n00b_cformat( \
     "«#:x» : «em»«#»[/]",                             \
     (uint64_t)ctx->pattern_cur,                       \
-    n00b_cstring(txt),                               \
+    n00b_cstring(txt),                                \
     0))
 #else
 #define tpat_debug(ctx, txt)
@@ -117,7 +117,7 @@ n00b_pat_repr(n00b_tpat_node_t   *pat,
     txt = n00b_string_concat(txt, contents);
 
     n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_string()),
-                                        n00b_kw("contents", n00b_ka(txt)));
+                                        contents : txt);
 
     for (unsigned int i = 0; i < pat->num_kids; i++) {
         n00b_tree_node_t *kid = n00b_pat_repr(pat->children[i],

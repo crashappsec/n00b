@@ -131,8 +131,7 @@ n00b_bytering_to_buffer(n00b_bytering_t *l)
     n00b_lock_acquire(&l->internal_lock);
     defer(n00b_lock_release(&l->internal_lock));
 
-    result = n00b_new(n00b_type_buffer(),
-                      n00b_kw("length", n00b_ka(l->alloc_len)));
+    result = n00b_new(n00b_type_buffer(), length : l->alloc_len);
     n      = l->write_ptr - l->read_ptr;
     if (n > 0) {
         memcpy(result->data, l->read_ptr, n);
@@ -165,7 +164,7 @@ n00b_bytering_resize(n00b_bytering_t *l, int64_t sz)
     n00b_bytering_t *result;
     int              n;
 
-    result = n00b_new(n00b_type_bytering(), n00b_kw("length", n00b_ka(sz)));
+    result = n00b_new(n00b_type_bytering(), length : sz);
 
     n00b_lock_acquire(&l->internal_lock);
     defer(n00b_lock_release(&l->internal_lock));
@@ -282,7 +281,7 @@ bounds_err:
 
     int              slice_len = end - start;
     n00b_bytering_t *result    = n00b_new(n00b_type_bytering(),
-                                       n00b_kw("length", n00b_ka(slice_len)));
+                                       length : slice_len);
 
     if (l->read_ptr < l->write_ptr) {
         memcpy(result->data, l->read_ptr, slice_len);
@@ -323,7 +322,7 @@ n00b_bytering_plus_raw(n00b_bytering_t *t1, n00b_bytering_t *t2)
     int              l2     = n00b_bytering_len_raw(t2);
     int              len    = l1 + l2;
     n00b_bytering_t *result = n00b_new(n00b_type_bytering(),
-                                       n00b_kw("length", n00b_ka(len)));
+                                       length : len);
 
     add_bytes_from_ring_size_checked(result, t1);
     add_bytes_from_ring_size_checked(result, t2);
@@ -427,8 +426,7 @@ bounds_err:
     }
 
     alloc_len = n00b_bytering_len_raw(l) + n00b_bytering_len_raw(sub);
-    tmp       = n00b_new(n00b_type_bytering(),
-                   n00b_kw("length", n00b_ka(alloc_len)));
+    tmp       = n00b_new(n00b_type_bytering(), length : alloc_len);
 
     if (start > 0) {
         slice = bytering_internal_slice(l, 0, start);
@@ -456,8 +454,7 @@ n00b_bytering_copy(n00b_bytering_t *r)
 {
     n00b_lock_acquire(&r->internal_lock);
     n00b_bytering_t *result = n00b_new(n00b_type_bytering(),
-                                       n00b_kw("length",
-                                               n00b_ka(r->alloc_len)));
+                                       length : r->alloc_len);
 
     add_bytes_from_ring_size_checked(result, r);
     n00b_lock_release(&r->internal_lock);
@@ -682,15 +679,13 @@ n00b_bytering_literal(n00b_string_t        *su8,
             *err = n00b_err_parse_lit_odd_hex;
             return NULL;
         }
-        tbuf = n00b_new(n00b_type_buffer(),
-                        n00b_kw("length", n00b_ka(length), "hex", n00b_ka(s)));
+        tbuf = n00b_new(n00b_type_buffer(), length : length, hex : s);
     }
     else {
-        tbuf = n00b_new(n00b_type_buffer(), n00b_kw("raw", n00b_ka(s)));
+        tbuf = n00b_new(n00b_type_buffer(), raw : s);
     }
 
-    n00b_bytering_t *res = n00b_new(n00b_type_bytering(),
-                                    n00b_kw("length", n00b_ka(0)));
+    n00b_bytering_t *res = n00b_new(n00b_type_bytering(), length : 0);
 
     res->alloc_len = tbuf->byte_len;
     res->data      = tbuf->data;

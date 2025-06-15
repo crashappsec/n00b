@@ -20,16 +20,6 @@ get_color_table()
                              (void *)(int64_t)p->rgb);
             p++;
         }
-#if 0
-        n00b_buf_t    *b = n00b_new(n00b_type_buffer(),
-                               n00b_kw("raw",
-                                      n00b_ka(_marshaled_color_table),
-                                      "length",
-                                      n00b_ka(44237)));
-        n00b_stream_t *s = n00b_instream_buffer(b);
-
-        color_table = n00b_unmarshal(s);
-#endif
     }
     return color_table;
 }

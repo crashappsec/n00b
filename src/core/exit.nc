@@ -48,11 +48,7 @@ n00b_wait_on_io_shutdown(void)
 
     while (!n00b_io_exited) {
         n00b_condition_lock(c);
-        n00b_condition_wait(c,
-                            n00b_kw("auto_unlock",
-                                    n00b_ka(true),
-                                    "timeout",
-                                    n00b_ka(100000)));
+        n00b_condition_wait(c, auto_unlock: true, timeout: 100000);
     }
 }
 #endif

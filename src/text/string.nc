@@ -1312,13 +1312,9 @@ n00b_string_coerce_to(n00b_string_t *s, n00b_type_t *t)
     case N00B_T_BOOL:
         return (n00b_obj_t)(int64_t)(s && s->codepoints);
     case N00B_T_BUFFER:
-        return n00b_new(t,
-                        n00b_kw("length",
-                                n00b_ka(s->u8_bytes),
-                                "raw",
-                                s->data));
+        return n00b_new(t, length : s->u8_bytes, raw : s->data);
     case N00B_T_BYTERING:
-        return n00b_new(t, n00b_kw("string", s));
+        return n00b_new(t, string : s);
     default:
         N00B_CRAISE("Invalid coersion.");
     }

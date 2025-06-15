@@ -258,7 +258,7 @@ dict_to_string(n00b_dict_t *dict)
     hatrack_dict_item_t *view = hatrack_dict_items_sort(dict, &view_len);
 
     n00b_list_t   *items    = n00b_new(n00b_type_list(n00b_type_string()),
-                                  n00b_kw("length", n00b_ka(view_len)));
+                                  length : view_len);
     n00b_list_t   *one_item = n00b_new(n00b_type_list(n00b_type_string()));
     n00b_string_t *colon    = n00b_cached_colon();
 

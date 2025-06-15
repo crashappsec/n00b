@@ -7,7 +7,7 @@ static inline void
 write_capture_header(n00b_stream_t *s)
 {
     const int64_t    len = sizeof(int64_t) + sizeof(n00b_duration_t);
-    n00b_buf_t      *b   = n00b_new(n00b_type_buffer(), n00b_kw("length", len));
+    n00b_buf_t      *b   = n00b_new(n00b_type_buffer(), length : len);
     int64_t         *mp  = (int64_t *)b->data;
     char            *p   = b->data + sizeof(int64_t);
     n00b_duration_t *d   = n00b_now();
@@ -22,7 +22,7 @@ add_record_header(n00b_cap_event_t *event, n00b_stream_t *s)
 {
     const int64_t len = sizeof(n00b_duration_t) + sizeof(uint32_t) + 2;
 
-    n00b_buf_t *b = n00b_new(n00b_type_buffer(), n00b_kw("length", len));
+    n00b_buf_t *b = n00b_new(n00b_type_buffer(), length : len);
     char       *p = b->data;
     memcpy(p, &event->id, sizeof(uint32_t));
     p += sizeof(uint32_t);
@@ -39,14 +39,11 @@ add_capture_payload_str(n00b_string_t *s, n00b_stream_t *strm)
     if (!s) {
         s = n00b_cached_empty_string();
     }
-    n00b_buf_t *b1 = n00b_new(n00b_type_buffer(), n00b_kw("length", 4LL));
+    n00b_buf_t *b1 = n00b_new(n00b_type_buffer(), length : 4);
     uint32_t   *n  = (uint32_t *)b1->data;
     *n             = s->u8_bytes;
     n00b_buf_t *b2 = n00b_new(n00b_type_buffer(),
-                              n00b_kw("length",
-                                      (int64_t)s->u8_bytes,
-                                      "ptr",
-                                      s->data));
+                              length : s->u8_bytes, ptr : s->data);
 
     n00b_stream_unfiltered_write(strm, b1);
     n00b_stream_unfiltered_write(strm, b2);
@@ -65,10 +62,7 @@ static inline void
 add_capture_winch(struct winsize *dims, n00b_stream_t *strm)
 {
     n00b_buf_t *b = n00b_new(n00b_type_buffer(),
-                             n00b_kw("length",
-                                     (int64_t)sizeof(struct winsize),
-                                     "ptr",
-                                     dims));
+                             length : sizeof(struct winsize), ptr : dims);
     n00b_stream_unfiltered_write(strm, b);
 }
 
@@ -78,8 +72,7 @@ add_capture_spawn(n00b_cap_spawn_info_t *si, n00b_stream_t *strm)
     add_capture_payload_str(si->command, strm);
 
     int32_t     n = si->args ? n00b_list_len(si->args) : 0;
-    n00b_buf_t *b = n00b_new(n00b_type_buffer(),
-                             n00b_kw("length", sizeof(uint32_t)));
+    n00b_buf_t *b = n00b_new(n00b_type_buffer(), length : sizeof(uint32_t));
 
     *(int32_t *)b->data = n;
     n00b_stream_unfiltered_write(strm, b);

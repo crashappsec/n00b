@@ -38,10 +38,8 @@ n00b_sha_init(n00b_sha_t *ctx, va_list args)
         abort();
     }
 
-    ctx->digest = n00b_new(n00b_type_buffer(),
-                           n00b_kw("length", n00b_ka(bits / 8)));
-
-    version -= 2;
+    ctx->digest        = n00b_new(n00b_type_buffer(), length : bits / 8);
+    version            = version - 2;
     bits               = (bits >> 7) - 2; // Maps the bit sizes to 0, 1 and 2,
                                           // by dividing by 128, then - 2.
     ctx->openssl_ctx   = EVP_MD_CTX_new();

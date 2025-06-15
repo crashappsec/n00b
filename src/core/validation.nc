@@ -33,8 +33,8 @@ typedef struct {
         field_vinfo   field;
     } info;
     n00b_string_t *path;
-    bool         field;
-    bool         checked;
+    bool           field;
+    bool           checked;
 } spec_node_t;
 
 typedef struct {
@@ -118,7 +118,7 @@ spec_info_if_used(validation_ctx *ctx, spec_node_t *n)
 static void
 _n00b_validation_error(validation_ctx      *ctx,
                        n00b_compile_error_t code,
-                       n00b_string_t         *loc,
+                       n00b_string_t       *loc,
                        ...)
 {
     va_list args;
@@ -153,16 +153,16 @@ spec_node_alloc(validation_ctx *ctx, n00b_string_t *path)
 
 static spec_node_t *
 init_section_node(validation_ctx *ctx,
-                  n00b_string_t    *path,
-                  n00b_string_t    *section,
+                  n00b_string_t  *path,
+                  n00b_string_t  *section,
                   n00b_list_t    *subitems)
 {
     // This sets up data structures from the section cache, but does not
     // populate any field information whatsoever.
 
-    spec_node_t *sec_info;
+    spec_node_t   *sec_info;
     n00b_string_t *full_path;
-    bool         alloced = false;
+    bool           alloced = false;
 
     if (path == NULL) {
         full_path = section;
@@ -196,9 +196,9 @@ init_section_node(validation_ctx *ctx,
         return alloced ? sec_info : NULL;
     }
 
-    int          n            = n00b_list_len(subitems);
+    int            n            = n00b_list_len(subitems);
     n00b_string_t *next_section = n00b_list_get(subitems, 0, NULL);
-    n00b_list_t *next_items   = NULL;
+    n00b_list_t   *next_items   = NULL;
 
     if (n > 1) {
         next_items = n00b_list_get_slice(subitems, 1, n);
@@ -244,7 +244,7 @@ init_one_section(validation_ctx *ctx, n00b_string_t *path)
         return;
     }
 
-    n00b_list_t *parts = n00b_string_split(path, n00b_cached_period());
+    n00b_list_t   *parts = n00b_string_split(path, n00b_cached_period());
     n00b_string_t *next  = n00b_list_get(parts, 0, NULL);
 
     parts = n00b_list_get_slice(parts, 1, n00b_list_len(parts));
@@ -275,7 +275,7 @@ spec_init_validation(validation_ctx *ctx, n00b_vm_t *runtime)
 
     init_one_section(ctx, NULL);
 
-    uint64_t      n;
+    uint64_t        n;
     n00b_string_t **sections = hatrack_set_items_sort(runtime->all_sections, &n);
 
     for (unsigned int i = 0; i < n; i++) {
@@ -326,11 +326,11 @@ validate_field_contents(validation_ctx      *ctx,
     num_req = n00b_list_len(required);
 
     if (num_req != 0) {
-        reqflags = n00b_new(n00b_type_flags(), n00b_kw("length", n00b_ka(num_req)));
+        reqflags = n00b_new(n00b_type_flags(), length : num_req);
     }
 
     for (unsigned int i = 0; i < num_fields; i++) {
-        n00b_string_t          *name   = fields[i].key;
+        n00b_string_t        *name   = fields[i].key;
         spec_node_t          *fnode  = fields[i].value;
         n00b_spec_field_t    *fspec  = fnode->info.field.field_spec;
         n00b_attr_contents_t *record = fnode->info.field.record;
@@ -360,7 +360,7 @@ validate_field_contents(validation_ctx      *ctx,
             continue;
         }
 
-        uint64_t      num_ex;
+        uint64_t        num_ex;
         n00b_string_t **exclusions = hatrack_set_items(fspec->exclusions, &num_ex);
 
         for (unsigned int i = 0; i < num_ex; i++) {
@@ -494,12 +494,12 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     n00b_spec_section_t *secspec  = node->info.section.section_spec;
     n00b_flags_t        *reqflags = NULL;
     uint64_t             num_req;
-    n00b_string_t        **reqnames;
+    n00b_string_t      **reqnames;
 
     reqnames = hatrack_set_items(secspec->required_sections, &num_req);
 
     if (num_req != 0) {
-        reqflags = n00b_new(n00b_type_flags(), n00b_kw("length", n00b_ka(num_req)));
+        reqflags = n00b_new(n00b_type_flags(), length : num_req);
     }
 
     // Make sure this spec is allowed at all; we need to see it in the
@@ -507,8 +507,8 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
 
     for (unsigned int i = 0; i < num_subs; i++) {
         n00b_string_t *name = subsecs[i].key;
-        spec_node_t *sub  = subsecs[i].value;
-        bool         ok   = false;
+        spec_node_t   *sub  = subsecs[i].value;
+        bool           ok   = false;
 
         // If this section name is required, mark that we saw it.
         if (num_req && hatrack_set_contains(secspec->required_sections, name)) {

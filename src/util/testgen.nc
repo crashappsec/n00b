@@ -240,10 +240,7 @@ n00b_testgen_record(n00b_string_t *test_name, bool quiet, bool ansi, bool merge)
 
     // Interactive shell that gets recorded.
     session = n00b_new(n00b_type_session(),
-                       n00b_kw("capture_tmpfile",
-                               n00b_ka(true),
-                               "merge_output",
-                               n00b_ka(merge)));
+                       capture_tmpfile : true, merge_output : merge);
 
     n00b_session_run(session);
 
@@ -604,9 +601,7 @@ add_aux_error(n00b_test_t *tc, char *tag, n00b_string_t *buf, int hex)
                                      (int64_t)i);
                     n00b_list_append(tc->aux_error, s);
                     s = t->match_info.substring;
-                    s = n00b_hex_dump(s->data,
-                                      s->u8_bytes,
-                                      n00b_kw("width", (int64_t)80));
+                    s = n00b_hex_dump(s->data, s->u8_bytes, width : 80);
                     n00b_list_append(tc->aux_error, s);
                 }
                 continue;
@@ -617,9 +612,7 @@ add_aux_error(n00b_test_t *tc, char *tag, n00b_string_t *buf, int hex)
                                      (int64_t)i);
                     n00b_list_append(tc->aux_error, s);
                     s = t->match_info.substring;
-                    s = n00b_hex_dump(s->data,
-                                      s->u8_bytes,
-                                      n00b_kw("width", (int64_t)80));
+                    s = n00b_hex_dump(s->data, s->u8_bytes, width : 80);
                     n00b_list_append(tc->aux_error, s);
                 }
                 continue;
@@ -632,9 +625,7 @@ add_aux_error(n00b_test_t *tc, char *tag, n00b_string_t *buf, int hex)
     if (found) {
         s = n00b_cformat("«em5»Actual contents as hex:");
         n00b_list_append(tc->aux_error, s);
-        s = n00b_hex_dump(buf->data,
-                          buf->u8_bytes,
-                          n00b_kw("width", (int64_t)80));
+        s = n00b_hex_dump(buf->data, buf->u8_bytes, width : 80);
         n00b_list_append(tc->aux_error, s);
     }
 }
@@ -746,13 +737,12 @@ build_state_machine(n00b_session_t *s, n00b_test_t *test)
 static void
 n00b_testgen_run_one_test(n00b_testing_ctx *ctx, n00b_test_t *test)
 {
+    // clang-format off
     n00b_session_t *s = n00b_new(n00b_type_session(),
-                                 n00b_kw("pass_input",
-                                         n00b_ka(false),
-                                         "pass_output",
-                                         n00b_ka(ctx->verbose),
-                                         "merge_output",
-                                         n00b_ka(test->merge_io)));
+				 pass_input:   false,
+				 pass_output:  ctx->verbose,
+				 merge_output: test->merge_io);
+    // clang-format on
 
     build_state_machine(s, test);
 
@@ -773,8 +763,8 @@ n00b_testgen_run_one_test(n00b_testing_ctx *ctx, n00b_test_t *test)
             timeout = N00B_TEST_TIMEOUT_SEC_DEFAULT;
         }
     }
-    s->end_time      = n00b_new(n00b_type_duration(), n00b_kw("sec", timeout));
-    s->max_event_gap = n00b_new(n00b_type_duration(), n00b_kw("sec", timeout));
+    s->end_time      = n00b_new(n00b_type_duration(), sec : timeout);
+    s->max_event_gap = n00b_new(n00b_type_duration(), sec : timeout);
 
     n00b_string_t *pwd      = n00b_get_current_directory();
     n00b_string_t *test_dir = ctx->test_root;
@@ -799,17 +789,14 @@ n00b_testgen_load_one_group(n00b_testing_ctx *ctx,
     group->name  = group_name;
     group->path  = n00b_path_simple_join(ctx->test_root, group_name);
     group->tests = n00b_list(n00b_type_ref());
+    // clang-format off
     test_fnames  = n00b_list_directory(group->path,
-                                      n00b_kw("directories",
-                                              n00b_ka(false),
-                                              "links",
-                                              n00b_ka(false),
-                                              "specials",
-                                              n00b_ka(false),
-                                              "dot_files",
-                                              n00b_ka(false),
-                                              "extension",
-                                              n00b_cstring(".test")));
+				       directories: false,
+				       links:       false,
+				       specials:    false,
+				       dot_files:   false,
+				       extension:   n00b_cstring(".test"));
+    // clang-format on
 
     int n = n00b_list_len(test_fnames);
 
@@ -873,15 +860,13 @@ n00b_testgen_load_all_groups(n00b_testing_ctx *ctx)
         n00b_exit(-1);
     }
 
+    // clang-format off
     test_groups = n00b_list_directory(ctx->test_root,
-                                      n00b_kw("files",
-                                              n00b_ka(false),
-                                              "links",
-                                              n00b_ka(false),
-                                              "specials",
-                                              n00b_ka(false),
-                                              "dot_files",
-                                              n00b_ka(false)));
+				      files:     false,
+				      links:     false,
+				      specials:  false,
+				      dot_files: false);
+    // clang-format on
 
     int n = n00b_list_len(test_groups);
 
@@ -1192,61 +1177,26 @@ static inline n00b_table_t *
 create_matrix(n00b_testing_ctx *ctx)
 {
     n00b_tree_node_t *ci = n00b_new_layout();
-    n00b_new_layout_cell(ci,
-                         n00b_kw("min",
-                                 6LL,
-                                 "max",
-                                 6LL,
-                                 "preference",
-                                 6LL));
-    n00b_new_layout_cell(ci,
-                         n00b_kw("min",
-                                 (int64_t)ctx->c1_width,
-                                 "max",
-                                 (int64_t)ctx->c1_width,
-                                 "preference",
-                                 (int64_t)ctx->c1_width));
-    n00b_new_layout_cell(ci,
-                         n00b_kw("min",
-                                 (int64_t)ctx->c2_width,
-                                 "max",
-                                 (int64_t)ctx->c2_width,
-                                 "preference",
-                                 (int64_t)ctx->c2_width));
+    int               w  = ctx->c1_width;
+    n00b_new_layout_cell(ci, min : 6, max : 6, preference : 6);
+    n00b_new_layout_cell(ci, min : w, max : w, preference : w);
+    w = ctx->c2_width;
+    n00b_new_layout_cell(ci, min : w, max : w, preference : w);
+    w = ctx->c3_width;
+    n00b_new_layout_cell(ci, min : w, max : w, preference : w);
+    n00b_new_layout_cell(ci, flex : 1);
 
-    n00b_new_layout_cell(ci,
-                         n00b_kw("min",
-                                 (int64_t)ctx->c3_width,
-                                 "max",
-                                 (int64_t)ctx->c3_width,
-                                 "preference",
-                                 (int64_t)ctx->c3_width));
+    // clang-format off
+    n00b_table_t *result = n00b_table(outstream: n00b_stderr(),
+				      style: N00B_TABLE_SIMPLE,
+				      columns: 5,
+				      column_widths: ci);
 
-    n00b_new_layout_cell(ci, n00b_kw("flex", 1ULL));
-
-    n00b_table_t *result = n00b_table("outstream",
-                                      n00b_stderr(),
-#ifndef N00B_TG_DEFAULT_TABLE
-                                      "style",
-                                      N00B_TABLE_SIMPLE,
-#endif
-                                      "columns",
-                                      5ULL,
-                                      "column_widths",
-                                      ci);
-#ifdef N00B_TG_DEFAULT_TABLE
-    n00b_table_add_cell(result, n00b_cstring("Action"));
-    n00b_table_add_cell(result, n00b_cstring("Number"));
-    n00b_table_add_cell(result, n00b_cstring("Group"));
-    n00b_table_add_cell(result, n00b_cstring("Test"));
-    n00b_table_add_cell(result, n00b_cstring("Test Result"));
-#else
     n00b_table_add_cell(result, n00b_crich("[|head|]Action"));
     n00b_table_add_cell(result, n00b_crich("[|head|]Number"));
     n00b_table_add_cell(result, n00b_crich("[|head|]Group"));
     n00b_table_add_cell(result, n00b_crich("[|head|]Test"));
     n00b_table_add_cell(result, n00b_crich("[|head|]Test Result"));
-#endif
 
     return result;
 }

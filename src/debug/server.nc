@@ -120,10 +120,7 @@ n00b_start_log_listener(void)
     N00B_TRY
     {
         n00b_net_addr_t *inet_addr = n00b_new(n00b_type_net_addr(),
-                                              n00b_kw("address",
-                                                      addr,
-                                                      "port",
-                                                      n00b_ka(int_port)));
+                                              address : addr, port : int_port);
         result                     = n00b_create_listener(inet_addr);
     }
     N00B_EXCEPT

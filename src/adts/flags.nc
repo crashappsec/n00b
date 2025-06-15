@@ -29,8 +29,7 @@ flags_init(n00b_flags_t *self, va_list args)
 n00b_flags_t *
 n00b_flags_copy(const n00b_flags_t *self)
 {
-    n00b_flags_t *result = n00b_new(n00b_type_flags(),
-                                    n00b_kw("length", n00b_ka(self->num_flags)));
+    n00b_flags_t *result = n00b_new(n00b_type_flags(), length : self->num_flags);
 
     for (int i = 0; i < result->alloc_wordlen; i++) {
         result->contents[i] = self->contents[i];
@@ -87,8 +86,7 @@ flags_lit(n00b_string_t        *s,
           n00b_compile_error_t *code)
 {
     int64_t       len    = n00b_string_codepoint_len(s);
-    n00b_flags_t *result = n00b_new(n00b_type_flags(),
-                                    n00b_kw("length", n00b_ka(len * 4)));
+    n00b_flags_t *result = n00b_new(n00b_type_flags(), length : len * 4);
 
     uint64_t cur_word = 0;
     int      ct       = 0;
@@ -149,8 +147,7 @@ n00b_flags_t *
 n00b_flags_add(n00b_flags_t *self, n00b_flags_t *with)
 {
     uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
-    n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                    n00b_kw("length", n00b_ka(res_flags)));
+    n00b_flags_t *result      = n00b_new(n00b_type_flags(), length : res_flags);
     int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
 
     for (int i = 0; i < min_wordlen; i++) {
@@ -180,8 +177,7 @@ n00b_flags_sub(n00b_flags_t *self, n00b_flags_t *with)
     // they're valid.
 
     uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
-    n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                    n00b_kw("length", n00b_ka(res_flags)));
+    n00b_flags_t *result      = n00b_new(n00b_type_flags(), length : res_flags);
     int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
     int           i;
 
@@ -206,8 +202,7 @@ n00b_flags_test(n00b_flags_t *self, n00b_flags_t *with)
     // they're valid.
 
     uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
-    n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                    n00b_kw("length", n00b_ka(res_flags)));
+    n00b_flags_t *result      = n00b_new(n00b_type_flags(), length : res_flags);
     int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
 
     for (int i = 0; i < min_wordlen; i++) {
@@ -221,8 +216,7 @@ n00b_flags_t *
 n00b_flags_xor(n00b_flags_t *self, n00b_flags_t *with)
 {
     uint32_t      res_flags   = n00b_max(self->num_flags, with->num_flags);
-    n00b_flags_t *result      = n00b_new(n00b_type_flags(),
-                                    n00b_kw("length", n00b_ka(res_flags)));
+    n00b_flags_t *result      = n00b_new(n00b_type_flags(), length : res_flags);
     int32_t       min_wordlen = n00b_min(self->alloc_wordlen, with->alloc_wordlen);
 
     for (int i = 0; i < min_wordlen; i++) {

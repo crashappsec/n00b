@@ -37,7 +37,7 @@ n00b_table_next_column_fit(n00b_table_t *table)
 int64_t
 n00b_table_next_column_flex(n00b_table_t *table, int64_t factor)
 {
-    n00b_new_layout_cell(table->column_specs, n00b_kw("flex", factor));
+    n00b_new_layout_cell(table->column_specs, flex : factor);
 
     return n00b_tree_get_number_children(table->column_specs);
 }
@@ -47,9 +47,7 @@ n00b_table_next_column_set_width_range(n00b_table_t *table,
                                        int64_t       min,
                                        int64_t       max)
 {
-    n00b_new_layout_cell(table->column_specs,
-                         n00b_kw("min", min),
-                         n00b_kw("max", max));
+    n00b_new_layout_cell(table->column_specs, min : min, max : max);
 
     return n00b_tree_get_number_children(table->column_specs);
 }
@@ -59,9 +57,7 @@ n00b_table_next_column_set_width_pct(n00b_table_t *table,
                                      double        min,
                                      double        max)
 {
-    n00b_new_layout_cell(table->column_specs,
-                         n00b_kw("min_pct", min),
-                         n00b_kw("max_pct", max));
+    n00b_new_layout_cell(table->column_specs, min_pct : min, max_pct : max);
 
     return n00b_tree_get_number_children(table->column_specs);
 }
@@ -728,9 +724,7 @@ extract_column(n00b_table_t *t, int col)
 static inline int
 longest_word_len(n00b_string_t *s)
 {
-    n00b_list_t *l   = n00b_string_split_words(s,
-                                             n00b_kw("punctuation",
-                                                     n00b_ka(false)));
+    n00b_list_t *l   = n00b_string_split_words(s, punctuation : false);
     int          max = 0;
     int          n   = n00b_list_len(l);
 
@@ -753,7 +747,7 @@ longest_line_len(n00b_string_t *s)
     n00b_string_t *nl      = n00b_cached_newline();
 
     while (start < s->codepoints) {
-        next = n00b_string_find(s, nl, n00b_kw("start", n00b_ka(start)));
+        next = n00b_string_find(s, nl, start : start);
         if (next < 0) {
             next = s->codepoints;
         }
@@ -1150,7 +1144,7 @@ align_cells_vertically(n00b_list_t *row)
         if (ntop) {
             int          new_len = n00b_list_len(cell->ccache) + ntop;
             n00b_list_t *tmp     = n00b_new(n00b_type_list(n00b_type_string()),
-                                        n00b_kw("length", n00b_ka(new_len)));
+                                        length : new_len);
 
             for (int i = 0; i < ntop; i++) {
                 n00b_private_list_set(tmp, i, pad_line);

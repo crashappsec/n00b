@@ -449,7 +449,7 @@ any_int_coerce_to(const int64_t data, n00b_type_t *target_type)
     case N00B_T_UINT:
         return (void *)data;
     case N00B_T_SIZE:
-        return n00b_new(n00b_type_size(), n00b_kw("bytes", n00b_ka(data)));
+        return n00b_new(n00b_type_size(), bytes : data);
     case N00B_T_F32:
     case N00B_T_F64:
         d = (double)(data);

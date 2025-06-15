@@ -373,9 +373,7 @@ json_init_once(void)
 {
     n00b_gc_register_root(&n00b_json_grammar, 1);
 
-    n00b_json_grammar = n00b_new(n00b_type_grammar(),
-                                 n00b_kw("detect_errors",
-                                         n00b_ka(false)));
+    n00b_json_grammar = n00b_new(n00b_type_grammar(), detect_errors : false);
 
     n00b_pitem_t *value      = ntpi("value");
     n00b_pitem_t *object     = ntpi("object");

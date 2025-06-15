@@ -1,47 +1,6 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-#if 0
-static inline n00b_gopt_ctx *
-setup_cmd_line(void)
-{
-    n00b_gopt_ctx   *gopt    = n00b_new(n00b_type_gopt_parser(),
-                                   N00B_TOPLEVEL_IS_ARGV0);
-    n00b_gopt_cspec *top     = n00b_new(n00b_type_gopt_command(),
-                                    n00b_kw("context", n00b_ka(gopt)));
-    n00b_gopt_cspec *compile = n00b_new(
-        n00b_type_gopt_command(),
-        n00b_kw("context",
-                n00b_ka(gopt),
-                "name",
-                n00b_ka(n00b_cstring("compile")),
-                "parent",
-                n00b_ka(top)));
-    n00b_gopt_cspec *build = n00b_new(
-        n00b_type_gopt_command(),
-        n00b_kw("context",
-                n00b_ka(gopt),
-                "name",
-                n00b_ka(n00b_cstring("build")),
-                "parent",
-                n00b_ka(top)));
-    n00b_gopt_cspec *run = n00b_new(
-        n00b_type_gopt_command(),
-        n00b_kw("context",
-                n00b_ka(gopt),
-                "name",
-                n00b_ka(n00b_cstring("run")),
-                "parent",
-                n00b_ka(top)));
-
-    n00b_gopt_add_subcommand(gopt, compile, n00b_cstring("(str)*"));
-    n00b_gopt_add_subcommand(gopt, build, n00b_cstring("(str)*"));
-    n00b_gopt_add_subcommand(gopt, run, n00b_cstring("str"));
-
-    return gopt;
-}
-#endif
-
 n00b_stream_t *test_sin  = NULL;
 n00b_stream_t *test_sout = NULL;
 n00b_stream_t *test_scb  = NULL;
@@ -225,11 +184,7 @@ main(int argc, char **argv, char **envp)
     n00b_list_append(l, n00b_cstring("-alG"));
     n00b_list_append(l, n00b_cached_period());
 
-    n00b_proc_t *pi = n00b_run_process(cmd,
-                                       l,
-                                       true,
-                                       true,
-                                       n00b_kw("pty", n00b_ka(true)));
+    n00b_proc_t *pi = n00b_run_process(cmd, l, true, true, "pty" : true);
 
     n00b_buf_t *b = n00b_proc_get_stdout_capture(pi);
     // End

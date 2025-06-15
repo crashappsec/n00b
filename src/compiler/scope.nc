@@ -419,7 +419,7 @@ n00b_format_scope(n00b_scope_t *scope)
         return n00b_call_out(n00b_cstring("Scope is empty"));
     }
 
-    tbl = n00b_table("columns", n00b_ka(6));
+    tbl = n00b_table(columns : 6);
 
     n00b_table_add_cell(tbl, n00b_cstring("Name"));
     n00b_table_add_cell(tbl, n00b_cstring("Kind"));

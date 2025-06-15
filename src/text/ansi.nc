@@ -515,8 +515,7 @@ combine_partial(n00b_ansi_ctx *ctx, n00b_buf_t *b)
     // ourselves a new buffer.
 
     int         new_len = b->byte_len + diff;
-    n00b_buf_t *new_buf = n00b_new(n00b_type_buffer(),
-                                   n00b_kw("length", n00b_ka(new_len)));
+    n00b_buf_t *new_buf = n00b_new(n00b_type_buffer(), length : new_len);
 
     memcpy(new_buf->data, n->start, diff);
     memcpy(new_buf->data + diff, b->data, b->byte_len);
@@ -687,7 +686,7 @@ n00b_ansi_node_repr(n00b_ansi_node_t *node)
                             (int64_t)len,
                             n00b_bytes_to_hex(node->start, len));
     default:
-      n00b_unreachable();
+        n00b_unreachable();
     }
 }
 

@@ -595,6 +595,27 @@ advance(xform_t *ctx, bool skip_ws)
 }
 
 tok_t *
+backup(xform_t *ctx, bool skip_ws)
+{
+    tok_t *t;
+
+    while (true) {
+        if (ctx->ix == 0) {
+            return NULL;
+        }
+        t = &ctx->toks[--ctx->ix];
+
+        if (t->type == TT_COMMENT) {
+            continue;
+        }
+        if (skip_ws && t->type == TT_WS) {
+            continue;
+        }
+        return t;
+    }
+}
+
+tok_t *
 cur_tok(xform_t *ctx)
 {
     if (ctx->ix >= ctx->max) {
@@ -611,6 +632,21 @@ lookahead(xform_t *ctx, int num)
 
     for (int i = 0; i < num; i++) {
         t = advance(ctx, true);
+    }
+
+    ctx->ix = saved_ix;
+
+    return t;
+}
+
+tok_t *
+lookbehind(xform_t *ctx, int num)
+{
+    int    saved_ix = ctx->ix;
+    tok_t *t;
+
+    for (int i = 0; i < num; i++) {
+        t = backup(ctx, true);
     }
 
     ctx->ix = saved_ix;

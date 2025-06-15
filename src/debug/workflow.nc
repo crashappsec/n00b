@@ -237,8 +237,7 @@ get_debug_server_addr(void)
         }
     }
 
-    return n00b_new(n00b_type_net_addr(),
-                    n00b_kw("address", hoststr, "port", port));
+    return n00b_new(n00b_type_net_addr(), address : hoststr, port : port);
 }
 
 static void
@@ -296,15 +295,13 @@ attempt_connection(void)
 static void
 attempt_log_open(void)
 {
+    // clang-format off
     n00b_string_t *fname = n00b_get_env(n00b_cstring(SERVER_LOGFILE_ENV));
-
     debug_logfile = n00b_stream_open_file(fname,
-                                          "write_only",
-                                          n00b_ka(true),
-                                          "allow_file_creation",
-                                          n00b_ka(true),
-                                          "writes_always_append",
-                                          n00b_ka(true));
+                                          write_only:           true,
+					  allow_file_creation:  true,
+					  writes_always_append: true);
+    // clang-format on
 
     if (debug_logfile) {
         n00b_stream_subscribe_close(

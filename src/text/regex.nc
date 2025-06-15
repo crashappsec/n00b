@@ -141,7 +141,7 @@ void
 regex_object_init(n00b_regex_t *regex, va_list args)
 {
     // Can't use `keywords` block here because we don't
-    // have an option to accomodate fixed parameters.
+    // have an option to accomodate fixed parameters (yet).
 
     n00b_string_t *pattern     = va_arg(args, n00b_string_t *);
     bool           anchored    = true;

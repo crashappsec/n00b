@@ -585,11 +585,11 @@ n00b_proc_run(n00b_proc_t *ctx, n00b_duration_t *timeout)
 
     n00b_lock_acquire(&ctx->cv);
     n00b_proc_spawn(ctx);
+    // clang-format off
     bool result = !(bool)n00b_condition_wait(&ctx->cv,
-                                             n00b_kw("timeout",
-                                                     ns_tout,
-                                                     "auto_unlock",
-                                                     n00b_ka(true)));
+                                             timeout     : ns_tout,
+                                             auto_unlock : true);
+    // clang-format on
     n00b_proc_close(ctx);
     return result;
 }

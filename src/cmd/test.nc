@@ -5,12 +5,11 @@
 void
 n00b_run_tests(n00b_cmdline_ctx *ctx)
 {
-    n00b_testing_ctx *tctx = n00b_testgen_setup(n00b_kw2("args",
-                                                         ctx->args,
-                                                         "verbose",
-                                                         n00b_cmd_verbose(ctx),
-                                                         "quiet",
-                                                         n00b_cmd_quiet(ctx)));
+    // clang-format off
+    n00b_testing_ctx *tctx = n00b_testgen_setup(args    : ctx->args,
+                                                verbose : n00b_cmd_verbose(ctx),
+                                                quiet   : n00b_cmd_quiet(ctx));
+    // clang-format on
 
 #if defined(N00B_DEBUG)
     tctx->debug = true;
@@ -25,7 +24,7 @@ n00b_run_tests(n00b_cmdline_ctx *ctx)
 void
 n00b_show_tests(n00b_cmdline_ctx *ctx)
 {
-    n00b_testing_ctx *tctx = n00b_testgen_setup(n00b_kw2("args", ctx->args));
+    n00b_testing_ctx *tctx = n00b_testgen_setup(args : ctx->args);
 
     n00b_eprintf(
         "[|em|][|#|][|/|] groups in use, [|em|][|#|][|/|] tests.",
@@ -36,8 +35,7 @@ n00b_show_tests(n00b_cmdline_ctx *ctx)
 
     for (int i = 0; i < n; i++) {
         n00b_test_group_t *g   = n00b_list_get(tctx->groups, i, NULL);
-        n00b_table_t      *tbl = n00b_table("columns",
-                                       n00b_ka(4));
+        n00b_table_t      *tbl = n00b_table(columns : 4);
 
         n00b_table_add_cell(tbl, n00b_cstring("ID"));
         n00b_table_add_cell(tbl, n00b_cstring("Name"));

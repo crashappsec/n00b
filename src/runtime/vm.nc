@@ -67,7 +67,7 @@ n00b_get_backtrace(n00b_vmthread_t *tstate)
         return n00b_call_out(n00b_cstring("N00b is not running!"));
     }
 
-    n00b_table_t *result = n00b_table("columns", n00b_ka(3));
+    n00b_table_t *result = n00b_table(columns : 3);
 
     int nframes = tstate->num_frames;
 
@@ -492,8 +492,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 
             ++tstate->sp;
 
-            xl = n00b_new(n00b_type_list(n00b_type_ref()),
-                          n00b_kw("length", n00b_ka(n)));
+            xl = n00b_new(n00b_type_list(n00b_type_ref()), length : n);
 
             while (n--) {
                 n00b_list_set(xl, n, tstate->sp[0].vptr);

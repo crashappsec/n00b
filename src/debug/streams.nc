@@ -291,7 +291,7 @@ n00b_get_streams_table(void)
         return NULL;
     }
 
-    n00b_table_t *t = n00b_table("columns", 6);
+    n00b_table_t *t = n00b_table(columns : 6);
     n00b_list_t  *l = n00b_list_shallow_copy(stream_registry);
     int           n = n00b_list_len(l);
 

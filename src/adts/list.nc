@@ -296,7 +296,7 @@ n00b_private_list_plus(n00b_list_t *l1, n00b_list_t *l2)
 
     n00b_type_t *t      = n00b_get_my_type(l1);
     size_t       needed = l1->append_ix + l2->append_ix;
-    result              = n00b_new(t, n00b_kw("length", n00b_ka(needed)));
+    result              = n00b_new(t, length : needed);
 
     for (int i = 0; i < l1->append_ix; i++) {
         result->data[i] = l1->data[i];
@@ -334,7 +334,7 @@ n00b_list_plus(n00b_list_t *l1, n00b_list_t *l2)
     read_start(l2);
     n00b_type_t *t      = n00b_get_my_type(l1);
     size_t       needed = l1->append_ix + l2->append_ix;
-    result              = n00b_new(t, n00b_kw("length", n00b_ka(needed)));
+    result              = n00b_new(t, length : needed);
 
     for (int i = 0; i < l1->append_ix; i++) {
         result->data[i] = l1->data[i];
@@ -424,7 +424,7 @@ n00b_list_coerce_to(n00b_list_t *list, n00b_type_t *dst_type)
     }
 
     if (base == (n00b_dt_kind_t)N00B_T_LIST) {
-        n00b_list_t *res = n00b_new(dst_type, n00b_kw("length", n00b_ka(len)));
+        n00b_list_t *res = n00b_new(dst_type, length : len);
 
         for (int i = 0; i < len; i++) {
             void *item = n00b_list_get_base(list, i, NULL);
@@ -438,7 +438,7 @@ n00b_list_coerce_to(n00b_list_t *list, n00b_type_t *dst_type)
     }
 
     if (base == (n00b_dt_kind_t)N00B_T_FLIST) {
-        flexarray_t *res = n00b_new(dst_type, n00b_kw("length", n00b_ka(len)));
+        flexarray_t *res = n00b_new(dst_type, length : len);
 
         for (int i = 0; i < len; i++) {
             void *item = n00b_list_get_base(list, i, NULL);
@@ -457,7 +457,7 @@ n00b_private_list_copy(n00b_list_t *list)
 {
     int64_t      len     = n00b_list_len(list);
     n00b_type_t *my_type = n00b_get_my_type((n00b_obj_t)list);
-    n00b_list_t *res     = n00b_new(my_type, n00b_kw("length", n00b_ka(len)));
+    n00b_list_t *res     = n00b_new(my_type, length : len);
 
     for (int i = 0; i < len; i++) {
         n00b_obj_t item = n00b_list_get_base(list, i, NULL);
@@ -481,7 +481,7 @@ n00b_private_list_shallow_copy(n00b_list_t *list)
 {
     int64_t      len     = n00b_list_len(list);
     n00b_type_t *my_type = n00b_get_my_type((n00b_obj_t)list);
-    n00b_list_t *res     = n00b_new(my_type, n00b_kw("length", n00b_ka(len)));
+    n00b_list_t *res     = n00b_new(my_type, length : len);
 
     for (int i = 0; i < len; i++) {
         n00b_private_list_set(res, i, n00b_list_get_base(list, i, NULL));
@@ -534,8 +534,7 @@ n00b_private_list_get_slice(n00b_list_t *list, int64_t start, int64_t end)
     }
     else {
         if (start >= len) {
-            return n00b_new(n00b_get_my_type(list),
-                            n00b_kw("length", n00b_ka(0)));
+            return n00b_new(n00b_get_my_type(list), length : 0);
         }
     }
     if (end < 0) {
@@ -548,11 +547,11 @@ n00b_private_list_get_slice(n00b_list_t *list, int64_t start, int64_t end)
     }
 
     if ((start | end) < 0 || start >= end) {
-        return n00b_new(n00b_get_my_type(list), n00b_kw("length", n00b_ka(0)));
+        return n00b_new(n00b_get_my_type(list), length : 0);
     }
 
     len = end - start;
-    res = n00b_new(n00b_get_my_type(list), n00b_kw("length", n00b_ka(len)));
+    res = n00b_new(n00b_get_my_type(list), length : len);
 
     for (int i = 0; i < len; i++) {
         void *item = n00b_list_get_base(list, start + i, NULL);
@@ -919,7 +918,7 @@ n00b_list_t *
 n00b_from_cstr_list(char **arr, int64_t n)
 {
     n00b_list_t *result = n00b_new(n00b_type_list(n00b_type_string()),
-                                   n00b_kw("length", n));
+                                   length : n);
 
     for (int i = 0; i < n; i++) {
         n00b_string_t *s = n00b_cstring(arr[i]);

@@ -18,10 +18,11 @@ bool
 apply_transforms(lex_t *state)
 {
     xform_t ctx = {
-        .input = state->input,
-        .toks  = state->toks,
-        .ix    = 0,
-        .max   = state->num_toks,
+        .input   = state->input,
+        .toks    = state->toks,
+        .ix      = 0,
+        .max     = state->num_toks,
+        .in_file = state->in_file,
     };
 
     while (ctx.ix < ctx.max) {
@@ -32,6 +33,7 @@ apply_transforms(lex_t *state)
             }
             continue;
         default:
+            kw_tracking(&ctx, &ctx.toks[ctx.ix]);
             ctx.ix++;
         }
     }

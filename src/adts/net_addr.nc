@@ -236,8 +236,7 @@ unix_lit(n00b_string_t *in)
 {
     n00b_string_t *s = n00b_string_slice(in, 5, -1);
 
-    return n00b_new(n00b_type_ip(),
-                    n00b_kw("unix", n00b_ka(true), "address", s));
+    return n00b_new(n00b_type_ip(), unix : true, address : s);
 }
 
 static n00b_net_addr_t *

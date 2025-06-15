@@ -102,7 +102,7 @@ tuple_from_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *litmod)
     if (l == 1) {
         return n00b_list_get(items, 0, NULL);
     }
-    return n00b_new(objtype, n00b_kw("contents", n00b_ka(items)));
+    return n00b_new(objtype, contents : items);
 }
 
 // TODO:
@@ -179,8 +179,7 @@ n00b_clean_internal_list(n00b_list_t *l)
         return items;
     }
 
-    return n00b_new(n00b_type_tuple_from_list(tup_types),
-                    n00b_kw("contents", n00b_ka(items)));
+    return n00b_new(n00b_type_tuple_from_list(tup_types), contents : items);
 }
 
 const n00b_vtable_t n00b_tuple_vtable = {

@@ -386,7 +386,7 @@ keyword_xform(xform_t *ctx, tok_t *start)
     result = concat_static(result,
                            "            __err  = "
                            "n00b_cformat(\"Invalid keyword param: "
-                           "[=em=][=#=][=/=]\",\n         "
+                           "[|em|][|#|][|/|]\",\n         "
                            "              n00b_cstring(__ka->kw));\n"
                            "            N00B_RAISE(__err);\n"
                            "        __dupe_kw_found:\n"
@@ -402,4 +402,196 @@ keyword_xform(xform_t *ctx, tok_t *start)
     finish_rewrite(ctx, false);
 
     return true;
+}
+
+// The below transform is for passing keywords TO a function. We keep
+// state through the whole scan, tracking matched nesting of ID '('
+// ... ')'. It throws away match state if it sees a preprocessor
+// token, or if the nesting level goes below 0.
+//
+// Otherwise, when the nesting level is > 0, and we see either a '('
+// or ',' followed by an ID and then a colon, the ID is converted into
+// a keyword, and everything up to the next comma (or ')') is cast to
+// a 64-bit int and treated as the RHS.
+//
+// There must not be any arguments after the last keyword parameter.
+//
+// This doesn't consider what function is being called or anything
+// like that. It just converts spans of keywords matching the above
+// pattern into a single call that acquires the keyword object.
+//
+// Also, this does not try to pick out function declarations
+// whatsoever. If you try to use keywords in a declaration, it'll
+// translate to broken C and give you some gnarly errors I'm sure.
+
+static char *arg_fn_name = " n00b_kargs_obj(";
+static char *cast        = ", (int64_t)(";
+// The first paren ends the cast of the last kw_arg to an int64,
+// Then there's a sentinal to tell n00b_kargs_obj when keywords
+// are done.
+// The second paren ends the n00b_kargs_obj call.
+// The third paren ends the original call.
+static char *ka_end      = "), NULL))";
+// Here, the added paren ends the cast of the previous kw_arg.
+static char *pkc         = "), ";
+
+buf_t *comma_buf     = NULL;
+buf_t *tri_paren     = NULL;
+buf_t *post_ka_comma = NULL;
+
+static void
+open_paren_tracking(xform_t *ctx, bool id)
+{
+    kw_use_ctx_t *record = calloc(1, sizeof(kw_use_ctx_t));
+    record->next         = ctx->kw_stack;
+    record->id           = id;
+    ctx->kw_stack        = record;
+}
+
+static void
+reset_tracking(xform_t *ctx)
+{
+    kw_use_ctx_t *cur = ctx->kw_stack;
+
+    while (cur) {
+        kw_use_ctx_t *next = cur->next;
+        free(cur);
+        cur = next;
+    }
+}
+
+static void
+close_paren_tracking(xform_t *ctx, tok_t *cur)
+{
+    if (ctx->kw_stack) {
+        kw_use_ctx_t *record = ctx->kw_stack;
+
+        if (record->started_kobj) {
+            cur->replacement = tri_paren;
+        }
+
+        ctx->kw_stack = record->next;
+        free(record);
+    }
+}
+
+static void
+possible_keyword(xform_t *ctx, tok_t *cur)
+{
+    if (!ctx->kw_stack || !ctx->kw_stack->id) {
+        return;
+    }
+
+    tok_t *la1 = lookahead(ctx, 1);
+    tok_t *la2 = lookahead(ctx, 2);
+
+    if (!la1 || la1->type != TT_ID) {
+        goto no_match;
+    }
+    if (!la2 || la2->type != TT_PUNCT || ctx->input->data[la2->offset] != ':') {
+        goto no_match;
+    }
+
+    if (!ctx->kw_stack->started_kobj) {
+        // We're replacing the left paren here, or a comma.
+        cur->replacement      = calloc(1,
+                                  sizeof(buf_t) + strlen(arg_fn_name) + 3);
+        char *p               = cur->replacement->data;
+        // Finish the int64_t cast.
+        *p++                  = ctx->input->data[cur->offset];
+        cur->replacement->len = strlen(arg_fn_name) + 1;
+
+        memcpy(p, arg_fn_name, strlen(arg_fn_name));
+
+        if (!comma_buf) {
+            comma_buf          = calloc(1, sizeof(buf_t) + strlen(cast) + 1);
+            tri_paren          = calloc(1, sizeof(buf_t) + strlen(ka_end) + 1);
+            post_ka_comma      = calloc(1, sizeof(buf_t) + strlen(pkc) + 1);
+            comma_buf->len     = strlen(cast);
+            tri_paren->len     = strlen(ka_end);
+            post_ka_comma->len = strlen(pkc);
+            memcpy(comma_buf->data, cast, strlen(cast));
+            memcpy(tri_paren->data, ka_end, strlen(ka_end));
+            memcpy(post_ka_comma->data, pkc, strlen(pkc));
+        }
+    }
+    else {
+        cur->replacement = post_ka_comma;
+    }
+
+    if (ctx->kw_stack->kw_count++) {
+        if (ctx->kw_stack->kw_count > N00B_MAX_KEYWORD_SIZE) {
+            fprintf(stderr,
+                    "%s:%d: ERROR: Exceeded max allowed keyword args (%d)\n",
+                    ctx->in_file,
+                    cur->line_no,
+                    N00B_MAX_KEYWORD_SIZE);
+            exit(-1);
+        }
+    }
+
+    ctx->kw_stack->started_kobj = true;
+    la1->replacement            = calloc(1, sizeof(buf_t) + 3 + la1->len);
+    la1->replacement->len       = la1->len + 2;
+    la2->replacement            = comma_buf;
+
+    char *p = la1->replacement->data;
+    *p++    = '"';
+    memcpy(p, ctx->input->data + la1->offset, la1->len);
+    p += la1->len;
+    *p = '"';
+
+    return;
+
+no_match:
+    if (!ctx->kw_stack->started_kobj) {
+        return;
+    }
+
+    fprintf(stderr,
+            "%s:%d: ERROR: keywords must appear last in any function call.",
+            ctx->in_file,
+            la1->line_no);
+    exit(-1);
+}
+
+void
+kw_tracking(xform_t *ctx, tok_t *cur)
+{
+    if (cur->type == TT_PUNCT) {
+        char c = ctx->input->data[cur->offset];
+
+        if (c == '(') {
+            tok_t *prev     = lookbehind(ctx, 1);
+            int    id_prior = prev->type == TT_ID;
+            open_paren_tracking(ctx, id_prior);
+
+            if (id_prior) {
+                possible_keyword(ctx, cur);
+                return;
+            }
+        }
+
+        if (c == ')') {
+            close_paren_tracking(ctx, cur);
+        }
+        else {
+            if (c == ',') {
+                possible_keyword(ctx, cur);
+            }
+        }
+        return;
+    }
+    if (cur->type == TT_PREPROC) {
+        if (ctx->kw_stack && ctx->kw_stack->started_kobj) {
+            fprintf(stderr,
+                    "%s:%d: ERROR: Cannot put preprocessor token "
+                    "inside function invocation that uses keyword arguments",
+                    ctx->in_file,
+                    cur->line_no);
+            exit(-1);
+        }
+        reset_tracking(ctx);
+        return;
+    }
 }

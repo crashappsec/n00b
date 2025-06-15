@@ -175,10 +175,7 @@ n00b_gopt_init(n00b_gopt_ctx *ctx, va_list args)
     ctx->options = va_arg(args, uint32_t);
 #if 1
     ctx->grammar = n00b_new(n00b_type_grammar(),
-                            n00b_kw("detect_errors",
-                                    n00b_ka(true),
-                                    "max_penalty",
-                                    n00b_ka(1)));
+                            detect_errors : true, max_penalty : 1);
 #else
     ctx->grammar = n00b_new(n00b_type_grammar());
 #endif
@@ -837,12 +834,7 @@ add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
 
     if (!n00b_dict_contains(spec->sub_commands, helpstr)) {
         n00b_new(n00b_type_gopt_command(),
-                 n00b_kw("context",
-                         gctx,
-                         "name",
-                         helpstr,
-                         "parent",
-                         spec));
+                 context : gctx, name : helpstr, parent : spec);
         n00b_gopt_add_subcommand(gctx, spec, n00b_cstring("(STR)* help"));
     }
 }
@@ -851,13 +843,12 @@ add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
 add_gopt_auto_help(n00b_gopt_ctx *gctx)
 {
     if (!n00b_dict_contains(gctx->all_options, n00b_cstring("help"))) {
+        // clang-format off
         n00b_new(n00b_type_gopt_option(),
-                 n00b_kw("name",
-                         n00b_cstring("help"),
-                         "opt_type",
-                         N00B_GOAT_BOOL_T_ALWAYS,
-                         "short_doc",
-                         n00b_cstring("Output detailed help.")));
+		 name:      n00b_cstring("help"),
+		 opt_type:  N00B_GOAT_BOOL_T_ALWAYS,
+		 short_doc: n00b_cstring("Output detailed help."));
+        // clang-format on
     }
     n00b_list_t *subs = n00b_dict_values(gctx->top_specs);
 

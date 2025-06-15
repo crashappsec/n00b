@@ -159,9 +159,8 @@ new_local_heap(n00b_pickle_ctx *ctx, size_t len)
         ctx->buffered_heap_info = n00b_list(n00b_type_ref());
     }
 
-    ctx->current_output_buf           = n00b_new(n00b_type_buffer(),
-                                       n00b_kw("length",
-                                               n00b_ka(tlen)));
+    ctx->current_output_buf = n00b_new(n00b_type_buffer(), length : tlen);
+
     ctx->current_output_buf->byte_len = 0;
 }
 
@@ -454,7 +453,7 @@ bundle_result(n00b_pickle_ctx *ctx, n00b_alloc_hdr *end_record)
 
     to_alloc += (sizeof(uint64_t) * end_record->alloc_len);
 
-    b           = n00b_new(n00b_type_buffer(), n00b_kw("length", to_alloc));
+    b           = n00b_new(n00b_type_buffer(), length : to_alloc);
     b->byte_len = to_alloc;
     p           = b->data;
 

@@ -47,10 +47,7 @@ n00b_table_t *
 n00b_table_repr_section(n00b_spec_section_t *section)
 {
     n00b_string_t *s;
-    n00b_table_t  *result = n00b_table("columns",
-                                      n00b_ka(1),
-                                      "style",
-                                      N00B_TABLE_SIMPLE);
+    n00b_table_t  *result = n00b_table(columns : 1, style : N00B_TABLE_SIMPLE);
 
     if (section->name) {
         n00b_table_add_cell(result,
@@ -113,10 +110,8 @@ n00b_table_repr_section(n00b_spec_section_t *section)
         return result;
     }
 
-    n00b_table_t *sub = n00b_table("columns",
-                                   n00b_ka(7),
-                                   "title",
-                                   n00b_cstring("FIELD SPECIFICATIONS"));
+    n00b_table_t *sub = n00b_table(columns : 7,
+                                   title : n00b_cstring("FIELD SPECIFICATIONS"));
 
     n00b_table_add_cell(sub, n00b_cstring("Name"));
     n00b_table_add_cell(sub, n00b_cstring("Short Doc"));
@@ -182,10 +177,8 @@ n00b_repr_spec(n00b_spec_t *spec)
         return n00b_call_out(n00b_cstring("No specification provided."));
     }
 
-    n00b_table_t         *result = n00b_table("columns",
-                                      n00b_ka(1),
-                                      "style",
-                                      N00B_TABLE_SIMPLE);
+    n00b_table_t         *result = n00b_table(columns : 1,
+                                      style : N00B_TABLE_SIMPLE);
     n00b_spec_section_t **secs;
     uint64_t              n;
 

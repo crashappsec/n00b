@@ -44,11 +44,7 @@ n00b_apply_line_buffering(n00b_buf_t **state, void *msg)
             else {
                 n = p - start;
 
-                tmp = n00b_new(n00b_type_buffer(),
-                               n00b_kw("length",
-                                       n00b_ka(n),
-                                       "raw",
-                                       start));
+                tmp = n00b_new(n00b_type_buffer(), length : n, raw : start);
             }
             if (remainder) {
                 tmp       = n00b_buffer_add(remainder, tmp);
@@ -66,10 +62,7 @@ n00b_apply_line_buffering(n00b_buf_t **state, void *msg)
         else {
             n                    = end - start;
             n00b_buf_t *new_part = n00b_new(n00b_type_buffer(),
-                                            n00b_kw("length",
-                                                    n00b_ka(n),
-                                                    "raw",
-                                                    start));
+                                            length : n, raw : start);
             if (remainder) {
                 *state = n00b_buffer_add(remainder, new_part);
             }

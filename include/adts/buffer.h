@@ -18,7 +18,7 @@ extern n00b_buf_t    *n00b_buffer_from_codepoint(n00b_codepoint_t);
 static inline n00b_buf_t *
 n00b_buffer_empty(void)
 {
-    return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
+    return n00b_new(n00b_type_buffer(), n00b_header_kargs("length", 0ULL));
 }
 
 #define _n00b_buffer_acquire_w(b) \
@@ -43,14 +43,20 @@ static inline n00b_buf_t *
 n00b_string_to_buffer(n00b_string_t *s)
 {
     return n00b_new(n00b_type_buffer(),
-                    n00b_kw("length", (int64_t)s->u8_bytes, "ptr", s->data));
+                    n00b_header_kargs("length",
+                                      (int64_t)s->u8_bytes,
+                                      "ptr",
+                                      (int64_t)s->data));
 }
 
 static inline n00b_buf_t *
 n00b_buffer_from_bytes(char *bytes, int64_t len)
 {
     return n00b_new(n00b_type_buffer(),
-                    n00b_kw("length", bytes, "ptr", len));
+                    n00b_header_kargs("length",
+                                      (int64_t)bytes,
+                                      "ptr",
+                                      (int64_t)len));
 }
 
 #define n00b_buffer_acquire_w(b)       \

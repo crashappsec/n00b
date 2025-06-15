@@ -278,7 +278,7 @@ _n00b_condition_wait(n00b_condition_t *cv, ...)
     {
         int64_t predicate                  = N00B_CV_ANY;
         int64_t timeout                    = 0;
-        bool    auto_unlock(require_lock)  = false;
+        bool    auto_unlock                = false;
         void   *wake_parameter(wake_param) = NULL;
     }
 

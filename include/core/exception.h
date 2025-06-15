@@ -187,7 +187,7 @@ static inline n00b_string_t *
 n00b_exception_get_file(n00b_exception_t *exception)
 {
     return n00b_new(n00b_type_string(),
-                    n00b_kw("cstring", n00b_ka(exception->file)));
+                    n00b_header_kargs("cstring", (int64_t)exception->file));
 }
 
 static inline uint64_t
@@ -226,10 +226,10 @@ get_errno_message(int code)
 
 #define n00b_raise_errcode(code) N00B_RAISE(get_errno_message((code)))
 
-#define n00b_raise_errno()                                 \
-    {                                                      \
-        N00B_RAISE(get_errno_message(errno),               \
-                   n00b_kw("error_code", n00b_ka(errno))); \
+#define n00b_raise_errno()                                           \
+    {                                                                \
+        N00B_RAISE(get_errno_message(errno),                         \
+                   n00b_header_kargs("error_code", (int64_t)errno)); \
     }
 
 #define n00b_unreachable()                                    \

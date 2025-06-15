@@ -30,9 +30,7 @@ ptree(void *v, char *txt)
     n00b_tree_node_t *t = (n00b_tree_node_t *)v;
     n00b_printf("«em2»«#»", n00b_new_string(txt));
 
-    n00b_print(n00b_tree_format(t,
-                                n00b_kw("callback",
-                                        n00b_ka(n00b_repr_parse_node))));
+    n00b_print(n00b_tree_format(t, callback : n00b_repr_parse_node));
 }
 
 static inline n00b_string_t *

@@ -1082,7 +1082,7 @@ unify_sub_nodes:
         p1       = n00b_type_get_params(t1);
         p2       = n00b_type_get_params(t2);
         new_subs = n00b_new(n00b_type_list(n00b_type_typespec()),
-                            n00b_kw("length", n00b_ka(num_params)));
+                            length : num_params);
 
         for (int i = 0; i < num_params; i++) {
             sub1 = n00b_list_get(p1, i, NULL);
@@ -1159,7 +1159,7 @@ unify_sub_nodes:
         p1       = n00b_type_get_params(t1);
         p2       = n00b_type_get_params(t2);
         new_subs = n00b_new(n00b_type_list(n00b_type_typespec()),
-                            n00b_kw("length", n00b_ka(num_params)));
+                            length : num_params);
 
         for (int i = 0; i < f1_params - 2; i++) {
             sub1       = n00b_list_get(p1, i, NULL);

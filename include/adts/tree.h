@@ -62,11 +62,12 @@ n00b_tree(void *contents)
     }
 
     return n00b_new(n00b_type_tree(t),
-                    n00b_kw("contents", n00b_ka(contents)));
+                    n00b_header_kargs("contents", (int64_t)contents));
 }
 
 static inline n00b_tree_node_t *
 n00b_new_tree_node(n00b_type_t *t, void *node)
 {
-    return n00b_new(n00b_type_tree(t), n00b_kw("contents", n00b_ka(node)));
+    return n00b_new(n00b_type_tree(t),
+                    n00b_header_kargs("contents", (int64_t)node));
 }

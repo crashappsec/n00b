@@ -109,7 +109,7 @@ n00b_table_t *
 n00b_session_state_repr(n00b_session_t *s)
 {
     n00b_set_t     *memos    = n00b_set(n00b_type_string());
-    n00b_table_t   *tbl      = n00b_table("columns", n00b_ka(5));
+    n00b_table_t   *tbl      = n00b_table(columns : 5);
     n00b_list_t    *worklist = n00b_list(n00b_type_string());
     n00b_trigger_t *t;
 
@@ -676,16 +676,17 @@ __n00b_trigger(n00b_session_t *session,
     }
 
     n00b_trigger_t *result = n00b_new(n00b_type_session_trigger(),
-                                      n00b_kw("state",
-                                              cur,
-                                              atkw,
-                                              action,
-                                              mkkw,
-                                              match,
-                                              trigger_name,
-                                              n00b_ka(true),
-                                              "quiet",
-                                              n00b_ka(quiet)));
+                                      n00b_kargs_obj("state",
+                                                     (int64_t)cur,
+                                                     atkw,
+                                                     action,
+                                                     mkkw,
+                                                     match,
+                                                     trigger_name,
+                                                     (int64_t) true,
+                                                     "quiet",
+                                                     (int64_t)quiet,
+                                                     NULL));
 
     if (!cur) {
         if (!session->global_actions) {

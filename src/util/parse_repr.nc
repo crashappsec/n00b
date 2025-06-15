@@ -624,10 +624,8 @@ n00b_grammar_format(n00b_grammar_t *grammar)
 {
     int32_t       n     = (int32_t)n00b_list_len(grammar->rules);
     n00b_table_t *table = n00b_new(n00b_type_table(),
-                                   n00b_kw("columns",
-                                           n00b_ka(4),
-                                           "style",
-                                           N00B_TABLE_FLOW));
+                                   columns : 4,
+                                   style : N00B_TABLE_FLOW);
 
     for (int32_t i = 0; i < n; i++) {
         n00b_parse_rule_t *pr = n00b_list_get(grammar->rules, i, NULL);
@@ -674,10 +672,8 @@ n00b_table_t *
 n00b_forest_format(n00b_list_t *trees)
 {
     n00b_table_t *table = n00b_new(n00b_type_table(),
-                                   n00b_kw("style",
-                                           n00b_ka(N00B_TABLE_FLOW),
-                                           "columns",
-                                           n00b_ka(1)));
+                                   columns : 1,
+                                   style : N00B_TABLE_FLOW);
 
     int num_trees = n00b_list_len(trees);
 
@@ -738,8 +734,7 @@ n00b_repr_state_table(n00b_parser_t *parser, bool show_all)
     n00b_list_t *hdr = n00b_list(n00b_type_string());
 
     n00b_table_t *table = n00b_new(n00b_type_table(),
-                                   n00b_kw("columns",
-                                           n00b_ka(show_all ? 6 : 4)));
+                                   columns : (show_all ? 6 : 4));
 
     n00b_table_next_column_fit(table);
     n00b_table_next_column_flex(table, 1);

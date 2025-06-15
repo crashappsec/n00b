@@ -59,7 +59,8 @@ n00b_node_list_join(n00b_list_t *nodes, n00b_string_t *joiner, bool trailing)
 
     return n00b_string_join(strarr,
                             joiner,
-                            n00b_kw("add_trailing", n00b_ka(trailing)));
+                            n00b_header_kargs("add_trailing",
+                                              (int64_t)trailing));
 }
 
 static inline int

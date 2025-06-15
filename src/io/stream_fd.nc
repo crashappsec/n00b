@@ -652,15 +652,15 @@ _n00b_read_file(n00b_string_t *path, ...)
         n00b_string_t **error_ptr = NULL;
     }
 
-    n00b_stream_t *f = n00b_stream_open_file(path,
-                                             "exclusive_lock",
-                                             n00b_ka(lock),
-                                             "read_only",
-                                             n00b_ka(true),
-                                             "target_must_be_regular_file",
-                                             n00b_ka(true),
-                                             "error_ptr",
-                                             error_ptr);
+    // clang-format off
+    n00b_stream_t *f;
+
+    f = n00b_stream_open_file(path,
+                              exclusive_lock:              lock,
+                              read_only:                   true,
+                              target_must_be_regular_file: true,
+                              error_ptr:                   error_ptr);
+    // clang-format on
 
     if (!f) {
         return NULL;

@@ -52,12 +52,11 @@ extern void n00b_restart_io(void);
 void
 n00b_print_exception(n00b_exception_t *exception, n00b_string_t *title)
 {
-    n00b_table_t *tbl = n00b_table("columns",
-                                   n00b_ka(2),
-                                   "title",
-                                   title,
-                                   "style",
-                                   n00b_ka(N00B_TABLE_SIMPLE));
+    // clang-format off
+    n00b_table_t *tbl = n00b_table(columns: 2,
+				   title: title,
+				   style: N00B_TABLE_SIMPLE);
+    // clang-format on
 
     n00b_table_next_column_fit(tbl);
     n00b_table_next_column_flex(tbl, 1);

@@ -5,7 +5,7 @@ n00b_table_t *
 n00b_get_module_summary_info(n00b_compile_ctx *ctx)
 {
     int           n   = n00b_list_len(ctx->module_ordering);
-    n00b_table_t *tbl = n00b_table("columns", n00b_ka(4));
+    n00b_table_t *tbl = n00b_table(columns : 4);
 
     n00b_table_add_cell(tbl, n00b_cstring("Module"));
     n00b_table_add_cell(tbl, n00b_cstring("Path"));
@@ -128,8 +128,7 @@ one_lookup_try(n00b_compile_ctx *ctx,
             contents                      = n00b_http_op_get_output_utf8(r);
         }
         else {
-            contents = n00b_read_file(attempt,
-                                      n00b_kw("lock", n00b_ka("true")));
+            contents = n00b_read_file(attempt, lock : true);
         }
         if (contents != NULL) {
             break;
@@ -141,6 +140,7 @@ one_lookup_try(n00b_compile_ctx *ctx,
         return NULL;
     }
 
+    // clang-format off
     result             = n00b_new_module_compile_ctx();
     result->name       = module;
     result->package    = package;
@@ -149,13 +149,11 @@ one_lookup_try(n00b_compile_ctx *ctx,
     result->ct->errors = n00b_list(n00b_type_ref());
     result->full_uri   = attempt;
     result->modref     = key;
-
-    n00b_buf_t     *b = n00b_new(n00b_type_buffer(),
-                             n00b_kw("length",
-                                     n00b_ka(n00b_string_byte_len(contents)),
-                                     "ptr",
-                                     n00b_ka(contents->data)));
-    n00b_stream_t *s = n00b_instream_buffer(b);
+    n00b_buf_t    *b   = n00b_new(n00b_type_buffer(),
+                                  length: n00b_string_byte_len(contents),
+                                  ptr:    contents->data);
+    n00b_stream_t *s   = n00b_instream_buffer(b);
+    // clang-format on
 
     if (!n00b_lex(result, s)) {
         ctx->fatality = true;

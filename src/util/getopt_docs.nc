@@ -178,10 +178,8 @@ n00b_getopt_default_usage(n00b_gopt_ctx      *ctx,
     }
 
     n00b_table_t *t = n00b_new(n00b_type_table(),
-                               n00b_kw("columns",
-                                       n00b_ka(4),
-                                       "style",
-                                       n00b_ka(N00B_TABLE_SIMPLE)));
+                               columns : 4,
+                               style : N00B_TABLE_SIMPLE);
 
     n00b_table_next_column_fit(t);
     n00b_table_next_column_fit(t);
@@ -456,10 +454,8 @@ build_one_flag_table(n00b_gopt_ctx *ctx, n00b_gopt_cspec *spec)
     n00b_list_t  *l     = n00b_dict_values(spec->owned_opts);
     int           n     = n00b_list_len(l);
     n00b_table_t *t     = n00b_new(n00b_type_table(),
-                               n00b_kw("columns",
-                                       n00b_ka(2),
-                                       "style",
-                                       n00b_ka(N00B_TABLE_SIMPLE)));
+                               columns : 2,
+                               style : N00B_TABLE_SIMPLE);
     int           count = 0;
 
     for (int i = 0; i < n; i++) {
@@ -494,10 +490,8 @@ long_desc_table(n00b_gopt_cspec *spec)
 {
     n00b_list_t  *l     = n00b_dict_values(spec->owned_opts);
     n00b_table_t *t     = n00b_new(n00b_type_table(),
-                               n00b_kw("columns",
-                                       n00b_ka(2),
-                                       "style",
-                                       n00b_ka(N00B_TABLE_SIMPLE)));
+                               columns : 2,
+                               style : N00B_TABLE_SIMPLE);
     int           count = 0;
     int           n     = n00b_list_len(l);
 
@@ -542,10 +536,8 @@ n00b_getopt_option_table(n00b_gopt_ctx *ctx,
     int              n     = n00b_list_len(specs);
     n00b_gopt_cspec *spec  = n00b_list_get(specs, n - 1, NULL);
     n00b_table_t    *t     = n00b_new(n00b_type_table(),
-                               n00b_kw("columns",
-                                       n00b_ka(1),
-                                       "style",
-                                       n00b_ka(N00B_TABLE_FLOW)));
+                               columns : 1,
+                               style : N00B_TABLE_FLOW);
 
     n00b_table_add_cell(t, n00b_crich("«em2»Command options:"));
     n00b_table_add_cell(t, build_one_flag_table(ctx, spec));

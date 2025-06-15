@@ -81,9 +81,7 @@ void *
 n00b_tempfile(n00b_string_t *prefix, n00b_string_t *suffix)
 {
     n00b_string_t *filename = construct_random_name(prefix, suffix);
-    return n00b_stream_open_file(filename,
-                                 "allow_file_creation",
-                                 n00b_ka(true));
+    return n00b_stream_open_file(filename, allow_file_creation : true);
 }
 
 // This is private; it mutates the string, which we don't normally

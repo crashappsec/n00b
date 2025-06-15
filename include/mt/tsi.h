@@ -77,8 +77,7 @@ struct n00b_tsi_t {
 #if defined(N00B_ENABLE_ALLOC_DEBUG)
     int show_alloc_locations : 1;
 #endif
-
-    n00b_static_karg_t kcache[N00B_MAX_KARGS_NESTING_DEPTH];
+    n00b_static_karg_t kcache;
 };
 
 extern pthread_key_t n00b_static_tsi_key;

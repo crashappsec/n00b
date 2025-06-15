@@ -165,22 +165,22 @@ n00b_bt_cstring(void       *data,
     return 0;
 }
 
-#define backtrace_core(nframes)                                \
-    {                                                          \
-        n00b_tsi_t   *tsi = n00b_get_tsi_ptr();                \
-        n00b_table_t *tbl = n00b_table("columns", n00b_ka(3)); \
-                                                               \
-        tsi->trace_table = tbl;                                \
-                                                               \
-        n00b_table_add_cell(tbl, n00b_cstring("PC"));          \
-        n00b_table_add_cell(tbl, n00b_cstring("Location"));    \
-        n00b_table_add_cell(tbl, n00b_cstring("Function"));    \
-                                                               \
-        backtrace_full(btstate,                                \
-                       nframes,                                \
-                       n00b_bt_create_backtrace,               \
-                       n00b_bt_err,                            \
-                       NULL);                                  \
+#define backtrace_core(nframes)                                             \
+    {                                                                       \
+        n00b_tsi_t   *tsi = n00b_get_tsi_ptr();                             \
+        n00b_table_t *tbl = n00b_table(n00b_header_kargs("columns", 3ULL)); \
+                                                                            \
+        tsi->trace_table = tbl;                                             \
+                                                                            \
+        n00b_table_add_cell(tbl, n00b_cstring("PC"));                       \
+        n00b_table_add_cell(tbl, n00b_cstring("Location"));                 \
+        n00b_table_add_cell(tbl, n00b_cstring("Function"));                 \
+                                                                            \
+        backtrace_full(btstate,                                             \
+                       nframes,                                             \
+                       n00b_bt_create_backtrace,                            \
+                       n00b_bt_err,                                         \
+                       NULL);                                               \
     }
 
 void

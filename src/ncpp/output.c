@@ -29,19 +29,6 @@ repr_type(ttype_t ty)
 
 #define MAX_HASH_LINE_LEN 256
 
-static inline void
-write_line_directive(FILE *f, char *fname, int lineno)
-{
-    char buf[MAX_HASH_LINE_LEN];
-    int  n = snprintf(buf,
-                     MAX_HASH_LINE_LEN,
-                     "#line %d \"%s\"\n",
-                     lineno,
-                     fname);
-
-    write_to_file(f, buf, n);
-}
-
 static char *
 repr_ws(lex_t *state, tok_t *t)
 {
@@ -124,6 +111,42 @@ print_tokens(lex_t *state)
     }
 }
 
+#if !defined(SKIP_LINE_DIRECTIVES)
+static int
+possible_newline(FILE *f, tok_t *cur, tok_t *prev, lex_t *state)
+{
+    if (cur->replacement) {
+        if (cur->replacement->data[0] != '(') {
+            fputc('\n', f);
+            return 1;
+        }
+    }
+    else {
+        if (prev && cur->line_no == prev->line_no) {
+            if (state->input->data[cur->offset] != '(') {
+                fputc('\n', f);
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+static inline void
+write_line_directive(FILE *f, char *fname, int lineno)
+{
+    char buf[MAX_HASH_LINE_LEN];
+    int  n = snprintf(buf,
+                     MAX_HASH_LINE_LEN,
+                     "#line %d \"%s\"\n",
+                     lineno,
+                     fname);
+
+    write_to_file(f, buf, n);
+}
+#endif
+
 bool
 output_new_file(lex_t *state, char *fname)
 {
@@ -143,18 +166,23 @@ output_new_file(lex_t *state, char *fname)
     }
 
     for (int i = 0; i < state->num_toks; i++) {
-        tok_t *t = &state->toks[i];
+        tok_t *t    = &state->toks[i];
+        tok_t *prev = i ? &state->toks[i - 1] : NULL;
 
         if (t->replacement) {
             if (using_in_file) {
                 using_in_file = false;
-                write_line_directive(f, state->out_file, ++out_line_no);
+#if !defined(SKIP_LINE_DIRECTIVES)
+                if (possible_newline(f, t, prev, state)) {
+                    out_line_no++;
+                    write_line_directive(f, state->out_file, ++out_line_no);
+                }
+#endif
             }
             out_line_no += count_newlines(state, t);
             if (!write_to_file(f, t->replacement->data, t->replacement->len)) {
                 return false;
             }
-
             continue;
         }
 
@@ -164,8 +192,13 @@ output_new_file(lex_t *state, char *fname)
 
         if (!using_in_file) {
             using_in_file = true;
-            write_line_directive(f, state->in_file, t->line_no);
-            out_line_no += 1;
+#if !defined(SKIP_LINE_DIRECTIVES)
+            if (possible_newline(f, t, prev, state)) {
+                out_line_no++;
+                write_line_directive(f, state->in_file, t->line_no);
+                out_line_no++;
+            }
+#endif
         }
 
         out_line_no += count_newlines(state, t);

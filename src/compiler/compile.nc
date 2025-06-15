@@ -38,9 +38,9 @@ n00b_new_compile_context(n00b_string_t *input)
     result->final_attrs   = n00b_new_scope(NULL, N00B_SCOPE_GLOBAL);
     result->final_globals = n00b_new_scope(NULL, N00B_SCOPE_ATTRIBUTES);
     result->backlog       = n00b_new(n00b_type_set(n00b_type_ref()),
-                               n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                               hash : module_ctx_hash);
     result->processed     = n00b_new(n00b_type_set(n00b_type_ref()),
-                                 n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                                 hash : module_ctx_hash);
     result->memory_layout = n00b_gc_alloc_mapped(n00b_static_memory,
                                                  N00B_GC_SCAN_ALL);
     result->str_consts    = n00b_dict(n00b_type_string(), n00b_type_u64());
@@ -67,12 +67,12 @@ n00b_string_to_type(n00b_string_t *str)
         n00b_gc_register_root(&str_to_type_tmp_path, 1);
     }
 
-    n00b_type_t    *result = NULL;
+    n00b_type_t   *result = NULL;
     n00b_stream_t *stream = n00b_string_stream(str);
-    n00b_module_t   ctx    = {
-             .modref = 0xffffffff,
-             .path   = str_to_type_tmp_path,
-             .name   = str_to_type_tmp_path,
+    n00b_module_t  ctx    = {
+            .modref = 0xffffffff,
+            .path   = str_to_type_tmp_path,
+            .name   = str_to_type_tmp_path,
     };
 
     if (n00b_lex(&ctx, stream) != false) {
@@ -541,9 +541,9 @@ n00b_incremental_module(n00b_vm_t         *vm,
     ctx->value_consts  = cache[N00B_CCACHE_CUR_VCONSTS];
 
     ctx->backlog   = n00b_new(n00b_type_set(n00b_type_ref()),
-                            n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                            hash : module_ctx_hash);
     ctx->processed = n00b_new(n00b_type_set(n00b_type_ref()),
-                              n00b_kw("hash", n00b_ka(module_ctx_hash)));
+                              hash : module_ctx_hash);
 
     if (compile_state) {
         *compile_state = ctx;

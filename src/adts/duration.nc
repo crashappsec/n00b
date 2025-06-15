@@ -582,7 +582,7 @@ n00b_duration_from_ms(int ms)
     int64_t sec  = ms / N00B_MS_PER_SEC;
     int64_t nsec = (ms % N00B_MS_PER_SEC) * N00B_NS_PER_MS;
 
-    return n00b_new(n00b_type_duration(), n00b_kw("sec", sec, "nanosec", nsec));
+    return n00b_new(n00b_type_duration(), sec : sec, nanosec : nsec);
 }
 
 int64_t

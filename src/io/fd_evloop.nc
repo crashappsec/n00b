@@ -74,7 +74,7 @@ n00b_condition_poll(n00b_condition_test_fn fn, void *thunk, int64_t to_ns)
     n00b_list_t *dl = atomic_read(&n00b_system_dispatcher->conditions);
     n00b_list_append(dl, info);
 
-    return !n00b_condition_wait(info->condition, n00b_kw("timeout", to_ns));
+    return !n00b_condition_wait(info->condition, timeout : to_ns);
 }
 
 static inline void

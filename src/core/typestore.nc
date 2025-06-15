@@ -114,14 +114,9 @@ n00b_format_global_type_environment(n00b_type_universe_t *u)
 {
     uint64_t        len;
     hatrack_view_t *view;
-    n00b_table_t   *tbl = n00b_table("columns",
-                                   n00b_ka(3),
-                                   "style",
-                                   n00b_ka(N00B_TABLE_ORNATE));
-
-    n00b_dict_t *memos = n00b_dict(n00b_type_ref(),
-                                   n00b_type_string());
-    int64_t      n     = 0;
+    n00b_table_t   *tbl   = n00b_table(columns : 3, style : N00B_TABLE_ORNATE);
+    n00b_dict_t    *memos = n00b_dict(n00b_type_ref(), n00b_type_string());
+    int64_t         n     = 0;
 
     view = crown_view(&u->dict->crown_instance, &len, true);
 

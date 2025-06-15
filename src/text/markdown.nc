@@ -390,7 +390,7 @@ md_block_merge(md_table_ctx *ctx, bool block, n00b_list_t *saved)
     default:
 
         l = n00b_list_len(ctx->entities);
-        t = n00b_table("columns", 1, "style", N00B_TABLE_FLOW);
+        t = n00b_table(columns : 1, style : N00B_TABLE_FLOW);
 
         for (int i = 0; i < l; i++) {
             n00b_table_add_cell(t, n00b_list_get(ctx->entities, i, NULL));
@@ -646,7 +646,7 @@ finish_block:
     case N00B_MD_BLOCK_TR:
         md_newline(ctx);
         if (!ctx->table) {
-            ctx->table = n00b_table("style", N00B_TABLE_SIMPLE);
+            ctx->table = n00b_table(style : N00B_TABLE_SIMPLE);
         }
 
         l = n00b_list_len(ctx->entities);

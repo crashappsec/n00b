@@ -132,8 +132,7 @@ user_read_cb(n00b_buf_t *data, n00b_session_t *session)
     n00b_lock_acquire(&session->control_notify);
     session->got_user_input = true;
     add_buf_to_match_buffer(session, N00B_CAPTURE_STDIN, data);
-    n00b_condition_notify(&session->control_notify,
-                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_condition_notify(&session->control_notify, auto_unlock : true);
     n00b_dlog_io("User input callback ending.");
 }
 
@@ -153,8 +152,7 @@ subproc_injection_cb(void *msg, n00b_session_t *session)
     session->got_injection = true;
     n00b_queue(session->subprocess->subproc_stdin, input);
     add_buf_to_match_buffer(session, N00B_CAPTURE_INJECTED, input);
-    n00b_condition_notify(&session->control_notify,
-                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_condition_notify(&session->control_notify, auto_unlock : true);
     n00b_dlog_io("Injection callback ending.");
 }
 
@@ -171,8 +169,7 @@ n00b_subproc_read_stdout(n00b_list_t *ansi_nodes, n00b_session_t *session)
         n00b_queue(n00b_stdout(), s);
     }
 
-    n00b_condition_notify(&session->control_notify,
-                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_condition_notify(&session->control_notify, auto_unlock : true);
     n00b_dlog_io("stdout callback ending.");
 }
 
@@ -189,8 +186,7 @@ n00b_subproc_read_stderr(n00b_list_t    *ansi_nodes,
         n00b_string_t *s = n00b_ansi_nodes_to_string(ansi_nodes, true);
         n00b_queue(n00b_stderr(), s);
     }
-    n00b_condition_notify(&session->control_notify,
-                          n00b_kw("auto_unlock", n00b_ka(true)));
+    n00b_condition_notify(&session->control_notify, auto_unlock : true);
     n00b_dlog_io("stderr callback ending.");
 }
 
@@ -309,10 +305,7 @@ n00b_session_run_control_loop(n00b_session_t *s)
         last = now;
         while (true) {
             if (n00b_condition_wait(&s->control_notify,
-                                    n00b_kw("timeout",
-                                            target,
-                                            "auto_unlock",
-                                            true))) {
+                                    timeout : target, auto_unlock : true)) {
                 // If the branch is true, we got a timeout.
                 // It returns NULL when we
                 now = n00b_ns_timestamp();

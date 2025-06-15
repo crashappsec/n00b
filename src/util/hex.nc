@@ -407,7 +407,7 @@ _n00b_hex_dump(void *ptr, uint32_t len, ...)
 
     if (highlights) {
         n00b_buf_t         *b = n00b_new(n00b_type_buffer(),
-                                 n00b_kw("ptr", ptr, "length", n00b_ka(len)));
+                                 ptr : ptr, length : len);
         //        n00b_list_t        *hl_styles = n00b_apply_highlights(b, highlights);
         n00b_hex_fmt_info_t info;
 

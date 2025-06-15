@@ -117,19 +117,15 @@ _n00b_http_get(n00b_string_t *url, ...)
         n00b_string_t *access_key      = NULL;
         n00b_dict_t   *cookies         = NULL;
     }
+    // clang-format off
     n00b_basic_http_t *connection = n00b_new(n00b_type_http(),
-                                             n00b_kw("url",
-                                                     n00b_ka(url),
-                                                     "connect_timeout",
-                                                     n00b_ka(connect_timeout),
-                                                     "total_timeout",
-                                                     n00b_ka(total_timeout),
-                                                     "aws_sig",
-                                                     n00b_ka(aws_sig),
-                                                     "access_key",
-                                                     n00b_ka(access_key),
-                                                     "cookies",
-                                                     n00b_ka(cookies)));
+					     url:             url,
+					     connect_timeout: connect_timeout,
+					     total_timeout:   total_timeout,
+					     aws_sig:         aws_sig,
+					     access_key:      access_key,
+					     cookies:         cookies);
+    // clang-format on
 
     n00b_basic_http_response_t *result = n00b_gc_alloc_mapped(
         n00b_basic_http_response_t,
@@ -153,19 +149,15 @@ _n00b_http_upload(n00b_string_t *url, n00b_buf_t *data, ...)
         n00b_dict_t   *cookies         = NULL;
     }
 
+    // clang-format off
     n00b_basic_http_t *connection = n00b_new(n00b_type_http(),
-                                             n00b_kw("url",
-                                                     n00b_ka(url),
-                                                     "connect_timeout",
-                                                     n00b_ka(connect_timeout),
-                                                     "total_timeout",
-                                                     n00b_ka(total_timeout),
-                                                     "aws_sig",
-                                                     n00b_ka(aws_sig),
-                                                     "access_key",
-                                                     n00b_ka(access_key),
-                                                     "cookies",
-                                                     n00b_ka(cookies)));
+					     url:             url,
+					     connect_timeout: connect_timeout,
+					     total_timeout:   total_timeout,
+					     aws_sig:         aws_sig,
+					     access_key:      access_key,
+					     cookies:         cookies);
+    // clang-format on
 
     n00b_basic_http_response_t *result = n00b_gc_alloc_mapped(
         n00b_basic_http_response_t,

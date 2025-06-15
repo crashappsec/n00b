@@ -1164,7 +1164,7 @@ n00b_format_one_token(n00b_token_t *tok, n00b_string_t *prefix)
 n00b_table_t *
 n00b_format_tokens(n00b_module_t *ctx)
 {
-    n00b_table_t *tbl = n00b_table("columns", n00b_ka(5));
+    n00b_table_t *tbl = n00b_table(columns : 5);
     int64_t       len = n00b_list_len(ctx->ct->tokens);
 
     n00b_table_add_cell(tbl, n00b_cstring("Seq #"));

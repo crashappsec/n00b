@@ -33,6 +33,15 @@
 #include <ctype.h>
 #include <sys/mman.h>
 
+// config.h is used to get N00B_MAX_KEYWORD_SIZE, and
+// the hatrack define isn't something we use, but is checked
+// at compile-time by the config.
+#define HATRACK_PER_INSTANCE_AUX
+#include "n00b/config.h"
+
+// Define this to remove #line directives, for debugging.
+// #define SKIP_LINE_DIRECTIVES
+
 typedef struct {
     int64_t len;
     char    data[];
@@ -75,12 +84,22 @@ typedef struct {
     bool    line_start;
 } lex_t;
 
+typedef struct kw_use_ctx_t {
+    struct kw_use_ctx_t *next;
+    bool                 id;
+    bool                 started_kobj;
+    int                  kw_count;
+} kw_use_ctx_t;
+
 typedef struct {
-    buf_t *input;
-    tok_t *toks;
-    int    ix;
-    int    max;
-    int    rewrite_start_ix;
+    buf_t        *input;
+    tok_t        *toks;
+    char         *in_file;
+    int           ix;
+    int           max;
+    int           rewrite_start_ix;
+    int           id_nest;
+    kw_use_ctx_t *kw_stack;
 } xform_t;
 
 // In utils.c
@@ -100,12 +119,13 @@ extern bool write_to_file(FILE *f, char *, int);
 // In tokenize.c
 extern void   lex(lex_t *);
 extern tok_t *advance(xform_t *, bool);
+extern tok_t *backup(xform_t *, bool);
 extern bool   id_check(char *, buf_t *, int, int);
 extern char  *extract(buf_t *, tok_t *);
 extern int    scan_back(xform_t *, int, ttype_t, char *);
-extern tok_t *advance(xform_t *, bool);
 extern tok_t *cur_tok(xform_t *);
 extern tok_t *lookahead(xform_t *, int);
+extern tok_t *lookbehind(xform_t *, int);
 
 // In xforms.c
 extern bool   apply_transforms(lex_t *);
@@ -115,3 +135,4 @@ extern tok_t *skip_forward_to_punct(xform_t *, char);
 
 // In x_keyword.c
 extern bool keyword_xform(xform_t *, tok_t *);
+extern void kw_tracking(xform_t *, tok_t *);

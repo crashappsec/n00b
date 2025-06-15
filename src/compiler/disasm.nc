@@ -535,7 +535,7 @@ n00b_disasm(n00b_vm_t *vm, n00b_module_t *m)
 {
     init_disasm();
 
-    n00b_table_t *tbl = n00b_table("columns", n00b_ka(7));
+    n00b_table_t *tbl = n00b_table(columns : 7);
     int64_t       len = n00b_list_len(m->instructions);
 
     n00b_table_add_cell(tbl, n00b_cstring("Address"));

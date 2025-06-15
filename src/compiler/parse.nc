@@ -718,7 +718,7 @@ temporary_tree(parse_ctx *ctx, n00b_node_kind_t nt)
 
     n00b_type_t      *pn     = n00b_type_parse_node();
     n00b_type_t      *tt     = n00b_type_tree(pn);
-    n00b_tree_node_t *result = n00b_new(tt, n00b_kw("contents", n00b_ka(tmproot)));
+    n00b_tree_node_t *result = n00b_new(tt, contents : tmproot);
     ctx->cur                 = result;
 
     return result;
@@ -4261,9 +4261,8 @@ module(parse_ctx *ctx)
                                   ctx,
                                   n00b_nt_module);
     n00b_tree_node_t *result = n00b_new(n00b_type_tree(n00b_type_parse_node()),
-                                        n00b_kw("contents", n00b_ka(root)));
-
-    ctx->cur = result;
+                                        contents : root);
+    ctx->cur                 = result;
 
     opt_doc_strings(ctx, root);
 
@@ -4575,9 +4574,11 @@ n00b_parse_type(n00b_module_t *module_ctx)
 
     prime_tokens(&ctx);
 
-    n00b_pnode_t     *root = n00b_new(n00b_type_parse_node(), ctx, n00b_nt_lit_tspec);
+    n00b_pnode_t     *root = n00b_new(n00b_type_parse_node(),
+                                  ctx,
+                                  n00b_nt_lit_tspec);
     n00b_tree_node_t *t    = n00b_new(n00b_type_tree(n00b_type_parse_node()),
-                                   n00b_kw("contents", n00b_ka(root)));
+                                   contents : root);
 
     ctx.cur                    = t;
     module_ctx->ct->parse_tree = ctx.cur;

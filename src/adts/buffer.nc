@@ -242,8 +242,7 @@ n00b_buffer_add(n00b_buf_t *b1, n00b_buf_t *b2)
     int64_t     l1     = n00b_max(n00b_buffer_len(b1), 0);
     int64_t     l2     = n00b_max(n00b_buffer_len(b2), 0);
     int64_t     lnew   = l1 + l2;
-    n00b_buf_t *result = n00b_new(n00b_type_buffer(),
-                                  n00b_kw("length", n00b_ka(lnew)));
+    n00b_buf_t *result = n00b_new(n00b_type_buffer(), length : lnew);
 
     if (l1 > 0) {
         memcpy(result->data, b1->data, l1);
@@ -280,8 +279,7 @@ n00b_buffer_join(n00b_list_t *list, n00b_buf_t *joiner)
         new_len += jlen * (num_items - 1);
     }
 
-    n00b_buf_t *result = n00b_new(n00b_type_buffer(),
-                                  n00b_kw("length", n00b_ka(new_len)));
+    n00b_buf_t *result = n00b_new(n00b_type_buffer(), length : new_len);
     char       *p      = result->data;
     n00b_buf_t *cur    = n00b_list_get(list, 0, NULL);
     int         clen   = n00b_buffer_len(cur);
@@ -361,7 +359,7 @@ buffer_coerce_to(n00b_buf_t *b, n00b_type_t *target_type)
     n00b_buffer_acquire_r(b);
 
     if (n00b_types_are_compat(target_type, n00b_type_bytering(), NULL)) {
-        Return n00b_new(target_type, n00b_kw("buffer", b));
+        Return n00b_new(target_type, buffer : b);
     }
 
     if (n00b_types_are_compat(target_type, n00b_type_string(), NULL)) {
@@ -380,8 +378,7 @@ buffer_coerce_to(n00b_buf_t *b, n00b_type_t *target_type)
             p += cplen;
         }
 
-        n00b_string_t *result = n00b_new(target_type,
-                                         n00b_kw("length", n00b_ka(b->byte_len)));
+        n00b_string_t *result = n00b_new(target_type, length : b->byte_len);
         result->codepoints    = count;
 
         memcpy(result->data, b->data, b->byte_len);
@@ -454,7 +451,7 @@ buffer_get_slice(n00b_buf_t *b, int64_t start, int64_t end)
     }
     else {
         if (start >= len) {
-            Return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
+            Return n00b_new(n00b_type_buffer(), length : 0);
         }
     }
     if (end < 0) {
@@ -466,12 +463,11 @@ buffer_get_slice(n00b_buf_t *b, int64_t start, int64_t end)
         }
     }
     if ((start | end) < 0 || start >= end) {
-        Return n00b_new(n00b_type_buffer(), n00b_kw("length", n00b_ka(0)));
+        Return n00b_new(n00b_type_buffer(), length : 0);
     }
 
     int64_t     slice_len = end - start;
-    n00b_buf_t *result    = n00b_new(n00b_type_buffer(),
-                                  n00b_kw("length", n00b_ka(slice_len)));
+    n00b_buf_t *result    = n00b_new(n00b_type_buffer(), length : slice_len);
 
     memcpy(result->data, b->data + start, slice_len);
 
@@ -566,11 +562,10 @@ buffer_lit(n00b_string_t        *su8,
             *err = n00b_err_parse_lit_odd_hex;
             return NULL;
         }
-        return n00b_new(n00b_type_buffer(),
-                        n00b_kw("length", n00b_ka(length), "hex", n00b_ka(s)));
+        return n00b_new(n00b_type_buffer(), length : length, hex : s);
     }
 
-    return n00b_new(n00b_type_buffer(), n00b_kw("raw", n00b_ka(s)));
+    return n00b_new(n00b_type_buffer(), raw : s);
 }
 
 // NOTE: this function is currently of the utmost importance.
@@ -582,8 +577,7 @@ buffer_copy(n00b_buf_t *inbuf)
 {
     defer_on();
     n00b_buffer_acquire_r(inbuf);
-    n00b_buf_t *outbuf = n00b_new(n00b_type_buffer(),
-                                  n00b_kw("length", n00b_ka(inbuf->byte_len)));
+    n00b_buf_t *outbuf = n00b_new(n00b_type_buffer(), length : inbuf->byte_len);
 
     memcpy(outbuf->data, inbuf->data, inbuf->byte_len);
 
