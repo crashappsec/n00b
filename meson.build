@@ -459,8 +459,6 @@ n00b_cmd = [
 ]
 
 
-n00b_log = ['src/cmd/n00b_debug.c']
-
 n00b_base = n00b_core + n00b_mt + n00b_text + n00b_runtime + n00b_adts 
 n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
 n00b_base = n00b_base + n00b_io + n00b_debug
@@ -569,7 +567,7 @@ executable(
 
 executable(
 'n00blog',
-     n00b_src,
+     ncpp.process(['src/debug/server.nc']),
      include_directories: incdir,
      dependencies: deps,
      c_args: c_args  + ['-DN00B_DEBUG_SERVER',
