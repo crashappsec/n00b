@@ -95,7 +95,7 @@ extern void   *_n00b_condition_wait(n00b_condition_t *, ...);
 
 #define n00b_condition_notify_one(cv) n00b_condition_notify(cv)
 #define n00b_condition_notify_all(cv) \
-    n00b_condition_notify(cv, n00b_kw("all", n00b_ka(true)));
+    n00b_condition_notify(cv, n00b_header_kargs("all", (int64_t) true))
 
 #if defined(N00B_USE_INTERNAL_API)
 #define N00B_CV_NOTIFY_IN_PROGRESS 0x40000000

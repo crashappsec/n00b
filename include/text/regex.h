@@ -37,7 +37,7 @@ n00b_regex(n00b_string_t *s)
 static inline n00b_regex_t *
 n00b_regex_unanchored(n00b_string_t *s)
 {
-    return n00b_new(n00b_type_regex(), s, n00b_kw("anchored", n00b_ka(false)));
+    return n00b_new(n00b_type_regex(), s, n00b_header_kargs("anchored", 0ULL));
 }
 
 static inline n00b_regex_t *
@@ -45,10 +45,10 @@ n00b_regex_multiline(n00b_string_t *s, bool anchored)
 {
     return n00b_new(n00b_type_regex(),
                     s,
-                    n00b_kw("anchored",
-                            n00b_ka(anchored),
-                            "multiline",
-                            n00b_ka(true)));
+                    n00b_header_kargs("anchored",
+                                      (int64_t)anchored,
+                                      "multiline",
+                                      1ULL));
 }
 
 static inline n00b_regex_t *

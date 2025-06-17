@@ -37,22 +37,22 @@ static inline n00b_buf_t *
 n00b_apply_ansi(n00b_string_t *s)
 {
     // Will use the default theme.
-    char *cstr = n00b_rich_to_ansi(s, NULL);
-    int   n    = strlen(cstr);
+    char   *cstr = n00b_rich_to_ansi(s, NULL);
+    int64_t n    = strlen(cstr);
 
     return n00b_new(n00b_type_buffer(),
-                    n00b_kw("length", n00b_ka(n), "ptr", cstr));
+                    n00b_header_kargs("length", n, "ptr", cstr));
 }
 
 static inline n00b_buf_t *
 n00b_apply_ansi_with_theme(n00b_string_t *s, n00b_theme_t *theme)
 {
     // Will use the default theme.
-    char *cstr = n00b_rich_to_ansi(s, theme);
-    int   n    = strlen(cstr);
+    char   *cstr = n00b_rich_to_ansi(s, theme);
+    int64_t n    = strlen(cstr);
 
     return n00b_new(n00b_type_buffer(),
-                    n00b_kw("length", n00b_ka(n), "ptr", cstr));
+                    n00b_header_kargs("length", n, "ptr", cstr));
 }
 
 #ifdef N00B_USE_INTERNAL_API

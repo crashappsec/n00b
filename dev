@@ -304,7 +304,7 @@ function n00b_compile {
 
     if [[ ${OS} = "Darwin" ]] ; then
         dsymutil $(cur_exe_loc)/${N00B_EXE}
-        dsymutil $(cur_exe_loc)/${N00B_TEST_EXE}
+#        dsymutil $(cur_exe_loc)/${N00B_TEST_EXE}
         dsymutil $(cur_exe_loc)/${N00B_LOG_EXE}
     fi
 }

@@ -15,10 +15,10 @@ main()
                                        l,
                                        false,
                                        true,
-                                       n00b_kw("merge_output",
-                                               n00b_ka(true),
-                                               "timeout",
-                                               &timeout));
+                                       n00b_header_kargs("merge_output",
+                                                         1ULL,
+                                                         "timeout",
+                                                         &timeout));
     n00b_buf_t    *bout    = n00b_proc_get_stdout_capture(pi);
 
     printf("stdout capture: %s\n",

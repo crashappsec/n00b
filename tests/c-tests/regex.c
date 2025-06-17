@@ -85,10 +85,10 @@ main()
                                        l,
                                        false,
                                        true,
-                                       n00b_kw("pty",
-                                               n00b_ka(true),
-                                               "err_pty",
-                                               n00b_ka(true)));
+                                       n00b_header_kargs("pty",
+                                                         1ULL,
+                                                         "err_pty",
+                                                         1ULL));
 
     n00b_buf_t *bout = n00b_proc_get_stdout_capture(pi);
 

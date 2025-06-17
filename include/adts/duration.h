@@ -51,7 +51,8 @@ n00b_duration_to_timeval(n00b_duration_t *d)
 static inline n00b_duration_t *
 n00b_timeval_to_duration(struct timeval *s)
 {
-    return n00b_new(n00b_type_duration(), n00b_kw("timeval", s));
+    return n00b_new(n00b_type_duration(),
+                    n00b_header_kargs("timeval", (int64_t)s));
 }
 
 static inline void

@@ -47,10 +47,6 @@
 #undef N00B_ADD_ALLOC_LOC_INFO
 #endif
 
-#ifdef N00B_DEBUG_KARGS
-#undef N00B_DEBUG_KARGS
-#endif
-
 #ifdef N00B_TYPE_LOG
 #undef N00B_TYPE_LOG
 #endif

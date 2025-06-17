@@ -84,8 +84,5 @@ typedef struct {
 
 extern void              n00b_testgen_record(n00b_string_t *, bool, bool, bool);
 extern n00b_test_t      *n00b_testgen_load_test_file(n00b_string_t *, int);
-extern n00b_testing_ctx *_n00b_testgen_setup(N00B_OPT_KARGS);
+extern n00b_testing_ctx *n00b_testgen_setup(n00b_karg_info_t *);
 extern int               n00b_testgen_run_tests(n00b_testing_ctx *);
-
-#define n00b_testgen_setup(...) \
-    _n00b_testgen_setup(__VA_ARGS__ __VA_OPT__(, ) NULL)

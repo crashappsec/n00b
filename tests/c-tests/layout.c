@@ -6,25 +6,13 @@ main()
     n00b_terminal_app_setup();
     n00b_tree_node_t *layout = n00b_new_layout();
     n00b_new_layout_cell(layout,
-                         n00b_kw("min",
-                                 n00b_ka(10),
-                                 "preference",
-                                 n00b_ka(20)));
+                         n00b_header_kargs("min", 10ULL, "preference", 20ULL));
     n00b_new_layout_cell(layout,
-                         n00b_kw("flex",
-                                 n00b_ka(1),
-                                 "preference",
-                                 n00b_ka(20)));
+                         n00b_header_kargs("flex", 1ULL, "preference", 20ULL));
     n00b_new_layout_cell(layout,
-                         n00b_kw("flex",
-                                 n00b_ka(1),
-                                 "preference",
-                                 n00b_ka(30)));
+                         n00b_header_kargs("flex", 1ULL, "preference", 30ULL));
     n00b_new_layout_cell(layout,
-                         n00b_kw("min",
-                                 n00b_ka(5),
-                                 "max",
-                                 n00b_ka(10)));
+                         n00b_header_kargs("min", 5ULL, "max", 10ULL));
 
     n00b_tree_node_t *t = n00b_layout_calculate(layout, 120);
     n00b_string_t    *s = n00b_to_string(t);

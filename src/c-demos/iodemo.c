@@ -96,14 +96,14 @@ signal_demo2(int signal, siginfo_t *info, void *user_param)
 }
 
 void
-print_eating_newline() {
+print_eating_newline()
+{
     n00b_string_t *rich = n00b_cformat(
         "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|i|]i[|/i|]\n"
         "[|em|]one [|em2|]two[|/em2|] [|em3|]three[|/em3|] one[|/|]\n"
         "[|b|]b [|i|]&i[|/i|] [|u|]&u[|/u|] [|i|]&i[|/i|] b[|/b|]\n"
         "[|b|][|i|]b&i [|u|]&u[|/|]\n"
-        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|em2|]em2[|/em2|][|/|][|i|]i[|/i|] [|em|]em[|/em|][|em2|]em2[|/|] [|b|]b [|i|]&i[|/i|] b[|/b|] [|b|][|i|]b&i[|/|] [|em3|]em3[|/em|][|em4|]em4[|/|]\n"
-    );
+        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|em2|]em2[|/em2|][|/|][|i|]i[|/i|] [|em|]em[|/em|][|em2|]em2[|/|] [|b|]b [|i|]&i[|/i|] b[|/b|] [|b|][|i|]b&i[|/|] [|em3|]em3[|/em|][|em4|]em4[|/|]\n");
     n00b_print(rich);
 
     return;
@@ -147,10 +147,12 @@ main(void)
         N00B_TRY
         {
             addr = n00b_new(n00b_type_net_addr(),
-                            n00b_kw("address",
-                                    n00b_cstring("127.0.0.1"),
-                                    "port",
-                                    port));
+                            n00b_kargs_obj(
+                                "address",
+                                (int64_t)n00b_cstring("127.0.0.1"),
+                                "port",
+                                port,
+                                NULL));
             srv  = n00b_create_listener(addr);
         }
         N00B_EXCEPT
@@ -165,10 +167,11 @@ main(void)
     n00b_debugf("test", "Address: [|#|]", addr);
 
     n00b_stream_t *log = n00b_stream_open_file(n00b_cstring("/tmp/testlog"),
-                                               "write_only",
-                                               (int64_t) true,
-                                               "allow_file_creation",
-                                               (int64_t) true);
+                                               n00b_kargs_obj(
+                                                   "write_only",
+                                                   (int64_t) true,
+                                                   "allow_file_creation",
+                                                   (int64_t) true));
 
     n00b_stream_t *cb = n00b_new_callback_stream(input_callback, capture);
     n00b_stream_subscribe_read(n00b_stdin(), log, false);

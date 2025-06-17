@@ -151,7 +151,8 @@ static inline n00b_table_t *
 n00b_call_out(n00b_string_t *s)
 {
     n00b_table_t *t = n00b_new(n00b_type_table(),
-                               n00b_kw("style", n00b_ka(N00B_TABLE_CALLOUT)));
+                               n00b_header_kargs("style",
+                                                 (int64_t)N00B_TABLE_CALLOUT));
     n00b_table_add_cell(t, s);
     n00b_table_end_row(t);
     n00b_table_end(t);
@@ -163,7 +164,7 @@ static inline n00b_table_t *
 n00b_flow(n00b_list_t *list)
 {
     n00b_table_t *t     = n00b_new(n00b_type_table(),
-                               n00b_kw("style", n00b_ka(N00B_TABLE_FLOW)));
+                               n00b_header_kargs("style", (int64_t)N00B_TABLE_FLOW));
     int           nargs = n00b_list_len(list);
 
     for (int i = 0; i < nargs; i++) {
@@ -467,4 +468,4 @@ n00b_caption_box(n00b_table_t *table)
 #endif
 
 #define n00b_table(...) \
-    n00b_new(n00b_type_table() __VA_OPT__(, n00b_kw(__VA_ARGS__)))
+    n00b_new(n00b_type_table(), __VA_ARGS__ __VA_OPT__(, ) NULL)
