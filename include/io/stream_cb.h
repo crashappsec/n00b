@@ -16,7 +16,7 @@ extern n00b_stream_t *_n00b_new_callback_stream(n00b_stream_cb_t,
 static inline n00b_stream_t *
 n00b_name_cb_hack(n00b_stream_t *stream, char *s)
 {
-    stream->name = n00b_cformat("Callback: [|#|]", n00b_cstring(s));
+    stream->name = n00b_cformat("Callback: «#»", n00b_cstring(s));
     return stream;
 }
 

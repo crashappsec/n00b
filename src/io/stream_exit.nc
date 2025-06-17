@@ -31,7 +31,7 @@ exit_stream_init(n00b_stream_t *stream, n00b_list_t *args)
     n00b_exit_info_t *c = (n00b_exit_info_t *)n00b_get_stream_cookie(stream);
     c->pid              = (int64_t)n00b_private_list_pop(args);
     c->waiter           = n00b_thread_spawn((void *)launch_wait, stream);
-    stream->name        = n00b_cformat("pid(exit): [|#|]", c->pid);
+    stream->name        = n00b_cformat("pid(exit): «#»", c->pid);
 
     return O_RDONLY;
 }

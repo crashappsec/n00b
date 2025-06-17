@@ -40,8 +40,8 @@ static n00b_buf_t *
 simple_fmt(n00b_debug_msg_t *msg)
 {
     n00b_string_t *s = n00b_cformat(
-        "[|em5|][[|#|]][|/|] @[|b|][|#|]:[|/|] [|em2|]([|#|] pid [|#|])\n"
-        "[|#|]\n[|em5|][/[|#|]]",
+        "«em5»[«#»]«/» @«b»«#»:«/» «em2»(«#» pid «#»)\n"
+        "«#»\n«em5»[/«#»]",
         msg->topic,
         msg->timestamp,
         msg->remote_address,
@@ -271,7 +271,7 @@ on_log_close(n00b_stream_t *c, void *ignored)
 static void
 rcv_server_message(n00b_stream_t *c, void *msg)
 {
-    n00b_eprintf("[|h1|]Server Message: [|#|]", msg);
+    n00b_eprintf("«h1»Server Message: «#»", msg);
 }
 
 static void

@@ -9,11 +9,11 @@ n00b_play_capture(n00b_cmdline_ctx *ctx)
     n00b_stream_t *stream = NULL;
 
     if (ext == n00b_cached_empty_string()) {
-        arg = n00b_cformat("[|#|].cap10", arg);
+        arg = n00b_cformat("«#».cap10", arg);
     }
     else {
         if (!n00b_string_eq(ext, n00b_cstring(".cap10"))) {
-            n00b_eprintf("Capture file must have the [|em|].cap10[|/|] extension.");
+            n00b_eprintf("Capture file must have the «em».cap10«/» extension.");
             ctx->exit_code = -1;
             return;
         }
@@ -21,12 +21,12 @@ n00b_play_capture(n00b_cmdline_ctx *ctx)
     arg = n00b_resolve_path(arg);
 
     if (!n00b_path_exists(arg)) {
-        n00b_eprintf("Capture file [|em|][|#|][|/|] not found.", arg);
+        n00b_eprintf("Capture file «em»«#»«/» not found.", arg);
         ctx->exit_code = -1;
         return;
     }
     if (!n00b_path_is_file(arg)) {
-        n00b_eprintf("Capture file [|em|][|#|][|/|] is not a regular file.", arg);
+        n00b_eprintf("Capture file «em»«#»«/» is not a regular file.", arg);
         ctx->exit_code = -1;
         return;
     }
@@ -40,7 +40,7 @@ n00b_play_capture(n00b_cmdline_ctx *ctx)
     N00B_EXCEPT
     {
         n00b_exception_t *exc = N00B_X_CUR();
-        n00b_eprintf("[|red|]Error:[|/|] [|#|]", exc->msg);
+        n00b_eprintf("«red»Error:«/» «#»", exc->msg);
         fail = true;
     }
     N00B_TRY_END;

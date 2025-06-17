@@ -43,7 +43,7 @@ proxy_init(n00b_stream_t *stream, n00b_stream_t *target)
     // Probably these init functions should be refactored to give you
     // the top-level object instead.
 
-    stream->name = n00b_cformat("proxy:[|#|]", target->name);
+    stream->name = n00b_cformat("proxy:«#»", target->name);
 
     if (target->r) {
         info->read_cb = n00b_new_callback_stream(on_target_read, stream);

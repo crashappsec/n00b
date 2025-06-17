@@ -571,14 +571,14 @@ format_control_sequence(n00b_ansi_node_t *node)
     n00b_string_t *ctrl;
 
     if (node->ctrl.ppi) {
-        hdr = n00b_cformat("private ([|#:x|])", (int64_t)node->ctrl.ppi);
+        hdr = n00b_cformat("private («#:x»)", (int64_t)node->ctrl.ppi);
     }
     else {
         hdr = n00b_cstring("ctrl");
     }
 
     if (node->ctrl.plen) {
-        params = n00b_cformat("'[|#|]'",
+        params = n00b_cformat("'«#»'",
                               n00b_utf8(node->ctrl.pstart, node->ctrl.plen));
     }
     else {
@@ -588,7 +588,7 @@ format_control_sequence(n00b_ansi_node_t *node)
     // This should get the control byte.
     ctrl = n00b_utf8(node->ctrl.istart, node->ctrl.ilen + 1);
 
-    return n00b_cformat("[|#|] [|#|]: params=[|#|]", hdr, ctrl, params);
+    return n00b_cformat("«#» «#»: params=«#»", hdr, ctrl, params);
 }
 
 static n00b_string_t *
@@ -602,7 +602,7 @@ format_control_string(n00b_ansi_node_t *node, int len)
     // 4 from the length when creating a string object.
     char *p = node->start + 2;
 
-    return n00b_cformat("ctrl str: [|#|]", n00b_bytes_to_hex(p, len - 4));
+    return n00b_cformat("ctrl str: «#»", n00b_bytes_to_hex(p, len - 4));
 }
 
 static n00b_string_t *
@@ -641,7 +641,7 @@ format_control_command(n00b_ansi_node_t *node, int len)
     }
 
     // The subtract by 4 removes the start and end sequence.
-    return n00b_cformat("ctrl cmd [|#|]: [|#|]",
+    return n00b_cformat("ctrl cmd «#»: «#»",
                         kind,
                         n00b_bytes_to_hex(p, len - 4));
 }
@@ -655,21 +655,21 @@ n00b_ansi_node_repr(n00b_ansi_node_t *node)
     switch (node->kind) {
     case N00B_ANSI_TEXT:
         tmp = n00b_utf8(node->start, len);
-        return n00b_cformat("string ([|#|] bytes): [|#|]", len, tmp);
+        return n00b_cformat("string («#» bytes): «#»", len, tmp);
     case N00B_ANSI_C0_CODE:
-        return n00b_cformat("c0: [|#:x|]", (int64_t)(*node->start));
+        return n00b_cformat("c0: «#:x»", (int64_t)(*node->start));
     case N00B_ANSI_C1_CODE:
-        return n00b_cformat("c1: [|#:x|]", (int64_t)(*node->start));
+        return n00b_cformat("c1: «#:x»", (int64_t)(*node->start));
     case N00B_ANSI_NF_SEQUENCE:
-        return n00b_cformat("nf: [|#|] bytes: [|#|]",
+        return n00b_cformat("nf: «#» bytes: «#»",
                             (int64_t)len,
                             n00b_bytes_to_hex(node->start, len));
     case N00B_ANSI_FP_SEQUENCE:
-        return n00b_cformat("fp: [|#:x|]", (int64_t)(*node->start));
+        return n00b_cformat("fp: «#:x»", (int64_t)(*node->start));
     case N00B_ANSI_FE_SEQUENCE:
-        return n00b_cformat("fe: [|#:x|]", (int64_t)(*node->start));
+        return n00b_cformat("fe: «#:x»", (int64_t)(*node->start));
     case N00B_ANSI_FS_SEQUENCE:
-        return n00b_cformat("fs: [|#:x|]", (int64_t)(*node->start));
+        return n00b_cformat("fs: «#:x»", (int64_t)(*node->start));
     case N00B_ANSI_CONTROL_SEQUENCE:
     case N00B_ANSI_PRIVATE_CONTROL:
         return format_control_sequence(node);
@@ -678,11 +678,11 @@ n00b_ansi_node_repr(n00b_ansi_node_t *node)
     case N00B_ANSI_CRL_STR_CMD:
         return format_control_command(node, len);
     case N00B_ANSI_PARTIAL:
-        return n00b_cformat("partial: [|#|] bytes: [|#|]",
+        return n00b_cformat("partial: «#» bytes: «#»",
                             (int64_t)len,
                             n00b_bytes_to_hex(node->start, len));
     case N00B_ANSI_INVALID:
-        return n00b_cformat("invalid: [|#|] bytes: [|#|]",
+        return n00b_cformat("invalid: «#» bytes: «#»",
                             (int64_t)len,
                             n00b_bytes_to_hex(node->start, len));
     default:

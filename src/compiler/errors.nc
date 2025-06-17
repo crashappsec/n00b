@@ -565,7 +565,7 @@ static error_info_t error_info[] = {
     [n00b_err_unk_primitive_type] = {
         n00b_err_unk_primitive_type,
         "unk_primitive_type",
-        "Type name [|em|][|#|][|/|] is not a known primitive type.",
+        "Type name «em»«#»«/» is not a known primitive type.",
         true,
     },
     [n00b_err_unk_param_type] = {
