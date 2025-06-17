@@ -52,7 +52,7 @@ n00b_record_testcase(n00b_cmdline_ctx *ctx)
     if (!n00b_path_is_directory(work_dir)) {
         if (mkdir(work_dir->data, 00744)) {
             n00b_eprintf(
-                "Could not create the directory [|em|][|#|][|/|] to save "
+                "Could not create the directory «em»«#»«/» to save "
                 "the test file.",
                 work_dir);
             ctx->exit_code = -1;
@@ -65,8 +65,8 @@ n00b_record_testcase(n00b_cmdline_ctx *ctx)
     if (n00b_string_codepoint_len(s)) {
         if (!n00b_string_eq(s, n00b_cstring(".cap10"))
             && !n00b_string_eq(s, n00b_cstring(".test"))) {
-            n00b_eprintf("Bad file extension: [|em|][|#|][|/|]", s);
-            n00b_eprintf("Must be [|i|].test .cap10,[|/|] or omitted");
+            n00b_eprintf("Bad file extension: «em»«#»«/»", s);
+            n00b_eprintf("Must be «i».test .cap10,«/» or omitted");
             ctx->exit_code = -1;
             return;
         }
@@ -76,12 +76,12 @@ n00b_record_testcase(n00b_cmdline_ctx *ctx)
     n00b_string_t *check_path;
 
     passed_path = n00b_path_simple_join(work_dir, case_name);
-    check_path  = n00b_cformat("[|#|].cap10", passed_path);
+    check_path  = n00b_cformat("«#».cap10", passed_path);
 
     if (n00b_path_exists(check_path)) {
         n00b_eprintf(
-            "Capture file for [|em|][|#|]/[|#|][|/|] already exists "
-            " at [|#|]",
+            "Capture file for «em»«#»/«#»«/» already exists "
+            " at «#»",
             group,
             case_name,
             check_path);
@@ -89,12 +89,12 @@ n00b_record_testcase(n00b_cmdline_ctx *ctx)
         return;
     }
 
-    check_path = n00b_cformat("[|#|].test", passed_path);
+    check_path = n00b_cformat("«#».test", passed_path);
 
     if (n00b_path_exists(check_path)) {
         n00b_eprintf(
-            "Capture file for [|em|][|#|]/[|#|][|/|] already exists "
-            " at [|#|]",
+            "Capture file for «em»«#»/«#»«/» already exists "
+            " at «#»",
             group,
             case_name,
             check_path);
@@ -103,16 +103,16 @@ n00b_record_testcase(n00b_cmdline_ctx *ctx)
     }
 
     n00b_set_current_directory(work_dir);
-    n00b_eprintf("[|em4|]Recording interactive shell.");
+    n00b_eprintf("«em4»Recording interactive shell.");
     if (n00b_cmd_verbose(ctx)) {
-        n00b_eprintf("Path is:[|em2|][|#|]", passed_path);
+        n00b_eprintf("Path is:«em2»«#»", passed_path);
     }
 
     n00b_testgen_record(passed_path,
                         true,
                         n00b_cmd_ansi(ctx),
                         n00b_cmd_merge(ctx));
-    n00b_eprintf("[|em4|]Recording complete.");
-    n00b_eprintf("[|em4|]Test script saved to: [|#|].", check_path);
+    n00b_eprintf("«em4»Recording complete.");
+    n00b_eprintf("«em4»Test script saved to: «#».", check_path);
     n00b_set_current_directory(pwd);
 }

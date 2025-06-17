@@ -503,7 +503,7 @@ md_node_to_table(md_table_ctx *ctx)
         ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("em"));
 
         if (saved_str) {
-            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            ctx->str  = n00b_cformat("«#»«#»", saved_str, ctx->str);
             saved_str = NULL;
         }
 
@@ -513,14 +513,14 @@ md_node_to_table(md_table_ctx *ctx)
         ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("b"));
 
         if (saved_str) {
-            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            ctx->str  = n00b_cformat("«#»«#»", saved_str, ctx->str);
             saved_str = NULL;
         }
         return;
     case N00B_MD_SPAN_U:
         ctx->str = n00b_string_style_by_tag(ctx->str, n00b_cstring("u"));
         if (saved_str) {
-            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            ctx->str  = n00b_cformat("«#»«#»", saved_str, ctx->str);
             saved_str = NULL;
         }
         return;
@@ -528,7 +528,7 @@ md_node_to_table(md_table_ctx *ctx)
         ctx->str = n00b_string_style_by_tag(ctx->str,
                                             n00b_cstring("strikethrough"));
         if (saved_str) {
-            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            ctx->str  = n00b_cformat("«#»«#»", saved_str, ctx->str);
             saved_str = NULL;
         }
         return;
@@ -536,7 +536,7 @@ md_node_to_table(md_table_ctx *ctx)
     case N00B_MD_SPAN_A_CODELINK:
 finish_span:
         if (saved_str) {
-            ctx->str  = n00b_cformat("[|#|][|#|]", saved_str, ctx->str);
+            ctx->str  = n00b_cformat("«#»«#»", saved_str, ctx->str);
             saved_str = NULL;
         }
         return;

@@ -25,7 +25,7 @@ received_msg(n00b_wire_dmsg_t *msg, n00b_net_addr_t *addr)
 static void *
 sock_close(n00b_stream_t *stream, n00b_net_addr_t *addr)
 {
-    n00b_eprintf("Connection from [|em1|][|#|] [|em3|]CLOSED[|/|][|p|]", addr);
+    n00b_eprintf("Connection from «em1»«#» «em3»CLOSED«/»«p»", addr);
     n00b_list_remove_item(active_connections, stream);
 
     return NULL;
@@ -52,7 +52,7 @@ accept_debug(n00b_stream_t *stream, void *ignore)
     n00b_stream_subscribe_close(stream, close_cb);
     n00b_list_append(active_connections, stream);
 
-    n00b_eprintf("Received connection from [|em1|][|#|]", addr);
+    n00b_eprintf("Received connection from «em1»«#»", addr);
 
     return NULL;
 }

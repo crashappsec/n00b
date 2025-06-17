@@ -17,7 +17,7 @@ n00b_run_tests(n00b_cmdline_ctx *ctx)
     ctx->exit_code = n00b_testgen_run_tests(tctx);
 
     if (ctx->exit_code) {
-        n00b_eprintf("\n[|red|]FAILED[|/|] [|#|] tests.", (int64_t)ctx->exit_code);
+        n00b_eprintf("\n«red»FAILED«/» «#» tests.", (int64_t)ctx->exit_code);
     }
 }
 
@@ -27,7 +27,7 @@ n00b_show_tests(n00b_cmdline_ctx *ctx)
     n00b_testing_ctx *tctx = n00b_testgen_setup(args : ctx->args);
 
     n00b_eprintf(
-        "[|em|][|#|][|/|] groups in use, [|em|][|#|][|/|] tests.",
+        "«em»«#»«/» groups in use, «em»«#»«/» tests.",
         tctx->groups_in_use,
         tctx->tests_in_test_dir);
 
@@ -44,14 +44,14 @@ n00b_show_tests(n00b_cmdline_ctx *ctx)
         int m = n00b_list_len(g->tests);
         for (int j = 0; j < m; j++) {
             n00b_test_t *tc = n00b_list_get(g->tests, j, NULL);
-            n00b_table_add_cell(tbl, n00b_cformat("[|#|]", tc->id + 1));
+            n00b_table_add_cell(tbl, n00b_cformat("«#»", tc->id + 1));
             n00b_table_add_cell(tbl, tc->name);
-            n00b_table_add_cell(tbl, n00b_cformat("[|#|]", tc->timeout_sec));
+            n00b_table_add_cell(tbl, n00b_cformat("«#»", tc->timeout_sec));
             n00b_table_add_cell(tbl,
-                                n00b_cformat("[|#|]",
+                                n00b_cformat("«#»",
                                              n00b_list_len(tc->commands)));
         }
-        n00b_eprintf("[|em3|]Group:[|/|] [|em6|][|#|][|/|] ", g->name);
+        n00b_eprintf("«em3»Group:«/» «em6»«#»«/» ", g->name);
         n00b_eprint(tbl);
     }
 }

@@ -118,6 +118,7 @@ rich_raw_tokenize(n00b_string_t      *s,
     uint8_t         *p          = (uint8_t *)s->data;
     uint8_t         *end        = (uint8_t *)s->data + s->u8_bytes;
     n00b_codepoint_t cp;
+    n00b_codepoint_t end_start        = 0;
     int              mono_start_index = -1;
     int              bi_start_index   = -1;
 
@@ -140,7 +141,8 @@ rich_raw_tokenize(n00b_string_t      *s,
             break;
         case '[':
             lookahead(p, &cp);
-            if (cp == '|') {
+            if (cp == '=' || cp == '|') {
+                end_start = cp;
                 advance(&p, &cp, &next_i);
                 bi_start_index = next_i;
             }
@@ -154,7 +156,11 @@ rich_raw_tokenize(n00b_string_t      *s,
                 next_start       = next_i;
             }
             break;
+        case '=':
         case '|':
+            if (cp != end_start) {
+                break;
+            }
             if (bi_start_index != -1) {
                 lookahead(p, &cp);
                 if (cp == ']') {
@@ -1272,7 +1278,8 @@ final_assembly(rich_ctrl_t *info, int n)
                 n00b_text_element_t *base_style = style_stack[--style_ix];
                 if (cur_props) {
                     style = n00b_text_style_overlay(base_style, cur_props);
-                } else {
+                }
+                else {
                     style = base_style;
                 }
                 di         = &result->styling->styles[next_style];
@@ -1280,14 +1287,16 @@ final_assembly(rich_ctrl_t *info, int n)
                 di->info   = style;
                 cur_style  = style;
                 last_style = next_style++;
-            } else if (cur_props) {
+            }
+            else if (cur_props) {
                 style      = n00b_text_style_overlay(cur_style, cur_props);
                 di         = &result->styling->styles[next_style];
                 di->start  = cp_ix;
                 di->info   = style;
                 cur_style  = style;
                 last_style = next_style++;
-            } else {
+            }
+            else {
                 cur_style = empty_props();
             }
             extend = false;
@@ -1403,9 +1412,9 @@ final_assembly(rich_ctrl_t *info, int n)
             if (last_style != -1) {
                 result->styling->styles[last_style].end = cp_ix;
             }
-            style_ix = 0;
-            cur_style = empty_props();
-            cur_props = empty_props();
+            style_ix   = 0;
+            cur_style  = empty_props();
+            cur_props  = empty_props();
             di         = &result->styling->styles[next_style];
             di->start  = cp_ix;
             di->info   = style;

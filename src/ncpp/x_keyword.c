@@ -386,13 +386,13 @@ keyword_xform(xform_t *ctx, tok_t *start)
     result = concat_static(result,
                            "            __err  = "
                            "n00b_cformat(\"Invalid keyword param: "
-                           "[|em|][|#|][|/|]\",\n         "
+                           "«em»«#»«/»\",\n         "
                            "              n00b_cstring(__ka->kw));\n"
                            "            N00B_RAISE(__err);\n"
                            "        __dupe_kw_found:\n"
                            "            __err = "
                            "n00b_cformat(\"Duplicate keyword provided: "
-                           "[=em=][=#=][=/=]\",\n        "
+                           "«em»«#»«/»\",\n        "
                            "             n00b_cstring(__ka->kw));\n"
                            "            N00B_RAISE(__err);\n"
                            "        }\n    }\n");

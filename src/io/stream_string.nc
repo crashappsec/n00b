@@ -5,7 +5,7 @@ static int
 string_stream_init(n00b_stream_t *stream, void *args)
 {
     n00b_string_cookie_t *c = n00b_get_stream_cookie(stream);
-    c->ix                    = 0;
+    c->ix                   = 0;
 
     if (!args) {
         c->l = n00b_list(n00b_type_string());
@@ -20,7 +20,7 @@ string_stream_init(n00b_stream_t *stream, void *args)
         }
     }
 
-    stream->name = n00b_cformat("String Stream @[|#:p|]", c);
+    stream->name = n00b_cformat("String Stream @«#:p»", c);
 
     return O_RDWR;
 }
@@ -29,7 +29,7 @@ static n00b_string_t *
 string_stream_read(n00b_stream_t *stream, bool *err)
 {
     n00b_string_cookie_t *c      = n00b_get_stream_cookie(stream);
-    n00b_string_t         *result = n00b_list_get(c->l, c->ix, NULL);
+    n00b_string_t        *result = n00b_list_get(c->l, c->ix, NULL);
 
     if (!result) {
         *err = true;
@@ -57,7 +57,7 @@ static bool
 string_stream_eof(n00b_stream_t *stream)
 {
     n00b_string_cookie_t *c = n00b_get_stream_cookie(stream);
-    bool                   result;
+    bool                  result;
 
     n00b_lock_list(c->l);
     result = n00b_list_len(c->l) == c->ix;

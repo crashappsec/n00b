@@ -8,7 +8,7 @@ callback_stream_init(n00b_stream_t *stream, n00b_list_t *args)
 
     c->params    = n00b_private_list_pop(args);
     c->cb        = n00b_private_list_pop(args);
-    stream->name = n00b_cformat("Callback @[|#:p|]", c->cb);
+    stream->name = n00b_cformat("Callback @«#:p»", c->cb);
 
     return O_RDWR;
 }

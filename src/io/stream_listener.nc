@@ -65,7 +65,7 @@ listener_open(n00b_stream_t *stream, n00b_list_t *args)
     c->stream->listener = true;
 
     stream->fd_backed = true;
-    stream->name      = n00b_cformat("listen: [|#|] (fd [|#|])",
+    stream->name      = n00b_cformat("listen: «#» (fd «#»)",
                                 addr,
                                 (int64_t)sock);
 

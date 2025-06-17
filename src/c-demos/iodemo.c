@@ -40,7 +40,7 @@ input_callback(n00b_buf_t *b, void *capture)
         n00b_write(n00b_stderr(), n00b_cached_newline());
         break;
     default:
-        n00b_eprintf("[|em2|]*[|#|]*", b);
+        n00b_eprintf("«em2»*«#»*", b);
         break;
     }
 
@@ -52,7 +52,7 @@ sock_close(n00b_stream_t *stream, void *rcv)
 {
     n00b_flush(rcv);
     n00b_queue(n00b_stdout(),
-               n00b_crich("[|red|]Lost connection."));
+               n00b_crich("«red»Lost connection."));
     return NULL;
 }
 
@@ -66,7 +66,7 @@ sock_rcv(n00b_buf_t *b, void *ignore)
 void *
 demo_accept(n00b_stream_t *stream, void *ignore)
 {
-    n00b_printf("[|h6|]Got connection.");
+    n00b_printf("«h6»Got connection.");
     n00b_stream_t *rcv = n00b_new_callback_stream(sock_rcv,
                                                   NULL,
                                                   n00b_filter_hexdump(0x00));
@@ -87,9 +87,9 @@ void
 signal_demo2(int signal, siginfo_t *info, void *user_param)
 {
     n00b_printf(
-        "[|red|]Received SIGHUP:[|/|] "
-        "pid = [|#|], uid = [|#|], "
-        "addr = [|#:p|]",
+        "«red»Received SIGHUP:«/» "
+        "pid = «#», uid = «#», "
+        "addr = «#:p»",
         (int64_t)info->si_pid,
         (int64_t)info->si_uid,
         info->si_addr);
@@ -99,11 +99,11 @@ void
 print_eating_newline()
 {
     n00b_string_t *rich = n00b_cformat(
-        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|i|]i[|/i|]\n"
-        "[|em|]one [|em2|]two[|/em2|] [|em3|]three[|/em3|] one[|/|]\n"
-        "[|b|]b [|i|]&i[|/i|] [|u|]&u[|/u|] [|i|]&i[|/i|] b[|/b|]\n"
-        "[|b|][|i|]b&i [|u|]&u[|/|]\n"
-        "[|b|]b[|/b|][|i|]i[|/|][|em3|]em3[|/em3|][|em2|]em2[|/em2|][|/|][|i|]i[|/i|] [|em|]em[|/em|][|em2|]em2[|/|] [|b|]b [|i|]&i[|/i|] b[|/b|] [|b|][|i|]b&i[|/|] [|em3|]em3[|/em|][|em4|]em4[|/|]\n");
+        "«b»b«/b»«i»i«/»«em3»em3«/em3»«i»i«/i»\n"
+        "«em»one «em2»two«/em2» «em3»three«/em3» one«/»\n"
+        "«b»b «i»&i«/i» «u»&u«/u» «i»&i«/i» b«/b»\n"
+        "«b»«i»b&i «u»&u«/»\n"
+        "«b»b«/b»«i»i«/»«em3»em3«/em3»«em2»em2«/em2»«/»«i»i«/i» «em»em«/em»«em2»em2«/» «b»b «i»&i«/i» b«/b» «b»«i»b&i«/» «em3»em3«/em»«em4»em4«/»\n");
     n00b_print(rich);
 
     return;
@@ -121,8 +121,8 @@ main(void)
 
     // eprintf() and printf() use the stream API (n00b_printf() takes
     // an optional stream parameter.
-    n00b_eprintf("[|red|]Welcome to the IO demo[|/|]");
-    n00b_eprintf("[|p|]");
+    n00b_eprintf("«red»Welcome to the IO demo«/»");
+    n00b_eprintf("«p»");
 
     // The process API uses the stream API extensively:
     // 1) For routing data between parent and child.
@@ -164,7 +164,7 @@ main(void)
 
     // The debug system uses the stream system, with logic to use a
     // local debug server, or fail over to stderr, when not available.
-    n00b_debugf("test", "Address: [|#|]", addr);
+    n00b_debugf("test", "Address: «#»", addr);
 
     n00b_stream_t *log = n00b_stream_open_file(n00b_cstring("/tmp/testlog"),
                                                n00b_kargs_obj(
@@ -186,10 +186,10 @@ main(void)
     for (int i = 0; i < 120; i++) {
         n00b_sleep_ms(1000);
         if (!(i % 15)) {
-            n00b_string_t *s = n00b_cformat("[|em1|]tick...");
+            n00b_string_t *s = n00b_cformat("«em1»tick...");
             n00b_debug("test", s);
         }
     }
-    n00b_eprintf("[|em4|]Boom!");
+    n00b_eprintf("«em4»Boom!");
     n00b_exit(0);
 }

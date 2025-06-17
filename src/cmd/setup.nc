@@ -26,7 +26,7 @@ const char *n00b_cmd_doc =
 static void
 exit_gracefully(int64_t signal, void *, void *aux)
 {
-    n00b_eprintf("[|em|]Shutting down[|/|] due to signal: [|em|][|#|]",
+    n00b_eprintf("«em»Shutting down«/» due to signal: «em»«#»",
                  n00b_get_signal_name(signal));
     n00b_exit(-1);
 }

@@ -293,7 +293,7 @@ n00b_session_run_replay_loop(n00b_session_t *session)
     if (!read_capture_magic(log)) {
         n00b_string_t *err;
 
-        err = n00b_cformat("Stream [|em|][|#|][|/|] is not a capture file.",
+        err = n00b_cformat("Stream «em»«#»«/» is not a capture file.",
                            n00b_stream_get_name(log));
         N00B_RAISE(err);
     }

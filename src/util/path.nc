@@ -50,7 +50,7 @@ construct_random_name(n00b_string_t *prefix, n00b_string_t *suffix)
         if (!suffix) {
             suffix = n00b_cached_empty_string();
         }
-        random_string = n00b_cformat("[|#|][|#|][|#|]",
+        random_string = n00b_cformat("«#»«#»«#»",
                                      prefix,
                                      random_string,
                                      suffix);
@@ -786,7 +786,7 @@ n00b_rename(n00b_string_t *from, n00b_string_t *to)
             ext = n00b_string_concat(n00b_cached_period(), ext);
         }
         do {
-            to = n00b_cformat("[|#|].[|#|][|#|]", base, ++i, ext);
+            to = n00b_cformat("«#».«#»«#»", base, ++i, ext);
         } while (n00b_file_exists(to));
     }
 
@@ -859,7 +859,7 @@ _n00b_list_directory(n00b_string_t *dir, ...)
     }
 
     if (extension && extension->codepoints && extension->data[0] != '.') {
-        extension = n00b_cformat(".[|#|]", extension);
+        extension = n00b_cformat(".«#»", extension);
     }
 
     n00b_list_t *result = n00b_list(n00b_type_string());
