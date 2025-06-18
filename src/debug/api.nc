@@ -1,14 +1,10 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static pthread_once_t debug_namespace_init = PTHREAD_ONCE_INIT;
-static n00b_dict_t   *debug_namespace;
-
-static void
-setup_namespace(void)
+static once n00b_dict_t *
+get_debug_namespace(void)
 {
-    n00b_gc_register_root(&debug_namespace, 1);
-    debug_namespace = n00b_dict(n00b_type_string(), n00b_type_ref());
+    return n00b_dict(n00b_type_string(), n00b_type_ref());
 }
 
 static void *
@@ -29,17 +25,14 @@ start_debug_workflow(n00b_topic_info_t *tinfo, void *payload, void *unused)
 n00b_stream_t *
 n00b_get_debug_topic(n00b_string_t *name)
 {
-    pthread_once(&debug_namespace_init, setup_namespace);
+    n00b_dict_t *ns = get_debug_namespace();
 
-    n00b_stream_t *result = hatrack_dict_get(debug_namespace, name, NULL);
+    n00b_stream_t *result = hatrack_dict_get(ns, name, NULL);
     if (result) {
         return result;
     }
 
-    return _n00b_create_topic_stream(name,
-                                     debug_namespace,
-                                     start_debug_workflow,
-                                     NULL);
+    return _n00b_create_topic_stream(name, ns, start_debug_workflow, NULL);
 }
 
 void

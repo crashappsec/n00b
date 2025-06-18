@@ -34,8 +34,6 @@ static struct pollfd pollset[1] = {
     },
 };
 
-pthread_once_t n00b_signals_inited = PTHREAD_ONCE_INIT;
-
 static void *
 n00b_signal_monitor(void *ignore)
 {
@@ -87,8 +85,8 @@ n00b_signal_monitor(void *ignore)
     }
 }
 
-void
-n00b_setup_signals(void)
+once void
+n00b_init_signals(void)
 {
     n00b_signal_stack.ss_sp   = mmap(NULL,
                                    SIGSTKSZ,

@@ -102,12 +102,28 @@ typedef struct {
     kw_use_ctx_t *kw_stack;
 } xform_t;
 
+typedef struct {
+    int   nitems;
+    void *items[];
+} list_t;
+
+static inline list_t *
+list_alloc(int nitems)
+{
+    list_t *result = calloc(1, sizeof(list_t) + sizeof(void *) * nitems);
+    result->nitems = nitems;
+
+    return result;
+}
+
 // In utils.c
-extern buf_t *concat(buf_t *, char *, int);
-extern buf_t *concat_static(buf_t *, char *);
-extern buf_t *read_file(char *);
-extern tok_t *alloc_tokens(buf_t *);
-extern int    count_newlines(lex_t *, tok_t *);
+extern buf_t  *concat(buf_t *, char *, int);
+extern buf_t  *concat_static(buf_t *, char *);
+extern buf_t  *read_file(char *);
+extern tok_t  *alloc_tokens(buf_t *);
+extern int     count_newlines(lex_t *, tok_t *);
+extern list_t *get_wrapper_actuals(xform_t *, int, int);
+extern char   *join(list_t *, char *);
 
 // In output.c
 // First one is for debugging the token stream.
@@ -123,6 +139,7 @@ extern tok_t *backup(xform_t *, bool);
 extern bool   id_check(char *, buf_t *, int, int);
 extern char  *extract(buf_t *, tok_t *);
 extern int    scan_back(xform_t *, int, ttype_t, char *);
+extern int    scan_forward(xform_t *, int, ttype_t, char *);
 extern tok_t *cur_tok(xform_t *);
 extern tok_t *lookahead(xform_t *, int);
 extern tok_t *lookbehind(xform_t *, int);
@@ -131,8 +148,12 @@ extern tok_t *lookbehind(xform_t *, int);
 extern bool   apply_transforms(lex_t *);
 extern void   finish_rewrite(xform_t *, bool);
 extern char  *extract_line(xform_t *, tok_t *);
+extern char  *extract_range(xform_t *, int, int);
 extern tok_t *skip_forward_to_punct(xform_t *, char);
 
 // In x_keyword.c
 extern bool keyword_xform(xform_t *, tok_t *);
 extern void kw_tracking(xform_t *, tok_t *);
+
+// x_once.c
+extern void once_xform(xform_t *, tok_t *);

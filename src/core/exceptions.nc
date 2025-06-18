@@ -2,7 +2,6 @@
 #include "n00b.h"
 
 static void (*uncaught_handler)(n00b_exception_t *) = n00b_exception_uncaught;
-static pthread_once_t exceptions_inited             = PTHREAD_ONCE_INIT;
 
 static void
 exception_init(n00b_exception_t *exception, va_list args)
@@ -93,7 +92,7 @@ n00b_exception_register_uncaught_handler(void (*handler)(n00b_exception_t *))
     uncaught_handler = handler;
 }
 
-static void
+static once void
 n00b_exception_thread_start(void)
 {
     uncaught_handler = n00b_default_uncaught_handler;
@@ -105,7 +104,7 @@ n00b_exception_push_frame(jmp_buf *jbuf)
     n00b_exception_frame_t *frame;
     n00b_tsi_t             *tsi = n00b_get_tsi_ptr();
 
-    pthread_once(&exceptions_inited, n00b_exception_thread_start);
+    n00b_exception_thread_start();
 
     if (tsi->exception_stack.free_frames) {
         frame                            = tsi->exception_stack.free_frames;

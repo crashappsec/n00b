@@ -1,20 +1,10 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static n00b_dict_t   *n00b_default_namespace = NULL;
-static pthread_once_t topic_init             = PTHREAD_ONCE_INIT;
-
-static void
-setup_default_namespace(void)
+static once n00b_dict_t *
+get_default_namespace(void)
 {
-    n00b_gc_register_root(&n00b_default_namespace, 1);
-    n00b_default_namespace = n00b_dict(n00b_type_string(), n00b_type_ref());
-}
-
-static inline void
-topics_init(void)
-{
-    pthread_once(&topic_init, setup_default_namespace);
+    return n00b_dict(n00b_type_string(), n00b_type_ref());
 }
 
 static int
@@ -80,12 +70,10 @@ _n00b_create_topic_stream(n00b_string_t *name,
     n00b_list_t   *filters;
     n00b_stream_t *result;
 
-    topics_init();
-
     n00b_build_filter_list(filters, param);
 
     if (!ns) {
-        ns = n00b_default_namespace;
+        ns = get_default_namespace();
     }
 
     n00b_list_append(args, name);
@@ -107,14 +95,12 @@ _n00b_create_topic_stream(n00b_string_t *name,
 n00b_stream_t *
 _n00b_get_topic_stream(n00b_string_t *name, ...)
 {
-    topics_init();
-
     va_list args;
     va_start(args, name);
     n00b_dict_t *ns = va_arg(args, n00b_dict_t *);
 
     if (!ns) {
-        ns = n00b_default_namespace;
+        ns = get_default_namespace();
     }
 
     n00b_stream_t *res = hatrack_dict_get(ns, name, NULL);

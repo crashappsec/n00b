@@ -571,6 +571,30 @@ scan_back(xform_t *ctx, int tok_ix, ttype_t type, char *match)
     return -1;
 }
 
+int
+scan_forward(xform_t *ctx, int tok_ix, ttype_t type, char *match)
+{
+    while (tok_ix < ctx->max) {
+        tok_t *t = &ctx->toks[tok_ix];
+
+        if (t->type != type) {
+            tok_ix++;
+            continue;
+        }
+
+        char *part = extract(ctx->input, t);
+        if (!strcmp(part, match)) {
+            free(part);
+            return tok_ix;
+        }
+
+        free(part);
+        tok_ix++;
+    }
+
+    return -1;
+}
+
 tok_t *
 advance(xform_t *ctx, bool skip_ws)
 {

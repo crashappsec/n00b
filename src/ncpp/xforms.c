@@ -10,6 +10,13 @@ try_id_xforms(xform_t *ctx)
         return keyword_xform(ctx, t);
     }
 
+    if (id_check("once", ctx->input, t->offset, t->len)) {
+        // The xform sets the rewrite start; it scans backwards so that
+        // `once` may appear in any reasonable order.
+        once_xform(ctx, t);
+        return true;
+    }
+
     ctx->ix++;
     return true;
 }
@@ -66,6 +73,30 @@ extract_line(xform_t *ctx, tok_t *t)
 
     char *result = calloc(1, p - start + 1);
     memcpy(result, start, p - start);
+
+    return result;
+}
+
+char *
+extract_range(xform_t *ctx, int start_ix, int end_ix)
+{
+    int    start_offset;
+    int    end_offset;
+    tok_t *st = &ctx->toks[start_ix];
+
+    start_offset = st->offset;
+
+    if (end_ix >= ctx->max) {
+        end_offset = ctx->input->len;
+    }
+    else {
+        st         = &ctx->toks[end_ix];
+        end_offset = st->offset;
+    }
+
+    int   len    = end_offset - start_offset;
+    char *result = calloc(1, len + 1);
+    memcpy(result, &ctx->input->data[start_offset], len);
 
     return result;
 }

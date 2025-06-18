@@ -32,7 +32,7 @@ typedef struct {
 #define N00B_GTS_POLL_DURATION_NS 100000
 
 #ifdef N00B_USE_INTERNAL_API
-N00B_ONCE_PROTO(n00b_threading_setup);
+extern /*once*/ void  n00b_threading_setup(void);
 extern n00b_thread_t *n00b_thread_list_acquire(void);
 extern void           n00b_thread_list_release(void);
 extern bool           n00b_current_process_is_exiting(void);

@@ -8,7 +8,8 @@ n00b_event_loop_t *n00b_system_dispatcher = NULL;
 n00b_condition_t   n00b_io_exit_request;
 bool               n00b_io_exited = false;
 
-N00B_ONCE(n00b_fd_init_io)
+void once
+n00b_fd_init_io(void)
 {
     n00b_named_lock_init(&n00b_io_exit_request, N00B_NLT_CV, "exit");
     n00b_gc_register_root(&n00b_system_dispatcher, 1);

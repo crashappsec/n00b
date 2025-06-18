@@ -48,6 +48,7 @@ ncpp_exe = executable(
     'src/ncpp/output.c',
     'src/ncpp/xforms.c',
     'src/ncpp/x_keyword.c',
+    'src/ncpp/x_once.c',    
   ],
   c_args: [     '-Wextra',
     '-g',
