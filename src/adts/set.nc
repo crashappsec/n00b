@@ -10,24 +10,26 @@ n00b_set_init(n00b_set_t *set, va_list args)
         hatrack_hash_func_t custom_hash = NULL;
     }
 
-    size_t          hash_fn;
-    n00b_type_t    *stype = n00b_get_my_type(set);
+    size_t          hash_fn = HATRACK_DICT_KEY_TYPE_INT;
+    n00b_type_t    *stype   = n00b_get_my_type(set);
     n00b_dt_info_t *info;
 
     stype = n00b_list_get(n00b_type_get_params(stype), 0, NULL);
-    info  = n00b_type_get_data_type_info(stype);
 
-    switch (info->typeid) {
-    case N00B_T_REF:
-        hash_fn = HATRACK_DICT_KEY_TYPE_OBJ_PTR;
-        break;
-    case N00B_T_STRING:
-    case N00B_T_REGEX:
-        custom_hash = (hatrack_hash_func_t)n00b_custom_string_hash;
-        break;
-    default:
-        hash_fn = info->hash_fn;
-        break;
+    if (stype) {
+        info = n00b_type_get_data_type_info(stype);
+
+        switch (info->typeid) {
+        case N00B_T_REF:
+            hash_fn = HATRACK_DICT_KEY_TYPE_OBJ_PTR;
+            break;
+        case N00B_T_STRING:
+        case N00B_T_REGEX:
+            custom_hash = (hatrack_hash_func_t)n00b_custom_string_hash;
+            break;
+        default:
+            break;
+        }
     }
 
     if (custom_hash != NULL) {

@@ -187,19 +187,31 @@ n00b_new_unmanaged_dict(size_t hash, bool trace_keys, bool trace_vals)
 static void
 n00b_dict_init(n00b_dict_t *dict, va_list args)
 {
-    size_t          hash_fn;
-    n00b_list_t    *type_params;
-    n00b_type_t    *key_type;
-    n00b_type_t    *value_type;
-    n00b_dt_info_t *info;
-    n00b_type_t    *n00b_dict_type = n00b_get_my_type(dict);
+    size_t       hash_fn;
+    n00b_list_t *type_params;
+    n00b_type_t *key_type;
+    n00b_type_t *value_type;
+    n00b_type_t *n00b_dict_type = n00b_get_my_type(dict);
 
     if (n00b_dict_type != NULL) {
         type_params = n00b_type_get_params(n00b_dict_type);
         key_type    = n00b_private_list_get(type_params, 0, NULL);
         value_type  = n00b_private_list_get(type_params, 1, NULL);
-        info        = n00b_type_get_data_type_info(key_type);
-        hash_fn     = info->hash_fn;
+
+        if (n00b_type_is_string(key_type) || n00b_type_is_regex(key_type)
+            || n00b_type_is_buffer(key_type)) {
+            hash_fn = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM;
+        }
+        else {
+            if (n00b_type_is_int_type(key_type)
+                || n00b_type_is_float_type(key_type)
+                || n00b_type_is_ref(key_type)) {
+                hash_fn = HATRACK_DICT_KEY_TYPE_INT;
+            }
+            else {
+                hash_fn = HATRACK_DICT_KEY_TYPE_OBJ_PTR;
+            }
+        }
     }
     else {
         hash_fn = va_arg(args, size_t);

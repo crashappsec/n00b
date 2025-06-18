@@ -42,7 +42,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_type_t),
         .vtable    = &n00b_type_spec_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_INTERNAL_TLIST] = {
         // Used to represent the type of lists of types inside type objects
@@ -61,7 +60,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 1,
         .vtable    = &n00b_bool_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_I8] = {
@@ -70,7 +68,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 1,
         .vtable    = &n00b_i8_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_BYTE] = {
@@ -79,7 +76,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 1,
         .vtable    = &n00b_u8_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_I32] = {
@@ -88,7 +84,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 4,
         .vtable    = &n00b_i32_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_CHAR] = {
@@ -97,7 +92,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 4,
         .vtable    = &n00b_u32_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_U32] = {
@@ -106,7 +100,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 4,
         .vtable    = &n00b_u32_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_INT] = {
@@ -115,7 +108,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 8,
         .vtable    = &n00b_i64_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_UINT] = {
@@ -124,7 +116,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 8,
         .vtable    = &n00b_u64_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_INT,
         .by_value  = true,
     },
     [N00B_T_F32] = {
@@ -133,7 +124,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 4,
         .vtable    = &n00b_float_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_REAL,
         .by_value  = true,
     },
     [N00B_T_F64] = {
@@ -142,7 +132,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = 8,
         .vtable    = &n00b_float_type,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_REAL,
         .by_value  = true,
     },
     [N00B_T_STRING] = {
@@ -151,7 +140,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_string_t),
         .vtable    = &n00b_string_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
         .mutable   = false,
     },
     [N00B_T_BUFFER] = {
@@ -160,7 +148,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_buf_t),
         .vtable    = &n00b_buffer_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
         .mutable   = true,
     },
     [N00B_T_LIST] = {
@@ -169,7 +156,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_list_t),
         .vtable    = &n00b_list_vtable,
         .dt_kind   = N00B_DT_KIND_list,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_TUPLE] = {
@@ -178,7 +164,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_tuple_t),
         .vtable    = &n00b_tuple_vtable,
         .dt_kind   = N00B_DT_KIND_tuple,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_DICT] = {
@@ -187,7 +172,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_dict_t),
         .vtable    = &n00b_dict_vtable,
         .dt_kind   = N00B_DT_KIND_dict,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_SET] = {
@@ -196,7 +180,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_set_t),
         .vtable    = &n00b_set_vtable,
         .dt_kind   = N00B_DT_KIND_dict,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_IPV4] = {
@@ -205,7 +188,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = &n00b_ipaddr_vtable,
         .alloc_len = sizeof(n00b_net_addr_t),
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_DURATION] = {
         .name      = "Duration",
@@ -213,7 +195,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = &n00b_duration_vtable,
         .alloc_len = sizeof(struct timespec),
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_SIZE] = {
         .name      = "Size",
@@ -221,7 +202,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = &n00b_size_vtable,
         .alloc_len = sizeof(n00b_size_t),
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_DATETIME] = {
         .name      = "Datetime",
@@ -229,7 +209,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = &n00b_datetime_vtable,
         .alloc_len = sizeof(n00b_date_time_t),
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_DATE] = {
         .name      = "Date",
@@ -237,7 +216,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = &n00b_date_vtable,
         .alloc_len = sizeof(n00b_date_time_t),
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_TIME] = {
         .name      = "Time",
@@ -245,13 +223,11 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = &n00b_time_vtable,
         .alloc_len = sizeof(n00b_date_time_t),
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_URL] = {
         .name    = "Url",
         .typeid  = N00B_T_URL,
         .dt_kind = N00B_DT_KIND_primitive,
-        .hash_fn = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_FLAGS] = {
         .name      = "Flags",
@@ -259,7 +235,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_flags_t),
         .vtable    = &n00b_flags_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_CALLBACK] = {
@@ -268,7 +243,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_zcallback_t),
         .vtable    = &n00b_callback_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_QUEUE] = {
         .name      = "Queue",
@@ -276,7 +250,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(queue_t),
         .vtable    = &n00b_queue_vtable,
         .dt_kind   = N00B_DT_KIND_list,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_RING] = {
@@ -285,7 +258,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(hatring_t),
         .vtable    = &n00b_ring_vtable,
         .dt_kind   = N00B_DT_KIND_list,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_LOGRING] = {
@@ -294,7 +266,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(logring_t),
         .vtable    = &n00b_logring_vtable,
         .dt_kind   = N00B_DT_KIND_list,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_STACK] = {
@@ -303,7 +274,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(stack_t),
         .vtable    = &n00b_stack_vtable,
         .dt_kind   = N00B_DT_KIND_list,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_FLIST] = {
@@ -312,7 +282,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(flexarray_t),
         .vtable    = &n00b_flexarray_vtable,
         .dt_kind   = N00B_DT_KIND_list,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_SHA] = {
         .name      = "Hash",
@@ -320,7 +289,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_sha_t),
         .vtable    = &n00b_sha_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_EXCEPTION] = {
@@ -329,7 +297,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_exception_t),
         .vtable    = &n00b_exception_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_TREE] = {
         .name      = "Tree",
@@ -337,7 +304,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_tree_node_t),
         .vtable    = &n00b_tree_vtable,
         .dt_kind   = N00B_DT_KIND_list,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_FUNCDEF] = {
@@ -361,7 +327,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(void *),
         .typeid    = N00B_T_REF,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_PTR,
     },
     [N00B_T_TRUE_REF] = {
         // Language-level references, which point to either another object,
@@ -372,7 +337,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(void *),
         .typeid    = N00B_T_TRUE_REF,
         .dt_kind   = N00B_DT_KIND_type_var,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_PTR,
     },
     // This is just for when internal memory gets
     // exposed to the outside; we'll assign refs to it this type.
@@ -380,7 +344,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .name      = "internal",
         .alloc_len = sizeof(void *),
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_PTR,
         .by_value  = true,
 
     },
@@ -394,14 +357,12 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(void *),
         .vtable    = &n00b_mixed_vtable,
         .dt_kind   = N00B_DT_KIND_type_var,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_KEYWORD] = {
         .name      = "keyword",
         .typeid    = N00B_T_KEYWORD,
         .alloc_len = sizeof(n00b_karg_info_t),
         .dt_kind   = N00B_DT_KIND_internal,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_VM] = {
         .name      = "vm",
@@ -416,7 +377,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_pnode_t),
         .vtable    = &n00b_parse_node_vtable,
         .dt_kind   = N00B_DT_KIND_internal,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     // Used to represent the type of single bit objects, which
     // basically only applies to bitfields.
@@ -435,7 +395,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_I8] = {
         .name      = "box",
@@ -443,7 +402,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_BYTE] = {
         .name      = "box",
@@ -451,7 +409,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_I32] = {
         .name      = "box",
@@ -459,7 +416,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_CHAR] = {
         .name      = "box",
@@ -467,7 +423,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_U32] = {
         .name      = "box",
@@ -475,7 +430,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_INT] = {
         .name      = "box",
@@ -483,7 +437,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_UINT] = {
         .name      = "box",
@@ -491,7 +444,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_F32] = {
         .name      = "box",
@@ -499,7 +451,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_BOX_F64] = {
         .name      = "box",
@@ -507,7 +458,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = &n00b_box_vtable,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
     },
     [N00B_T_HTTP] = {
         .name      = "Http",
@@ -515,7 +465,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_basic_http_t),
         .vtable    = &n00b_basic_http_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_PARSER] = {
@@ -524,7 +473,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_parser_t),
         .vtable    = &n00b_parser_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_GRAMMAR] = {
@@ -533,7 +481,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_grammar_t),
         .vtable    = &n00b_grammar_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_TERMINAL] = {
@@ -542,7 +489,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_terminal_t),
         .vtable    = &n00b_terminal_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_RULESET] = {
@@ -551,7 +497,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_nonterm_t),
         .vtable    = &n00b_nonterm_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_GOPT_PARSER] = {
@@ -560,7 +505,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_gopt_ctx),
         .vtable    = &n00b_gopt_parser_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_GOPT_COMMAND] = {
@@ -569,8 +513,8 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_gopt_cspec),
         .vtable    = &n00b_gopt_command_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
-        .mutable   = true,
+
+        .mutable = true,
     },
     [N00B_T_GOPT_OPTION] = {
         .name      = "Getopt_option",
@@ -578,7 +522,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_goption_t),
         .vtable    = &n00b_gopt_option_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_MUTEX] = {
@@ -587,7 +530,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_mutex_t),
         .vtable    = &n00b_mutex_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_RW_LOCK] = {
@@ -596,7 +538,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_rwlock_t),
         .vtable    = &n00b_rwlock_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_CONDITION] = {
@@ -605,7 +546,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_condition_t),
         .vtable    = &n00b_condition_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     // not alloc'd this way, right now.
@@ -615,7 +555,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = VARIABLE_ALLOC_SZ,
         .vtable    = &n00b_stream_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_BYTERING] = {
@@ -624,7 +563,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_bytering_t),
         .vtable    = &n00b_bytering_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_TEXT_ELEMENT] = {
@@ -633,7 +571,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_text_element_t),
         .vtable    = &n00b_text_element_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_BOX_PROPS] = {
@@ -642,7 +579,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_box_props_t),
         .vtable    = &n00b_box_props_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_THEME] = {
@@ -651,7 +587,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_theme_t),
         .vtable    = &n00b_theme_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_TABLE] = {
@@ -660,7 +595,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_table_t),
         .vtable    = &n00b_table_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
 
     },
@@ -670,7 +604,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_regex_t),
         .vtable    = &n00b_regex_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_CUSTOM,
         .mutable   = true,
     },
     [N00B_T_SESSION] = {
@@ -679,7 +612,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_session_t),
         .vtable    = &n00b_session_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_SESSION_STATE] = {
@@ -688,7 +620,6 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_list_t),
         .vtable    = &n00b_session_state_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = true,
     },
     [N00B_T_SESSION_TRIGGER] = {
@@ -697,10 +628,8 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = sizeof(n00b_trigger_t),
         .vtable    = &n00b_session_trigger_vtable,
         .dt_kind   = N00B_DT_KIND_primitive,
-        .hash_fn   = HATRACK_DICT_KEY_TYPE_OBJ_PTR,
         .mutable   = false,
     },
-
 };
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)

@@ -74,6 +74,7 @@ typedef enum {
     N00B_BI_CONTAINER_LIT,
     N00B_BI_GC_MAP,
     N00B_BI_RENDER,
+    N00B_BI_HASH,
     N00B_BI_NUM_FUNCS,
 } n00b_builtin_type_fn;
 
@@ -183,7 +184,6 @@ typedef struct {
     const char         *name;
     const uint64_t      typeid;
     const n00b_vtable_t *vtable;
-    const uint32_t      hash_fn;
     const uint32_t      alloc_len; // How much space to allocate.
     const n00b_dt_kind_t dt_kind;
     const bool          by_value : 1;

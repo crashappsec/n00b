@@ -338,6 +338,7 @@ n00b_text = [
 n00b_adts = [
     'src/adts/buffer.nc',
     'src/adts/dict.nc',
+    'src/adts/ht.nc',     # Replacement dicts.
     'src/adts/set.nc',
     'src/adts/hatlists.nc',
     'src/adts/list.nc',

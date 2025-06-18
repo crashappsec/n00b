@@ -138,6 +138,7 @@ extern bool n00b_gc_inited;
 
 #include "text/color.h"
 #include "adts/list.h"
+#include "adts/hash.h"
 
 // Type system API.
 #include "core/typestore.h"

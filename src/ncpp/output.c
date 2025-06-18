@@ -165,6 +165,11 @@ output_new_file(lex_t *state, char *fname)
         return false;
     }
 
+#if !defined(SKIP_LINE_DIRECTIVES)
+    write_line_directive(f, state->in_file, 1);
+    out_line_no++;
+#endif
+
     for (int i = 0; i < state->num_toks; i++) {
         tok_t *t    = &state->toks[i];
         tok_t *prev = i ? &state->toks[i - 1] : NULL;
