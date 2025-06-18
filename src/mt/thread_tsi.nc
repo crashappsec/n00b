@@ -92,7 +92,8 @@ n00b_thread_cancel_other_threads(void)
     }
 }
 
-N00B_ONCE(n00b_threading_setup)
+once void
+n00b_threading_setup(void)
 {
     pthread_key_create(&n00b_static_tsi_key, NULL);
     mmm_setthreadfns((void *)n00b_mmm_get_tsi, NULL);

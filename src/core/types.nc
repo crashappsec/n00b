@@ -224,7 +224,7 @@ n00b_thread_release_typevar(void *arg)
     pthread_setspecific(n00b_tvar_next_key, NULL);
 }
 
-static void
+static once void
 n00b_initialize_next_typevar_fn(void)
 {
     pthread_key_create(&n00b_tvar_start_key, n00b_thread_release_typevar);
@@ -237,8 +237,7 @@ n00b_initialize_next_typevar_fn(void)
 static uint64_t
 n00b_default_next_typevar(void)
 {
-    static pthread_once_t init = PTHREAD_ONCE_INIT;
-    pthread_once(&init, n00b_initialize_next_typevar_fn);
+    n00b_initialize_next_typevar_fn();
 
     uint64_t tid = (uint64_t)pthread_getspecific(n00b_tvar_next_key);
     pthread_setspecific(n00b_tvar_next_key, (void *)(tid + 1));

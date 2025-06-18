@@ -1,17 +1,9 @@
 #include "n00b.h"
 
-static pthread_once_t init = PTHREAD_ONCE_INIT;
-
-static void
+static once void
 init_curl(void)
 {
     curl_global_init(CURL_GLOBAL_ALL);
-}
-
-static inline void
-ensure_curl(void)
-{
-    pthread_once(&init, init_curl);
 }
 
 static char *
@@ -188,7 +180,7 @@ n00b_basic_http_init(n00b_basic_http_t *self, va_list args)
         n00b_stream_t *output_stream   = NULL;
     }
 
-    ensure_curl();
+    init_curl();
     n00b_lock_init(&self->lock, N00B_NLT_MUTEX);
 
     // TODO: Do these in the near future (after objects)

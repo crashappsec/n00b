@@ -138,24 +138,20 @@ n00b_termcap_apply_app_defaults(struct termios *termcap)
     termcap->c_iflag = IUTF8;
 }
 
-pthread_once_t termcap_save = PTHREAD_ONCE_INIT;
-
 struct termios starting_termcap;
-bool           termcap_stashed = false;
 static void    stash_termcap(void);
 
 static void
 restore_termcap(void)
 {
-    pthread_once(&termcap_save, stash_termcap);
+    stash_termcap();
     n00b_termcap_set(&starting_termcap);
 }
 
-static void
+static once void
 stash_termcap(void)
 {
     n00b_termcap_get(&starting_termcap);
-    termcap_stashed = true;
     n00b_add_exit_handler(restore_termcap);
 }
 
@@ -163,8 +159,8 @@ void
 n00b_terminal_raw_mode(void)
 {
     struct termios tc;
-    pthread_once(&termcap_save, stash_termcap);
 
+    stash_termcap();
     n00b_termcap_get(&tc);
     n00b_termcap_apply_raw_mode(&tc);
     n00b_termcap_set(&tc);
@@ -178,9 +174,24 @@ n00b_terminal_app_setup(void)
     n00b_unbuffer_stdout();
     n00b_unbuffer_stderr();
 
-    pthread_once(&termcap_save, stash_termcap);
-
+    stash_termcap();
     n00b_termcap_get(&tc);
     n00b_termcap_apply_app_defaults(&tc);
     n00b_termcap_set(&tc);
+}
+
+once void
+n00b_lookup_from_env(void)
+{
+    int64_t        val;
+    n00b_string_t *s = n00b_get_env(n00b_cstring("COLS"));
+
+    if (!s) {
+        return;
+    }
+
+    if (n00b_parse_int64(s, &val) && !(val & ~0x0fff)) {
+        cols_from_env = val;
+    }
+    return;
 }

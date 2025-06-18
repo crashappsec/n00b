@@ -78,7 +78,6 @@ typedef struct n00b_lock_log_t         n00b_lock_log_t;
 #endif
 
 #include "mt/futex.h"
-#include "mt/once.h"
 #include "mt/gil.h"
 #include "adts/dt_box.h"
 #include "core/dt_kargs.h"

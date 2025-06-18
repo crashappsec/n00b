@@ -22,8 +22,6 @@ static pthread_once_t    server_attempted             = PTHREAD_ONCE_INIT;
 static pthread_once_t    logfile_attempted            = PTHREAD_ONCE_INIT;
 bool                     n00b_local_process_is_server = false;
 
-pthread_once_t workflow_setup = PTHREAD_ONCE_INIT;
-
 void
 n00b_set_default_debug_flow(n00b_db_rule_t *rule)
 {
@@ -103,7 +101,7 @@ install_server_default(void)
     n00b_drule_logfile(default_workflow);
 }
 
-static void
+static void once
 init_db_workflow(void)
 {
     n00b_gc_register_root(&topic_workflows, 1);
@@ -124,7 +122,7 @@ init_db_workflow(void)
 n00b_db_rule_t *
 n00b_get_topic_workflow(n00b_string_t *topic)
 {
-    pthread_once(&workflow_setup, init_db_workflow);
+    init_db_workflow();
     n00b_db_rule_t *result = hatrack_dict_get(topic_workflows, topic, NULL);
 
     if (result) {
@@ -357,7 +355,7 @@ handle_formatter(n00b_db_rule_t *cur, n00b_debug_msg_t *msg)
 void
 n00b_apply_debug_workflow(n00b_debug_msg_t *msg)
 {
-    pthread_once(&workflow_setup, init_db_workflow);
+    init_db_workflow();
     n00b_db_rule_t *workflow = hatrack_dict_get(topic_workflows,
                                                 msg->topic,
                                                 NULL);

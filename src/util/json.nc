@@ -10,8 +10,7 @@
 
 // Naive translation of the official grammar; can optimize later.
 
-n00b_grammar_t       *n00b_json_grammar = NULL;
-static pthread_once_t json_inited       = PTHREAD_ONCE_INIT;
+n00b_grammar_t *n00b_json_grammar = NULL;
 
 #define ntpi(s)           n00b_pitem_nonterm_raw(n00b_json_grammar, n00b_cstring(s))
 #define ntobj(s)          n00b_pitem_get_ruleset(n00b_json_grammar, s)
@@ -368,8 +367,8 @@ json_walk_ws(n00b_parse_node_t *n, n00b_list_t *l, void *ignore)
     return NULL;
 }
 
-static void
-json_init_once(void)
+static void once
+n00b_json_init(void)
 {
     n00b_gc_register_root(&n00b_json_grammar, 1);
 
@@ -486,12 +485,6 @@ json_init_once(void)
     n00b_nonterm_set_walk_action(ntobj(exponent), json_walk_exponent);
     n00b_nonterm_set_walk_action(ntobj(sign), json_walk_sign);
     n00b_nonterm_set_walk_action(ntobj(ws), json_walk_ws);
-}
-
-static inline void
-n00b_json_init(void)
-{
-    pthread_once(&json_inited, json_init_once);
 }
 
 void *

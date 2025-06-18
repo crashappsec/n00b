@@ -1,12 +1,11 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
 
-static bool           stream_debugging_on = true;
-static bool           stream_cleanup      = true;
-static n00b_list_t   *stream_registry;
-static pthread_once_t stream_debug = PTHREAD_ONCE_INIT;
+static bool         stream_debugging_on = true;
+static bool         stream_cleanup      = true;
+static n00b_list_t *stream_registry;
 
-static void
+static once void
 stream_debug_setup(void)
 {
     n00b_gc_register_root(&stream_registry, 1);
@@ -19,7 +18,8 @@ n00b_stream_debug_register(n00b_stream_t *stream)
     if (!stream_debugging_on) {
         return;
     }
-    pthread_once(&stream_debug, stream_debug_setup);
+
+    stream_debug_setup();
 
     n00b_list_append(stream_registry, stream);
 }

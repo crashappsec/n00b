@@ -232,8 +232,8 @@ extern bool              n00b_handle_one_read(n00b_fd_stream_t *);
 extern bool              n00b_handle_one_write(n00b_fd_stream_t *);
 extern void              n00b_end_system_io(void);
 
-extern n00b_dict_t *n00b_fd_cache;
-N00B_ONCE_PROTO(n00b_fd_init_io);
+extern n00b_dict_t    *n00b_fd_cache;
+extern /* once */ void n00b_fd_init_io(void);
 
 // We don't expect a lot of contention, so we just use simple spin
 // locks.

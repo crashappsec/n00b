@@ -16,29 +16,27 @@ n00b_set_current_directory(n00b_string_t *s)
     return chdir(s->data) == 0;
 }
 
-static n00b_string_t *n00b_base_tmp_dir;
-static pthread_once_t tmpdir_setup = PTHREAD_ONCE_INIT;
-
-static void
+static once n00b_string_t *
 n00b_acquire_base_tmp_dir(void)
 {
-    n00b_gc_register_root(&n00b_base_tmp_dir, 1);
-    if ((n00b_base_tmp_dir = n00b_get_env(n00b_cstring("TMPDIR")))) {
-        return;
+    n00b_string_t *s;
+
+    if ((s = n00b_get_env(n00b_cstring("TMPDIR")))) {
+        return s;
     }
-    if ((n00b_base_tmp_dir = n00b_get_env(n00b_cstring("TMP")))) {
-        return;
+    if ((s = n00b_get_env(n00b_cstring("TMP")))) {
+        return s;
     }
-    if ((n00b_base_tmp_dir = n00b_get_env(n00b_cstring("TEMP")))) {
-        return;
+    if ((s = n00b_get_env(n00b_cstring("TEMP")))) {
+        return s;
     }
-    n00b_base_tmp_dir = n00b_cstring("/tmp/");
+    return n00b_cstring("/tmp/");
 }
 
 static inline n00b_string_t *
 construct_random_name(n00b_string_t *prefix, n00b_string_t *suffix)
 {
-    pthread_once(&tmpdir_setup, n00b_acquire_base_tmp_dir);
+    n00b_string_t *n00b_base_tmp_dir = n00b_acquire_base_tmp_dir();
 
     uint64_t       bytes         = n00b_rand64();
     n00b_string_t *random_string = n00b_bytes_to_hex((char *)&bytes, 8);
@@ -73,8 +71,7 @@ n00b_new_temp_dir(n00b_string_t *prefix, n00b_string_t *suffix)
 n00b_string_t *
 n00b_get_temp_root(void)
 {
-    pthread_once(&tmpdir_setup, n00b_acquire_base_tmp_dir);
-    return n00b_base_tmp_dir;
+    return n00b_acquire_base_tmp_dir();
 }
 
 void *
