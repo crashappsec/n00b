@@ -144,7 +144,7 @@ n00b_add_static_function(n00b_string_t *name, void *symbol)
     ffi_init();
 
     name = n00b_string_copy(name);
-    hatrack_dict_put(n00b_symbol_cache, name, symbol);
+    n00b_dict_put(n00b_symbol_cache, name, symbol);
 }
 
 void *
@@ -152,7 +152,7 @@ n00b_ffi_find_symbol(n00b_string_t *name, n00b_list_t *opt_libs)
 {
     ffi_init();
 
-    void *ptr = hatrack_dict_get(n00b_symbol_cache, name, NULL);
+    void *ptr = n00b_dict_get(n00b_symbol_cache, name, NULL);
 
     if (ptr != NULL) {
         return ptr;

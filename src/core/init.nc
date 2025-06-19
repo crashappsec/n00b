@@ -101,8 +101,8 @@ load_env(n00b_dict_t *environment_vars)
         n00b_string_t *key   = n00b_utf8(item, len1);
         n00b_string_t *value = n00b_cstring(val);
 
-        hatrack_dict_put(environment_vars, key, value);
-        n00b_assert(hatrack_dict_get(environment_vars, key, NULL) == value);
+        n00b_dict_put(environment_vars, key, value);
+        n00b_assert(n00b_dict_get(environment_vars, key, NULL) == value);
     }
     cached_environment_vars = environment_vars;
 }
@@ -116,7 +116,7 @@ n00b_get_env(n00b_string_t *name)
         load_env(cached_environment_vars);
     }
 
-    return hatrack_dict_get(cached_environment_vars, name, NULL);
+    return n00b_dict_get(cached_environment_vars, name, NULL);
 }
 
 void
@@ -125,7 +125,7 @@ n00b_set_env(n00b_string_t *name, n00b_string_t *value)
     if (setenv(name->data, value->data, 1)) {
         n00b_raise_errno();
     }
-    hatrack_dict_put(cached_environment_vars, name, value);
+    n00b_dict_put(cached_environment_vars, name, value);
 }
 
 bool
@@ -134,7 +134,7 @@ n00b_remove_env(n00b_string_t *name)
     bool result = !unsetenv(name->data);
 
     if (result) {
-        hatrack_dict_remove(cached_environment_vars, name);
+        n00b_dict_remove(cached_environment_vars, name);
     }
 
     return result;
@@ -201,15 +201,15 @@ n00b_init_path(void)
     // Going to have info on the VM type too.
     n00b_extensions = n00b_dict(n00b_type_string(), n00b_type_int());
 
-    hatrack_dict_add(n00b_extensions, n00b_cstring("n"), 0);
-    hatrack_dict_add(n00b_extensions, n00b_cstring("n00b"), 0);
+    n00b_dict_add(n00b_extensions, n00b_cstring("n"), 0);
+    n00b_dict_add(n00b_extensions, n00b_cstring("n00b"), 0);
 
     n00b_string_t *extra = n00b_get_env(n00b_cstring("N00B_SRC_EXTENSIONS"));
 
     if (extra != NULL) {
         parts = n00b_string_split(extra, n00b_cached_colon());
         for (int i = 0; i < n00b_list_len(parts); i++) {
-            hatrack_dict_put(n00b_extensions, n00b_list_get(parts, i, NULL), 0);
+            n00b_dict_put(n00b_extensions, n00b_list_get(parts, i, NULL), 0);
         }
     }
 
@@ -244,10 +244,9 @@ n00b_init_path(void)
 n00b_string_t *
 n00b_path_search(n00b_string_t *package, n00b_string_t *module)
 {
-    uint64_t        n_items;
-    n00b_string_t  *munged     = NULL;
-    n00b_string_t **extensions = (void *)hatrack_dict_keys_sort(n00b_extensions,
-                                                                &n_items);
+    n00b_string_t *munged     = NULL;
+    n00b_list_t   *extensions = (void *)n00b_dict_keys(n00b_extensions);
+    int            n_items    = n00b_list_len(extensions);
 
     if (package != NULL && n00b_string_codepoint_len(package) != 0) {
         n00b_list_t *parts = n00b_string_split(package, n00b_cached_period());
@@ -263,7 +262,7 @@ n00b_path_search(n00b_string_t *package, n00b_string_t *module)
             n00b_string_t *dir = n00b_list_get(n00b_path, i, NULL);
 
             for (int j = 0; j < (int)n_items; j++) {
-                n00b_string_t *ext = extensions[j];
+                n00b_string_t *ext = n00b_list_get(extensions, j, NULL);
                 n00b_string_t *s   = n00b_cformat("«#»/«#».«#»",
                                                 dir,
                                                 munged,
@@ -281,7 +280,7 @@ n00b_path_search(n00b_string_t *package, n00b_string_t *module)
         for (int i = 0; i < l; i++) {
             n00b_string_t *dir = n00b_list_get(n00b_path, i, NULL);
             for (int j = 0; j < (int)n_items; j++) {
-                n00b_string_t *ext = extensions[j];
+                n00b_string_t *ext = n00b_list_get(extensions, j, NULL);
                 n00b_string_t *s   = n00b_cformat("«#»/«#».«#»",
                                                 dir,
                                                 module,

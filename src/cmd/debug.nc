@@ -8,7 +8,7 @@
     {                                                                  \
         bool    found;                                                 \
         int64_t r;                                                     \
-        r = hatrack_dict_get(ctx->opts,                                \
+        r = n00b_dict_get(ctx->opts,                                \
                              n00b_cstring(n00b_fl_##option_base_name), \
                              &found)                                   \
          || (n00b_cmd_show_all(ctx) && !found);                        \

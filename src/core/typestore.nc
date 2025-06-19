@@ -7,74 +7,30 @@ void
 n00b_universe_init(n00b_type_universe_t *u)
 {
     // Start w/ 128 items.
-    u->dict = n00b_new_unmanaged_dict(HATRACK_DICT_KEY_TYPE_OBJ_INT,
-                                      true,
-                                      true);
-
+    u->dict = n00b_new_unmanaged_dict();
     atomic_store(&u->next_typeid, 1LLU << 63);
-}
-
-// The most significant bits stay 0.
-static inline void
-init_hv(hatrack_hash_t *hv, n00b_type_hash_t id)
-{
-#ifdef NO___INT128_T
-    hv->w1 = 0ULL;
-    hv->w2 = id;
-#else
-    *hv = id;
-#endif
 }
 
 n00b_type_t *
 n00b_universe_get(n00b_type_universe_t *u, n00b_type_hash_t typeid)
 {
-    hatrack_hash_t hv;
-
-    init_hv(&hv, typeid);
-
-    return crown_get_mmm(&u->dict->crown_instance,
-                         mmm_thread_acquire(),
-                         hv,
-                         NULL);
+    return n00b_dict_get(u->dict, typeid, NULL);
 }
 
 bool
 n00b_universe_add(n00b_type_universe_t *u, n00b_type_t *t)
 {
-    hatrack_hash_t hv;
-
-    init_hv(&hv, t->typeid);
     if (!t->typeid) {
         return false;
     }
 
-    n00b_assert(n00b_thread_self());
-
-    return crown_add_mmm(&u->dict->crown_instance,
-                         &n00b_thread_self()->mmm_info,
-                         hv,
-                         t);
+    return n00b_dict_add(u->dict, t->typeid, t);
 }
 
 bool
 n00b_universe_put(n00b_type_universe_t *u, n00b_type_t *t)
 {
-    hatrack_hash_t hv;
-
-    init_hv(&hv, t->typeid);
-
-    if (n00b_universe_add(u, t)) {
-        return true;
-    }
-
-    crown_put_mmm(&u->dict->crown_instance,
-                  &n00b_thread_self()->mmm_info,
-                  hv,
-                  t,
-                  NULL);
-
-    return false;
+    return (n00b_dict_put(u->dict, t->typeid, t));
 }
 
 n00b_type_t *
@@ -92,23 +48,18 @@ n00b_universe_attempt_to_add(n00b_type_universe_t *u, n00b_type_t *t)
 void
 n00b_universe_forward(n00b_type_universe_t *u, n00b_type_t *t1, n00b_type_t *t2)
 {
-    hatrack_hash_t hv;
-
     n00b_assert(t1->typeid);
     n00b_assert(t2->typeid);
     n00b_assert(!t2->fw);
 
     t1->fw = t2->typeid;
-    init_hv(&hv, t1->typeid);
     n00b_assert(n00b_thread_self());
 
-    crown_put_mmm(&u->dict->crown_instance,
-                  &n00b_thread_self()->mmm_info,
-                  hv,
-                  t2,
-                  NULL);
+    n00b_dict_put(u->dict, t1->typeid, t2);
 }
 
+#if 0
+// Not migrated.
 n00b_table_t *
 n00b_format_global_type_environment(n00b_type_universe_t *u)
 {
@@ -182,3 +133,4 @@ n00b_format_global_type_environment(n00b_type_universe_t *u)
 
     return tbl;
 }
+#endif

@@ -44,9 +44,9 @@ n00b_fd_stream_t *
 n00b_fd_cache_lookup(int fd, n00b_event_loop_t *loop)
 {
     int64_t           key    = fd_hash_key(loop, fd);
-    n00b_fd_stream_t *result = hatrack_dict_get(n00b_fd_cache,
-                                                (void *)key,
-                                                NULL);
+    n00b_fd_stream_t *result = n00b_dict_get(n00b_fd_cache,
+                                             (void *)key,
+                                             NULL);
 
     if (result && result->fd == N00B_FD_CLOSED) {
         return NULL;
@@ -62,7 +62,7 @@ n00b_fd_cache_add(n00b_fd_stream_t *s)
     n00b_fd_stream_t *found_entry;
 
     while (true) {
-        found_entry = hatrack_dict_get(n00b_fd_cache, (void *)key, NULL);
+        found_entry = n00b_dict_get(n00b_fd_cache, (void *)key, NULL);
 
         // There's something there that appears to be open.
         if (found_entry && found_entry->fd >= 0) {
@@ -72,11 +72,12 @@ n00b_fd_cache_add(n00b_fd_stream_t *s)
         // Either there's nothing there, or the found entry is closed, and
         // we want to replace it.
 
-        if (hatrack_dict_cas(n00b_fd_cache,
-                             (void *)key,
-                             s,
-                             found_entry,
-                             true)) {
+        if (n00b_dict_cas(n00b_fd_cache,
+                          (void *)key,
+                          found_entry,
+                          s,
+                          true,
+                          false)) {
             return s;
         }
 

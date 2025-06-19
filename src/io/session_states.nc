@@ -8,7 +8,7 @@ n00b_session_find_state(n00b_session_t *s, n00b_string_t *name)
         return s->global_actions;
     }
 
-    return hatrack_dict_get(s->user_states, name, NULL);
+    return n00b_dict_get(s->user_states, name, NULL);
 }
 
 static inline n00b_string_t *
@@ -128,7 +128,7 @@ n00b_session_state_repr(n00b_session_t *s)
 
     while (n00b_list_len(worklist)) {
         n00b_string_t        *state_name = n00b_list_pop(worklist);
-        n00b_session_state_t *state      = hatrack_dict_get(s->user_states,
+        n00b_session_state_t *state      = n00b_dict_get(s->user_states,
                                                        state_name,
                                                        NULL);
 
@@ -710,7 +710,7 @@ n00b_session_state_init(n00b_session_state_t *state, va_list args)
         s->user_states = n00b_dict(n00b_type_string(),
                                    n00b_type_session_state());
     }
-    if (!hatrack_dict_add(s->user_states, n, state)) {
+    if (!n00b_dict_add(s->user_states, n, state)) {
         err = n00b_cformat("State name «em»«#» already exists.", n);
         N00B_RAISE(err);
     }

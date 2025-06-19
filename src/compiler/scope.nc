@@ -87,13 +87,13 @@ n00b_shadow_check(n00b_module_t *ctx,
     n00b_symbol_t *in_attr   = NULL;
 
     if (module_scope && module_scope != cur_scope) {
-        in_module = hatrack_dict_get(module_scope->symbols, sym->name, NULL);
+        in_module = n00b_dict_get(module_scope->symbols, sym->name, NULL);
     }
     if (global_scope && global_scope != cur_scope) {
-        in_global = hatrack_dict_get(global_scope->symbols, sym->name, NULL);
+        in_global = n00b_dict_get(global_scope->symbols, sym->name, NULL);
     }
     if (attr_scope && attr_scope != cur_scope) {
-        in_attr = hatrack_dict_get(attr_scope->symbols, sym->name, NULL);
+        in_attr = n00b_dict_get(attr_scope->symbols, sym->name, NULL);
     }
 
     if (in_module) {
@@ -159,7 +159,7 @@ n00b_declare_symbol(n00b_module_t    *ctx,
     entry->ct->sym_defs         = n00b_list(n00b_type_ref());
     entry->loc                  = p ? n00b_format_module_location(ctx, p->token) : NULL;
 
-    if (hatrack_dict_add(scope->symbols, name, entry)) {
+    if (n00b_dict_add(scope->symbols, name, entry)) {
         if (success != NULL) {
             *success = true;
         }
@@ -174,7 +174,7 @@ n00b_declare_symbol(n00b_module_t    *ctx,
         return entry;
     }
 
-    n00b_symbol_t *old = hatrack_dict_get(scope->symbols, name, NULL);
+    n00b_symbol_t *old = n00b_dict_get(scope->symbols, name, NULL);
 
     if (success != NULL) {
         *success = false;
@@ -216,9 +216,9 @@ n00b_add_inferred_symbol(n00b_module_t    *ctx,
         entry->kind = N00B_SK_VARIABLE;
     }
 
-    if (!hatrack_dict_add(scope->symbols, name, entry)) {
+    if (!n00b_dict_add(scope->symbols, name, entry)) {
         // Indicates a compile error, so return the old symbol.
-        return hatrack_dict_get(scope->symbols, name, NULL);
+        return n00b_dict_get(scope->symbols, name, NULL);
     }
 
     return entry;
@@ -237,7 +237,7 @@ n00b_add_or_replace_symbol(n00b_module_t    *ctx,
     entry->kind          = N00B_SK_VARIABLE;
     entry->loc           = p ? n00b_format_module_location(ctx, p->token) : NULL;
 
-    hatrack_dict_put(scope->symbols, name, entry);
+    n00b_dict_put(scope->symbols, name, entry);
 
     return entry;
 }
@@ -247,7 +247,7 @@ n00b_add_or_replace_symbol(n00b_module_t    *ctx,
 n00b_symbol_t *
 n00b_lookup_symbol(n00b_scope_t *scope, n00b_string_t *name)
 {
-    return hatrack_dict_get(scope->symbols, name, NULL);
+    return n00b_dict_get(scope->symbols, name, NULL);
 }
 
 // Used for declaration comparisons. use_declared_type is passed when
@@ -373,12 +373,12 @@ n00b_merge_symbols(n00b_module_t *ctx1,
     }
 }
 
-#define one_scope_lookup(scopevar, name)                          \
-    if (scopevar != NULL) {                                       \
-        result = hatrack_dict_get(scopevar->symbols, name, NULL); \
-        if (result) {                                             \
-            return result;                                        \
-        }                                                         \
+#define one_scope_lookup(scopevar, name)                       \
+    if (scopevar != NULL) {                                    \
+        result = n00b_dict_get(scopevar->symbols, name, NULL); \
+        if (result) {                                          \
+            return result;                                     \
+        }                                                      \
     }
 
 n00b_symbol_t *
@@ -401,18 +401,18 @@ n00b_symbol_lookup(n00b_scope_t  *local_scope,
 n00b_table_t *
 n00b_format_scope(n00b_scope_t *scope)
 {
-    uint64_t              len = 0;
-    hatrack_dict_value_t *values;
-    n00b_table_t         *tbl;
-    n00b_string_t        *decl_const = n00b_cstring("declared");
-    n00b_string_t        *inf_const  = n00b_cstring("inferred");
-    n00b_dict_t          *memos      = n00b_dict(n00b_type_typespec(),
+    n00b_table_t  *tbl;
+    n00b_string_t *decl_const = n00b_cstring("declared");
+    n00b_string_t *inf_const  = n00b_cstring("inferred");
+    n00b_dict_t   *memos      = n00b_dict(n00b_type_typespec(),
                                    n00b_type_string());
-    int64_t               nexttid    = 0;
+    int64_t        nexttid    = 0;
+    uint64_t       len        = 0;
+    n00b_list_t   *values;
 
     if (scope != NULL) {
-        values = hatrack_dict_values_sort(scope->symbols,
-                                          &len);
+        values = n00b_dict_values(scope->symbols);
+        len    = n00b_list_len(values);
     }
 
     if (len == 0) {
@@ -429,7 +429,7 @@ n00b_format_scope(n00b_scope_t *scope)
     n00b_table_add_cell(tbl, n00b_cstring("Uses"));
 
     for (uint64_t i = 0; i < len; i++) {
-        n00b_symbol_t    *entry = values[i];
+        n00b_symbol_t    *entry = n00b_list_get(values, i, NULL);
         n00b_string_t    *kind;
         char             *cs;
         n00b_tree_node_t *t;

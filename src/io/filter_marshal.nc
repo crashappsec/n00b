@@ -187,11 +187,11 @@ static char *
 copy_alloc_filename(n00b_pickle_ctx *ctx, char *fname)
 {
     return NULL;
-    n00b_string_t *as_n00b = hatrack_dict_get(ctx->file_cache, fname, NULL);
+    n00b_string_t *as_n00b = n00b_dict_get(ctx->file_cache, fname, NULL);
 
     if (!as_n00b) {
         as_n00b = n00b_cstring(fname);
-        hatrack_dict_put(ctx->file_cache, fname, as_n00b);
+        n00b_dict_put(ctx->file_cache, fname, as_n00b);
     }
 
     return (char *)translate_pointer(ctx, (char *)as_n00b->data);
@@ -233,7 +233,7 @@ static n00b_alloc_hdr *
 get_write_record(n00b_pickle_ctx *ctx, n00b_alloc_hdr *hdr, int64_t *offset_ptr)
 {
     bool    found;
-    int64_t offset = (int64_t)hatrack_dict_get(ctx->memos, hdr, &found);
+    int64_t offset = (int64_t)n00b_dict_get(ctx->memos, hdr, &found);
 
     if (found) {
         *offset_ptr = offset;
@@ -257,7 +257,7 @@ get_write_record(n00b_pickle_ctx *ctx, n00b_alloc_hdr *hdr, int64_t *offset_ptr)
     }
 
     ptrdiff_t record_size = hdr->alloc_len;
-    hatrack_dict_put(ctx->memos, hdr, (void *)offset);
+    n00b_dict_put(ctx->memos, hdr, (void *)offset);
 
     ctx->offset += record_size;
 
@@ -289,7 +289,7 @@ handle_collision(n00b_pickle_ctx *ctx, uint64_t val, int64_t o)
                                         n00b_type_u64());
     }
 
-    hatrack_dict_put(ctx->needed_patches, (void *)o, (void *)val);
+    n00b_dict_put(ctx->needed_patches, (void *)o, (void *)val);
 }
 
 static int64_t
@@ -371,7 +371,7 @@ process_queue(n00b_pickle_ctx *ctx)
 static n00b_alloc_hdr *
 create_object_end_record(n00b_pickle_ctx *ctx)
 {
-    uint64_t  n = 0;
+    uint32_t  n = 0;
     uint64_t *patches;
     int64_t   saved_offset = ctx->offset;
     int64_t   ignored_offset;
@@ -399,7 +399,7 @@ create_object_end_record(n00b_pickle_ctx *ctx)
     // of where we actually made write() calls (per-object).
 
     if (ctx->needed_patches) {
-        patches = (uint64_t *)hatrack_dict_items_sort(ctx->needed_patches, &n);
+        patches = (uint64_t *)n00b_dict_items_array(ctx->needed_patches, &n);
     }
     else {
         patches             = n00b_gc_alloc_mapped(uint64_t, N00B_GC_SCAN_NONE);
@@ -875,10 +875,10 @@ marshal_setup(n00b_marshal_filter_t *c, int64_t opts)
         c->pickle.last_offset_end = c->pickle.base;
 
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
-        c->pickle.file_cache = n00b_new_unmanaged_dict(
-            HATRACK_DICT_KEY_TYPE_CSTR,
-            false,
-            true);
+        c->pickle.file_cache = n00b_new(n00b_type_ref(),
+                                        n00b_type_ref(),
+                                        cstring : true,
+                                                  mmap : true);
         n00b_lock_init(&c->pickle.lock, N00B_NLT_MUTEX);
 #endif
     }

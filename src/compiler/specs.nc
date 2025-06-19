@@ -100,7 +100,7 @@ n00b_table_repr_section(n00b_spec_section_t *section)
                                              n00b_cached_comma_padded()));
     }
 
-    n00b_spec_field_t **fields = (void *)hatrack_dict_values(section->fields,
+    n00b_spec_field_t **fields = (void *)n00b_dict_values(section->fields,
                                                              &n);
 
     if (n == 0) {
@@ -196,7 +196,7 @@ n00b_repr_spec(n00b_spec_t *spec)
                             n00b_crich("«i»Overview not provided"));
     }
 
-    secs = (void *)hatrack_dict_values(spec->section_specs, &n);
+    secs = (void *)n00b_dict_values(spec->section_specs, &n);
 
     qsort(secs, (size_t)n, sizeof(n00b_spec_section_t *), (void *)section_sort);
 
@@ -286,7 +286,7 @@ n00b_get_attr_info(n00b_spec_t *spec, n00b_list_t *fqn)
 
     while (true) {
         n00b_string_t     *cur_name = n00b_list_get(fqn, i, NULL);
-        n00b_spec_field_t *field    = hatrack_dict_get(cur_sec->fields,
+        n00b_spec_field_t *field    = n00b_dict_get(cur_sec->fields,
                                                     cur_name,
                                                     NULL);
         if (field != NULL) {
@@ -302,7 +302,7 @@ n00b_get_attr_info(n00b_spec_t *spec, n00b_list_t *fqn)
             }
         }
 
-        next_sec = hatrack_dict_get(spec->section_specs, cur_name, NULL);
+        next_sec = n00b_dict_get(spec->section_specs, cur_name, NULL);
 
         if (next_sec == NULL) {
             if (i == n) {

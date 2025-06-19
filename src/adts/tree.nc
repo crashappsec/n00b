@@ -154,7 +154,7 @@ internal_walker(walk_ctx *ctx, n00b_tree_node_t *cur)
 
     // Do not walk the same node twice if there's a cycle, unless
     // a callback overrides.
-    if (!hatrack_dict_add(ctx->memos, cur, NULL)) {
+    if (!n00b_dict_add(ctx->memos, cur, NULL)) {
         if (ctx->cycle_cb) {
             (*ctx->cycle_cb)(cur, ctx->depth, ctx->thunk);
         }
@@ -174,7 +174,7 @@ internal_walker(walk_ctx *ctx, n00b_tree_node_t *cur)
     }
     --ctx->depth;
 
-    hatrack_dict_remove(ctx->memos, cur);
+    n00b_dict_remove(ctx->memos, cur);
 }
 
 void

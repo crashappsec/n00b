@@ -40,7 +40,7 @@ handle_subcommand(n00b_gopt_extraction_ctx *ctx)
     int64_t            cmd_key;
 
     cmd_key      = cmd_node->info.token->tid;
-    ctx->cur_cmd = hatrack_dict_get(cmd->sub_commands,
+    ctx->cur_cmd = n00b_dict_get(cmd->sub_commands,
                                     (void *)cmd_key,
                                     NULL);
 
@@ -60,7 +60,7 @@ handle_subcommand(n00b_gopt_extraction_ctx *ctx)
     }
 
     n00b_list_t *args = n00b_list(n00b_type_ref());
-    hatrack_dict_put(ctx->args, ctx->path, args);
+    n00b_dict_put(ctx->args, ctx->path, args);
 
     ctx->deepest_path = ctx->path;
 
@@ -283,7 +283,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
         return;
     }
 
-    n00b_goption_t *cur_option = hatrack_dict_get(ctx->gctx->all_options,
+    n00b_goption_t *cur_option = n00b_dict_get(ctx->gctx->all_options,
                                                   name,
                                                   NULL);
     if (!cur_option) {
@@ -315,11 +315,11 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
 
     key = target->result_key;
 
-    n00b_rt_option_t *existing = hatrack_dict_get(ctx->flags, (void *)key, NULL);
+    n00b_rt_option_t *existing = n00b_dict_get(ctx->flags, (void *)key, NULL);
 
     if (!existing) {
         existing = n00b_gc_alloc_mapped(n00b_rt_option_t, N00B_GC_SCAN_ALL);
-        hatrack_dict_put(ctx->flags, (void *)key, existing);
+        n00b_dict_put(ctx->flags, (void *)key, existing);
         existing->spec = target;
     }
 
@@ -438,7 +438,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
     existing->value = new_items;
     existing->n     = len;
 
-    hatrack_dict_put(ctx->flags, (void *)key, existing);
+    n00b_dict_put(ctx->flags, (void *)key, existing);
 }
 
 static void
@@ -455,7 +455,7 @@ extract_args(n00b_gopt_extraction_ctx *ctx)
         ctx->intree = n;
     }
     else {
-        n00b_list_t *arg_info = hatrack_dict_get(ctx->args, ctx->path, NULL);
+        n00b_list_t *arg_info = n00b_dict_get(ctx->args, ctx->path, NULL);
         n00b_obj_t   obj      = extract_value_from_node(ctx, n, NULL);
         n00b_list_append(arg_info, obj);
     }
@@ -514,13 +514,13 @@ gopt_extract_top_spec(n00b_gopt_extraction_ctx *ctx)
     n00b_parse_node_t *cur = n00b_tree_get_contents(n);
     int                len = n->num_kids;
 
-    ctx->cur_cmd = hatrack_dict_get(ctx->gctx->top_specs,
+    ctx->cur_cmd = n00b_dict_get(ctx->gctx->top_specs,
                                     (void *)cur->id,
                                     NULL);
 
     n00b_list_t *args = n00b_list(n00b_type_ref());
 
-    hatrack_dict_put(ctx->args, ctx->path, args);
+    n00b_dict_put(ctx->args, ctx->path, args);
 
     n00b_assert(ctx->cur_cmd);
 
@@ -645,7 +645,7 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
         pn                       = n00b_tree_get_contents(n);
         n00b_gopt_cspec *cmd     = ctx->cur_cmd;
         int64_t          cmd_key = pn->info.token->tid;
-        ctx->cur_cmd             = hatrack_dict_get(cmd->sub_commands,
+        ctx->cur_cmd             = n00b_dict_get(cmd->sub_commands,
                                         (void *)cmd_key,
                                         NULL);
         if (!ctx->cur_cmd) {
@@ -679,7 +679,7 @@ gopt_structural_error_check(n00b_gopt_extraction_ctx *ctx)
 {
     n00b_parse_node_t *top = n00b_tree_get_contents(ctx->intree);
 
-    ctx->cur_cmd = hatrack_dict_get(ctx->gctx->top_specs,
+    ctx->cur_cmd = n00b_dict_get(ctx->gctx->top_specs,
                                     (void *)top->id,
                                     NULL);
 
@@ -717,7 +717,7 @@ static inline void
 gopt_do_flag_validation(n00b_gopt_extraction_ctx *ctx)
 {
     uint64_t           n;
-    n00b_rt_option_t **option_info = (void *)hatrack_dict_values(ctx->flags, &n);
+    n00b_rt_option_t **option_info = (void *)n00b_dict_values(ctx->flags, &n);
 
     for (uint64_t i = 0; i < n; i++) {
         check_opt_against_commands(ctx, option_info[i]);
@@ -765,7 +765,7 @@ convert_parse_tree(n00b_gopt_ctx *gctx, n00b_parser_t *p, n00b_tree_node_t *node
         }
     }
 
-    hatrack_dict_put(ctx.args, ctx.path, n00b_list(n00b_type_ref()));
+    n00b_dict_put(ctx.args, ctx.path, n00b_list(n00b_type_ref()));
 
     gopt_extract_top_spec(&ctx);
     ctx.intree = node;

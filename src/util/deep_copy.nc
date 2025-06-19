@@ -47,12 +47,12 @@ dc_scan(n00b_deep_copy_ctx *ctx)
     while (remaining--) {
         n00b_alloc_hdr *h = n00b_list_dequeue(ctx->scan_list);
         bool            f;
-        hatrack_dict_get(ctx->memos, h, &f);
+        n00b_dict_get(ctx->memos, h, &f);
 
         if (f) {
             continue;
         }
-        hatrack_dict_put(ctx->memos, h, (void *)(int64_t)ctx->alloc_needs);
+        n00b_dict_put(ctx->memos, h, (void *)(int64_t)ctx->alloc_needs);
         ctx->alloc_needs += h->alloc_len;
 
         if (!h->n00b_ptr_scan) {
@@ -88,7 +88,7 @@ dc_translate(n00b_deep_copy_ctx *ctx, int64_t start, int64_t value)
     // 'diff' is how many bytes into an allocation record we want the ptr to be.
 
     n00b_alloc_hdr *h      = n00b_find_allocation_record((void *)value);
-    int64_t         offset = (int64_t)hatrack_dict_get(ctx->memos, h, NULL);
+    int64_t         offset = (int64_t)n00b_dict_get(ctx->memos, h, NULL);
     int64_t         diff   = value - (int64_t)h;
 
     return start + offset + diff;
@@ -101,19 +101,21 @@ dc_copy(n00b_deep_copy_ctx *ctx)
     // from our alloc request.  Still, The size we need to alloc will
     // get padded by our call to heap_alloc, so we can expect to end
     // up with some extra room.
-    uint64_t             n;
-    char                *p;
-    n00b_alloc_hdr      *src;
-    n00b_alloc_hdr      *dst;
-    int                  l     = ctx->alloc_needs - sizeof(n00b_alloc_hdr);
-    char                *start = n00b_heap_alloc(n00b_default_heap, l, NULL);
-    hatrack_dict_item_t *items = hatrack_dict_items_sort(ctx->memos, &n);
+    char           *p;
+    n00b_alloc_hdr *src;
+    n00b_alloc_hdr *dst;
+    int             l     = ctx->alloc_needs - sizeof(n00b_alloc_hdr);
+    char           *start = n00b_heap_alloc(n00b_default_heap, l, NULL);
+    n00b_list_t    *items = n00b_dict_items(ctx->memos);
+    uint64_t        n     = n00b_list_len(items);
+    n00b_tuple_t   *tup;
 
     start -= sizeof(n00b_alloc_hdr);
 
     for (uint32_t i = 0; i < n; i++) {
-        src                = items[i].key;
-        p                  = start + (int64_t)items[i].value;
+        tup                = n00b_list_get(items, i, NULL);
+        src                = n00b_tuple_get(tup, 0);
+        p                  = start + (int64_t)n00b_tuple_get(tup, 1);
         dst                = (n00b_alloc_hdr *)p;
         dst->guard         = n00b_gc_guard;
         dst->type          = dc_type(src->type);

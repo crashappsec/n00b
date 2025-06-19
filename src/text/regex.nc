@@ -188,5 +188,6 @@ const n00b_vtable_t n00b_regex_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR] = (n00b_vtable_entry)regex_object_init,
         [N00B_BI_TO_STRING]   = (n00b_vtable_entry)n00b_regex_to_string,
+        [N00B_BI_HASH]        = (n00b_vtable_entry)n00b_string_hash,
     },
 };

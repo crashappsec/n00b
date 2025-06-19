@@ -658,7 +658,7 @@ handle_param_block(n00b_pass1_ctx *ctx)
         }
     }
 
-    if (!hatrack_dict_add(ctx->module_ctx->parameters, sym_name, prop)) {
+    if (!n00b_dict_add(ctx->module_ctx->parameters, sym_name, prop)) {
         n00b_add_error(ctx->module_ctx, n00b_err_dupe_param, name_node);
         return;
     }
@@ -926,7 +926,7 @@ one_field(n00b_pass1_ctx      *ctx,
         }
     }
 
-    if (!hatrack_dict_add(section->fields, name, f)) {
+    if (!n00b_dict_add(section->fields, name, f)) {
         n00b_add_error(ctx->module_ctx, n00b_err_dupe_spec_field, tnode);
     }
 }
@@ -989,7 +989,7 @@ handle_section_spec(n00b_pass1_ctx *ctx)
         }
     }
     else {
-        if (!hatrack_dict_add(spec->section_specs, section->name, section)) {
+        if (!n00b_dict_add(spec->section_specs, section->name, section)) {
             n00b_add_error(ctx->module_ctx, n00b_err_dupe_section, tnode);
         }
     }
@@ -1602,13 +1602,13 @@ pass_dispatch(n00b_pass1_ctx *ctx)
 static void
 find_dependencies(n00b_compile_ctx *cctx, n00b_module_t *module_ctx)
 {
-    n00b_scope_t         *imports = module_ctx->ct->imports;
-    uint64_t              len     = 0;
-    hatrack_dict_value_t *values  = hatrack_dict_values(imports->symbols,
-                                                       &len);
+    n00b_scope_t *imports = module_ctx->ct->imports;
+    n00b_list_t  *values  = n00b_dict_values(imports->symbols, sort : false);
+    uint64_t      len     = n00b_list_len(values);
+    ;
 
     for (uint64_t i = 0; i < len; i++) {
-        n00b_symbol_t    *sym = values[i];
+        n00b_symbol_t    *sym = n00b_list_get(values, i, NULL);
         n00b_module_t    *mi  = sym->value;
         n00b_tree_node_t *n   = sym->ct->declaration_node;
         n00b_pnode_t     *pn  = n00b_get_pnode(n);

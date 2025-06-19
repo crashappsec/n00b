@@ -86,7 +86,7 @@ one_lookup_try(n00b_compile_ctx *ctx,
 {
     // First check the cache.
     uint64_t       key    = module_key(package, module);
-    n00b_module_t *result = hatrack_dict_get(ctx->module_cache,
+    n00b_module_t *result = n00b_dict_get(ctx->module_cache,
                                              (void *)key,
                                              NULL);
 
@@ -159,7 +159,7 @@ one_lookup_try(n00b_compile_ctx *ctx,
         ctx->fatality = true;
     }
 
-    hatrack_dict_put(ctx->module_cache, (void *)key, result);
+    n00b_dict_put(ctx->module_cache, (void *)key, result);
 
     return result;
 }
@@ -335,7 +335,7 @@ postprocess_module(n00b_compile_ctx *cctx,
         result->ct->errors    = n00b_list(n00b_type_ref());
         cctx->fatality        = true;
 
-        hatrack_dict_put(cctx->module_cache, NULL, result);
+        n00b_dict_put(cctx->module_cache, NULL, result);
 
         if (!errmsg) {
             errmsg = n00b_cstring("Internal error");

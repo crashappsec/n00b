@@ -27,7 +27,7 @@ n00b_get_debug_topic(n00b_string_t *name)
 {
     n00b_dict_t *ns = get_debug_namespace();
 
-    n00b_stream_t *result = hatrack_dict_get(ns, name, NULL);
+    n00b_stream_t *result = n00b_dict_get(ns, name, NULL);
     if (result) {
         return result;
     }

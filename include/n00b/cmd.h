@@ -59,7 +59,7 @@ n00b_cmd_merge(n00b_cmdline_ctx *ctx)
     }
 
     bool found  = false;
-    bool result = hatrack_dict_get(ctx->opts,
+    bool result = n00b_dict_get(ctx->opts,
                                    n00b_cstring(n00b_fl_merge),
                                    &result);
 
@@ -77,7 +77,7 @@ n00b_cmd_quiet(n00b_cmdline_ctx *ctx)
         return false;
     }
 
-    return hatrack_dict_get(ctx->opts, n00b_cstring(n00b_fl_quiet), NULL);
+    return n00b_dict_get(ctx->opts, n00b_cstring(n00b_fl_quiet), NULL);
 }
 
 static inline bool
@@ -87,7 +87,7 @@ n00b_cmd_verbose(n00b_cmdline_ctx *ctx)
         return false;
     }
 
-    return hatrack_dict_get(ctx->opts, n00b_cstring(n00b_fl_verbose), NULL);
+    return n00b_dict_get(ctx->opts, n00b_cstring(n00b_fl_verbose), NULL);
 }
 
 static inline bool
@@ -96,7 +96,7 @@ n00b_cmd_ansi(n00b_cmdline_ctx *ctx)
     if (!ctx->opts) {
         return false;
     }
-    return hatrack_dict_get(ctx->opts, n00b_cstring(n00b_fl_ansi), NULL);
+    return n00b_dict_get(ctx->opts, n00b_cstring(n00b_fl_ansi), NULL);
 }
 
 static inline bool
@@ -105,13 +105,13 @@ n00b_cmd_bright(n00b_cmdline_ctx *ctx)
     if (!ctx->opts) {
         return false;
     }
-    return hatrack_dict_get(ctx->opts, n00b_cstring(n00b_fl_bright), NULL);
+    return n00b_dict_get(ctx->opts, n00b_cstring(n00b_fl_bright), NULL);
 }
 
 static inline bool
 n00b_cmd_show_cmdline_parse(n00b_cmdline_ctx *ctx)
 {
-    return hatrack_dict_get(ctx->opts,
+    return n00b_dict_get(ctx->opts,
                             n00b_cstring(n00b_fl_show_cmdline_parse),
                             NULL);
 }
@@ -119,5 +119,5 @@ n00b_cmd_show_cmdline_parse(n00b_cmdline_ctx *ctx)
 static inline bool
 n00b_cmd_show_all(n00b_cmdline_ctx *ctx)
 {
-    return hatrack_dict_get(ctx->opts, n00b_cstring(n00b_fl_show_all), NULL);
+    return n00b_dict_get(ctx->opts, n00b_cstring(n00b_fl_show_all), NULL);
 }

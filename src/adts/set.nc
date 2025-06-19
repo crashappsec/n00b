@@ -2,6 +2,76 @@
 
 #include "n00b.h"
 
+// This stuff needs to go away....
+static inline hatrack_hash_t
+new_string_hash(n00b_string_t *s)
+{
+    union {
+        hatrack_hash_t local_hv;
+        XXH128_hash_t  xxh_hv;
+    } hv;
+
+    if (!s || !s->codepoints) {
+        s = n00b_cached_empty_string();
+    }
+
+    hatrack_hash_t *cache = (void *)(((char *)s) + N00B_HASH_CACHE_OBJ_OFFSET);
+    hv.local_hv           = *cache;
+
+    // This isn't really testing a bucket, just seeing if the hash
+    // value is 0.
+    if (!hv.local_hv) {
+        hv.xxh_hv = XXH3_128bits(s->data, s->u8_bytes);
+        *cache    = hv.local_hv;
+    }
+
+    return *cache;
+}
+
+static inline hatrack_hash_t
+old_string_hash(n00b_string_t *s)
+{
+    union {
+        hatrack_hash_t local_hv;
+        XXH128_hash_t  xxh_hv;
+    } hv;
+
+    static n00b_string_t *n00b_null_string = NULL;
+
+    if (n00b_null_string == NULL) {
+        n00b_null_string = n00b_cached_empty_string();
+        n00b_gc_register_root(&n00b_null_string, 1);
+    }
+
+    hatrack_hash_t *cache = (void *)(((char *)s) + N00B_HASH_CACHE_OBJ_OFFSET);
+
+    hv.local_hv = *cache;
+
+    if (!n00b_string_codepoint_len(s)) {
+        s = n00b_null_string;
+    }
+
+    if (!hv.local_hv) {
+        hv.xxh_hv = XXH3_128bits(s->data, s->u8_bytes);
+
+        *cache = hv.local_hv;
+    }
+
+    return *cache;
+}
+
+hatrack_hash_t
+n00b_custom_string_hash(void *v)
+{
+    n00b_type_t *t = n00b_get_my_type(v);
+
+    if (n00b_type_is_string(t)) {
+        return new_string_hash(v);
+    }
+
+    return old_string_hash(v);
+}
+
 static void
 n00b_set_init(n00b_set_t *set, va_list args)
 {

@@ -377,15 +377,15 @@ internal_type_hash(n00b_type_t *node, type_hash_ctx *ctx)
         n00b_sha_int_update(ctx->sha, node->flags);
         break;
     case N00B_DT_KIND_type_var:
-        num_tvars = (uint64_t)hatrack_dict_get(ctx->memos,
-                                               (void *)node->typeid,
-                                               NULL);
+        num_tvars = (uint64_t)n00b_dict_get(ctx->memos,
+                                            (void *)node->typeid,
+                                            NULL);
 
         if (num_tvars == 0) {
             num_tvars = ++ctx->tv_count;
-            hatrack_dict_put(ctx->memos,
-                             (void *)node->typeid,
-                             (void *)num_tvars);
+            n00b_dict_put(ctx->memos,
+                          (void *)node->typeid,
+                          (void *)num_tvars);
         }
 
         n00b_sha_int_update(ctx->sha, num_tvars);
@@ -448,9 +448,7 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
         node->typeid = 0;
         ctx.sha      = n00b_new(n00b_type_hash());
         ctx.tv_count = 0;
-        ctx.memos    = n00b_new_unmanaged_dict(HATRACK_DICT_KEY_TYPE_PTR,
-                                            false,
-                                            false);
+        ctx.memos    = n00b_new_unmanaged_dict();
 
         internal_type_hash(node, &ctx);
 
@@ -556,7 +554,7 @@ tspec_copy_internal(n00b_type_t *node, n00b_dict_t *dupes)
     // Need to do a base version that works for any type env.
 
     node              = n00b_type_resolve(node);
-    n00b_type_t *dupe = hatrack_dict_get(dupes, node, NULL);
+    n00b_type_t *dupe = n00b_dict_get(dupes, node, NULL);
 
     if (dupe != NULL) {
         return dupe;
@@ -579,7 +577,7 @@ tspec_copy_internal(n00b_type_t *node, n00b_dict_t *dupes)
             new_opts[i] = old_opts[i];
         }
 
-        hatrack_dict_put(dupes, node, result);
+        n00b_dict_put(dupes, node, result);
         return result;
     }
     else {
@@ -598,7 +596,7 @@ tspec_copy_internal(n00b_type_t *node, n00b_dict_t *dupes)
 
     n00b_calculate_type_hash(result);
 
-    hatrack_dict_put(dupes, node, result);
+    n00b_dict_put(dupes, node, result);
     return result;
 }
 
@@ -1359,7 +1357,7 @@ create_typevar_name(int64_t num)
 static inline n00b_string_t *
 internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 {
-    n00b_string_t *s = hatrack_dict_get(memos, t, NULL);
+    n00b_string_t *s = n00b_dict_get(memos, t, NULL);
 
     if (s != NULL) {
         return s;
@@ -1450,7 +1448,7 @@ internal_repr_tv(n00b_type_t *t, n00b_dict_t *memos, int64_t *nexttv)
 
     s = n00b_string_concat(n00b_cached_backtick(), s);
 
-    hatrack_dict_put(memos, t, s);
+    n00b_dict_put(memos, t, s);
 
     return s;
 }
@@ -1962,10 +1960,10 @@ n00b_get_promotion_type(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 /* n00b_clean_environment(void) */
 /* { */
 /*     n00b_type_universe_t *new_env = n00b_new_type_universe(); */
-/*     hatrack_dict_item_t *items; */
+/*     n00b_dict_item_t *items; */
 /*     uint64_t             len; */
 
-/*     items = hatrack_dict_items_sort(n00b_type_universe->store, &len); */
+/*     items = n00b_dict_items_sort(n00b_type_universe->store, &len); */
 
 /*     for (uint64_t i = 0; i < len; i++) { */
 /*         n00b_type_t *t = items[i].value; */
@@ -1975,7 +1973,7 @@ n00b_get_promotion_type(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 /*         } */
 
 /*         if (n00b_type_get_kind(t) != N00B_DT_KIND_type_var) { */
-/*             hatrack_dict_put(new_env->store, (void *)t->typeid, t); */
+/*             n00b_dict_put(new_env->store, (void *)t->typeid, t); */
 /*         } */
 
 /*         int nparams = n00b_list_len(t->items); */
@@ -1984,7 +1982,7 @@ n00b_get_promotion_type(n00b_type_t *t1, n00b_type_t *t2, int *warning)
 /*             it             = n00b_type_resolve(it); */
 
 /*             if (n00b_type_get_kind(it) == N00B_DT_KIND_type_var) { */
-/*                 hatrack_dict_put(new_env->store, (void *)t->typeid, t); */
+/*                 n00b_dict_put(new_env->store, (void *)t->typeid, t); */
 /*             } */
 /*         } */
 /*     } */

@@ -354,9 +354,9 @@ n00b_gcommand_init(n00b_gopt_cspec *cmd_spec, va_list args)
     }
 
     if (!parent) {
-        if (!hatrack_dict_add(context->top_specs,
-                              (void *)cmd_spec->token_id,
-                              cmd_spec)) {
+        if (!n00b_dict_add(context->top_specs,
+                           (void *)cmd_spec->token_id,
+                           cmd_spec)) {
 dupe_error:
             N00B_CRAISE(
                 "Attempt to add two commands at the same "
@@ -364,9 +364,9 @@ dupe_error:
         }
     }
     else {
-        if (!hatrack_dict_add(parent->sub_commands,
-                              (void *)cmd_spec->token_id,
-                              cmd_spec)) {
+        if (!n00b_dict_add(parent->sub_commands,
+                           (void *)cmd_spec->token_id,
+                           cmd_spec)) {
             goto dupe_error;
         }
     }
@@ -396,9 +396,9 @@ dupe_error:
                                           context->counter++);
 
     // Add a map from the name to the token ID if needed.
-    hatrack_dict_add(context->sub_names,
-                     name,
-                     (void *)cmd_spec->token_id);
+    n00b_dict_add(context->sub_names,
+                  name,
+                  (void *)cmd_spec->token_id);
 
     // 'name_nt' is used to handle any aliases for this command.  Rules
     // get added to 'rule_nt'; 'name_nt' will be added as the first
@@ -580,9 +580,9 @@ translate_gopt_rule(gopt_rgen_ctx *ctx)
 
             n00b_gopt_cspec *sub;
 
-            sub = hatrack_dict_get(ctx->cmd->sub_commands,
-                                   (void *)item,
-                                   NULL);
+            sub = n00b_dict_get(ctx->cmd->sub_commands,
+                                (void *)item,
+                                NULL);
 
             if (!sub) {
                 N00B_CRAISE(
@@ -723,7 +723,7 @@ create_summary_doc(n00b_gopt_ctx *ctx, n00b_gopt_cspec *cmd, n00b_list_t *items)
         default:;
             n00b_gopt_cspec *sub;
 
-            sub = hatrack_dict_get(cmd->sub_commands, (void *)x, NULL);
+            sub = n00b_dict_get(cmd->sub_commands, (void *)x, NULL);
 
             if (!sub) {
                 N00B_CRAISE(
@@ -810,7 +810,7 @@ needs_a_rule(n00b_gopt_cspec *cmd)
         return true;
     }
 
-    if (!hatrack_dict_len(cmd->sub_commands)) {
+    if (!n00b_list_len(n00b_dict_keys(cmd->sub_commands, sort : false))) {
         return true;
     }
 
@@ -875,7 +875,7 @@ n00b_gopt_finalize(n00b_gopt_ctx *gctx)
     // This is breadth first.
     n00b_list_t      *stack = n00b_list(n00b_type_ref());
     uint64_t          n;
-    n00b_gopt_cspec **tops = (void *)hatrack_dict_values(gctx->top_specs, &n);
+    n00b_gopt_cspec **tops = (void *)n00b_dict_values(gctx->top_specs, &n);
     if (!n) {
         N00B_CRAISE("No commands added to the getopt environment.");
     }
@@ -896,8 +896,8 @@ n00b_gopt_finalize(n00b_gopt_ctx *gctx)
             continue;
         }
 
-        tops = (void *)hatrack_dict_values(one->sub_commands,
-                                           &n);
+        tops = (void *)n00b_dict_values(one->sub_commands,
+                                        &n);
         if (!n) {
             continue;
         }
@@ -1086,9 +1086,9 @@ n00b_goption_init(n00b_goption_t *option, va_list args)
         if (!key) {
             N00B_CRAISE("Must provide a linked option.");
         }
-        linked_option = hatrack_dict_get(context->primary_options,
-                                         (void *)key,
-                                         NULL);
+        linked_option = n00b_dict_get(context->primary_options,
+                                      (void *)key,
+                                      NULL);
 
         goto check_link;
         break;
@@ -1099,9 +1099,9 @@ n00b_goption_init(n00b_goption_t *option, va_list args)
     }
 
     if (key && !linked_option) {
-        linked_option = hatrack_dict_get(context->primary_options,
-                                         (void *)key,
-                                         NULL);
+        linked_option = n00b_dict_get(context->primary_options,
+                                      (void *)key,
+                                      NULL);
 check_link:
         if (!linked_option) {
             N00B_CRAISE("Linked key for choice alias must already exist.");
@@ -1128,9 +1128,9 @@ check_link:
     }
 
     if (!linked_command) {
-        linked_command = hatrack_dict_get(context->primary_options,
-                                          (void *)context->default_command,
-                                          NULL);
+        linked_command = n00b_dict_get(context->primary_options,
+                                       (void *)context->default_command,
+                                       NULL);
     }
 
     if (linked_option) {
@@ -1208,7 +1208,7 @@ check_link:
     option->choices        = choices;
     option->linked_command = linked_command;
 
-    hatrack_dict_put(linked_command->owned_opts, option->name, option);
+    n00b_dict_put(linked_command->owned_opts, option->name, option);
 
     if (n00b_gctx_gflag_is_set(context, N00B_CASE_SENSITIVE)) {
         option->normalized = option->name;
@@ -1220,14 +1220,14 @@ check_link:
     option->token_id = n00b_grammar_add_term(context->grammar,
                                              option->normalized);
 
-    if (!hatrack_dict_add(context->all_options,
-                          (void *)option->normalized,
-                          option)) {
+    if (!n00b_dict_add(context->all_options,
+                       (void *)option->normalized,
+                       option)) {
         N00B_CRAISE("Cannot add option that has already been added.");
     }
 
     /* if (!link) { */
-    /*     hatrack_dict_put(context->primary_options, */
+    /*     n00b_dict_put(context->primary_options, */
     /*                      (void *)key, */
     /*                      option); */
     /* } */
@@ -1443,16 +1443,15 @@ handle_group_modifier:
             N00B_CRAISE("Subcommand names must be the final argument.");
         }
 
-        hatrack_dict_item_t *values;
-
-        values = hatrack_dict_items_sort(command->sub_commands, (uint64_t *)&l);
+        n00b_list_t *items = n00b_dict_items(command->sub_commands);
+        l                  = n00b_list_len(items);
 
         for (int j = 0; j < l; j++) {
-            hatrack_dict_item_t *one = &values[j];
-            n00b_gopt_cspec     *sub = one->value;
+            n00b_tuple_t    *tup = n00b_list_get(items, j, NULL);
+            n00b_gopt_cspec *sub = n00b_tuple_get(tup, 1);
 
             if (n00b_string_eq(w, sub->name)) {
-                n00b_list_append(rule, one->key);
+                n00b_list_append(rule, n00b_tuple_get(tup, 0));
                 goto add_it;
             }
         }

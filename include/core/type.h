@@ -1210,8 +1210,11 @@ n00b_base_type_name(n00b_obj_t user_object)
 void n00b_set_next_typevar_fn(n00b_next_typevar_fn);
 
 #ifdef N00B_USE_INTERNAL_API
+#if 0
+// Not migrated.
 extern n00b_table_t             *
 n00b_format_global_type_environment(n00b_type_universe_t *);
+#endif
 extern void n00b_clean_environment(void);
 
 #ifdef N00B_TYPE_LOG

@@ -118,7 +118,7 @@ fill_dict:
 
     for (int i = 0; i < n; i++) {
         pair = n00b_list_get(pairs, i, NULL);
-        hatrack_dict_add(result,
+        n00b_dict_add(result,
                          n00b_list_get(pair, 0, NULL),
                          n00b_list_get(pair, 1, NULL));
     }

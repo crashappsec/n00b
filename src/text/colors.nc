@@ -15,7 +15,7 @@ get_color_table()
         n00b_color_info_t *p = (n00b_color_info_t *)n00b_color_data;
 
         while (p->name != NULL) {
-            hatrack_dict_put(color_table,
+            n00b_dict_put(color_table,
                              n00b_cstring(p->name),
                              (void *)(int64_t)p->rgb);
             p++;
@@ -28,7 +28,7 @@ n00b_color_t
 n00b_lookup_color(n00b_string_t *name)
 {
     bool         found  = false;
-    n00b_color_t result = (n00b_color_t)(int64_t)hatrack_dict_get(
+    n00b_color_t result = (n00b_color_t)(int64_t)n00b_dict_get(
         get_color_table(),
         name,
         &found);

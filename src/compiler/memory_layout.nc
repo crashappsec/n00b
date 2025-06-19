@@ -51,14 +51,14 @@ n00b_add_static_object(void *obj, n00b_compile_ctx *ctx)
 
     bool found = false;
 
-    uint64_t res = (uint64_t)hatrack_dict_get(ctx->obj_consts, obj, &found);
+    uint64_t res = (uint64_t)n00b_dict_get(ctx->obj_consts, obj, &found);
 
     if (found) {
         return res;
     }
 
     res = store_static_item(ctx, obj);
-    hatrack_dict_put(ctx->obj_consts, obj, (void *)res);
+    n00b_dict_put(ctx->obj_consts, obj, (void *)res);
 
     return res;
 }
@@ -77,24 +77,24 @@ n00b_add_static_string(n00b_string_t *s, n00b_compile_ctx *ctx)
     uint64_t res;
 
     if (s->styling && s->styling->num_styles != 0) {
-        res = (uint64_t)hatrack_dict_get(ctx->obj_consts, s, &found);
+        res = (uint64_t)n00b_dict_get(ctx->obj_consts, s, &found);
         if (found) {
             return res;
         }
         res = store_static_item(ctx, s);
-        hatrack_dict_put(ctx->obj_consts, s, (void *)res);
+        n00b_dict_put(ctx->obj_consts, s, (void *)res);
 
         return res;
     }
 
-    res = (uint64_t)hatrack_dict_get(ctx->str_consts, s, &found);
+    res = (uint64_t)n00b_dict_get(ctx->str_consts, s, &found);
 
     if (found) {
         return res;
     }
 
     res = store_static_item(ctx, s);
-    hatrack_dict_put(ctx->obj_consts, s, (void *)res);
+    n00b_dict_put(ctx->obj_consts, s, (void *)res);
 
     return res;
 }
@@ -104,16 +104,16 @@ uint64_t
 n00b_add_value_const(uint64_t val, n00b_compile_ctx *ctx)
 {
     bool     found = false;
-    uint64_t res   = (uint64_t)hatrack_dict_get(ctx->value_consts,
-                                              (void *)val,
-                                              &found);
+    uint64_t res   = (uint64_t)n00b_dict_get(ctx->value_consts,
+                                           (void *)val,
+                                           &found);
 
     if (found) {
         return res;
     }
 
     res = store_static_item(ctx, (void *)val);
-    hatrack_dict_put(ctx->value_consts, (void *)val, (void *)res);
+    n00b_dict_put(ctx->value_consts, (void *)val, (void *)res);
 
     return res;
 }
@@ -165,13 +165,12 @@ _n00b_layout_const_obj(n00b_compile_ctx *cctx, n00b_obj_t obj, ...)
 }
 
 static void
-layout_static(n00b_compile_ctx *cctx,
-              n00b_module_t    *fctx,
-              void            **view,
-              uint64_t          n)
+layout_static(n00b_compile_ctx *cctx, n00b_module_t *fctx, n00b_list_t *view)
 {
+    uint64_t n = n00b_list_len(view);
+
     for (unsigned int i = 0; i < n; i++) {
-        n00b_symbol_t *my_sym_copy = view[i];
+        n00b_symbol_t *my_sym_copy = n00b_list_get(view, i, NULL);
         n00b_symbol_t *sym         = my_sym_copy;
 
         if (sym->linked_symbol != NULL) {
@@ -219,14 +218,15 @@ layout_static(n00b_compile_ctx *cctx,
 
 // This one measures in stack value slots, not in bytes.
 static int64_t
-layout_stack(void **view, uint64_t n)
+layout_stack(n00b_list_t *l)
 {
     // Address 0 is always $result, if it exists.
-    int32_t next_formal = -2;
-    int32_t next_local  = 1;
+    int32_t  next_formal = -2;
+    int32_t  next_local  = 1;
+    uint64_t n           = n00b_list_len(l);
 
     while (n--) {
-        n00b_symbol_t *sym = view[n];
+        n00b_symbol_t *sym = n00b_list_get(l, n, NULL);
 
         // Will already be zero-allocated.
         if (!strcmp(sym->name->data, "$result")) {
@@ -255,11 +255,10 @@ layout_func(n00b_module_t *ctx,
             n00b_symbol_t *sym,
             int            i)
 {
-    uint64_t        n;
     n00b_fn_decl_t *decl       = sym->value;
     n00b_scope_t   *scope      = decl->signature_info->fn_scope;
-    void          **view       = hatrack_dict_values_sort(scope->symbols, &n);
-    int             frame_size = layout_stack(view, n);
+    n00b_list_t    *view       = n00b_dict_values(scope->symbols);
+    int             frame_size = layout_stack(view);
 
     decl->frame_size = frame_size;
 
@@ -277,17 +276,16 @@ layout_func(n00b_module_t *ctx,
 }
 
 void
-n00b_layout_module_symbols(n00b_compile_ctx *cctx, n00b_module_t *fctx)
+n00b_layout_module_symbols(n00b_compile_ctx *ccx, n00b_module_t *fctx)
 {
-    uint64_t n;
-
     // Very first item in every module will be information about whether
     // there are parameters, and if they are set.
-    void **view = hatrack_dict_values_sort(fctx->parameters, &n);
-    int    pix  = 0;
+    n00b_list_t *view = n00b_dict_values(fctx->parameters);
+    uint64_t     n    = n00b_list_len(view);
+    int          pix  = 0;
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_module_param_info_t *param = view[i];
+        n00b_module_param_info_t *param = n00b_list_get(view, i, NULL);
         n00b_symbol_t            *sym   = param->linked_symbol;
 
         // These don't need an index; we test for the default by
@@ -304,12 +302,8 @@ n00b_layout_module_symbols(n00b_compile_ctx *cctx, n00b_module_t *fctx)
     // round up. We don't need the result; it's always at offset
     // 0, but it controls where the next variable is stored.
     n00b_layout_static_obj(fctx, (pix + 7) / 8, 8);
-
-    view = hatrack_dict_values_sort(fctx->ct->global_scope->symbols, &n);
-    layout_static(cctx, fctx, view, n);
-
-    view = hatrack_dict_values_sort(fctx->module_scope->symbols, &n);
-    layout_static(cctx, fctx, view, n);
+    layout_static(ccx, fctx, n00b_dict_values(fctx->ct->global_scope->symbols));
+    layout_static(ccx, fctx, n00b_dict_values(fctx->module_scope->symbols));
 
     n = n00b_list_len(fctx->fn_def_syms);
 

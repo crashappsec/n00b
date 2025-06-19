@@ -476,7 +476,7 @@ n00b_get_session_state_by_name(n00b_session_t *s, n00b_string_t *name)
         return s->global_actions;
     }
 
-    n00b_session_state_t *result = hatrack_dict_get(s->user_states, name, NULL);
+    n00b_session_state_t *result = n00b_dict_get(s->user_states, name, NULL);
 
     if (!result) {
         result = n00b_stream_create_state(s, name);

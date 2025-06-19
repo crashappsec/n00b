@@ -200,7 +200,7 @@ n00b_vm_module_enter(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 
         if (p->attr && n00b_len(p->attr) > 0) {
             bool found;
-            hatrack_dict_get(tstate->vm->attrs, p->attr, &found);
+            n00b_dict_get(tstate->vm->attrs, p->attr, &found);
             if (!found) {
                 n00b_obj_t value = get_param_value(tstate, p);
                 n00b_vm_attr_set(tstate,

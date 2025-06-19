@@ -81,7 +81,7 @@ n00b_terminal_init(n00b_terminal_t *terminal, va_list args)
         return;
     }
 
-    terminal->id = (int64_t)hatrack_dict_get(grammar->terminal_map,
+    terminal->id = (int64_t)n00b_dict_get(grammar->terminal_map,
                                              terminal->value,
                                              &found);
 
@@ -99,7 +99,7 @@ n00b_terminal_init(n00b_terminal_t *terminal, va_list args)
             if (t == terminal || n00b_string_eq(t->value, terminal->value)) {
                 n += N00B_START_TOK_ID;
                 terminal->id = n;
-                hatrack_dict_add(grammar->terminal_map,
+                n00b_dict_add(grammar->terminal_map,
                                  terminal->value,
                                  (void *)n);
                 return;
@@ -146,7 +146,7 @@ n00b_nonterm_init(n00b_nonterm_t *nonterm, va_list args)
         }
     }
 
-    hatrack_dict_get(grammar->nt_map, nonterm->name, &found);
+    n00b_dict_get(grammar->nt_map, nonterm->name, &found);
 
     if (found) {
 bail:
@@ -169,7 +169,7 @@ bail:
         }
 
         if (nt == nonterm) {
-            hatrack_dict_put(grammar->nt_map, nonterm->name, (void *)n);
+            n00b_dict_put(grammar->nt_map, nonterm->name, (void *)n);
             nonterm->id = n;
 
             return;
@@ -679,7 +679,7 @@ n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
     //
     // Since any registered tokens are non-zero, we can test for that to
     // determine if it's registered, instead of passing a bool.
-    int64_t n = (int64_t)hatrack_dict_get(parser->grammar->terminal_map,
+    int64_t n = (int64_t)n00b_dict_get(parser->grammar->terminal_map,
                                           value,
                                           NULL);
 
@@ -729,13 +729,13 @@ n00b_add_debug_highlight(n00b_parser_t *parser, int32_t eid, int32_t ix)
     int64_t key   = eid;
     int64_t value = ix;
 
-    n00b_set_t *s = hatrack_dict_get(parser->debug_highlights,
+    n00b_set_t *s = n00b_dict_get(parser->debug_highlights,
                                      (void *)key,
                                      NULL);
 
     if (!s) {
         s = n00b_set(n00b_type_int());
-        hatrack_dict_put(parser->debug_highlights, (void *)key, s);
+        n00b_dict_put(parser->debug_highlights, (void *)key, s);
     }
 
     hatrack_set_put(s, (void *)value);

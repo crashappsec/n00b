@@ -712,7 +712,7 @@ add_highlights(n00b_parser_t *parser, n00b_list_t *row, int eix, int v)
 
     int64_t     key = eix;
     int64_t     cur = v;
-    n00b_set_t *s   = hatrack_dict_get(parser->debug_highlights,
+    n00b_set_t *s   = n00b_dict_get(parser->debug_highlights,
                                      (void *)key,
                                      NULL);
 

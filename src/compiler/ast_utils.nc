@@ -316,11 +316,11 @@ n00b_node_to_type(n00b_module_t    *ctx,
         return n00b_node_to_type(ctx, n00b_tree_get_child(n, 0), type_ctx);
     case n00b_nt_lit_tspec_tvar:
         varname = n00b_node_text(n00b_tree_get_child(n, 0));
-        t       = hatrack_dict_get(type_ctx, varname, &found);
+        t       = n00b_dict_get(type_ctx, varname, &found);
         if (!found) {
             t       = n00b_new_typevar();
             t->name = varname;
-            hatrack_dict_put(type_ctx, varname, t);
+            n00b_dict_put(type_ctx, varname, t);
         }
         return t;
     case n00b_nt_lit_tspec_named_type:

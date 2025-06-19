@@ -374,6 +374,7 @@ _n00b_heap_register_dynamic_root(n00b_heap_t *h,
                                  uint64_t l
                                      N00B_ALLOC_XTRA)
 {
+    h                        = n00b_current_heap(h);
     int                  max = h->roots ? hatrack_zarray_len(h->roots) : 0;
     uint64_t             id  = (uint64_t)n00b_thread_self();
     n00b_gc_root_tinfo_t expect;
@@ -400,6 +401,7 @@ _n00b_heap_register_dynamic_root(n00b_heap_t *h,
 void
 n00b_heap_remove_root(n00b_heap_t *h, void *ptr)
 {
+    h           = n00b_current_heap(h);
     int32_t max = atomic_load(&h->roots->length);
 
     for (int i = 0; i < max; i++) {

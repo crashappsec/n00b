@@ -5,10 +5,10 @@ populate_one_section(n00b_vmthread_t     *tstate,
                      n00b_spec_section_t *section,
                      n00b_string_t       *path)
 {
-    uint64_t            n;
-    n00b_string_t      *key;
-    n00b_spec_field_t  *f;
-    n00b_spec_field_t **fields;
+    uint64_t           n;
+    n00b_string_t     *key;
+    n00b_spec_field_t *f;
+    n00b_list_t       *fields;
 
     n00b_vm_t *vm = tstate->vm;
 
@@ -20,10 +20,11 @@ populate_one_section(n00b_vmthread_t     *tstate,
         return;
     }
 
-    fields = (void *)hatrack_dict_values_sort(section->fields, &n);
+    fields = n00b_dict_values(section->fields);
+    n      = n00b_list_len(fields);
 
     for (uint64_t i = 0; i < n; i++) {
-        f = fields[i];
+        f = n00b_list_get(fields, i, NULL);
 
         if (!path || !n00b_string_byte_len(path)) {
             key = f->name;
@@ -114,9 +115,9 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_string_t *key)
         key->u8_bytes     = p - key->data;
 
         // Can be null if it's an object; no worries.
-        section = hatrack_dict_get(vm->obj->attr_spec->section_specs,
-                                   dummy,
-                                   NULL);
+        section = n00b_dict_get(vm->obj->attr_spec->section_specs,
+                                dummy,
+                                NULL);
 
         populate_one_section(tstate, section, key);
 
@@ -132,9 +133,9 @@ populate_defaults(n00b_vmthread_t *tstate, n00b_string_t *key)
     dummy->codepoints = key->codepoints - start_codepoints;
     key->u8_bytes     = p - key->data;
 
-    section = hatrack_dict_get(vm->obj->attr_spec->section_specs,
-                               dummy,
-                               NULL);
+    section = n00b_dict_get(vm->obj->attr_spec->section_specs,
+                            dummy,
+                            NULL);
 
     populate_one_section(tstate, section, key);
 }
@@ -146,7 +147,7 @@ n00b_vm_attr_get(n00b_vmthread_t *tstate,
 {
     populate_defaults(tstate, key);
 
-    n00b_attr_contents_t *info = hatrack_dict_get(tstate->vm->attrs, key, NULL);
+    n00b_attr_contents_t *info = n00b_dict_get(tstate->vm->attrs, key, NULL);
 
     if (found != NULL) {
         if (info != NULL && info->is_set) {
@@ -188,7 +189,7 @@ n00b_vm_attr_set(n00b_vmthread_t *tstate,
     // conditions with multiple threads updating via reference.
 
     bool                  found;
-    n00b_attr_contents_t *old_info = hatrack_dict_get(vm->attrs, key, &found);
+    n00b_attr_contents_t *old_info = n00b_dict_get(vm->attrs, key, &found);
     if (found) {
         // Nim code does this after allocating new_info and never settings it's
         // override field here, so that's clearly wrong. We do it first to avoid
@@ -251,7 +252,7 @@ n00b_vm_attr_set(n00b_vmthread_t *tstate,
         new_info->locked = true;
     }
 
-    hatrack_dict_put(vm->attrs, key, new_info);
+    n00b_dict_put(vm->attrs, key, new_info);
 }
 
 void
@@ -263,7 +264,7 @@ n00b_vm_attr_lock(n00b_vmthread_t *tstate, n00b_string_t *key, bool on_write)
     // conditions with multiple threads updating via reference.
 
     bool                  found;
-    n00b_attr_contents_t *old_info = hatrack_dict_get(vm->attrs, key, &found);
+    n00b_attr_contents_t *old_info = n00b_dict_get(vm->attrs, key, &found);
     if (found && old_info->locked) {
         // Nim version uses N00bError stuff that doesn't exist in
         // n00b (yet?)
@@ -283,5 +284,5 @@ n00b_vm_attr_lock(n00b_vmthread_t *tstate, n00b_string_t *key, bool on_write)
         new_info->is_set   = old_info->is_set;
     }
 
-    hatrack_dict_put(vm->attrs, key, new_info);
+    n00b_dict_put(vm->attrs, key, new_info);
 }

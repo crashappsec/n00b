@@ -18,7 +18,6 @@
 // #define N00B_DEBUG_GC_ROOTS
 // #define N00B_FIND_SCRIBBLES
 // #define N00B_SCAN_ALLOC
-
 #pragma once
 // Home of anything remotely configurable. Don't change this file;
 // update the meson config.

@@ -848,11 +848,11 @@ gen_param_bail_if_missing(gen_ctx *ctx, n00b_symbol_t *sym)
 static inline uint64_t
 gen_parameter_checks(gen_ctx *ctx)
 {
-    uint64_t n;
-    void   **view = hatrack_dict_values_sort(ctx->fctx->parameters, &n);
+    n00b_list_t *view = n00b_dict_values(ctx->fctx->parameters);
+    uint64_t     n    = n00b_list_len(view);
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_module_param_info_t *param = view[i];
+        n00b_module_param_info_t *param = n00b_list_get(view, i, NULL);
         n00b_symbol_t            *sym   = param->linked_symbol;
 
         if (sym->kind == N00B_SK_ATTR) {
@@ -2363,9 +2363,9 @@ gen_function(gen_ctx       *ctx,
 
     n00b_zfn_info_t *fn_info_for_obj = n00b_new_zfn();
 
-    ctx->retsym = hatrack_dict_get(decl->signature_info->fn_scope->symbols,
-                                   n00b_cstring("$result"),
-                                   NULL);
+    ctx->retsym = n00b_dict_get(decl->signature_info->fn_scope->symbols,
+                                n00b_cstring("$result"),
+                                NULL);
 
     fn_info_for_obj->mid      = module->module_id;
     decl->module_id           = module->module_id;

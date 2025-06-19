@@ -376,14 +376,14 @@ du_format_node(n00b_cfg_node_t *n)
         return n00b_cached_minus();
     }
 
-    uint64_t             num_syms;
-    hatrack_dict_item_t *info  = hatrack_dict_items_sort(liveness_info,
-                                                        &num_syms);
-    n00b_list_t         *cells = n00b_new(n00b_type_list(n00b_type_string()));
+    n00b_list_t *info     = n00b_dict_items(liveness_info);
+    int          num_syms = n00b_list_len(info);
+    n00b_list_t *cells    = n00b_new(n00b_type_list(n00b_type_string()));
 
-    for (unsigned int i = 0; i < num_syms; i++) {
-        n00b_symbol_t     *sym    = info[i].key;
-        n00b_cfg_status_t *status = info[i].value;
+    for (int i = 0; i < num_syms; i++) {
+        n00b_tuple_t      *tup    = n00b_list_get(info, i, NULL);
+        n00b_symbol_t     *sym    = n00b_tuple_get(tup, 0);
+        n00b_cfg_status_t *status = n00b_tuple_get(tup, 1);
 
         if (status->last_def) {
             n00b_list_append(cells, sym->name);

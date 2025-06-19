@@ -563,46 +563,46 @@ initialize_tag_repo(void)
     caption_props->cols_to_span               = N00B_COL_SPAN_ALL;
     caption_props->alignment                  = N00B_ALIGN_TOP_CENTER;
 
-    hatrack_dict_put(n00b_tag_repository,
-                     n00b_string_from_codepoint('p'),
-                     p_props);
-    hatrack_dict_put(n00b_tag_repository,
-                     n00b_string_from_codepoint('u'),
-                     u_props);
-    hatrack_dict_put(n00b_tag_repository,
-                     n00b_string_from_codepoint('b'),
-                     bold_props);
-    hatrack_dict_put(n00b_tag_repository,
-                     n00b_string_from_codepoint('i'),
-                     italic_props);
-    hatrack_dict_put(n00b_tag_repository,
-                     n00b_cstring("underline"),
-                     u_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("bold"), bold_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("italic"), italic_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("h1"), h1_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("h2"), h2_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("h3"), h3_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("h4"), h4_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("h5"), h5_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("h6"), h6_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("uu"), uu_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("reverse"), rev_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("em"), em1_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("em1"), em1_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("em2"), em2_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("em3"), em3_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("em4"), em4_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("em5"), em5_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("em6"), em6_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("title"), title_props);
-    hatrack_dict_put(n00b_tag_repository, n00b_cstring("head"), head_props);
-    hatrack_dict_put(n00b_tag_repository,
-                     n00b_cstring("caption"),
-                     caption_props);
-    hatrack_dict_put(n00b_tag_repository,
-                     n00b_cstring("strikethrough"),
-                     st_props);
+    n00b_dict_put(n00b_tag_repository,
+                  n00b_string_from_codepoint('p'),
+                  p_props);
+    n00b_dict_put(n00b_tag_repository,
+                  n00b_string_from_codepoint('u'),
+                  u_props);
+    n00b_dict_put(n00b_tag_repository,
+                  n00b_string_from_codepoint('b'),
+                  bold_props);
+    n00b_dict_put(n00b_tag_repository,
+                  n00b_string_from_codepoint('i'),
+                  italic_props);
+    n00b_dict_put(n00b_tag_repository,
+                  n00b_cstring("underline"),
+                  u_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("bold"), bold_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("italic"), italic_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("h1"), h1_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("h2"), h2_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("h3"), h3_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("h4"), h4_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("h5"), h5_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("h6"), h6_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("uu"), uu_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("reverse"), rev_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("em"), em1_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("em1"), em1_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("em2"), em2_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("em3"), em3_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("em4"), em4_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("em5"), em5_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("em6"), em6_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("title"), title_props);
+    n00b_dict_put(n00b_tag_repository, n00b_cstring("head"), head_props);
+    n00b_dict_put(n00b_tag_repository,
+                  n00b_cstring("caption"),
+                  caption_props);
+    n00b_dict_put(n00b_tag_repository,
+                  n00b_cstring("strikethrough"),
+                  st_props);
 }
 
 void
@@ -841,7 +841,7 @@ n00b_theme_init(n00b_theme_t *theme, va_list args)
     theme->box_info[N00B_BOX_OL_BULLET]              = ol_bullet;
 
     if (name) {
-        hatrack_dict_put(n00b_theme_repository, name, theme);
+        n00b_dict_put(n00b_theme_repository, name, theme);
     }
 }
 
@@ -856,7 +856,7 @@ pallate_box(int ix)
 n00b_box_props_t *
 n00b_lookup_style_by_tag(n00b_string_t *tag)
 {
-    n00b_box_props_t *result = hatrack_dict_get(n00b_tag_repository, tag, NULL);
+    n00b_box_props_t *result = n00b_dict_get(n00b_tag_repository, tag, NULL);
 
     if (!result && n00b_string_codepoint_len(tag)) {
         switch (tag->data[0]) {
@@ -917,13 +917,6 @@ n00b_lookup_style_by_tag(n00b_string_t *tag)
     return result;
 }
 
-n00b_box_props_t *
-n00b_lookup_style_by_hash(hatrack_hash_t hash)
-{
-    // Not sure I'm going to use this, but adding it anyway.
-    return crown_get(&n00b_tag_repository->crown_instance, hash, NULL);
-}
-
 n00b_string_t *
 n00b_preview_theme(n00b_theme_t *theme)
 {
@@ -934,8 +927,8 @@ n00b_preview_theme(n00b_theme_t *theme)
     n00b_table_t *table = n00b_new(n00b_type_table(), title : title);
     uint64_t      view_len;
 
-    hatrack_dict_item_t *items = hatrack_dict_items_sort(n00b_tag_repository,
-                                                         &view_len);
+    n00b_list_t *items = n00b_dict_items(n00b_tag_repository);
+    view_len           = n00b_list_len(items);
 
     n00b_table_add_cell(table, n00b_cstring("Tag"));
     n00b_table_add_cell(table, n00b_cstring("Example"));
@@ -958,8 +951,9 @@ n00b_preview_theme(n00b_theme_t *theme)
     n00b_table_end_row(table);
 
     for (uint64_t i = 0; i < view_len; i++) {
-        n00b_string_t       *style = items[i].key;
-        n00b_box_props_t    *props = items[i].value;
+        n00b_tuple_t        *tup   = n00b_list_get(items, i, NULL);
+        n00b_string_t       *style = n00b_tuple_get(tup, 0);
+        n00b_box_props_t    *props = n00b_tuple_get(tup, 1);
         n00b_text_element_t *txt   = &props->text_style;
 
         n00b_table_add_cell(table, style);
@@ -1122,7 +1116,7 @@ n00b_set_current_theme(n00b_theme_t *theme)
 n00b_theme_t *
 n00b_lookup_theme(n00b_string_t *name)
 {
-    return hatrack_dict_get(n00b_theme_repository, name, NULL);
+    return n00b_dict_get(n00b_theme_repository, name, NULL);
 }
 
 n00b_theme_t *

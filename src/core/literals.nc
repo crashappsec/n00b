@@ -78,9 +78,9 @@ void
 n00b_register_literal(n00b_lit_syntax_t st, char *mod, n00b_builtin_t bi)
 {
     n00b_string_t *u8mod = n00b_cstring(mod);
-    if (!hatrack_dict_add(mod_map[st],
-                          u8mod,
-                          (void *)(int64_t)bi)) {
+    if (!n00b_dict_add(mod_map[st],
+                       u8mod,
+                       (void *)(int64_t)bi)) {
         N00B_CRAISE("Duplicate literal modifier for this syntax type.");
     }
 
@@ -112,14 +112,14 @@ n00b_base_type_from_litmod(n00b_lit_syntax_t st, n00b_string_t *mod)
         mod = n00b_cached_empty_string();
     }
 
-    bi = (n00b_builtin_t)hatrack_dict_get(mod_map[st], mod, &found);
+    bi = (n00b_builtin_t)n00b_dict_get(mod_map[st], mod, &found);
 
     if (found) {
         return bi;
     }
-    bi = (n00b_builtin_t)hatrack_dict_get(mod_map[st],
-                                          n00b_cached_star(),
-                                          &found);
+    bi = (n00b_builtin_t)n00b_dict_get(mod_map[st],
+                                       n00b_cached_star(),
+                                       &found);
     if (found) {
         return bi;
     }
@@ -291,15 +291,19 @@ n00b_fix_litmod(n00b_token_t *tok, n00b_pnode_t *pnode)
     // Our goal is to pick the first litmod for the syntax that matches
     // the type.
 
-    uint64_t             n;
-    n00b_dict_t         *d         = mod_map[tok->syntax];
-    n00b_type_t         *t         = n00b_type_resolve(pnode->type);
-    n00b_builtin_t       base_type = t->base_index;
-    hatrack_dict_item_t *items     = hatrack_dict_items_sort(d, &n);
+    n00b_dict_t   *d         = mod_map[tok->syntax];
+    n00b_type_t   *t         = n00b_type_resolve(pnode->type);
+    n00b_builtin_t base_type = t->base_index;
+    n00b_list_t   *items     = n00b_dict_items(d);
+    int            n         = n00b_list_len(items);
 
-    for (unsigned int i = 0; i < n; i++) {
-        if (base_type == (n00b_builtin_t)items[i].value) {
-            n00b_string_t       *lm = items[i].key;
+    for (int i = 0; i < n; i++) {
+        n00b_tuple_t *t     = n00b_list_get(items, i, NULL);
+        void         *key   = n00b_tuple_get(t, 0);
+        void         *value = n00b_tuple_get(t, 1);
+
+        if (base_type == (n00b_builtin_t)value) {
+            n00b_string_t       *lm = key;
             n00b_vtable_t       *vtbl;
             n00b_literal_fn      fn;
             n00b_compile_error_t err = n00b_err_no_error;

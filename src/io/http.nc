@@ -9,18 +9,16 @@ init_curl(void)
 static char *
 format_cookies(n00b_dict_t *cookies)
 {
-    uint64_t             n;
-    hatrack_dict_item_t *view = hatrack_dict_items_sort(cookies, &n);
+    void    *view = n00b_dict_items(cookies);
+    uint64_t n    = n00b_list_len(view);
     // Start with one = and one ; per item, plus a null byte.
-    int                  len  = n * 2 + 1;
+    int      len  = n * 2 + 1;
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_string_t *s = view[i].key;
-        view[i].key      = s;
+        n00b_tuple_t  *tup = n00b_list_get(view, i, NULL);
+        n00b_string_t *s   = n00b_tuple_get(tup, 0);
         len += n00b_string_byte_len(s);
-
-        s             = view[i].value;
-        view[i].value = s;
+        s = n00b_tuple_get(tup, 1);
         len += n00b_string_byte_len(s);
     }
 
@@ -28,14 +26,15 @@ format_cookies(n00b_dict_t *cookies)
     char *p   = res;
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_string_t *s = view[i].key;
-        int            l = n00b_string_byte_len(s);
+        n00b_tuple_t  *tup = n00b_list_get(view, i, NULL);
+        n00b_string_t *s   = n00b_tuple_get(tup, 0);
+        int            l   = n00b_string_byte_len(s);
 
         memcpy(p, s->data, l);
         p += l;
         *p++ = '=';
 
-        s = view[i].value;
+        s = n00b_tuple_get(tup, 1);
         l = n00b_string_byte_len(s);
 
         memcpy(p, s->data, l);

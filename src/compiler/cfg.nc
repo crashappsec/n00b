@@ -61,7 +61,7 @@ cfg_propogate_def(cfg_ctx         *ctx,
     sym = follow_sym_links(sym);
 
     n00b_cfg_status_t *new = n00b_new_cfg_status();
-    n00b_cfg_status_t *old = hatrack_dict_get(du_info, sym, NULL);
+    n00b_cfg_status_t *old = n00b_dict_get(du_info, sym, NULL);
 
     if (old) {
         new->last_use = old->last_use;
@@ -69,7 +69,7 @@ cfg_propogate_def(cfg_ctx         *ctx,
 
     new->last_def = n;
 
-    hatrack_dict_put(du_info, sym, new);
+    n00b_dict_put(du_info, sym, new);
 
     return old != NULL;
 }
@@ -92,15 +92,14 @@ cfg_propogate_use(cfg_ctx         *ctx,
 
     n00b_cfg_status_t *new = n00b_new_cfg_status();
 
-    hatrack_dict_item_t *view;
-    uint64_t             x;
-
-    view          = hatrack_dict_items(du_info, &x);
-    new->last_def = NULL;
+    n00b_list_t *view = n00b_dict_items(du_info);
+    uint64_t     x    = n00b_list_len(view);
+    new->last_def     = NULL;
 
     for (unsigned int i = 0; i < x; i++) {
-        n00b_symbol_t   *s   = view[i].key;
-        n00b_cfg_node_t *cfg = view[i].value;
+        n00b_tuple_t    *t   = n00b_list_get(view, i, NULL);
+        n00b_symbol_t   *s   = n00b_tuple_get(t, 0);
+        n00b_cfg_node_t *cfg = n00b_tuple_get(t, 1);
 
         if (!strcmp(s->name->data, sym->name->data)) {
             new->last_def = cfg;
@@ -114,7 +113,7 @@ cfg_propogate_use(cfg_ctx         *ctx,
 
     new->last_use = n;
 
-    hatrack_dict_put(du_info, sym, new);
+    n00b_dict_put(du_info, sym, new);
 
     return new->last_def != NULL;
 }
@@ -126,21 +125,20 @@ cfg_copy_du_info(cfg_ctx         *ctx,
                  n00b_list_t    **new_sometimes)
 {
     n00b_dict_t *copy = n00b_dict(n00b_type_ref(), n00b_type_ref());
-    uint64_t     n;
-
-    hatrack_dict_item_t *view = hatrack_dict_items_sort(node->liveness_info,
-                                                        &n);
-    n00b_dict_t         *d    = n00b_dict(n00b_type_string(), n00b_type_int());
+    n00b_list_t *view = n00b_dict_items(node->liveness_info);
+    uint64_t     n    = n00b_list_len(view);
+    n00b_dict_t *d    = n00b_dict(n00b_type_string(), n00b_type_int());
 
     for (uint64_t i = 0; i < n; i++) {
-        n00b_symbol_t *sym = view[i].key;
+        n00b_tuple_t  *tup = n00b_list_get(view, i, NULL);
+        n00b_symbol_t *sym = n00b_tuple_get(tup, 0);
 
         if (sym->ct->cfg_kill_node && sym->ct->cfg_kill_node == node) {
             continue;
         }
 
-        if (hatrack_dict_add(d, sym->name, 0)) {
-            hatrack_dict_put(copy, view[i].key, view[i].value);
+        if (n00b_dict_add(d, sym->name, 0)) {
+            n00b_dict_put(copy, sym, n00b_tuple_get(tup, 1));
         }
     }
 
@@ -181,9 +179,9 @@ check_for_fn_exit_errors(n00b_module_t *file, n00b_fn_decl_t *fn_decl)
                                                result_text);
     n00b_cfg_node_t   *node      = fn_decl->cfg;
     n00b_cfg_node_t   *exit_node = node->contents.block_entrance.exit_node;
-    n00b_cfg_status_t *status    = hatrack_dict_get(exit_node->liveness_info,
-                                                 ressym,
-                                                 NULL);
+    n00b_cfg_status_t *status    = n00b_dict_get(exit_node->liveness_info,
+                                              ressym,
+                                              NULL);
 
     // the result symbol is in the ending live set, so we're done.
 
@@ -336,31 +334,30 @@ cfg_merge_aux_entries_to_top(cfg_ctx *ctx, n00b_cfg_node_t *node)
         for (int i = 0; i < n; i++) {
             sym = n00b_list_get(exit->sometimes_live, i, NULL);
 
-            if (hatrack_dict_get(exit_du, sym, NULL) == NULL) {
+            if (n00b_dict_get(exit_du, sym, NULL) == NULL) {
                 n00b_set_add(sometimes, sym);
             }
         }
     }
 
     for (int i = 0; i < num_inbounds; i++) {
-        uint64_t         nitems;
         n00b_cfg_node_t *one = n00b_list_get(inbounds, i, NULL);
 
         if (one->liveness_info == NULL) {
             continue;
         }
-        void **dusyms = hatrack_dict_keys_sort(one->liveness_info,
-                                               &nitems);
+        n00b_list_t *view   = n00b_dict_keys(one->liveness_info);
+        uint64_t     nitems = n00b_list_len(view);
 
         for (unsigned int j = 0; j < nitems; j++) {
-            sym = dusyms[j];
+            sym = n00b_list_get(view, j, NULL);
 
             // Dead branch.
             if (exit_du == NULL) {
                 continue;
             }
 
-            if (hatrack_dict_get(exit_du, sym, NULL) == NULL) {
+            if (n00b_dict_get(exit_du, sym, NULL) == NULL) {
                 n00b_set_add(sometimes, sym);
             }
         }
@@ -373,7 +370,7 @@ cfg_merge_aux_entries_to_top(cfg_ctx *ctx, n00b_cfg_node_t *node)
 
                 // If it's in the exit set, it's not a 'sometimes'
                 // for the block.
-                if (hatrack_dict_get(exit_du, sym, NULL) == NULL) {
+                if (n00b_dict_get(exit_du, sym, NULL) == NULL) {
                     n00b_set_add(sometimes, sym);
                 }
             }
@@ -404,7 +401,7 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
                                                   n00b_type_ref()));
     n00b_cfg_node_t        *exit_node;
     n00b_symbol_t          *sym;
-    hatrack_dict_item_t    *view;
+    n00b_list_t            *view;
     n00b_cfg_status_t      *status;
     n00b_cfg_status_t      *old_status;
     cfg_merge_ct_t          count_info;
@@ -421,13 +418,15 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
             continue;
         }
 
-        view = hatrack_dict_items_sort(duinfo, &len);
+        view = n00b_dict_items(duinfo);
+        len  = n00b_list_len(view);
 
         for (unsigned int j = 0; j < len; j++) {
-            sym            = view[j].key;
-            status         = view[j].value;
-            old_status     = hatrack_dict_get(node->liveness_info, sym, NULL);
-            count_info.ptr = hatrack_dict_get(counters, sym, NULL);
+            n00b_tuple_t *tup = n00b_list_get(view, j, NULL);
+            sym               = n00b_tuple_get(tup, 0);
+            status            = n00b_tuple_get(tup, 1);
+            old_status        = n00b_dict_get(node->liveness_info, sym, NULL);
+            count_info.ptr    = n00b_dict_get(counters, sym, NULL);
 
             count_info.counters.count++;
             if (old_status == NULL) {
@@ -447,7 +446,7 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
                 }
             }
 
-            hatrack_dict_put(counters, sym, count_info.ptr);
+            n00b_dict_put(counters, sym, count_info.ptr);
         }
 
         // If it's not always live in a subblock, it's not always live
@@ -462,11 +461,13 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
         }
     }
 
-    view = hatrack_dict_items_sort(counters, &len);
+    view = n00b_dict_items(counters);
+    len  = n00b_list_len(view);
 
     for (unsigned int i = 0; i < len; i++) {
-        sym            = view[i].key;
-        count_info.ptr = view[i].value;
+        n00b_tuple_t *tup = n00b_list_get(view, i, NULL);
+        sym               = n00b_tuple_get(tup, 0);
+        count_info.ptr    = n00b_tuple_get(tup, 1);
 
         // Symbol didn't show up in every branch, so it goes on the
         // 'sometimes' list.
@@ -476,7 +477,7 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
         }
 
         status     = n00b_new_cfg_status();
-        old_status = hatrack_dict_get(node->liveness_info, sym, NULL);
+        old_status = n00b_dict_get(node->liveness_info, sym, NULL);
         if (old_status != NULL) {
             status->last_def = old_status->last_def;
             status->last_use = old_status->last_use;
@@ -488,7 +489,7 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
             status->last_def = node;
         }
 
-        hatrack_dict_put(merged, sym, status);
+        n00b_dict_put(merged, sym, status);
     }
 
     // Okay, we've done all the merging, now we have to propogate the
@@ -678,10 +679,9 @@ cfg_process_node(cfg_ctx *ctx, n00b_cfg_node_t *node, n00b_cfg_node_t *parent)
                          &node->liveness_info,
                          &node->sometimes_live);
 
-        uint64_t         n;
         n00b_cfg_node_t *ta = node->contents.jump.target;
-        void           **v  = hatrack_dict_keys_sort(node->liveness_info,
-                                          &n);
+        n00b_list_t     *v  = n00b_dict_keys(node->liveness_info);
+        uint64_t         n  = n00b_list_len(v);
 
         if (!ta) {
             return NULL;
@@ -692,7 +692,7 @@ cfg_process_node(cfg_ctx *ctx, n00b_cfg_node_t *node, n00b_cfg_node_t *parent)
 
         for (uint64_t i = 0; i < n; i++) {
             n00b_list_add_if_unique(ta->sometimes_live,
-                                    v[i],
+                                    n00b_list_get(v, i, NULL),
                                     (bool (*)(void *, void *))sym_cmp);
         }
 
@@ -732,11 +732,11 @@ n00b_cfg_analyze(n00b_module_t *module_ctx, n00b_dict_t *du_info)
         .sometimes_info = NULL,
     };
 
-    uint64_t nparams;
-    void   **view = hatrack_dict_values_sort(module_ctx->parameters, &nparams);
+    n00b_list_t *view    = n00b_dict_values(module_ctx->parameters);
+    uint64_t     nparams = n00b_list_len(view);
 
     for (uint64_t i = 0; i < nparams; i++) {
-        n00b_module_param_info_t *param = view[i];
+        n00b_module_param_info_t *param = n00b_list_get(view, i, NULL);
         n00b_symbol_t            *sym   = param->linked_symbol;
 
         cfg_propogate_def(&ctx, sym, NULL, NULL);

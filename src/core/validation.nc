@@ -146,7 +146,7 @@ spec_node_alloc(validation_ctx *ctx, n00b_string_t *path)
     info->contained_fields   = n00b_dict(n00b_type_string(), n00b_type_ref());
     res->path                = path;
 
-    hatrack_dict_put(ctx->section_cache, path, res);
+    n00b_dict_put(ctx->section_cache, path, res);
 
     return res;
 }
@@ -171,7 +171,7 @@ init_section_node(validation_ctx *ctx,
         full_path = n00b_path_simple_join(path, section);
     }
 
-    sec_info = hatrack_dict_get(ctx->section_cache, full_path, NULL);
+    sec_info = n00b_dict_get(ctx->section_cache, full_path, NULL);
 
     if (sec_info == NULL) {
         alloced                             = true;
@@ -210,9 +210,9 @@ init_section_node(validation_ctx *ctx,
 
         if (cur_sec->singleton || ctx->at_object_name) {
             ctx->at_object_name = false;
-            ctx->cur            = hatrack_dict_get(ctx->spec->section_specs,
-                                        next_section,
-                                        NULL);
+            ctx->cur            = n00b_dict_get(ctx->spec->section_specs,
+                                     next_section,
+                                     NULL);
         }
         else {
             ctx->at_object_name = true;
@@ -225,9 +225,9 @@ init_section_node(validation_ctx *ctx,
                                          next_items);
 
     if (sub != NULL) {
-        hatrack_dict_add(sec_info->info.section.contained_sections,
-                         next_section,
-                         sub);
+        n00b_dict_add(sec_info->info.section.contained_sections,
+                      next_section,
+                      sub);
     }
 
     return alloced ? sec_info : NULL;
@@ -306,20 +306,21 @@ validate_field_contents(validation_ctx      *ctx,
                         spec_node_t         *node,
                         n00b_spec_section_t *secspec)
 {
-    uint64_t             num_fields;
-    uint64_t             num_specs;
-    uint64_t             num_req;
-    n00b_dict_t         *fdict    = node->info.section.contained_fields;
-    hatrack_dict_item_t *fields   = hatrack_dict_items(fdict, &num_fields);
-    n00b_spec_field_t  **fspecs   = (void *)hatrack_dict_values(secspec->fields,
-                                                             &num_specs);
-    n00b_flags_t        *reqflags = NULL;
-    n00b_list_t         *required = n00b_list(n00b_type_ref());
+    uint64_t     num_req;
+    n00b_dict_t *fdict      = node->info.section.contained_fields;
+    n00b_list_t *fields     = n00b_dict_items(fdict);
+    uint64_t     num_fields = n00b_list_len(fields);
+    n00b_list_t *fspecs     = (void *)n00b_dict_values(secspec->fields);
+    uint64_t     num_specs  = n00b_list_len(fspecs);
+
+    n00b_flags_t *reqflags = NULL;
+    n00b_list_t  *required = n00b_list(n00b_type_ref());
 
     // Scan the field specs to see how many are required.
     for (unsigned int i = 0; i < num_specs; i++) {
-        if (fspecs[i]->required) {
-            n00b_list_append(required, fspecs[i]);
+        n00b_spec_field_t *fs = n00b_list_get(fspecs, i, NULL);
+        if (fs->required) {
+            n00b_list_append(required, fs);
         }
     }
 
@@ -330,8 +331,9 @@ validate_field_contents(validation_ctx      *ctx,
     }
 
     for (unsigned int i = 0; i < num_fields; i++) {
-        n00b_string_t        *name   = fields[i].key;
-        spec_node_t          *fnode  = fields[i].value;
+        n00b_tuple_t         *tup    = n00b_list_get(fields, i, NULL);
+        n00b_string_t        *name   = n00b_tuple_get(tup, 0);
+        spec_node_t          *fnode  = n00b_tuple_get(tup, 1);
         n00b_spec_field_t    *fspec  = fnode->info.field.field_spec;
         n00b_attr_contents_t *record = fnode->info.field.record;
         n00b_type_t          *t;
@@ -361,10 +363,11 @@ validate_field_contents(validation_ctx      *ctx,
         }
 
         uint64_t        num_ex;
-        n00b_string_t **exclusions = hatrack_set_items(fspec->exclusions, &num_ex);
+        n00b_string_t **exclusions = hatrack_set_items(fspec->exclusions,
+                                                       &num_ex);
 
         for (unsigned int i = 0; i < num_ex; i++) {
-            spec_node_t *n = hatrack_dict_get(fdict, exclusions[i], NULL);
+            spec_node_t *n = n00b_dict_get(fdict, exclusions[i], NULL);
             if (n != NULL) {
                 n00b_validation_error(ctx,
                                       n00b_spec_mutex_field,
@@ -376,18 +379,18 @@ validate_field_contents(validation_ctx      *ctx,
                                                     node->info.field.record));
             }
 
-            n00b_spec_field_t *x = hatrack_dict_get(secspec->fields,
-                                                    exclusions[i],
-                                                    NULL);
+            n00b_spec_field_t *x = n00b_dict_get(secspec->fields,
+                                                 exclusions[i],
+                                                 NULL);
             if (x && x->required) {
                 mark_required_field(reqflags, required, x->name);
             }
         }
 
         if (fspec->deferred_type_field) {
-            spec_node_t *bud = hatrack_dict_get(fdict,
-                                                fspec->deferred_type_field,
-                                                NULL);
+            spec_node_t *bud = n00b_dict_get(fdict,
+                                             fspec->deferred_type_field,
+                                             NULL);
             if (!bud || !bud->info.field.record->is_set) {
                 n00b_validation_error(ctx,
                                       n00b_spec_missing_ptr,
@@ -488,9 +491,9 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     // This does NOT get called for blueprint attributes.
     // It only gets called on instances and singletons.
 
-    uint64_t             num_subs;
     n00b_dict_t         *secdict  = node->info.section.contained_sections;
-    hatrack_dict_item_t *subsecs  = hatrack_dict_items(secdict, &num_subs);
+    n00b_list_t         *view     = n00b_dict_items(secdict);
+    uint64_t             num_subs = n00b_list_len(view);
     n00b_spec_section_t *secspec  = node->info.section.section_spec;
     n00b_flags_t        *reqflags = NULL;
     uint64_t             num_req;
@@ -506,8 +509,9 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     // 'required' list or the 'allow' list.
 
     for (unsigned int i = 0; i < num_subs; i++) {
-        n00b_string_t *name = subsecs[i].key;
-        spec_node_t   *sub  = subsecs[i].value;
+        n00b_tuple_t  *tup  = n00b_list_get(view, i, NULL);
+        n00b_string_t *name = n00b_tuple_get(tup, 0);
+        spec_node_t   *sub  = n00b_tuple_get(tup, 1);
         bool           ok   = false;
 
         // If this section name is required, mark that we saw it.
@@ -526,7 +530,7 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
             // Keeps us from recursing into broken subsections.
             sub->checked = true;
 
-            if (hatrack_dict_get(ctx->spec->section_specs, name, NULL)) {
+            if (n00b_dict_get(ctx->spec->section_specs, name, NULL)) {
                 n00b_validation_error(ctx,
                                       n00b_spec_disallowed_section,
                                       loc_from_decl(ctx->cur),
@@ -559,7 +563,9 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
 
     // Descend to any non-broken sections to check them.
     for (unsigned int i = 0; i < num_subs; i++) {
-        spec_node_t *sub = subsecs[i].value;
+        n00b_tuple_t *tup = n00b_list_get(view, i, NULL);
+        spec_node_t  *sub = n00b_tuple_get(tup, 1);
+
         if (sub->checked) {
             continue;
         }
@@ -579,18 +585,20 @@ spec_validate_section(validation_ctx *ctx)
     section_vinfo *info = &node->info.section;
 
     if (info->kind == sk_blueprint) {
-        uint64_t             num_fields;
-        n00b_dict_t         *fdict  = info->contained_fields;
-        hatrack_dict_item_t *fields = hatrack_dict_items(fdict, &num_fields);
+        uint64_t     num_fields;
+        n00b_dict_t *fdict  = info->contained_fields;
+        n00b_list_t *fields = n00b_dict_items(fdict);
+        num_fields          = n00b_list_len(fields);
 
         if (num_fields) {
-            spec_node_t *fnode = fields[0].value;
+            n00b_tuple_t *tup   = n00b_list_get(fields, 0, NULL);
+            spec_node_t  *fnode = n00b_tuple_get(tup, 1);
 
             n00b_validation_error(ctx,
                                   n00b_spec_blueprint_fields,
                                   node->path,
                                   info->section_spec->name,
-                                  fields[0].key,
+                                  n00b_tuple_get(tup, 0),
                                   loc_from_attr(ctx, fnode->info.field.record));
         }
     }

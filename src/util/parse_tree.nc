@@ -252,7 +252,7 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
         top->cache = cache;
     }
 
-    nb_info_t *result = hatrack_dict_get(cache, b, NULL);
+    nb_info_t *result = n00b_dict_get(cache, b, NULL);
 
     if (result) {
         return result;
@@ -276,7 +276,7 @@ get_node(n00b_parser_t *p, n00b_earley_item_t *b)
     pn->penalty    = b->penalty;
     pn->cost       = b->cost;
 
-    hatrack_dict_put(cache, b, result);
+    n00b_dict_put(cache, b, result);
 
     n00b_parse_rule_t *rule = top->rule;
 

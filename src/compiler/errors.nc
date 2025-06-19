@@ -1552,18 +1552,17 @@ n00b_format_errors(n00b_compile_ctx *cctx)
 
     n00b_table_t *table = n00b_table(columns : 3, style : N00B_TABLE_SIMPLE);
 
-    int      n           = 0;
-    uint64_t num_modules = 0;
+    int n = 0;
 
     n00b_table_next_column_fit(table);
     n00b_table_next_column_fit(table);
     n00b_table_next_column_flex(table, 1);
 
-    hatrack_dict_item_t *view = hatrack_dict_items_sort(cctx->module_cache,
-                                                        &num_modules);
+    n00b_list_t *view        = n00b_dict_values(cctx->module_cache);
+    uint64_t     num_modules = n00b_list_len(view);
 
     for (unsigned int i = 0; i < num_modules; i++) {
-        n00b_module_t *ctx = view[i].value;
+        n00b_module_t *ctx = n00b_list_get(view, i, NULL);
         if (ctx->ct->errors != NULL) {
             n += n00b_list_len(ctx->ct->errors);
             n00b_format_module_errors(ctx, table);
@@ -1580,14 +1579,12 @@ n00b_format_errors(n00b_compile_ctx *cctx)
 n00b_list_t *
 n00b_compile_extract_all_error_codes(n00b_compile_ctx *cctx)
 {
-    n00b_list_t         *result      = n00b_list(n00b_type_ref());
-    uint64_t             num_modules = 0;
-    hatrack_dict_item_t *view;
-
-    view = hatrack_dict_items_sort(cctx->module_cache, &num_modules);
+    n00b_list_t *result      = n00b_list(n00b_type_ref());
+    n00b_list_t *view        = n00b_dict_values(cctx->module_cache);
+    uint64_t     num_modules = n00b_list_len(view);
 
     for (unsigned int i = 0; i < num_modules; i++) {
-        n00b_module_t *ctx = view[i].value;
+        n00b_module_t *ctx = n00b_list_get(view, i, NULL);
 
         if (!ctx->ct) {
             continue;

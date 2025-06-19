@@ -438,7 +438,7 @@ n00b_gopt_get_flags(n00b_gopt_result_t *res)
 
     for (int i = 0; i < n; i++) {
         n00b_rt_option_t *opt = n00b_list_get(l, i, NULL);
-        hatrack_dict_add(result, opt->spec->name, opt->value);
+        n00b_dict_add(result, opt->spec->name, opt->value);
     }
 
     return result;
@@ -447,7 +447,7 @@ n00b_gopt_get_flags(n00b_gopt_result_t *res)
 static inline n00b_list_t *
 n00b_gopt_get_args(n00b_gopt_result_t *res, n00b_string_t *section)
 {
-    return hatrack_dict_get(res->args, section, NULL);
+    return n00b_dict_get(res->args, section, NULL);
 }
 
 #ifdef N00B_USE_INTERNAL_API

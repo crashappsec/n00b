@@ -93,7 +93,7 @@ gen_ts_typevar(n00b_type_info_t *t, repr_ctx *ctx)
     n00b_string_t *s;
 
     if (t) {
-        s = hatrack_dict_get(ctx->memos, t, NULL);
+        s = n00b_dict_get(ctx->memos, t, NULL);
         if (s) {
             return s;
         }
@@ -103,7 +103,7 @@ gen_ts_typevar(n00b_type_info_t *t, repr_ctx *ctx)
         }
         else {
             s = next_typevar_name(ctx);
-            hatrack_dict_put(ctx->memos, t, s);
+            n00b_dict_put(ctx->memos, t, s);
         }
         return s;
     }

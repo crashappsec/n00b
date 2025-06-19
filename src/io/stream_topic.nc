@@ -85,11 +85,11 @@ _n00b_create_topic_stream(n00b_string_t *name,
 
     result->name = name;
 
-    if (hatrack_dict_add(ns, name, result)) {
+    if (n00b_dict_add(ns, name, result)) {
         return result;
     }
 
-    return hatrack_dict_get(ns, name, NULL);
+    return n00b_dict_get(ns, name, NULL);
 }
 
 n00b_stream_t *
@@ -103,7 +103,7 @@ _n00b_get_topic_stream(n00b_string_t *name, ...)
         ns = get_default_namespace();
     }
 
-    n00b_stream_t *res = hatrack_dict_get(ns, name, NULL);
+    n00b_stream_t *res = n00b_dict_get(ns, name, NULL);
 
     if (!res) {
         return _n00b_create_topic_stream(name, ns, NULL, NULL, 0ULL);

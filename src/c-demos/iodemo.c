@@ -124,26 +124,6 @@ main(void)
     n00b_eprintf("«red»Welcome to the IO demo«/»");
     n00b_eprintf("«p»");
 
-    n00b_dict2_t *d = n00b_gc_alloc_mapped(n00b_dict2_t, N00B_GC_SCAN_ALL);
-    n00b_dict2_init(d, 16, false, false);
-    n00b_dict2_put(d, 100, 7);
-    int64_t y = (int64_t)n00b_dict2_get(d, 100, NULL);
-    n00b_printf("First test (expect 7): [=#=]", y);
-    y = (int64_t)n00b_dict2_get(d, 100, NULL);
-    n00b_printf("Expect 7: [=#=]", y);
-    n00b_dict2_add(d, 100, 8);
-    y = (int64_t)n00b_dict2_get(d, 100, NULL);
-    n00b_printf("Expect 7: [=#=]", y);
-    n00b_dict2_replace(d, 100, 8);
-    y = (int64_t)n00b_dict2_get(d, 100, NULL);
-    n00b_printf("Expect 8: [=#=]", y);
-    n00b_dict2_remove(d, 100);
-    y = (int64_t)n00b_dict2_get(d, 100, NULL);
-    n00b_printf("Expect 0: [=#=]", y);
-    n00b_dict2_add(d, 100, 7);
-    y = (int64_t)n00b_dict2_get(d, 100, NULL);
-    n00b_printf("Expect 7: [=#=]", y);
-
     // The process API uses the stream API extensively:
     // 1) For routing data between parent and child.
     // 2) For handling data capture.

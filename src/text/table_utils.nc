@@ -140,7 +140,7 @@ tree_builder(n00b_tree_node_t *node, int depth, tree_fmt_t *ctx)
     if (ctx->cycle) {
         repr = n00b_cformat("«#» «em6»(CYCLE #«#»)«/» ",
                             repr,
-                            hatrack_dict_get(ctx->cycle_nodes, node, NULL));
+                            n00b_dict_get(ctx->cycle_nodes, node, NULL));
     }
 
     if (ctx->props->remove_newlines) {
@@ -201,10 +201,9 @@ cycle_callback(n00b_tree_node_t *node, int depth, tree_fmt_t *ctx)
         ctx->cycle_nodes = n00b_dict(n00b_type_ref(), n00b_type_int());
     }
 
-    if (!hatrack_dict_get(ctx->cycle_nodes, node, NULL)) {
-        hatrack_dict_put(ctx->cycle_nodes,
-                         node,
-                         (void *)hatrack_dict_len(ctx->cycle_nodes) + 1);
+    if (!n00b_dict_get(ctx->cycle_nodes, node, NULL)) {
+        int n = n00b_dict_len(ctx->cycle_nodes);
+        n00b_dict_put(ctx->cycle_nodes, node, n + 1);
     }
 
     ctx->cycle = true;
@@ -253,11 +252,12 @@ n00b_tree_format(n00b_tree_node_t *tree,
 
     fmt_info.show_cycles = true;
 
-    uint64_t           n;
-    n00b_tree_node_t **nodes;
-    n00b_string_t     *s;
+    uint64_t       n;
+    n00b_list_t   *nodes;
+    n00b_string_t *s;
 
-    nodes = (void *)hatrack_dict_keys_sort(fmt_info.cycle_nodes, &n);
+    nodes = n00b_dict_keys(fmt_info.cycle_nodes);
+    n     = n00b_list_len(nodes);
 
     fmt_info.cycle_nodes = NULL;
 
@@ -267,7 +267,7 @@ n00b_tree_format(n00b_tree_node_t *tree,
         s = n00b_cformat("[«em1»Rooted from Cycle «#»: ", i + 1);
         n00b_table_add_cell(result, s);
         n00b_table_end_row(result);
-        n00b_tree_walk_with_cycles(nodes[i],
+        n00b_tree_walk_with_cycles(n00b_list_get(nodes, i, NULL),
                                    (n00b_walker_fn)tree_builder,
                                    NULL,
                                    &fmt_info);

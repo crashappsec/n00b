@@ -61,7 +61,7 @@ n00b_gopt_tok_command_name(n00b_gopt_lex_state *state)
     }
 
     n00b_string_t *s     = state->command_name;
-    int64_t        tokid = (int64_t)hatrack_dict_get(state->gctx->sub_names,
+    int64_t        tokid = (int64_t)n00b_dict_get(state->gctx->sub_names,
                                               s,
                                               NULL);
 
@@ -195,7 +195,7 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
         // for the command name; otherwise, use the token
         // for generic word.
 
-        tokid = (int64_t)hatrack_dict_get(state->gctx->sub_names,
+        tokid = (int64_t)n00b_dict_get(state->gctx->sub_names,
                                           raw_contents,
                                           NULL);
 
@@ -214,7 +214,7 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
 
     raw_contents = n00b_string_slice(raw_contents, 0, ix);
 
-    tokid = (int64_t)hatrack_dict_get(state->gctx->sub_names,
+    tokid = (int64_t)n00b_dict_get(state->gctx->sub_names,
                                       raw_contents,
                                       NULL);
 
@@ -405,7 +405,7 @@ n00b_emit_proper_flag(n00b_gopt_lex_state *state, int end_ix)
                                          end_ix);
     int64_t        tok_id;
 
-    n00b_goption_t *info = hatrack_dict_get(state->gctx->all_options,
+    n00b_goption_t *info = n00b_dict_get(state->gctx->all_options,
                                             s,
                                             NULL);
     if (!info) {
@@ -446,7 +446,7 @@ n00b_gopt_tok_gnu_short_opts(n00b_gopt_lex_state *state)
 
     while (p < end) {
         flag = n00b_string_from_codepoint(*p);
-        info = hatrack_dict_get(state->gctx->all_options, flag, NULL);
+        info = n00b_dict_get(state->gctx->all_options, flag, NULL);
 
         if (info == NULL) {
             tok_id = N00B_GOTT_UNKNOWN_OPT;

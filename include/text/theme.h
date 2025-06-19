@@ -222,7 +222,6 @@ typedef struct n00b_theme_t {
 } n00b_theme_t;
 
 extern n00b_box_props_t         *n00b_lookup_style_by_tag(n00b_string_t *);
-extern n00b_box_props_t         *n00b_lookup_style_by_hash(hatrack_hash_t);
 extern void                      n00b_set_current_theme(n00b_theme_t *);
 extern n00b_theme_t             *n00b_lookup_theme(n00b_string_t *);
 extern n00b_theme_t             *n00b_get_current_theme(void);

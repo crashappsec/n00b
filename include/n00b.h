@@ -27,7 +27,7 @@ typedef struct n00b_table_t            n00b_table_t;
 typedef struct n00b_type_t             n00b_type_t;
 typedef struct n00b_lock_base_t        n00b_lock_base_t;
 typedef struct n00b_mutex_t            n00b_mutex_t;
-typedef struct hatrack_dict_t          n00b_dict_t;
+typedef struct n00b_dict_t             n00b_dict_t;
 typedef struct hatrack_set_st          n00b_set_t;
 typedef struct n00b_string_t           n00b_string_t;
 typedef struct n00b_tsi_t              n00b_tsi_t;
@@ -128,17 +128,18 @@ extern bool n00b_gc_inited;
 
 #include "core/signal.h"
 #include "core/init.h"
-#include "core/env.h"    // env variable API
-#include "util/macros.h" // Helper macros
-#include "core/kargs.h"  // Keyword arguments.
+#include "core/env.h"     // env variable API
+#include "util/macros.h"  // Helper macros
+#include "core/kargs.h"   // Keyword arguments.
 #include "util/random.h"
+#include "util/va_list.h" // Minor helper
 
 // Core object.
 #include "core/object.h"
 
 #include "text/color.h"
 #include "adts/list.h"
-#include "adts/hash.h"
+#include "adts/dict.h"
 
 // Type system API.
 #include "core/typestore.h"
@@ -164,7 +165,6 @@ extern bool n00b_gc_inited;
 #include "core/exception.h"
 
 // Other data types.
-#include "adts/dict.h"
 #include "adts/set.h"
 #include "adts/net_addr.h"
 #include "adts/datetime.h"

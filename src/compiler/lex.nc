@@ -657,7 +657,7 @@ static n00b_dict_t *kws = NULL;
 static inline void
 add_keyword(char *keyword, n00b_token_kind_t kind)
 {
-    hatrack_dict_add(kws, n00b_cstring(keyword), (void *)(int64_t)kind);
+    n00b_dict_add(kws, n00b_cstring(keyword), (void *)(int64_t)kind);
 }
 
 static inline void
@@ -733,7 +733,7 @@ scan_id_or_keyword(lex_state_t *state)
         return;
     }
 
-    n00b_token_kind_t r = (n00b_token_kind_t)(int64_t)hatrack_dict_get(
+    n00b_token_kind_t r = (n00b_token_kind_t)(int64_t)n00b_dict_get(
         kws,
         n00b_utf32(state->start, length),
         &found);

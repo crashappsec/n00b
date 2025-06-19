@@ -281,30 +281,30 @@ n00b_vm_remove_compile_time_data(n00b_vm_t *vm)
                                          NULL);
         m->ct                   = NULL;
         m->module_scope->parent = NULL;
-        uint64_t nsyms;
-        void   **syms = hatrack_dict_values(m->module_scope->symbols, &nsyms);
+        n00b_list_t *syms       = n00b_dict_values(m->module_scope->symbols);
+        uint64_t     nsyms      = n00b_list_len(syms);
 
         for (uint64_t j = 0; j < nsyms; j++) {
-            n00b_symbol_t *sym = syms[j];
+            n00b_symbol_t *sym = n00b_list_get(syms, j, NULL);
             sym->ct            = NULL;
 
             if (sym->kind == N00B_SK_FUNC) {
-                n00b_fn_decl_t *fn      = sym->value;
-                n00b_scope_t   *fnscope = fn->signature_info->fn_scope;
-                uint64_t        nsub;
-                void          **sub_syms = hatrack_dict_values(fnscope->symbols,
-                                                      &nsub);
+                n00b_fn_decl_t *fn       = sym->value;
+                n00b_scope_t   *fnscope  = fn->signature_info->fn_scope;
+                n00b_list_t    *sub_syms = n00b_dict_values(fnscope->symbols);
+                uint64_t        nsub     = n00b_list_len(sub_syms);
 
                 for (uint64_t k = 0; k < nsub; k++) {
-                    n00b_symbol_t *sub = sub_syms[k];
+                    n00b_symbol_t *sub = n00b_list_get(sub_syms, k, NULL);
                     sub->ct            = NULL;
                 }
 
                 fnscope  = fn->signature_info->formals;
-                sub_syms = hatrack_dict_values(fnscope->symbols, &nsub);
+                sub_syms = n00b_dict_values(fnscope->symbols);
+                nsub     = n00b_list_len(sub_syms);
 
                 for (uint64_t k = 0; k < nsub; k++) {
-                    n00b_symbol_t *sub = sub_syms[k];
+                    n00b_symbol_t *sub = n00b_list_get(sub_syms, k, NULL);
                     sub->ct            = NULL;
                 }
 

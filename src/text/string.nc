@@ -2247,6 +2247,7 @@ const n00b_vtable_t n00b_string_vtable = {
         [N00B_BI_SLICE_GET]    = (n00b_vtable_entry)n00b_string_slice,
         [N00B_BI_ITEM_TYPE]    = (n00b_vtable_entry)n00b_string_item_type,
         [N00B_BI_VIEW]         = (n00b_vtable_entry)n00b_string_view,
+        [N00B_BI_HASH]         = (n00b_vtable_entry)n00b_string_hash,
         [N00B_BI_RENDER]       = NULL,
     },
 };

@@ -6,13 +6,13 @@ get_all_specs(n00b_gopt_ctx *ctx, n00b_string_t *path)
     n00b_list_t *result = n00b_list(n00b_type_ref());
 
     if (!path) {
-        n00b_list_append(result, hatrack_dict_get(ctx->top_specs, NULL, NULL));
+        n00b_list_append(result, n00b_dict_get(ctx->top_specs, NULL, NULL));
         return result;
     }
 
     n00b_list_t     *parts = n00b_string_split(path, n00b_cached_period());
     n00b_string_t   *part  = n00b_list_get(parts, 0, NULL);
-    n00b_gopt_cspec *cur   = hatrack_dict_get(ctx->top_specs, part, NULL);
+    n00b_gopt_cspec *cur   = n00b_dict_get(ctx->top_specs, part, NULL);
 
     if (!cur) {
         return NULL;
@@ -22,7 +22,7 @@ get_all_specs(n00b_gopt_ctx *ctx, n00b_string_t *path)
 
     for (int i = 1; i < n; i++) {
         part = n00b_list_get(parts, i, NULL);
-        cur  = hatrack_dict_get(cur->sub_commands, part, NULL);
+        cur  = n00b_dict_get(cur->sub_commands, part, NULL);
         if (!cur) {
             return NULL;
         }
@@ -192,7 +192,7 @@ n00b_getopt_default_usage(n00b_gopt_ctx      *ctx,
         n00b_string_t *cmd_name;
 
         spec = n00b_list_get(parts, i, NULL);
-        if (hatrack_dict_len(spec->owned_opts)) {
+        if (n00b_list_len(n00b_dict_keys(spec->owned_opts))) {
             cmd_name = n00b_cformat("«em»«#»«/»",
                                     n00b_cstring("«options»"));
         }

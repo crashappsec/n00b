@@ -98,14 +98,12 @@ n00b_string_to_type(n00b_string_t *str)
 static void
 merge_function_decls(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 {
-    n00b_scope_t         *scope = fctx->module_scope;
-    hatrack_dict_value_t *items;
-    uint64_t              n;
-
-    items = hatrack_dict_values(scope->symbols, &n);
+    n00b_scope_t *scope  = fctx->module_scope;
+    n00b_list_t  *values = n00b_dict_values(scope->symbols);
+    uint64_t      n      = n00b_list_len(values);
 
     for (uint64_t i = 0; i < n; i++) {
-        n00b_symbol_t *new = items[i];
+        n00b_symbol_t *new = n00b_list_get(values, i, NULL);
 
         if (new->kind != N00B_SK_FUNC &&new->kind != N00B_SK_EXTERN_FUNC) {
             continue;
@@ -115,10 +113,10 @@ merge_function_decls(n00b_compile_ctx *cctx, n00b_module_t *fctx)
             continue;
         }
 
-        if (!hatrack_dict_add(cctx->final_globals->symbols, new->name, new)) {
-            n00b_symbol_t *old = hatrack_dict_get(cctx->final_globals->symbols,
-                                                  new->name,
-                                                  NULL);
+        if (!n00b_dict_add(cctx->final_globals->symbols, new->name, new)) {
+            n00b_symbol_t *old = n00b_dict_get(cctx->final_globals->symbols,
+                                               new->name,
+                                               NULL);
 
             if (old != new) {
                 n00b_add_warning(fctx,
@@ -199,13 +197,11 @@ topological_order_process(tsearch_ctx *ctx)
 
     n00b_list_append(ctx->visiting, cur);
 
-    uint64_t              num_imports;
-    hatrack_dict_value_t *imports;
-
-    imports = hatrack_dict_values(cur->ct->imports->symbols, &num_imports);
+    n00b_list_t *imports     = n00b_dict_values(cur->ct->imports->symbols);
+    uint64_t     num_imports = n00b_list_len(imports);
 
     for (uint64_t i = 0; i < num_imports; i++) {
-        n00b_symbol_t    *sym  = imports[i];
+        n00b_symbol_t    *sym  = n00b_list_get(imports, i, NULL);
         n00b_tree_node_t *n    = sym->ct->declaration_node;
         n00b_pnode_t     *pn   = n00b_tree_get_contents(n);
         n00b_module_t    *next = (n00b_module_t *)pn->value;
@@ -261,28 +257,26 @@ merge_one_plain_scope(n00b_compile_ctx *cctx,
                       n00b_scope_t     *global)
 
 {
-    uint64_t              num_symbols;
-    hatrack_dict_value_t *items;
-    n00b_symbol_t        *new_sym;
-    n00b_symbol_t        *old_sym;
-
-    items = hatrack_dict_values(local->symbols, &num_symbols);
+    n00b_symbol_t *new_sym;
+    n00b_symbol_t *old_sym;
+    n00b_list_t   *items       = n00b_dict_values(local->symbols);
+    uint64_t       num_symbols = n00b_list_len(items);
 
     for (uint64_t i = 0; i < num_symbols; i++) {
-        new_sym = items[i];
+        new_sym = n00b_list_get(items, i, NULL);
 
-        if (hatrack_dict_add(global->symbols,
-                             new_sym->name,
-                             new_sym)) {
+        if (n00b_dict_add(global->symbols,
+                          new_sym->name,
+                          new_sym)) {
             new_sym->local_module_id = fctx->module_id;
             continue;
         }
 
-        old_sym = hatrack_dict_get(global->symbols,
-                                   new_sym->name,
-                                   NULL);
+        old_sym = n00b_dict_get(global->symbols,
+                                new_sym->name,
+                                NULL);
         if (n00b_merge_symbols(fctx, new_sym, old_sym)) {
-            hatrack_dict_put(global->symbols, new_sym->name, old_sym);
+            n00b_dict_put(global->symbols, new_sym->name, old_sym);
             new_sym->linked_symbol   = old_sym;
             new_sym->local_module_id = old_sym->local_module_id;
         }
@@ -299,12 +293,10 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 
     cctx->final_spec->in_use = true;
 
-    uint64_t              num_sections;
-    n00b_dict_t          *fspecs = cctx->final_spec->section_specs;
-    hatrack_dict_value_t *sections;
-
-    sections = hatrack_dict_values(fctx->ct->local_specs->section_specs,
-                                   &num_sections);
+    n00b_dict_t *fspecs       = cctx->final_spec->section_specs;
+    n00b_dict_t *lspecs       = fctx->ct->local_specs->section_specs;
+    n00b_list_t *sections     = n00b_dict_values(lspecs);
+    uint64_t     num_sections = n00b_list_len(sections);
 
     if (num_sections && cctx->final_spec->locked) {
         n00b_add_error(fctx,
@@ -314,13 +306,13 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
     }
 
     for (uint64_t i = 0; i < num_sections; i++) {
-        n00b_spec_section_t *cur = sections[i];
+        n00b_spec_section_t *cur = n00b_list_get(sections, i, NULL);
 
-        if (hatrack_dict_add(fspecs, cur->name, cur)) {
+        if (n00b_dict_add(fspecs, cur->name, cur)) {
             continue;
         }
 
-        n00b_spec_section_t *old = hatrack_dict_get(fspecs, cur->name, NULL);
+        n00b_spec_section_t *old = n00b_dict_get(fspecs, cur->name, NULL);
 
         n00b_add_error(fctx,
                        n00b_err_spec_redef_section,
@@ -332,7 +324,6 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
 
     n00b_spec_section_t *root_adds = fctx->ct->local_specs->root_section;
     n00b_spec_section_t *true_root = cctx->final_spec->root_section;
-    uint64_t             num_fields;
 
     if (root_adds == NULL) {
         return;
@@ -359,19 +350,19 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
         }
     }
 
-    hatrack_dict_value_t *fields = hatrack_dict_values(root_adds->fields,
-                                                       &num_fields);
+    n00b_list_t *fields     = n00b_dict_values(root_adds->fields);
+    uint64_t     num_fields = n00b_list_len(fields);
 
     for (uint64_t i = 0; i < num_fields; i++) {
-        n00b_spec_field_t *cur = fields[i];
+        n00b_spec_field_t *cur = n00b_list_get(fields, i, NULL);
 
-        if (hatrack_dict_add(true_root->fields, cur->name, cur)) {
+        if (n00b_dict_add(true_root->fields, cur->name, cur)) {
             continue;
         }
 
-        n00b_spec_field_t *old = hatrack_dict_get(root_adds->fields,
-                                                  cur->name,
-                                                  NULL);
+        n00b_spec_field_t *old = n00b_dict_get(root_adds->fields,
+                                               cur->name,
+                                               NULL);
 
         n00b_add_error(fctx,
                        n00b_err_spec_redef_field,

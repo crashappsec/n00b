@@ -31,7 +31,7 @@ n00b_set_default_debug_flow(n00b_db_rule_t *rule)
 void
 n00b_set_debug_topic_flow(n00b_string_t *topic, n00b_db_rule_t *rule)
 {
-    hatrack_dict_put(topic_workflows, topic, rule);
+    n00b_dict_put(topic_workflows, topic, rule);
 }
 
 static n00b_buf_t *
@@ -123,7 +123,7 @@ n00b_db_rule_t *
 n00b_get_topic_workflow(n00b_string_t *topic)
 {
     init_db_workflow();
-    n00b_db_rule_t *result = hatrack_dict_get(topic_workflows, topic, NULL);
+    n00b_db_rule_t *result = n00b_dict_get(topic_workflows, topic, NULL);
 
     if (result) {
         return result;
@@ -356,7 +356,7 @@ void
 n00b_apply_debug_workflow(n00b_debug_msg_t *msg)
 {
     init_db_workflow();
-    n00b_db_rule_t *workflow = hatrack_dict_get(topic_workflows,
+    n00b_db_rule_t *workflow = n00b_dict_get(topic_workflows,
                                                 msg->topic,
                                                 NULL);
 

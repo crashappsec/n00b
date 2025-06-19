@@ -434,22 +434,22 @@ setup_polymorphic_fns()
     polymorphic_fns = n00b_new(n00b_type_dict(n00b_type_string(),
                                               n00b_type_ref()));
 
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_SLICE_FN), (void *)~3);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_INDEX_FN), (void *)~2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_PLUS_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_MINUS_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_MUL_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_MOD_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_DIV_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_FDIV_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_SHL_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_SHR_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_BAND_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_BOR_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_BXOR_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_CMP_FN), (void *)2);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_SET_SLICE), (void *)~4);
-    hatrack_dict_put(polymorphic_fns, n00b_cstring(N00B_SET_INDEX), (void *)~3);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_SLICE_FN), (void *)~3);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_INDEX_FN), (void *)~2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_PLUS_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_MINUS_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_MUL_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_MOD_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_DIV_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_FDIV_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_SHL_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_SHR_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_BAND_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_BOR_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_BXOR_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_CMP_FN), (void *)2);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_SET_SLICE), (void *)~4);
+    n00b_dict_put(polymorphic_fns, n00b_cstring(N00B_SET_INDEX), (void *)~3);
 
     n00b_gc_register_root(&polymorphic_fns, 1);
 }
@@ -526,7 +526,7 @@ initial_function_resolution(pass2_ctx        *ctx,
 
     // Result will be non-zero in all cases we allow polymorphism,
     // thus the null check, even though we were putting in ints.
-    if (hatrack_dict_get(polymorphic_fns, call_name, NULL) != NULL) {
+    if (n00b_dict_get(polymorphic_fns, call_name, NULL) != NULL) {
         info->polymorphic = 1;
         info->deferred    = 1;
 
@@ -720,7 +720,7 @@ sym_lookup(pass2_ctx *ctx, n00b_string_t *name, n00b_tree_node_t *node)
             }
             // fallthrough
         case n00b_attr_field:
-            result = hatrack_dict_get(ctx->attr_scope->symbols, name, NULL);
+            result = n00b_dict_get(ctx->attr_scope->symbols, name, NULL);
             if (result == NULL) {
                 result = n00b_add_inferred_symbol(ctx->module_ctx,
                                                   ctx->attr_scope,
@@ -1184,19 +1184,19 @@ loop_push_ix_var(pass2_ctx *ctx, n00b_loop_info_t *li)
 static void
 loop_pop_ix_var(pass2_ctx *ctx, n00b_loop_info_t *li)
 {
-    hatrack_dict_remove(ctx->local_scope->symbols, ix_var_name);
+    n00b_dict_remove(ctx->local_scope->symbols, ix_var_name);
 
     if (li->label_ix != NULL) {
-        hatrack_dict_remove(ctx->local_scope->symbols, li->label_ix);
+        n00b_dict_remove(ctx->local_scope->symbols, li->label_ix);
     }
 
     if (li->shadowed_ix != NULL) {
-        hatrack_dict_put(ctx->local_scope->symbols,
-                         ix_var_name,
-                         li->shadowed_ix);
+        n00b_dict_put(ctx->local_scope->symbols,
+                      ix_var_name,
+                      li->shadowed_ix);
     }
     else {
-        hatrack_dict_remove(ctx->local_scope->symbols, ix_var_name);
+        n00b_dict_remove(ctx->local_scope->symbols, ix_var_name);
     }
 }
 
@@ -1571,30 +1571,30 @@ handle_for(pass2_ctx *ctx)
 
     loop_pop_ix_var(ctx, li);
 
-    hatrack_dict_remove(ctx->local_scope->symbols, last_var_name);
+    n00b_dict_remove(ctx->local_scope->symbols, last_var_name);
 
     if (li->label_last != NULL) {
-        hatrack_dict_remove(ctx->local_scope->symbols, li->label_last);
+        n00b_dict_remove(ctx->local_scope->symbols, li->label_last);
     }
 
-    hatrack_dict_remove(ctx->local_scope->symbols, var1_name);
+    n00b_dict_remove(ctx->local_scope->symbols, var1_name);
     if (var2_name != NULL) {
-        hatrack_dict_remove(ctx->local_scope->symbols, var2_name);
+        n00b_dict_remove(ctx->local_scope->symbols, var2_name);
     }
     if (li->shadowed_last != NULL) {
-        hatrack_dict_put(ctx->local_scope->symbols,
-                         last_var_name,
-                         li->shadowed_last);
+        n00b_dict_put(ctx->local_scope->symbols,
+                      last_var_name,
+                      li->shadowed_last);
     }
     if (li->shadowed_lvar_1 != NULL) {
-        hatrack_dict_put(ctx->local_scope->symbols,
-                         var1_name,
-                         li->shadowed_lvar_1);
+        n00b_dict_put(ctx->local_scope->symbols,
+                      var1_name,
+                      li->shadowed_lvar_1);
     }
     if (li->shadowed_lvar_2 != NULL) {
-        hatrack_dict_put(ctx->local_scope->symbols,
-                         var2_name,
-                         li->shadowed_lvar_2);
+        n00b_dict_put(ctx->local_scope->symbols,
+                      var2_name,
+                      li->shadowed_lvar_2);
     }
 
     // Finally, do type checking based on the type of loop. The type
@@ -1757,7 +1757,7 @@ handle_typeof_statement(pass2_ctx *ctx)
 
     // We don't care what scope `sym` came from; it'll get looked up
     // in the local scope first, so we will shadow it in the local scope.
-    saved_sym = hatrack_dict_get(ctx->local_scope->symbols, sym->name, NULL);
+    saved_sym = n00b_dict_get(ctx->local_scope->symbols, sym->name, NULL);
     ctx->cfg  = entrance;
 
     if (n00b_type_is_concrete(type_to_test)) {
@@ -1881,7 +1881,7 @@ handle_typeof_statement(pass2_ctx *ctx)
     }
 
     if (saved_sym != NULL) {
-        hatrack_dict_put(ctx->local_scope->symbols, sym->name, saved_sym);
+        n00b_dict_put(ctx->local_scope->symbols, sym->name, saved_sym);
     }
 
     n00b_list_pop(ctx->loop_stack);
@@ -2914,22 +2914,19 @@ check_function(pass2_ctx *ctx, n00b_symbol_t *fn_sym)
 
     check_ctx.si = check_ctx.decl->signature_info;
 
-    static char resname[] = "$result";
-    uint64_t    num_items;
-    void      **view;
-
-    n00b_scope_t *actuals = check_ctx.si->fn_scope;
-    n00b_scope_t *formals = check_ctx.si->formals;
-
-    view = hatrack_dict_values_sort(actuals->symbols, &num_items);
+    static char   resname[] = "$result";
+    n00b_scope_t *actuals   = check_ctx.si->fn_scope;
+    n00b_scope_t *formals   = check_ctx.si->formals;
+    n00b_list_t  *view      = n00b_dict_values(actuals->symbols);
+    uint64_t      num_items = n00b_list_len(view);
 
     for (uint64_t i = 0; i < num_items; i++) {
-        n00b_symbol_t *sym = view[i];
+        n00b_symbol_t *sym = n00b_list_get(view, i, NULL);
 
         check_ctx.sym      = sym;
-        check_ctx.formal   = hatrack_dict_get(formals->symbols,
-                                            sym->name,
-                                            NULL);
+        check_ctx.formal   = n00b_dict_get(formals->symbols,
+                                         sym->name,
+                                         NULL);
         check_ctx.num_defs = n00b_list_len(sym->ct->sym_defs);
         check_ctx.num_uses = n00b_list_len(sym->ct->sym_uses);
 
@@ -2953,8 +2950,8 @@ check_function(pass2_ctx *ctx, n00b_symbol_t *fn_sym)
 
     if (check_ctx.delete_result_var) {
         n00b_string_t *s = n00b_cstring(resname);
-        hatrack_dict_remove(actuals->symbols, s);
-        hatrack_dict_remove(formals->symbols, s);
+        n00b_dict_remove(actuals->symbols, s);
+        n00b_dict_remove(formals->symbols, s);
     }
 
     // We'd previously set the fn symbol's signature, and we need
@@ -3002,8 +2999,6 @@ process_function_definitions(pass2_ctx *ctx)
         n00b_pnode_t     *pnode   = n00b_tree_get_contents(fn_root);
         n00b_symbol_t    *sym     = (n00b_symbol_t *)pnode->value;
         n00b_scope_t     *formals;
-        void            **view;
-        uint64_t          num_items;
 
         ctx->fn_decl      = sym->value;
         ctx->local_scope  = ctx->fn_decl->signature_info->fn_scope;
@@ -3014,12 +3009,13 @@ process_function_definitions(pass2_ctx *ctx)
 
         n00b_list_append(ctx->module_ctx->fn_def_syms, sym);
 
-        view = hatrack_dict_values_sort(ctx->local_scope->symbols, &num_items);
+        n00b_list_t *view      = n00b_dict_values(ctx->local_scope->symbols);
+        uint64_t     num_items = n00b_list_len(view);
 
         for (unsigned int i = 0; i < num_items; i++) {
-            n00b_symbol_t *var = view[i];
+            n00b_symbol_t *var = n00b_list_get(view, i, NULL);
 
-            if (hatrack_dict_get(formals->symbols, var->name, NULL)) {
+            if (n00b_dict_get(formals->symbols, var->name, NULL)) {
                 add_def(ctx, var, true);
                 // This should move into decl_pass and make our lives easier.
                 var->kind = N00B_SK_FORMAL;
@@ -3196,23 +3192,22 @@ check_used_global_variable(n00b_module_t *ctx, n00b_symbol_t *sym)
 static void
 validate_module_variables(n00b_module_t *ctx)
 {
-    uint64_t       n;
     n00b_symbol_t *entry;
-    void         **view;
-
-    view = hatrack_dict_values_sort(ctx->module_scope->symbols, &n);
+    n00b_list_t   *view = n00b_dict_values(ctx->module_scope->symbols);
+    uint64_t       n    = n00b_list_len(view);
 
     for (uint64_t i = 0; i < n; i++) {
-        entry = view[i];
+        entry = n00b_list_get(view, i, NULL);
         if (entry->kind == N00B_SK_VARIABLE) {
             check_module_variable(ctx, entry);
         }
     }
 
-    view = hatrack_dict_values_sort(ctx->ct->global_scope->symbols, &n);
+    view = n00b_dict_values(ctx->ct->global_scope->symbols);
+    n    = n00b_list_len(view);
 
     for (uint64_t i = 0; i < n; i++) {
-        entry = view[i];
+        entry = n00b_list_get(view, i, NULL);
         if (entry->kind == N00B_SK_VARIABLE && entry->linked_symbol == NULL) {
             check_my_global_variable(ctx, entry);
         }
@@ -3333,11 +3328,11 @@ typedef struct {
 static void
 scan_for_void_symbols(n00b_module_t *f, n00b_scope_t *scope)
 {
-    uint64_t n;
-    void   **view = hatrack_dict_values_sort(scope->symbols, &n);
+    n00b_list_t *view = n00b_dict_values(scope->symbols);
+    uint64_t     n    = n00b_list_len(view);
 
     for (uint64_t i = 0; i < n; i++) {
-        n00b_symbol_t *sym = view[i];
+        n00b_symbol_t *sym = n00b_list_get(view, i, NULL);
 
         if (sym->kind == N00B_SK_VARIABLE || sym->kind == N00B_SK_ATTR) {
             if (n00b_type_resolve(sym->type)->typeid == N00B_T_VOID) {
