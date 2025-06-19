@@ -2,7 +2,7 @@
 
 #if defined(N00B_DEBUG)
 extern char   *_n00b_dstrf(char *fmt, int64_t num_params, ...);
-extern void    n00b_dlog(char *, int, int, char *,  int, char *);
+extern void    n00b_dlog(char *, int, int, char * N00B_ALLOC_XTRA);
 extern int64_t n00b_dlog_get_topic_policy(char *);
 extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 
@@ -60,7 +60,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_lock3(...)
 #else
 #define n00b_dlog_lock3(...)\
-    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 3, __FILE__, __LINE__, \
+    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 3 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -70,7 +70,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_lock2(...)
 #else
 #define n00b_dlog_lock2(...)\
-    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 2, __FILE__, __LINE__, \
+    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 2 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -80,7 +80,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_lock1(...)
 #else
 #define n00b_dlog_lock1(...)\
-    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 1, __FILE__, __LINE__, \
+    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 1 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -90,7 +90,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_lock(...)
 #else
 #define n00b_dlog_lock(...)\
-    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 0, __FILE__, __LINE__, \
+    n00b_dlog("lock", N00B_DLOG_LOCK_IX, 0 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -99,6 +99,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define N00B_DLOG_LOCK_ON
 #endif
 #define N00B_DLOG_LOCK_LEVEL (N00B_DLOG_LOCK_COMPILE_OUT_THRESHOLD - 1)
+
 
 #if defined(N00B_DEBUG)
 #if !defined(N00B_DLOG_ALLOC_DEFAULT_LAST_LEVEL)
@@ -118,7 +119,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_alloc3(...)
 #else
 #define n00b_dlog_alloc3(...)\
-    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 3, __FILE__, __LINE__, \
+    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 3 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -128,7 +129,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_alloc2(...)
 #else
 #define n00b_dlog_alloc2(...)\
-    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 2, __FILE__, __LINE__, \
+    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 2 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -138,7 +139,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_alloc1(...)
 #else
 #define n00b_dlog_alloc1(...)\
-    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 1, __FILE__, __LINE__, \
+    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 1 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -148,7 +149,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_alloc(...)
 #else
 #define n00b_dlog_alloc(...)\
-    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 0, __FILE__, __LINE__, \
+    n00b_dlog("alloc", N00B_DLOG_ALLOC_IX, 0 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -177,7 +178,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gc3(...)
 #else
 #define n00b_dlog_gc3(...)\
-    n00b_dlog("gc", N00B_DLOG_GC_IX, 3, __FILE__, __LINE__, \
+    n00b_dlog("gc", N00B_DLOG_GC_IX, 3 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -187,7 +188,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gc2(...)
 #else
 #define n00b_dlog_gc2(...)\
-    n00b_dlog("gc", N00B_DLOG_GC_IX, 2, __FILE__, __LINE__, \
+    n00b_dlog("gc", N00B_DLOG_GC_IX, 2 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -197,7 +198,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gc1(...)
 #else
 #define n00b_dlog_gc1(...)\
-    n00b_dlog("gc", N00B_DLOG_GC_IX, 1, __FILE__, __LINE__, \
+    n00b_dlog("gc", N00B_DLOG_GC_IX, 1 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -207,7 +208,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gc(...)
 #else
 #define n00b_dlog_gc(...)\
-    n00b_dlog("gc", N00B_DLOG_GC_IX, 0, __FILE__, __LINE__, \
+    n00b_dlog("gc", N00B_DLOG_GC_IX, 0 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -236,7 +237,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gil3(...)
 #else
 #define n00b_dlog_gil3(...)\
-    n00b_dlog("gil", N00B_DLOG_GIL_IX, 3, __FILE__, __LINE__, \
+    n00b_dlog("gil", N00B_DLOG_GIL_IX, 3 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -246,7 +247,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gil2(...)
 #else
 #define n00b_dlog_gil2(...)\
-    n00b_dlog("gil", N00B_DLOG_GIL_IX, 2, __FILE__, __LINE__, \
+    n00b_dlog("gil", N00B_DLOG_GIL_IX, 2 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -256,7 +257,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gil1(...)
 #else
 #define n00b_dlog_gil1(...)\
-    n00b_dlog("gil", N00B_DLOG_GIL_IX, 1, __FILE__, __LINE__, \
+    n00b_dlog("gil", N00B_DLOG_GIL_IX, 1 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -266,7 +267,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_gil(...)
 #else
 #define n00b_dlog_gil(...)\
-    n00b_dlog("gil", N00B_DLOG_GIL_IX, 0, __FILE__, __LINE__, \
+    n00b_dlog("gil", N00B_DLOG_GIL_IX, 0 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -295,7 +296,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_thread3(...)
 #else
 #define n00b_dlog_thread3(...)\
-    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 3, __FILE__, __LINE__, \
+    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 3 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -305,7 +306,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_thread2(...)
 #else
 #define n00b_dlog_thread2(...)\
-    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 2, __FILE__, __LINE__, \
+    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 2 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -315,7 +316,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_thread1(...)
 #else
 #define n00b_dlog_thread1(...)\
-    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 1, __FILE__, __LINE__, \
+    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 1 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -325,7 +326,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_thread(...)
 #else
 #define n00b_dlog_thread(...)\
-    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 0, __FILE__, __LINE__, \
+    n00b_dlog("thread", N00B_DLOG_THREAD_IX, 0 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -354,7 +355,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_io3(...)
 #else
 #define n00b_dlog_io3(...)\
-    n00b_dlog("io", N00B_DLOG_IO_IX, 3, __FILE__, __LINE__, \
+    n00b_dlog("io", N00B_DLOG_IO_IX, 3 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -364,7 +365,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_io2(...)
 #else
 #define n00b_dlog_io2(...)\
-    n00b_dlog("io", N00B_DLOG_IO_IX, 2, __FILE__, __LINE__, \
+    n00b_dlog("io", N00B_DLOG_IO_IX, 2 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -374,7 +375,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_io1(...)
 #else
 #define n00b_dlog_io1(...)\
-    n00b_dlog("io", N00B_DLOG_IO_IX, 1, __FILE__, __LINE__, \
+    n00b_dlog("io", N00B_DLOG_IO_IX, 1 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif
@@ -384,7 +385,7 @@ extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 #define n00b_dlog_io(...)
 #else
 #define n00b_dlog_io(...)\
-    n00b_dlog("io", N00B_DLOG_IO_IX, 0, __FILE__, __LINE__, \
+    n00b_dlog("io", N00B_DLOG_IO_IX, 0 N00B_ALLOC_CALLPARAM, \
               n00b_dstrf(__VA_ARGS__))
 
 #endif

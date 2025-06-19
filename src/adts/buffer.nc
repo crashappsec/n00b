@@ -53,7 +53,7 @@ buffer_init(n00b_buf_t *obj, va_list args)
     }
 
     if (length > 0 && ptr == NULL) {
-        int64_t alloc_len = hatrack_round_up_to_power_of_2(length);
+        int64_t alloc_len = n00b_round_base2(length);
 
         obj->data      = n00b_gc_raw_alloc(alloc_len, NULL);
         obj->alloc_len = alloc_len;
@@ -133,7 +133,7 @@ n00b_buffer_resize(n00b_buf_t *buffer, uint64_t new_sz)
     }
 
     // Resize up, copying old data and leaving the rest zero'd.
-    uint64_t new_alloc_sz = hatrack_round_up_to_power_of_2(new_sz);
+    uint64_t new_alloc_sz = n00b_round_base2(new_sz);
     char    *new_data     = n00b_gc_raw_alloc(new_alloc_sz, NULL);
 
     memcpy(new_data, buffer->data, buffer->byte_len);

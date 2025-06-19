@@ -204,7 +204,7 @@ n00b_fd_send(n00b_fd_stream_t *s, char *bytes, int len)
 
     n00b_fd_post(s, s->queued_subs, n00b_buffer_from_bytes(bytes, len));
 
-    if (CAS(&s->worker, &expected, me)) {
+    if (n00b_cas(&s->worker, &expected, me)) {
         // Double check.
         if (atomic_read(&s->worker) == me) {
             process_write_queue(s);

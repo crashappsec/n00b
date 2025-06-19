@@ -266,7 +266,7 @@ n00b_session_pause_recording(n00b_session_t *s)
     s->paused_clock  = true;
     s->saved_capture = atomic_read(&s->capture_stream);
 
-    CAS(&s->capture_stream, &s->saved_capture, NULL);
+    n00b_cas(&s->capture_stream, &s->saved_capture, NULL);
 }
 
 void
@@ -277,7 +277,7 @@ n00b_session_continue_recording(n00b_session_t *s)
     if (!s->saved_capture) {
         return;
     }
-    CAS(&s->capture_stream, &expected, s->saved_capture);
+    n00b_cas(&s->capture_stream, &expected, s->saved_capture);
     s->paused_clock       = false;
     n00b_duration_t *now  = n00b_now();
     n00b_duration_t *diff = n00b_duration_diff(now, s->last_event);

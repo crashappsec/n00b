@@ -8,6 +8,8 @@
 #else
 #endif
 
+// #define N00B_ADD_ALLOC_LOC_INFO
+
 // #define N00B_DLOG_COMPILE_OUT_THRESHOLD 4
 // #define N00B_DLOG_DEFAULT_DISABLE_LEVEL 2
 // #define N00B_DLOG_LOCK_DEFAULT_LAST_LEVEL 2 // Raise the cutoff for locks
@@ -18,6 +20,7 @@
 // #define N00B_DEBUG_GC_ROOTS
 // #define N00B_FIND_SCRIBBLES
 // #define N00B_SCAN_ALLOC
+
 #pragma once
 // Home of anything remotely configurable. Don't change this file;
 // update the meson config.
@@ -40,10 +43,6 @@
 
 #ifdef N00B_PARSE_DEBUG
 #undef N00B_PARSE_DEBUG
-#endif
-
-#ifdef N00B_ADD_ALLOC_LOC_INFO
-#undef N00B_ADD_ALLOC_LOC_INFO
 #endif
 
 #ifdef N00B_TYPE_LOG
@@ -74,22 +73,9 @@
 
 #endif
 
-#if !defined(HATRACK_PER_INSTANCE_AUX)
-#error "HATRACK_PER_INSTANCE_AUX must be defined for n00b to compile."
-#endif
-
 #if defined(N00B_GC_SHOW_COLLECT_STACK_TRACES)
 #define N00B_GC_STATS
 #endif
-
-#if defined(HATRACK_ALLOC_PASS_LOCATION)
-#define N00B_ADD_ALLOC_LOC_INFO
-#else
-#if defined(N00B_GC_STATS)
-#error "N00B_GC_STATS cannot be enabled without HATRACK_ALLOC_PASS_LOCATION"
-#endif // N00B_GC_STATS
-
-#endif // HATRACK_ALLOC_PASS_LOCATION
 
 #if defined(N00B_VM_DEBUG) && !defined(N00B_VM_DEBUG_DEFAULT)
 #define N00B_VM_DEBUG_DEFAULT false
@@ -354,6 +340,10 @@
 #if !defined(N00B_DEFAULT_FD_LIMIT)
 #define N00B_DEFAULT_FD_LIMIT -1
 #endif
+#endif
+
+#ifndef N00B_THREADS_MAX
+#define N00B_THREADS_MAX 4096
 #endif
 
 #include "n00b/debug_config.h"

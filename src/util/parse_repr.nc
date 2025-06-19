@@ -396,10 +396,9 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
         n00b_list_append(result, n00b_cached_space());
     }
 
-    n00b_string_t       *links;
-    uint64_t             n;
-    n00b_earley_item_t **clist = hatrack_set_items_sort(start->parent_states,
-                                                        &n);
+    n00b_string_t *links;
+    n00b_list_t   *clist = n00b_set_items(start->parent_states);
+    int            n     = n00b_list_len(clist);
 
     if (!n) {
         links = n00b_cformat(" «i»Predicted by:«/» «#0»",
@@ -409,8 +408,8 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
     else {
         links = n00b_crich(" «i»Predicted by:«/»");
 
-        for (uint64_t i = 0; i < n; i++) {
-            n00b_earley_item_t *rent = clist[i];
+        for (int i = 0; i < n; i++) {
+            n00b_earley_item_t *rent = n00b_list_get(clist, i, NULL);
 
             n00b_string_t *s = n00b_cformat(" «#0»:«#1»",
                                             rent->estate_id,
@@ -422,14 +421,15 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
     n = 0;
 
     if (cur->completors) {
-        clist = hatrack_set_items_sort(cur->completors, &n);
+        clist = n00b_set_items(cur->completors);
+        n     = n00b_list_len(clist);
     }
     if (n) {
         links = n00b_string_concat(links,
                                    n00b_crich(" «i»Via Completion:«/» "));
 
-        for (uint64_t i = 0; i < n; i++) {
-            n00b_earley_item_t *ei = clist[i];
+        for (int i = 0; i < n; i++) {
+            n00b_earley_item_t *ei = n00b_list_get(clist, i, NULL);
             n00b_string_t      *s  = n00b_cformat(" «#0»:«#1»",
                                             ei->estate_id,
                                             ei->eitem_index);
@@ -437,13 +437,14 @@ n00b_repr_earley_item(n00b_parser_t *parser, n00b_earley_item_t *cur, int id)
         }
     }
 
-    clist = hatrack_set_items_sort(cur->predictions, &n);
+    clist = n00b_set_items(cur->predictions);
+    n     = n00b_list_len(clist);
 
     if (n) {
         links = n00b_string_concat(links, n00b_crich(" «i»Predictions:«/» "));
 
-        for (uint64_t i = 0; i < n; i++) {
-            n00b_earley_item_t *ei = clist[i];
+        for (int i = 0; i < n; i++) {
+            n00b_earley_item_t *ei = n00b_list_get(clist, i, NULL);
             n00b_string_t      *s  = n00b_cformat(" «#0»:«#1»",
                                             ei->estate_id,
                                             ei->eitem_index);
@@ -713,14 +714,14 @@ add_highlights(n00b_parser_t *parser, n00b_list_t *row, int eix, int v)
     int64_t     key = eix;
     int64_t     cur = v;
     n00b_set_t *s   = n00b_dict_get(parser->debug_highlights,
-                                     (void *)key,
-                                     NULL);
+                                  (void *)key,
+                                  NULL);
 
     if (!s) {
         return;
     }
 
-    if (hatrack_set_contains(s, (void *)cur)) {
+    if (n00b_set_contains(s, (void *)cur)) {
         n00b_string_t *s0 = n00b_list_get(row, 0, NULL);
         n00b_string_t *s1 = n00b_list_get(row, 1, NULL);
         n00b_list_set(row, 0, n00b_cformat("«em4»«#»«/»", s0));

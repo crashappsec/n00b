@@ -22,7 +22,7 @@ n00b_new_compile_ctx()
     return n00b_gc_alloc_mapped(n00b_compile_ctx, N00B_GC_SCAN_ALL);
 }
 
-static hatrack_hash_t
+static __int128_t
 module_ctx_hash(n00b_module_t *ctx)
 {
     return ctx->modref;
@@ -373,28 +373,28 @@ merge_one_confspec(n00b_compile_ctx *cctx, n00b_module_t *fctx)
     }
 
     if (root_adds->allowed_sections != NULL) {
-        uint64_t num_allows;
-        void   **allows = n00b_set_items(root_adds->allowed_sections,
-                                       &num_allows);
+        n00b_list_t *allows     = n00b_set_items(root_adds->allowed_sections);
+        int          num_allows = n00b_list_len(allows);
 
-        for (uint64_t i = 0; i < num_allows; i++) {
-            if (!n00b_set_add(true_root->allowed_sections, allows[i])) {
+        for (int i = 0; i < num_allows; i++) {
+            if (!n00b_set_add(true_root->allowed_sections,
+                              n00b_list_get(allows, i, NULL))) {
                 n00b_add_warning(fctx,
                                  n00b_warn_dupe_allow,
                                  root_adds->declaration_node);
             }
             n00b_assert(n00b_set_contains(true_root->allowed_sections,
-                                          allows[i]));
+                                          n00b_list_get(allows, i, NULL)));
         }
     }
 
     if (root_adds->required_sections != NULL) {
-        uint64_t num_reqs;
-        void   **reqs = n00b_set_items(root_adds->required_sections,
-                                     &num_reqs);
+        n00b_list_t *reqs     = n00b_set_items(root_adds->required_sections);
+        int          num_reqs = n00b_list_len(reqs);
 
-        for (uint64_t i = 0; i < num_reqs; i++) {
-            if (!n00b_set_add(true_root->required_sections, reqs[i])) {
+        for (int i = 0; i < num_reqs; i++) {
+            if (!n00b_set_add(true_root->required_sections,
+                              n00b_list_get(reqs, i, NULL))) {
                 n00b_add_warning(fctx,
                                  n00b_warn_dupe_require,
                                  root_adds->declaration_node);

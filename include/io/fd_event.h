@@ -246,7 +246,7 @@ n00b_fd_become_worker(n00b_fd_stream_t *s)
 
     n00b_barrier();
 
-    while (!CAS(&s->worker, &expected, me)) {
+    while (!n00b_cas(&s->worker, &expected, me)) {
         // Don't break the spin lock.
         if (expected == me) {
             break;

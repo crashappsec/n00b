@@ -407,7 +407,6 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_gc_register_root(&n00b_path, 1);
         n00b_gc_register_root(&n00b_extensions, 1);
         n00b_gc_register_root(&cached_environment_vars, 1);
-        n00b_gc_register_root(&mmm_free_tids, sizeof(mmm_free_tids) / 8);
         n00b_gc_register_root(&exit_handlers, 1);
         n00b_initialize_global_types();
         n00b_init_common_string_cache();

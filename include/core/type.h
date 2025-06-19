@@ -8,30 +8,14 @@ extern n00b_type_t *n00b_type_copy(n00b_type_t *);
 extern n00b_type_t *n00b_get_builtin_type(n00b_builtin_t);
 extern n00b_type_t *n00b_unify(n00b_type_t *, n00b_type_t *);
 
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-extern n00b_type_t *_n00b_type_flist(n00b_type_t *, char *, int);
-extern n00b_type_t *_n00b_type_list(n00b_type_t *, char *, int);
-extern n00b_type_t *_n00b_type_tree(n00b_type_t *, char *, int);
-extern n00b_type_t *_n00b_type_queue(n00b_type_t *, char *, int);
-extern n00b_type_t *_n00b_type_ring(n00b_type_t *, char *, int);
-extern n00b_type_t *_n00b_type_stack(n00b_type_t *, char *, int);
-extern n00b_type_t *_n00b_type_set(n00b_type_t *, char *, int);
-#define n00b_type_flist(x) _n00b_type_flist(x, __FILE__, __LINE__)
-#define n00b_type_list(x)  _n00b_type_list(x, __FILE__, __LINE__)
-#define n00b_type_tree(x)  _n00b_type_tree(x, __FILE__, __LINE__)
-#define n00b_type_queue(x) _n00b_type_queue(x, __FILE__, __LINE__)
-#define n00b_type_ring(x)  _n00b_type_ring(x, __FILE__, __LINE__)
-#define n00b_type_stack(x) _n00b_type_stack(x, __FILE__, __LINE__)
-#define n00b_type_set(x)   _n00b_type_set(x, __FILE__, __LINE__)
-#else
-extern n00b_type_t *n00b_type_flist(n00b_type_t *);
-extern n00b_type_t *n00b_type_list(n00b_type_t *);
-extern n00b_type_t *n00b_type_tree(n00b_type_t *);
-extern n00b_type_t *n00b_type_queue(n00b_type_t *);
-extern n00b_type_t *n00b_type_ring(n00b_type_t *);
-extern n00b_type_t *n00b_type_stack(n00b_type_t *);
-extern n00b_type_t *n00b_type_set(n00b_type_t *);
-#endif
+extern n00b_type_t *_n00b_type_list(n00b_type_t *N00B_ALLOC_XTRA);
+extern n00b_type_t *_n00b_type_tree(n00b_type_t *N00B_ALLOC_XTRA);
+extern n00b_type_t *_n00b_type_set(n00b_type_t *N00B_ALLOC_XTRA);
+
+#define n00b_type_list(x) _n00b_type_list(x N00B_ALLOC_CALLPARAM)
+#define n00b_type_tree(x) _n00b_type_tree(x N00B_ALLOC_CALLPARAM)
+#define n00b_type_set(x)  _n00b_type_set(x N00B_ALLOC_CALLPARAM)
+
 extern n00b_type_t *n00b_type_box(n00b_type_t *);
 extern n00b_type_t *n00b_type_dict(n00b_type_t *, n00b_type_t *);
 
@@ -190,6 +174,16 @@ n00b_type_is_dict(n00b_type_t *t)
 }
 
 static inline bool
+n00b_type_is_bytering(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+
+    return n00b_type_resolve(t)->base_index == N00B_T_BYTERING;
+}
+
+static inline bool
 n00b_type_is_mutex(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {
@@ -267,16 +261,6 @@ n00b_type_is_message(n00b_type_t *t)
     }
 
     return n00b_type_resolve(t)->base_index == N00B_T_MESSAGE;
-}
-
-static inline bool
-n00b_type_is_bytering(n00b_type_t *t)
-{
-    if (!n00b_ensure_type(t)) {
-        return false;
-    }
-
-    return n00b_type_resolve(t)->base_index == N00B_T_BYTERING;
 }
 
 static inline bool
@@ -406,6 +390,12 @@ static inline n00b_type_t *
 n00b_type_u8(void)
 {
     return n00b_bi_types[N00B_T_BYTE];
+}
+
+static inline n00b_type_t *
+n00b_type_bytering(void)
+{
+    return n00b_bi_types[N00B_T_BYTERING];
 }
 
 static inline n00b_type_t *
@@ -687,12 +677,6 @@ static inline n00b_type_t *
 n00b_type_message(void)
 {
     return n00b_bi_types[N00B_T_MESSAGE];
-}
-
-static inline n00b_type_t *
-n00b_type_bytering(void)
-{
-    return n00b_bi_types[N00B_T_BYTERING];
 }
 
 static inline n00b_type_t *

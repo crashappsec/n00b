@@ -4,14 +4,11 @@
 typedef struct n00b_thread_t n00b_thread_t;
 
 struct n00b_thread_t {
-    // This reserves space for MMM's use; the n00b_thread_t * is
-    // transparently cast to it, so this must be first.
-    mmm_thread_t mmm_info;
-    void        *tsi;
-    void        *base; // base pointer of stack
-    void        *cur;  // current stack 'top'.
-    pthread_t    pthread_id;
-    bool         cancel;
+    void     *tsi;
+    void     *base; // base pointer of stack
+    void     *cur;  // current stack 'top'.
+    pthread_t pthread_id;
+    bool      cancel;
 };
 
 extern void           n00b_thread_stack_region(n00b_thread_t *);

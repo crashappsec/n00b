@@ -12,7 +12,7 @@ populate_one_section(n00b_vmthread_t     *tstate,
 
     n00b_vm_t *vm = tstate->vm;
 
-    if (!hatrack_set_add(vm->all_sections, path)) {
+    if (!n00b_set_add(vm->all_sections, path)) {
         return;
     }
 

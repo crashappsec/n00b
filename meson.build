@@ -33,8 +33,6 @@ c_args = [    '-Wextra',
     '-Wno-cast-function-type',
     '-fno-omit-frame-pointer',
     '-ffunction-sections',
-    '-DHATRACK_PER_INSTANCE_AUX',
-    '-DHATRACK_DONT_DEALLOC',
     '-DN00B_MIN_RENDER_WIDTH=' + render_width,
     '-DN00B_BACKTRACE_SUPPORTED',
 ]
@@ -122,10 +120,6 @@ if not get_option('use_gc_ptr_hooks').disabled()
     c_args = c_args + ['-DN00B_USE_GC_HOOKS']
 endif
 
-if get_option('keep_alloc_locations') == true and get_option('dev_mode') == false
-    c_args = c_args + ['-DHATRACK_ALLOC_PASS_LOCATION']
-
-endif
 
 if get_option('dev_mode') == true
     c_args = c_args + ['-DN00B_DEV']
@@ -159,7 +153,7 @@ if get_option('dev_mode') == true
     if not (memcheck == 'off')
         c_args = c_args + [
             '-DN00B_FULL_MEMCHECK',
-            '-DHATRACK_ALLOC_PASS_LOCATION',
+            '-DN00B_ALLOC_LOC_INFO',
         ]
 
         if memcheck == 'strict'
@@ -174,8 +168,10 @@ if get_option('dev_mode') == true
     endif
 
     if get_option('show_gc_stats').enabled()
-        c_args = c_args + ['-DN00B_GC_STATS',
-                '-DHATRACK_ALLOC_PASS_LOCATION']
+        c_args = c_args + [
+             '-DN00B_GC_STATS',
+             '-DN00B_ALLOC_LOC_INFO',             
+        ]
     endif
 
     vm_debug = get_option('vm_debug')
@@ -215,66 +211,17 @@ if using_osx
     exe_link_args = exe_link_args + ['-Wl']
 endif
 
-exe_c_args = c_args + ['-flto', '-DHATRACK_REFERENCE_ALGORITHMS']
+exe_c_args = c_args + ['-flto']
 n00b_c_args = c_args
 
 
 
-hat_primary = [
-    'src/hatrack/support/hatrack_common.c',
-    'src/hatrack/support/mmm.c',
-    'src/hatrack/support/counters.c',
-    'src/hatrack/support/malloc.c',
-    'src/hatrack/hash/crown.c',
-    'src/hatrack/hash/dict.c',
-    'src/hatrack/hash/xxhash.c',
-    'src/hatrack/hash/set.c',
-    'src/hatrack/hash/woolhat.c',
-    'src/hatrack/array/flexarray.c',
-    'src/hatrack/array/zeroarray.c',
-    'src/hatrack/queue/queue.c',
-    'src/hatrack/queue/hatring.c',
-    'src/hatrack/queue/stack.c',
-    'src/hatrack/queue/debug.c',
-    'src/hatrack/queue/logring.c',
-]
-
-hat_hashref = [
-    'src/hatrack/hash/ballcap.c',
-    'src/hatrack/hash/duncecap.c',
-    'src/hatrack/hash/hihat-a.c',
-    'src/hatrack/hash/hihat.c',
-    'src/hatrack/hash/lohat-a.c',
-    'src/hatrack/hash/lohat.c',
-    'src/hatrack/hash/newshat.c',
-    'src/hatrack/hash/oldhat.c',
-    'src/hatrack/hash/refhat.c',
-    'src/hatrack/hash/swimcap.c',
-    'src/hatrack/hash/tiara.c',
-    'src/hatrack/hash/tophat.c',
-    'src/hatrack/hash/witchhat.c',
-]
-
-hash_test_src = hat_hashref + [
-    'src/harness/hash/test.c',
-    'src/harness/hash/default.c',
-    'src/harness/hash/performance.c',
-    'src/harness/hash/config.c',
-    'src/harness/hash/functional.c',
-    'src/harness/hash/rand.c',
-    'src/harness/hash/testhat.c',
-]
-
 if not using_osx and not using_glibc
     target = build_machine.cpu_family()
     quark_files = ['src/quark/quark.c', 'src/quark' / target + '.s']
-    hat_primary = hat_primary + quark_files
+else
+    quark_files = []
 endif
-
-libhatrack = static_library('libhatrack',
-    hat_primary,
-    include_directories: incdir,
-    c_args: c_args)
 
 # baked into meson - guaranteed to be present hence not a subproject
 libatomic_dep = cc.find_library('atomic', required : false)
@@ -336,10 +283,10 @@ n00b_text = [
 
 
 n00b_adts = [
+    'src/adts/zarray.nc',
     'src/adts/buffer.nc',
     'src/adts/dict.nc',
     'src/adts/set.nc',
-    'src/adts/hatlists.nc',
     'src/adts/list.nc',
     'src/adts/tree.nc',
     'src/adts/numbers.nc',
@@ -497,7 +444,7 @@ deps = [
   openssl_dep,
 ]
 
-link_with = [libhatrack]
+link_with = []
 
 if using_glibc and libatomic_dep.found()
   deps = deps + [libatomic_dep]
@@ -537,7 +484,7 @@ endif
 
 executable(
    'io_demo',
-   ['src/c-demos/iodemo.c'],
+   ['src/c-demos/iodemo.c'] + quark_files,
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,
@@ -547,7 +494,7 @@ executable(
    
 executable(
    'n00b',
-   ncpp.process(n00b_cmd),
+   ncpp.process(n00b_cmd + quark_files),
    include_directories: incdir,
    dependencies: deps,
    c_args: c_args,
@@ -558,7 +505,7 @@ executable(
 
 executable(
     'ctest',
-    ['tests/c-tests/__cur.c'],
+    ['tests/c-tests/__cur.c'] + quark_files,
     include_directories: incdir,
     dependencies: deps,
     c_args: c_args,
@@ -568,7 +515,7 @@ executable(
 
 executable(
 'n00blog',
-     ncpp.process(['src/debug/server.nc']),
+     ncpp.process(['src/debug/server.nc'] + quark_files),
      include_directories: incdir,
      dependencies: deps,
      c_args: c_args  + ['-DN00B_DEBUG_SERVER',
@@ -576,16 +523,4 @@ executable(
      link_args: exe_link_args,
      link_with: link_with,
 )
-
-if get_option('build_hatrack').enabled()
-    executable(
-        'hash',
-        hash_test_src,
-        include_directories: incdir,
-        dependencies: deps,
-        link_args: exe_link_args,
-        link_with: [libhatrack],
-        c_args: exe_c_args,
-    )
-endif
 

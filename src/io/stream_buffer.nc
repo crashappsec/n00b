@@ -80,7 +80,7 @@ start_copying:
     }
 
     target->alloc_len += needed;
-    target->alloc_len = hatrack_round_up_to_power_of_2(target->alloc_len);
+    target->alloc_len = n00b_round_base2(target->alloc_len);
 
     char *new_buf = n00b_gc_raw_alloc(target->alloc_len,
                                       N00B_GC_SCAN_NONE);

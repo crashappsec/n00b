@@ -51,7 +51,7 @@ extern bool  _n00b_dict_add(n00b_dict_t *d, void *key, void *value);
 extern bool  _n00b_dict_remove(n00b_dict_t *d, void *key);
 extern bool  _n00b_dict_cas(n00b_dict_t *d,
                             void        *key,
-                            void        *old_item,
+                            void       **old_item_ptr,
                             void        *new_item,
                             bool         expect_empty,
                             bool         delete_existing);
@@ -115,3 +115,14 @@ n00b_dict_contains(n00b_dict_t *d, void *v)
 
     return found;
 }
+
+#ifdef N00B_USE_INTERNAL_API
+extern bool n00b_dict_lock(n00b_dict_t *d, bool try, uint32_t *count);
+extern void n00b_dict_unlock_post_copy(n00b_dict_t *d);
+
+#define N00B_HT_FLAG_MUTEX   1
+#define N00B_HT_FLAG_COPYING 2
+#define N00B_HT_FLAG_DELETED 4
+#define N00B_HT_FLAG_MOVING  8
+
+#endif

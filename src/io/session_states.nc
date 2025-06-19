@@ -124,13 +124,13 @@ n00b_session_state_repr(n00b_session_t *s)
     }
 
     n00b_private_list_append(worklist, s->start_state);
-    hatrack_set_put(memos, s->start_state);
+    n00b_set_put(memos, s->start_state);
 
     while (n00b_list_len(worklist)) {
         n00b_string_t        *state_name = n00b_list_pop(worklist);
         n00b_session_state_t *state      = n00b_dict_get(s->user_states,
-                                                       state_name,
-                                                       NULL);
+                                                    state_name,
+                                                    NULL);
 
         if (!state) {
             n00b_table_add_cell(tbl, state_name);
@@ -146,8 +146,8 @@ n00b_session_state_repr(n00b_session_t *s)
         for (int i = 0; i < n; i++) {
             t = n00b_list_get((n00b_list_t *)state, i, NULL);
             add_one_trigger(tbl, state_name, t);
-            if (t->next_state && !hatrack_set_contains(memos, t->next_state)) {
-                hatrack_set_put(memos, t->next_state);
+            if (t->next_state && !n00b_set_contains(memos, t->next_state)) {
+                n00b_set_put(memos, t->next_state);
                 n00b_private_list_append(worklist, t->next_state);
             }
         }
@@ -159,7 +159,7 @@ n00b_session_state_repr(n00b_session_t *s)
     for (int i = 0; i < n; i++) {
         n00b_string_t *name = n00b_list_get(items, i, NULL);
 
-        if (!hatrack_set_contains(memos, name)) {
+        if (!n00b_set_contains(memos, name)) {
             n00b_table_add_cell(tbl,
                                 n00b_cformat("«red»Error:«/» state «#» "
                                              "is defined, but unreachable.",

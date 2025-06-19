@@ -23,6 +23,7 @@ n00b_show_arena_alloc_locs(n00b_arena_t *arena)
     while (p < end) {
         if (*p == n00b_gc_guard) {
             n00b_alloc_hdr *h = (n00b_alloc_hdr *)p;
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
             if (h->alloc_file) {
                 printf("Alloc hdr @%p alloced from %s:%d\n",
                        p,
@@ -32,6 +33,7 @@ n00b_show_arena_alloc_locs(n00b_arena_t *arena)
             else {
                 printf("Alloc hdr @%p has no location info\n", p);
             }
+#endif
             p += (h->alloc_len / 8);
         }
         else {
@@ -79,6 +81,7 @@ register_error(mc_state_t *state)
 static void
 n00b_print_possible_loc(n00b_alloc_hdr *h, n00b_alloc_hdr *prev)
 {
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
     if (!h) {
         return;
     }
@@ -95,6 +98,7 @@ n00b_print_possible_loc(n00b_alloc_hdr *h, n00b_alloc_hdr *prev)
     else {
         fprintf(stderr, " %s:%d", h->alloc_file, h->alloc_line);
     }
+#endif
 }
 
 #define mc_warn(state, ...)                                           \

@@ -32,11 +32,6 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <sys/mman.h>
-
-// config.h is used to get N00B_MAX_KEYWORD_SIZE, and
-// the hatrack define isn't something we use, but is checked
-// at compile-time by the config.
-#define HATRACK_PER_INSTANCE_AUX
 #include "n00b/config.h"
 
 // Define this to remove #line directives, for debugging.

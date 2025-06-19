@@ -231,7 +231,7 @@ n00b_mdebug_pgrep(uintptr_t n)
 }
 
 char *
-n00b_m_log_string(char *topic, char *msg, int64_t priority, char *f, int l)
+n00b_m_log_string(char *topic, char *msg, int64_t priority N00B_ALLOC_XTRA)
 {
     uint64_t               mysequence;
     uint64_t               index;
@@ -245,6 +245,16 @@ n00b_m_log_string(char *topic, char *msg, int64_t priority, char *f, int l)
     record_ptr->sequence = mysequence;
     record_ptr->thread   = tsi->thread_id;
 
+    char *f;
+    int   l;
+
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
+    f = file;
+    l = line;
+#else
+    f = "not captured";
+    l = -1;
+#endif
     snprintf(record_ptr->msg,
              N00B_DEBUG_MSG_SIZE,
              fmt,

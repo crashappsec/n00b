@@ -284,7 +284,7 @@ n00b_tree_match(n00b_tree_node_t *tree,
     bool result = full_match(search_state, pat->contents);
 
     if (match_loc != NULL) {
-        *match_loc = n00b_set_to_list(search_state->captures);
+        *match_loc = n00b_set_items(search_state->captures);
     }
 
     if (result) {
@@ -309,7 +309,7 @@ capture(search_ctx_t *ctx, n00b_tree_node_t *node)
         ctx->captures = n00b_set(n00b_type_tree(n00b_type_ref()));
     }
 
-    hatrack_set_add(ctx->captures, node);
+    n00b_set_add(ctx->captures, node);
 }
 
 static int

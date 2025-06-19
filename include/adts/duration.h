@@ -81,7 +81,7 @@ static inline int64_t
 n00b_ns_timestamp(void)
 {
     n00b_duration_t d;
-    hatrack_get_timestamp((void *)&d);
+    clock_gettime(CLOCK_MONOTONIC, (void *)&d);
     d.tv_nsec *= N00B_NS_PER_US;
 
     return n00b_ns_from_duration(&d);

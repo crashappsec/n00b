@@ -4,15 +4,7 @@
 pthread_key_t            n00b_static_tsi_key;
 _Atomic int32_t          n00b_next_thread_slot = 0;
 _Atomic int              n00b_live_threads     = 0;
-_Atomic(n00b_thread_t *) n00b_global_thread_list[HATRACK_THREADS_MAX];
-
-// I don't feel good giving it a function pointer to a static inline fn
-static void *
-n00b_mmm_get_tsi(void)
-{
-    n00b_tsi_t *ptr = n00b_get_tsi_ptr();
-    return &ptr->self_data.mmm_info;
-}
+_Atomic(n00b_thread_t *) n00b_global_thread_list[N00B_THREADS_MAX];
 
 // IMPORTANT: This needs to live in non-GC'd space, and we cannot do
 // *anything* to impact global state until after we've installed our
@@ -60,11 +52,11 @@ _n00b_init_self_tsi(int32_t acquired_thread_slot)
     else {
         do {
             tsi->thread_id = atomic_fetch_add(&n00b_next_thread_slot, 1);
-            tsi->thread_id %= HATRACK_THREADS_MAX;
+            tsi->thread_id %= N00B_THREADS_MAX;
             expected = NULL;
-        } while (!CAS(&n00b_global_thread_list[tsi->thread_id],
-                      &expected,
-                      desired));
+        } while (!n00b_cas(&n00b_global_thread_list[tsi->thread_id],
+                           &expected,
+                           desired));
     }
 
 #if defined(N00B_FLOG_DEBUG)
@@ -81,7 +73,7 @@ n00b_thread_cancel_other_threads(void)
 {
     n00b_thread_t *self = n00b_thread_self();
 
-    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
+    for (int i = 0; i < N00B_THREADS_MAX; i++) {
         n00b_thread_t *t = atomic_read(&n00b_global_thread_list[i]);
         if (!t || t == self) {
             continue;
@@ -96,7 +88,6 @@ once void
 n00b_threading_setup(void)
 {
     pthread_key_create(&n00b_static_tsi_key, NULL);
-    mmm_setthreadfns((void *)n00b_mmm_get_tsi, NULL);
 
     n00b_tsi_t    *tsi  = n00b_init_self_tsi();
     n00b_thread_t *self = n00b_thread_self();

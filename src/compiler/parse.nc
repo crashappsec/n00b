@@ -35,23 +35,52 @@ new_comment_node()
     return n00b_gc_alloc_mapped(n00b_comment_node_t, n00b_comment_node_gc_bits);
 }
 
+typedef struct parse_stack_item_t parse_stack_item_t;
+
 typedef struct {
-    n00b_tree_node_t  *cur;
-    n00b_module_t     *module_ctx;
-    n00b_token_t      *cached_token;
-    hatstack_t        *root_stack;
-    n00b_checkpoint_t *jump_state;
-    int32_t            token_ix;
-    int32_t            cache_ix;
-    int32_t            loop_depth;
-    int32_t            switch_depth;
+    n00b_tree_node_t   *cur;
+    n00b_module_t      *module_ctx;
+    n00b_token_t       *cached_token;
+    parse_stack_item_t *root_stack;
+    n00b_checkpoint_t  *jump_state;
+    int32_t             token_ix;
+    int32_t             cache_ix;
+    int32_t             loop_depth;
+    int32_t             switch_depth;
     // This is used to figure out whether we should allow a newline
     // after a ), ] or }. If we're inside a literal definition, we
     // allow it. If we're in a literal definition context, the newline
     // is okay, otherwise it is not.
-    int32_t            lit_depth;
-    bool               in_function;
+    int32_t             lit_depth;
+    bool                in_function;
 } parse_ctx;
+
+struct parse_stack_item_t {
+    parse_stack_item_t *next;
+    void               *item;
+};
+
+static inline void
+parse_stack_push(parse_ctx *ctx, void *item)
+{
+    parse_stack_item_t *frame = n00b_gc_alloc_mapped(parse_stack_item_t,
+                                                     N00B_GC_SCAN_ALL);
+    frame->next               = ctx->root_stack;
+    frame->item               = item;
+    ctx->root_stack           = frame;
+}
+
+static inline void *
+parse_stack_pop(parse_ctx *ctx)
+{
+    parse_stack_item_t *frame = ctx->root_stack;
+    if (!frame) {
+        return NULL;
+    }
+
+    ctx->root_stack = frame->next;
+    return frame->item;
+}
 
 #ifdef N00B_PARSE_DEBUG
 static inline n00b_token_t *_tok_cur(parse_ctx *, int);
@@ -713,7 +742,7 @@ end_node(parse_ctx *ctx)
 static inline n00b_tree_node_t *
 temporary_tree(parse_ctx *ctx, n00b_node_kind_t nt)
 {
-    hatstack_push(ctx->root_stack, ctx->cur);
+    parse_stack_push(ctx, ctx->cur);
     n00b_pnode_t *tmproot = n00b_new(n00b_type_parse_node(), ctx, nt);
 
     n00b_type_t      *pn     = n00b_type_parse_node();
@@ -729,7 +758,7 @@ restore_tree(parse_ctx *ctx)
 {
     n00b_tree_node_t *result = ctx->cur;
 
-    ctx->cur = (n00b_tree_node_t *)hatstack_pop(ctx->root_stack, NULL);
+    ctx->cur = parse_stack_pop(ctx);
 
     return result;
 }
@@ -4540,7 +4569,7 @@ n00b_parse(n00b_module_t *module_ctx)
         .cached_token = NULL,
         .token_ix     = 0,
         .cache_ix     = -1,
-        .root_stack   = n00b_new(n00b_type_stack(n00b_type_parse_node())),
+        .root_stack   = NULL,
     };
 
     prime_tokens(&ctx);
@@ -4569,7 +4598,7 @@ n00b_parse_type(n00b_module_t *module_ctx)
         .cached_token = NULL,
         .token_ix     = 0,
         .cache_ix     = -1,
-        .root_stack   = n00b_new(n00b_type_stack(n00b_type_parse_node())),
+        .root_stack   = NULL,
     };
 
     prime_tokens(&ctx);

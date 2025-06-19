@@ -159,7 +159,7 @@ n00b_thread_spawn(void *(*r)(void *), void *arg)
     int32_t tid = 0;
 
     do {
-        tid = atomic_fetch_add(&n00b_next_thread_slot, 1) % HATRACK_THREADS_MAX;
+        tid = atomic_fetch_add(&n00b_next_thread_slot, 1) % N00B_THREADS_MAX;
     } while (atomic_read(&n00b_global_thread_list[tid]));
 
     n00b_tbundle_t *info = n00b_gc_alloc_mapped(n00b_tbundle_t,

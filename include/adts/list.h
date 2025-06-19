@@ -19,8 +19,6 @@ extern void         n00b_list_plus_eq(n00b_list_t *, n00b_list_t *);
 extern n00b_list_t *n00b_private_list_plus(n00b_list_t *, n00b_list_t *);
 extern n00b_list_t *n00b_list_plus(n00b_list_t *, n00b_list_t *);
 extern int64_t      n00b_list_len(const n00b_list_t *);
-extern n00b_list_t *_n00b_list(n00b_type_t *);
-#define n00b_list(x) n00b_new(n00b_type_list(x), 0ULL)
 extern n00b_list_t *n00b_private_list_copy(n00b_list_t *);
 extern n00b_list_t *n00b_list_copy(n00b_list_t *);
 extern n00b_list_t *n00b_private_list_shallow_copy(n00b_list_t *);
@@ -65,6 +63,9 @@ n00b_list_contains(n00b_list_t *list, void *item)
 {
     return n00b_list_find(list, item) != -1;
 }
+
+#define n00b_list(x, ...) \
+    n00b_new(n00b_type_list(x) __VA_OPT__(, ) __VA_ARGS__, 0ULL)
 
 #define n00b_to_list(t, ...) \
     _n00b_to_list(t, N00B_PP_NARG(__VA_ARGS__) __VA_OPT__(, ) __VA_ARGS__)

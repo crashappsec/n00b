@@ -45,7 +45,7 @@ process_conditions(n00b_event_loop_t *ctx)
     // We *should* be the only thread changing out the list.
     n00b_list_t *new_list = n00b_list(n00b_type_ref());
 
-    while (!(CAS(&ctx->conditions, &old, new_list))) {
+    while (!(n00b_cas(&ctx->conditions, &old, new_list))) {
         // Nothing.
     }
 
@@ -194,7 +194,7 @@ process_pset(n00b_event_loop_t *loop, n00b_pevent_loop_t *ploop)
         if (!s || atomic_read(&s->evloop->owner) != self) {
             continue;
         }
-        if (!CAS(&s->worker, &worker, self)) {
+        if (!n00b_cas(&s->worker, &worker, self)) {
             // Someone's either adding to it or doing their own r/w
             // so leave it alone until the next polling cycle.
             continue;
@@ -391,7 +391,7 @@ n00b_fd_run_evloop(n00b_event_loop_t *loop, n00b_duration_t *howlong)
         loop->stop_time = NULL;
     }
 
-    if (!CAS(&loop->owner, &expected, t)) {
+    if (!n00b_cas(&loop->owner, &expected, t)) {
         tsi->system_thread = false;
         return false;
     }

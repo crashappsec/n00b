@@ -3,7 +3,7 @@
 
 #ifdef N00B_USE_INTERNAL_API
 extern _Atomic int32_t          n00b_live_threads;
-extern _Atomic(n00b_thread_t *) n00b_global_thread_list[HATRACK_THREADS_MAX];
+extern _Atomic(n00b_thread_t *) n00b_global_thread_list[N00B_THREADS_MAX];
 extern _Atomic int32_t          n00b_next_thread_slot;
 
 static inline int

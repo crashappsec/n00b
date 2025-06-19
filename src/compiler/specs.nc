@@ -72,8 +72,8 @@ n00b_table_repr_section(n00b_spec_section_t *section)
         n00b_table_add_cell(result, n00b_cformat("«em»Overview not provided"));
     }
 
-    n00b_list_t *reqs   = n00b_set_to_list(section->required_sections);
-    n00b_list_t *allows = n00b_set_to_list(section->allowed_sections);
+    n00b_list_t *reqs   = n00b_set_items(section->required_sections);
+    n00b_list_t *allows = n00b_set_items(section->allowed_sections);
     uint64_t     n      = n00b_list_len(reqs);
 
     if (!n) {
@@ -101,7 +101,7 @@ n00b_table_repr_section(n00b_spec_section_t *section)
     }
 
     n00b_spec_field_t **fields = (void *)n00b_dict_values(section->fields,
-                                                             &n);
+                                                          &n);
 
     if (n == 0) {
         n00b_table_add_cell(result,
@@ -154,7 +154,7 @@ n00b_table_repr_section(n00b_spec_section_t *section)
 
         n00b_table_add_cell(sub, format_field_opts(field));
 
-        n00b_list_t *exclude = n00b_set_to_list(field->exclusions);
+        n00b_list_t *exclude = n00b_set_items(field->exclusions);
 
         if (!n00b_list_len(exclude)) {
             n00b_table_add_cell(sub, n00b_crich("«em»None"));
@@ -287,8 +287,8 @@ n00b_get_attr_info(n00b_spec_t *spec, n00b_list_t *fqn)
     while (true) {
         n00b_string_t     *cur_name = n00b_list_get(fqn, i, NULL);
         n00b_spec_field_t *field    = n00b_dict_get(cur_sec->fields,
-                                                    cur_name,
-                                                    NULL);
+                                                 cur_name,
+                                                 NULL);
         if (field != NULL) {
             if (i != n) {
                 result->err = n00b_attr_err_sec_under_field;

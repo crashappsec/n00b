@@ -82,8 +82,8 @@ n00b_terminal_init(n00b_terminal_t *terminal, va_list args)
     }
 
     terminal->id = (int64_t)n00b_dict_get(grammar->terminal_map,
-                                             terminal->value,
-                                             &found);
+                                          terminal->value,
+                                          &found);
 
     if (!found) {
         int64_t n = n00b_list_len(grammar->named_terms);
@@ -100,8 +100,8 @@ n00b_terminal_init(n00b_terminal_t *terminal, va_list args)
                 n += N00B_START_TOK_ID;
                 terminal->id = n;
                 n00b_dict_add(grammar->terminal_map,
-                                 terminal->value,
-                                 (void *)n);
+                              terminal->value,
+                              (void *)n);
                 return;
             }
             n++;
@@ -680,8 +680,8 @@ n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
     // Since any registered tokens are non-zero, we can test for that to
     // determine if it's registered, instead of passing a bool.
     int64_t n = (int64_t)n00b_dict_get(parser->grammar->terminal_map,
-                                          value,
-                                          NULL);
+                                       value,
+                                       NULL);
 
     parser->token_cache = value;
 
@@ -730,15 +730,15 @@ n00b_add_debug_highlight(n00b_parser_t *parser, int32_t eid, int32_t ix)
     int64_t value = ix;
 
     n00b_set_t *s = n00b_dict_get(parser->debug_highlights,
-                                     (void *)key,
-                                     NULL);
+                                  (void *)key,
+                                  NULL);
 
     if (!s) {
         s = n00b_set(n00b_type_int());
         n00b_dict_put(parser->debug_highlights, (void *)key, s);
     }
 
-    hatrack_set_put(s, (void *)value);
+    n00b_set_put(s, (void *)value);
 }
 
 void

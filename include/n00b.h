@@ -16,10 +16,10 @@
 #include "util/assert.h"
 #include "util/close.h"
 #include "core/exit.h"
+#include "adts/zarray.h"
 #include "n00b/base.h"
 
 // Stuff used widely enough that it's worth defining early.
-typedef struct hatrack_set_st          n00b_set_t;
 typedef uint64_t                       n00b_size_t;
 typedef struct timespec                n00b_duration_t;
 typedef struct n00b_stream_t           n00b_stream_t;
@@ -28,7 +28,7 @@ typedef struct n00b_type_t             n00b_type_t;
 typedef struct n00b_lock_base_t        n00b_lock_base_t;
 typedef struct n00b_mutex_t            n00b_mutex_t;
 typedef struct n00b_dict_t             n00b_dict_t;
-typedef struct hatrack_set_st          n00b_set_t;
+typedef struct n00b_dict_t             n00b_set_t;
 typedef struct n00b_string_t           n00b_string_t;
 typedef struct n00b_tsi_t              n00b_tsi_t;
 typedef struct n00b_lock_atomic_core_t n00b_lock_atomic_core_t;
@@ -40,8 +40,6 @@ typedef struct n00b_lock_log_t         n00b_lock_log_t;
                     _a > _b ? _a : _b; })
 
 #include "vendor.h"
-#include "hatrack.h"
-#include "hatrack/htime.h"
 
 #define n00b_barrier() atomic_thread_fence(memory_order_seq_cst)
 
@@ -77,6 +75,7 @@ typedef struct n00b_lock_log_t         n00b_lock_log_t;
     _##funcname(__VA_ARGS__)
 #endif
 
+#include "mt/atomic.h"
 #include "mt/futex.h"
 #include "mt/gil.h"
 #include "adts/dt_box.h"

@@ -337,31 +337,12 @@ n00b_node_to_type(n00b_module_t    *ctx,
     case n00b_nt_lit_tspec_parameterized_type:
         varname = n00b_node_text(n);
         // Need to do this more generically, but OK for now.
-        if (!strcmp(varname->data, "queue")) {
-            return n00b_type_queue(n00b_node_to_type(ctx,
-                                                     n00b_tree_get_child(n, 0),
-                                                     type_ctx));
-        }
-        if (!strcmp(varname->data, "ring")) {
-            return n00b_type_queue(n00b_node_to_type(ctx,
-                                                     n00b_tree_get_child(n, 0),
-                                                     type_ctx));
-        }
-        if (!strcmp(varname->data, "logring")) {
-            n00b_add_error(ctx, n00b_err_no_logring_yet, n);
-            return n00b_new_typevar();
-        }
         if (!strcmp(varname->data, "list")) {
             return n00b_type_list(n00b_node_to_type(ctx,
                                                     n00b_tree_get_child(n, 0),
                                                     type_ctx));
         }
         if (!strcmp(varname->data, "list")) {
-            return n00b_type_list(n00b_node_to_type(ctx,
-                                                    n00b_tree_get_child(n, 0),
-                                                    type_ctx));
-        }
-        if (!strcmp(varname->data, "flist")) {
             return n00b_type_list(n00b_node_to_type(ctx,
                                                     n00b_tree_get_child(n, 0),
                                                     type_ctx));
@@ -370,11 +351,6 @@ n00b_node_to_type(n00b_module_t    *ctx,
             return n00b_type_tree(n00b_node_to_type(ctx,
                                                     n00b_tree_get_child(n, 0),
                                                     type_ctx));
-        }
-        if (!strcmp(varname->data, "stack")) {
-            return n00b_type_stack(n00b_node_to_type(ctx,
-                                                     n00b_tree_get_child(n, 0),
-                                                     type_ctx));
         }
         if (!strcmp(varname->data, "set")) {
             return n00b_type_set(n00b_node_to_type(ctx,

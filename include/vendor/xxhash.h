@@ -102,8 +102,6 @@ extern "C" {
  */
 #pragma once
 
-#include "base.h" // IWYU pragma: keep
-#include "malloc.h"
 
 #if (defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)) \
     && !defined(XXH_INLINE_ALL_31684351384)
@@ -1044,9 +1042,9 @@ struct XXH32_state_s {
     XXH32_hash_t memsize;      /*!< Amount of data in @ref mem32 */
     XXH32_hash_t reserved;     /*!< Reserved field. Do not read or write to it, it
                                   may be removed. */
-};                             /* typedef'd to XXH32_state_t */
+}; /* typedef'd to XXH32_state_t */
 
-#ifndef XXH_NO_LONG_LONG       /* defined when there is no 64-bit support */
+#ifndef XXH_NO_LONG_LONG /* defined when there is no 64-bit support */
 
 /*!
  * @internal
@@ -1061,18 +1059,18 @@ struct XXH32_state_s {
  * @see XXH32_state_s, XXH3_state_s
  */
 struct XXH64_state_s {
-    XXH64_hash_t total_len;                                    /*!< Total length hashed. This is always 64-bit. */
-    XXH64_hash_t v1;                                           /*!< First accumulator lane */
-    XXH64_hash_t v2;                                           /*!< Second accumulator lane */
-    XXH64_hash_t v3;                                           /*!< Third accumulator lane */
-    XXH64_hash_t v4;                                           /*!< Fourth accumulator lane */
-    XXH64_hash_t mem64[4];                                     /*!< Internal buffer for partial reads. Treated as
-                                                                  unsigned char[32]. */
-    XXH32_hash_t memsize;                                      /*!< Amount of data in @ref mem64 */
-    XXH32_hash_t reserved32;                                   /*!< Reserved field, needed for padding anyways*/
-    XXH64_hash_t reserved64;                                   /*!< Reserved field. Do not read or write to it, it
-                                                                  may be removed. */
-};                                                             /* typedef'd to XXH64_state_t */
+    XXH64_hash_t total_len;  /*!< Total length hashed. This is always 64-bit. */
+    XXH64_hash_t v1;         /*!< First accumulator lane */
+    XXH64_hash_t v2;         /*!< Second accumulator lane */
+    XXH64_hash_t v3;         /*!< Third accumulator lane */
+    XXH64_hash_t v4;         /*!< Fourth accumulator lane */
+    XXH64_hash_t mem64[4];   /*!< Internal buffer for partial reads. Treated as
+                                unsigned char[32]. */
+    XXH32_hash_t memsize;    /*!< Amount of data in @ref mem64 */
+    XXH32_hash_t reserved32; /*!< Reserved field, needed for padding anyways*/
+    XXH64_hash_t reserved64; /*!< Reserved field. Do not read or write to it, it
+                                may be removed. */
+}; /* typedef'd to XXH64_state_t */
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* >= C11 */
 #include <stdalign.h>
@@ -1491,6 +1489,7 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void  *data,
  */
 #include <stdlib.h>
 
+extern void *n00b_malloc_compat(size_t);
 /*!
  * @internal
  * @brief Modify this function to use a different routine than malloc().
@@ -1498,18 +1497,14 @@ XXH_PUBLIC_API XXH128_hash_t XXH128(const void  *data,
 static void *
 XXH_malloc(size_t s)
 {
-    return hatrack_malloc(s);
+    return n00b_malloc_compat(s);
 }
 
 /*!
  * @internal
  * @brief Modify this function to use a different routine than free().
  */
-static void
-XXH_free(void *p, size_t s)
-{
-    hatrack_free(p, s);
-}
+#define XXH_free(p, n)
 
 #include <string.h>
 
@@ -5272,22 +5267,7 @@ XXH_alignedMalloc(size_t s, size_t align)
         return NULL;
     }
 }
-/*
- * Frees an aligned pointer allocated by XXH_alignedMalloc(). Don't pass
- * normal malloc'd pointers, XXH_alignedMalloc has a specific data layout.
- */
-static void
-XXH_alignedFree(void *p, size_t s, size_t align)
-{
-    if (p != NULL) {
-        xxh_u8 *ptr    = (xxh_u8 *)p;
-        /* Get the offset byte we added in XXH_malloc. */
-        xxh_u8  offset = ptr[-1];
-        /* Free the original malloc'd pointer */
-        xxh_u8 *base   = ptr - offset;
-        XXH_free(base, s + align);
-    }
-}
+
 /*! @ingroup xxh3_family */
 XXH_PUBLIC_API XXH3_state_t *
 XXH3_createState(void)
@@ -5304,7 +5284,6 @@ XXH3_createState(void)
 XXH_PUBLIC_API XXH_errorcode
 XXH3_freeState(XXH3_state_t *statePtr)
 {
-    XXH_alignedFree(statePtr, sizeof(XXH3_state_t), 64);
     return XXH_OK;
 }
 

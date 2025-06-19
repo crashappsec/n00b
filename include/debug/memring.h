@@ -86,7 +86,7 @@ extern void n00b_mdebug_other_thread (int64_t);
 extern void n00b_mdebug_grep         (char *);
 extern void n00b_mdebug_pgrep        (uintptr_t);
 extern n00b_m_debug_record_t *n00b_mdebug_get(int64_t n);
-extern char *n00b_m_log_string(char *, char *, int64_t, char *, int);
+extern char *n00b_m_log_string(char *, char *, int64_t N00B_ALLOC_XTRA);
 
 // clang-format on
 

@@ -219,7 +219,7 @@ N00B_DBG_DECL(internal_cv_notify,
     cv->num_to_wake    = max;
     result             = atomic_read(&cv->wait_queue);
     cv->num_to_process = result & ~N00B_GIL;
-    // assert(cv->num_to_process < HATRACK_THREADS_MAX);
+    // assert(cv->num_to_process < N00B_THREADS_MAX);
     // assert(cv->num_to_process >= 0);
 
     if (!cv->num_to_process) {

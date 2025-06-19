@@ -63,7 +63,7 @@ N00B_DBG_DECL(n00b_lock_acquire_accounting,
     int32_t               tid  = (int32_t)tsi->thread_id;
     n00b_core_lock_info_t info = atomic_read(&lock->data);
 
-#if defined(N00B_DEBUG)
+#if defined(N00B_DEBUG) && defined(N00B_ADD_ALLOC_LOC_INFO)
     if (!lock->inited) {
         if (lock->allocation) {
             fprintf(stderr,
@@ -409,11 +409,16 @@ show_lock(n00b_lock_base_t *l, FILE *f)
             info.owner,
             l->creation_file,
             l->creation_line);
+
     if (l->allocation) {
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
         fprintf(f,
                 " alloc @%s:%d):",
                 l->allocation->alloc_file,
                 l->allocation->alloc_line);
+#else
+#endif
+        fprintf(f, " heap):");
     }
     else {
         fprintf(f, " static):");
@@ -531,7 +536,7 @@ n00b_debug_locks_stream(FILE *stream)
 {
     n00b_thread_t *prev = NULL;
 
-    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
+    for (int i = 0; i < N00B_THREADS_MAX; i++) {
         n00b_thread_t *t = atomic_read(&n00b_global_thread_list[i]);
         n00b_tsi_t    *tsi;
 

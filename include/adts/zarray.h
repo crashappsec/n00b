@@ -74,9 +74,7 @@
  */
 
 #pragma once
-
-#include "base.h"
-#include "mmm.h"
+#include <stdint.h>
 
 typedef struct {
     _Atomic uint32_t length;
@@ -84,13 +82,13 @@ typedef struct {
     uint32_t         cell_size;
     uint32_t         alloc_len;
     alignas(16) char data[];
-} hatrack_zarray_t;
+} n00b_zarray_t;
 
-HATRACK_EXTERN hatrack_zarray_t *hatrack_zarray_new(uint32_t, uint32_t);
-HATRACK_EXTERN void             *hatrack_zarray_cell_address(hatrack_zarray_t *,
-                                                             uint32_t);
-HATRACK_EXTERN uint32_t          hatrack_zarray_new_cell(hatrack_zarray_t *,
-                                                         void **);
-HATRACK_EXTERN uint32_t          hatrack_zarray_len(hatrack_zarray_t *);
-HATRACK_EXTERN void              hatrack_zarray_delete(hatrack_zarray_t *);
-HATRACK_EXTERN hatrack_zarray_t *hatrack_zarray_unsafe_copy(hatrack_zarray_t *);
+extern n00b_zarray_t *n00b_zarray_new(uint32_t, uint32_t);
+extern void          *n00b_zarray_cell_address(n00b_zarray_t *,
+                                               uint32_t);
+extern uint32_t       n00b_zarray_new_cell(n00b_zarray_t *,
+                                           void **);
+extern uint32_t       n00b_zarray_len(n00b_zarray_t *);
+extern void           n00b_zarray_delete(n00b_zarray_t *);
+extern n00b_zarray_t *n00b_zarray_unsafe_copy(n00b_zarray_t *);

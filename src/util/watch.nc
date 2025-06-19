@@ -45,7 +45,7 @@ _n00b_watch_set(void             *ptr,
 
     int high = atomic_read(&max_target);
     while (ix > high) {
-        CAS(&max_target, &high, ix);
+        n00b_cas(&max_target, &high, ix);
     }
 
     if (print) {

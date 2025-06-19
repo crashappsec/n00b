@@ -275,11 +275,11 @@ spec_init_validation(validation_ctx *ctx, n00b_vm_t *runtime)
 
     init_one_section(ctx, NULL);
 
-    uint64_t        n;
-    n00b_string_t **sections = hatrack_set_items_sort(runtime->all_sections, &n);
+    n00b_list_t *sections = n00b_set_items(runtime->all_sections);
+    int          n        = n00b_list_len(sections);
 
-    for (unsigned int i = 0; i < n; i++) {
-        init_one_section(ctx, sections[i]);
+    for (int i = 0; i < n; i++) {
+        init_one_section(ctx, n00b_list_get(sections, i, NULL));
     }
 
     // At this point, the sections that have been used in the program
@@ -362,26 +362,25 @@ validate_field_contents(validation_ctx      *ctx,
             continue;
         }
 
-        uint64_t        num_ex;
-        n00b_string_t **exclusions = hatrack_set_items(fspec->exclusions,
-                                                       &num_ex);
+        n00b_list_t *exclusions = n00b_set_items(fspec->exclusions);
+        int32_t      num_ex     = n00b_list_len(exclusions);
 
-        for (unsigned int i = 0; i < num_ex; i++) {
-            spec_node_t *n = n00b_dict_get(fdict, exclusions[i], NULL);
+        for (int i = 0; i < num_ex; i++) {
+            n00b_string_t *one_ex = n00b_list_get(exclusions, i, 0);
+            spec_node_t   *n      = n00b_dict_get(fdict, one_ex, NULL);
+
             if (n != NULL) {
                 n00b_validation_error(ctx,
                                       n00b_spec_mutex_field,
                                       loc_from_attr(ctx, n->info.field.record),
                                       current_path(ctx),
-                                      exclusions[i],
+                                      one_ex,
                                       node->info.field.field_spec->name,
                                       loc_from_attr(ctx,
                                                     node->info.field.record));
             }
 
-            n00b_spec_field_t *x = n00b_dict_get(secspec->fields,
-                                                 exclusions[i],
-                                                 NULL);
+            n00b_spec_field_t *x = n00b_dict_get(secspec->fields, one_ex, NULL);
             if (x && x->required) {
                 mark_required_field(reqflags, required, x->name);
             }
@@ -493,13 +492,11 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
 
     n00b_dict_t         *secdict  = node->info.section.contained_sections;
     n00b_list_t         *view     = n00b_dict_items(secdict);
-    uint64_t             num_subs = n00b_list_len(view);
+    int64_t              num_subs = n00b_list_len(view);
     n00b_spec_section_t *secspec  = node->info.section.section_spec;
     n00b_flags_t        *reqflags = NULL;
-    uint64_t             num_req;
-    n00b_string_t      **reqnames;
-
-    reqnames = hatrack_set_items(secspec->required_sections, &num_req);
+    n00b_list_t         *reqnames = n00b_set_items(secspec->required_sections);
+    int32_t              num_req  = n00b_list_len(reqnames);
 
     if (num_req != 0) {
         reqflags = n00b_new(n00b_type_flags(), length : num_req);
@@ -508,23 +505,25 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     // Make sure this spec is allowed at all; we need to see it in the
     // 'required' list or the 'allow' list.
 
-    for (unsigned int i = 0; i < num_subs; i++) {
+    for (int i = 0; i < num_subs; i++) {
         n00b_tuple_t  *tup  = n00b_list_get(view, i, NULL);
         n00b_string_t *name = n00b_tuple_get(tup, 0);
         spec_node_t   *sub  = n00b_tuple_get(tup, 1);
         bool           ok   = false;
 
         // If this section name is required, mark that we saw it.
-        if (num_req && hatrack_set_contains(secspec->required_sections, name)) {
-            for (unsigned int j = 0; j < num_req; j++) {
-                if (!strcmp(reqnames[j]->data, name->data)) {
+        if (num_req && n00b_set_contains(secspec->required_sections, name)) {
+            for (int j = 0; j < num_req; j++) {
+                n00b_string_t *s = n00b_list_get(reqnames, j, NULL);
+
+                if (!strcmp(s->data, name->data)) {
                     n00b_flags_set_index(reqflags, j, true);
                     ok = true;
                     break;
                 }
             }
         }
-        if (!ok && !hatrack_set_contains(secspec->allowed_sections, name)) {
+        if (!ok && !n00b_set_contains(secspec->allowed_sections, name)) {
             // Set up the right node to error
             ctx->cur     = sub;
             // Keeps us from recursing into broken subsections.
@@ -550,19 +549,19 @@ validate_subsection_names(validation_ctx *ctx, spec_node_t *node)
     }
 
     // Make sure we saw all required sections.
-    for (unsigned int i = 0; i < num_req; i++) {
+    for (int i = 0; i < num_req; i++) {
         if (!n00b_flags_index(reqflags, i)) {
             n00b_validation_error(ctx,
                                   n00b_spec_missing_require,
                                   loc_from_decl(ctx->cur),
-                                  reqnames[i]);
+                                  n00b_list_get(reqnames, i, NULL));
         }
     }
 
     validate_field_contents(ctx, node, secspec);
 
     // Descend to any non-broken sections to check them.
-    for (unsigned int i = 0; i < num_subs; i++) {
+    for (int i = 0; i < num_subs; i++) {
         n00b_tuple_t *tup = n00b_list_get(view, i, NULL);
         spec_node_t  *sub = n00b_tuple_get(tup, 1);
 

@@ -1,5 +1,6 @@
 #pragma once
-#include "n00b/base.h"
+#include "n00b.h"
+#include "n00b/config.h"
 
 // I've removed both of these for the moment. Currently, we either
 // scan an entire al
@@ -193,7 +194,7 @@ struct n00b_heap_t {
     uint32_t                inherit_count;
     n00b_arena_t           *first_arena;
     _Atomic(n00b_arena_t *) newest_arena;
-    hatrack_zarray_t       *roots;
+    n00b_zarray_t          *roots;
     n00b_finalizer_info_t  *to_finalize;
     char                   *name;
     char                   *file;
@@ -323,14 +324,15 @@ extern void           *_n00b_heap_alloc(n00b_heap_t *,
                                         bool,
                                         n00b_mem_scan_fn
                                             N00B_ALLOC_XTRA);
-extern void           *n00b_malloc_wrap(size_t, void *, char *, int);
-extern void            n00b_free_wrap(void *, size_t, void *, char *, int);
+extern void           *n00b_malloc_wrap(size_t, void           */**/
+                                                    N00B_ALLOC_XTRA);
+extern void            n00b_free_wrap(void *, size_t, void            */**/
+                                                          N00B_ALLOC_EXTRA);
 extern void           *n00b_realloc_wrap(void *,
                                          size_t,
                                          size_t,
-                                         void *,
-                                         char *,
-                                         int);
+                                         void           */**/
+                                             N00B_ALLOC_EXTRA);
 extern void           *n00b_malloc_compat(size_t);
 extern void           *n00b_realloc_compat(void *, size_t);
 extern void            n00b_free_compat(void *);
@@ -363,7 +365,7 @@ n00b_in_any_heap(void *addr)
 }
 
 static inline void
-n00b_heap_set_roots(n00b_heap_t *h, hatrack_zarray_t *roots)
+n00b_heap_set_roots(n00b_heap_t *h, n00b_zarray_t *roots)
 {
     h->roots = roots;
 }

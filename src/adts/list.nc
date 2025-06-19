@@ -365,12 +365,6 @@ n00b_list_len(const n00b_list_t *list)
     return (int64_t)list->append_ix;
 }
 
-n00b_list_t *
-_n00b_list(n00b_type_t *x)
-{
-    return n00b_new(n00b_type_list(x), 0ULL);
-}
-
 static n00b_string_t *
 n00b_list_to_literal(n00b_list_t *list)
 {
@@ -408,6 +402,25 @@ n00b_list_to_literal(n00b_list_t *list)
     return result;
 }
 
+static bool
+n00b_list_can_coerce_to(n00b_type_t *my_type, n00b_type_t *dst_type)
+{
+    n00b_dt_kind_t base = n00b_type_get_kind(dst_type);
+
+    if (base == (n00b_dt_kind_t)N00B_T_BOOL) {
+        return true;
+    }
+
+    if (base == (n00b_dt_kind_t)N00B_T_LIST) {
+        n00b_type_t *my_item  = n00b_type_get_param(my_type, 0);
+        n00b_type_t *dst_item = n00b_type_get_param(dst_type, 0);
+
+        return n00b_can_coerce(my_item, dst_item);
+    }
+
+    return false;
+}
+
 static n00b_obj_t
 n00b_list_coerce_to(n00b_list_t *list, n00b_type_t *dst_type)
 {
@@ -442,18 +455,6 @@ n00b_list_coerce_to(n00b_list_t *list, n00b_type_t *dst_type)
         return (n00b_obj_t)res;
     }
 
-    if (base == (n00b_dt_kind_t)N00B_T_FLIST) {
-        flexarray_t *res = n00b_new(dst_type, length : len);
-
-        for (int i = 0; i < len; i++) {
-            void *item = n00b_list_get_base(list, i, NULL);
-            flexarray_set(res,
-                          i,
-                          n00b_coerce(item, src_item_type, dst_item_type));
-        }
-
-        return (n00b_obj_t)res;
-    }
     n00b_unreachable();
 }
 
@@ -933,12 +934,10 @@ n00b_from_cstr_list(char **arr, int64_t n)
     return result;
 }
 
-extern bool n00b_flexarray_can_coerce_to(n00b_type_t *, n00b_type_t *);
-
 const n00b_vtable_t n00b_list_vtable = {
     .methods = {
         [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_list_init,
-        [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)n00b_flexarray_can_coerce_to,
+        [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)n00b_list_can_coerce_to,
         [N00B_BI_COERCE]        = (n00b_vtable_entry)n00b_list_coerce_to,
         [N00B_BI_COPY]          = (n00b_vtable_entry)n00b_list_copy,
         [N00B_BI_SHALLOW_COPY]  = (n00b_vtable_entry)n00b_list_shallow_copy,

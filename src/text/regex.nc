@@ -14,7 +14,7 @@ pcre2_match_context          *n00b_pcre2_match;
 static void *
 pcre2_malloc_wrap(size_t n, void *arg)
 {
-    return n00b_malloc_wrap(n, arg, __FILE__, __LINE__);
+    return n00b_malloc_wrap(n, arg N00B_ALLOC_CALLPARAM);
 }
 
 static void

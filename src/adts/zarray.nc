@@ -13,21 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- *  Name:           zeroarray.c
+ *  Name:           zarray.c
  *  Description:    Intended initially for n00b GC root management.
  *
  *  Author:         John Viega, john@crashoverride.com
  */
 
-#include "hatrack/zeroarray.h"
-#include "hatrack/hatomic.h"
-#include "../hatrack-internal.h"
-#include <unistd.h>
-#include <string.h>
-#include <sys/mman.h>
+#include "n00b.h"
 
-hatrack_zarray_t *
-hatrack_zarray_new(uint32_t max_items, uint32_t item_size)
+n00b_zarray_t *
+n00b_zarray_new(uint32_t max_items, uint32_t item_size)
 {
     // Make sure alignment is good.
     if (item_size & 0x7) {
@@ -35,7 +30,7 @@ hatrack_zarray_new(uint32_t max_items, uint32_t item_size)
     }
 
     int      page_size = getpagesize();
-    uint32_t len       = item_size * max_items + sizeof(hatrack_zarray_t);
+    uint32_t len       = item_size * max_items + sizeof(n00b_zarray_t);
 
     // Add in space for two guard pages, and then (page_size - 1)
     // bytes extra in case the allocation puts us one byte over a
@@ -60,16 +55,16 @@ hatrack_zarray_new(uint32_t max_items, uint32_t item_size)
     mprotect(full_alloc, page_size, PROT_NONE);
     mprotect(guard, page_size, PROT_NONE);
 
-    hatrack_zarray_t *ret = (hatrack_zarray_t *)ret_point;
-    ret->last_item        = max_items;
-    ret->cell_size        = item_size;
-    ret->alloc_len        = len;
+    n00b_zarray_t *ret = (n00b_zarray_t *)ret_point;
+    ret->last_item     = max_items;
+    ret->cell_size     = item_size;
+    ret->alloc_len     = len;
 
     return ret;
 }
 
 void *
-hatrack_zarray_cell_address(hatrack_zarray_t *arr, uint32_t n)
+n00b_zarray_cell_address(n00b_zarray_t *arr, uint32_t n)
 {
     if (n > arr->last_item) {
         return NULL;
@@ -79,7 +74,7 @@ hatrack_zarray_cell_address(hatrack_zarray_t *arr, uint32_t n)
 }
 
 uint32_t
-hatrack_zarray_new_cell(hatrack_zarray_t *arr, void **loc)
+n00b_zarray_new_cell(n00b_zarray_t *arr, void **loc)
 {
     uint32_t ret = atomic_fetch_add(&arr->length, 1);
 
@@ -88,20 +83,20 @@ hatrack_zarray_new_cell(hatrack_zarray_t *arr, void **loc)
             *loc = NULL;
         }
         else {
-            *loc = hatrack_zarray_cell_address(arr, ret);
+            *loc = n00b_zarray_cell_address(arr, ret);
         }
     }
 
     return ret;
 }
 
-hatrack_zarray_t *
-hatrack_zarray_unsafe_copy(hatrack_zarray_t *old)
+n00b_zarray_t *
+n00b_zarray_unsafe_copy(n00b_zarray_t *old)
 {
     // This works if the array is write-once. Otherwise, who knows
     // what you will get.
-    uint32_t actual_len   = atomic_load(&old->length);
-    hatrack_zarray_t *new = hatrack_zarray_new(old->alloc_len, old->cell_size);
+    uint32_t actual_len = atomic_load(&old->length);
+    n00b_zarray_t *new  = n00b_zarray_new(old->alloc_len, old->cell_size);
 
     atomic_store(&new->length, actual_len);
     uint32_t total_copy_len = actual_len * new->cell_size;
@@ -111,13 +106,13 @@ hatrack_zarray_unsafe_copy(hatrack_zarray_t *old)
 }
 
 uint32_t
-hatrack_zarray_len(hatrack_zarray_t *arr)
+n00b_zarray_len(n00b_zarray_t *arr)
 {
     return atomic_load(&arr->length);
 }
 
 void
-hatrack_zarray_delete(hatrack_zarray_t *arr)
+n00b_zarray_delete(n00b_zarray_t *arr)
 {
     char *p = (char *)arr;
 

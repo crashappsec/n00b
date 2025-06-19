@@ -47,15 +47,14 @@ n00b_dlog_set_topic_policy(char *topic, int64_t policy)
 char *
 _n00b_dstrf(char *fmt, int64_t num_params, ...)
 {
-
     n00b_tsi_t *tsi = n00b_get_tsi_ptr();
     va_list     args, copy;
 
     if (tsi) {
         if (tsi->dlogging) {
-	    return NULL;
-	}
-	++tsi->dlogging;
+            return NULL;
+        }
+        ++tsi->dlogging;
     }
 
     va_start(args, num_params);
@@ -158,7 +157,7 @@ _n00b_dstrf(char *fmt, int64_t num_params, ...)
 }
 
 void
-n00b_dlog(char *topic, int tid, int msg_priority, char *f, int l, char *msg)
+n00b_dlog(char *topic, int tid, int msg_priority N00B_ALLOC_XTRA, char *msg)
 {
     if (!msg) {
         return; // Happens during cases where  dlog triggers itself recursively.
@@ -170,7 +169,7 @@ n00b_dlog(char *topic, int tid, int msg_priority, char *f, int l, char *msg)
         return;
     }
 
-    n00b_m_log_string(topic, msg, msg_priority, f, l);
+    n00b_m_log_string(topic, msg, msg_priority N00B_ALLOC_XPARAM);
 }
 
 #endif

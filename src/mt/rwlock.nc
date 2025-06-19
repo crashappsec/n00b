@@ -153,7 +153,7 @@ N00B_DBG_DECL(n00b_rw_read_lock, n00b_rwlock_t *lock)
     volatile uint32_t     desired;
 
     n00b_barrier();
-    if (CAS(&lock->futex, &value, 1)) {
+    if (n00b_cas(&lock->futex, &value, 1)) {
         check_mutex_value(lock);
 #ifdef N00B_DEBUG
         add_read_record(lock, tsi, 1, __file, __line);
@@ -215,7 +215,7 @@ N00B_DBG_DECL(n00b_rw_read_lock, n00b_rwlock_t *lock)
 
         desired = value + 1;
 
-    } while (!CAS((volatile _Atomic(uint32_t) *)&lock->futex, &value, desired));
+    } while (!n00b_cas((volatile _Atomic(uint32_t) *)&lock->futex, &value, desired));
     check_mutex_value(lock);
     N00B_DBG_CALL(n00b_thread_resume);
     check_mutex_value(lock);
@@ -319,7 +319,7 @@ N00B_DBG_DECL(n00b_rw_unlock, n00b_rwlock_t *lock)
         }
 
         desired = value - 1;
-    } while (!CAS(&lock->futex, &value, desired));
+    } while (!n00b_cas(&lock->futex, &value, desired));
 
     n00b_runlock_accounting(lock, log, tsi, desired, __file, __line);
 

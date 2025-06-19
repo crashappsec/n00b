@@ -30,7 +30,7 @@ n00b_heap_creation_lock_acquire(void)
 
     do {
         expected = 0;
-    } while (!CAS(&heap_creation_lock, &expected, desired));
+    } while (!n00b_cas(&heap_creation_lock, &expected, desired));
 }
 
 static inline void
@@ -211,26 +211,16 @@ n00b_add_arena(n00b_heap_t *h, uint64_t byte_len)
 
 // The wrappers always use the global arena.
 //
-// The first set of wrappers is used by hatrack, so conforms to its
-// API, even though we ignore many of the parameters.
-//
-// The mprotect compile-time option here is to help isolate issues
-// given we can't easily capture source info in the second set of
-// wrappers (which relies on this first set).
-#if !defined(HATRACK_ALLOC_PASS_LOCATION)
-#error
-#endif
-
 #if defined(N00B_MPROTECT_WRAPPED_ALLOCS)
 bool n00b_protect_wrapped_allocs    = false;
 bool n00b_protect_wrapping_auto_off = false;
+#endif
 
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
 void *
 n00b_malloc_wrap(size_t size, void *arg, char *file, int line)
 {
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
     assert(file);
-#endif
 
     void *result = _n00b_heap_alloc(NULL,
                                     size,
@@ -245,23 +235,21 @@ n00b_malloc_wrap(size_t size, void *arg, char *file, int line)
 }
 #else
 void *
-n00b_malloc_wrap(size_t size, void *arg, char *file, int line)
+n00b_malloc_wrap(size_t size, void *arg)
 {
-#if defined(N00B_ADD_ALLOC_LOC_INFO)
-    assert(file);
-#endif
-    void *result = _n00b_heap_alloc(NULL,
-                                    size,
-                                    false,
-                                    arg
-                                        N00B_ALLOC_XPARAM);
-
-    return result;
+    return _n00b_heap_alloc(NULL,
+                            size,
+                            false,
+                            arg
+                                N00B_ALLOC_XPARAM);
 }
 #endif
 
 void
-n00b_free_wrap(void *p, size_t sz, void *arg, char *file, int line)
+n00b_free_wrap(void  *p,
+               size_t sz,
+               void *arg
+                   N00B_ALLOC_XTRA)
 {
     bzero(p, sz);
 }
@@ -270,9 +258,8 @@ void *
 n00b_realloc_wrap(void  *p,
                   size_t ig,
                   size_t len,
-                  void  *arg,
-                  char  *file,
-                  int    line)
+                  void *arg
+                      N00B_ALLOC_XTRA)
 {
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     assert(file);
@@ -289,7 +276,7 @@ n00b_realloc_wrap(void  *p,
         return p;
     }
 
-    void *result = n00b_malloc_wrap(len, arg, file, line);
+    void *result = n00b_malloc_wrap(len, arg N00B_ALLOC_XPARAM);
     memcpy(result, p, hdr->alloc_len);
 
     return result;
@@ -303,13 +290,13 @@ n00b_realloc_wrap(void  *p,
 void *
 n00b_malloc_compat(size_t sz)
 {
-    return n00b_malloc_wrap(sz, NULL, __FILE__, __LINE__);
+    return n00b_malloc_wrap(sz, NULL N00B_ALLOC_XPARAM);
 }
 
 void *
 n00b_realloc_compat(void *old, size_t len)
 {
-    return n00b_realloc_wrap(old, len, len, NULL, __FILE__, __LINE__);
+    return n00b_realloc_wrap(old, len, len, NULL N00B_ALLOC_XPARAM);
 }
 
 void
@@ -357,7 +344,7 @@ _n00b_heap_alloc(n00b_heap_t *h,
                 h->newest_arena,
                 alloc_len,
                 request_len,
-		((char *)h->newest_arena->addr_end) - (char *)prev_entry.next_alloc);
+                ((char *)h->newest_arena->addr_end) - (char *)prev_entry.next_alloc);
             if (!need_space(h->newest_arena, prev_entry, alloc_len)) {
                 continue;
             }
@@ -381,7 +368,7 @@ _n00b_heap_alloc(n00b_heap_t *h,
                              + alloc_len;
         new_entry.thread = n00b_thread_self();
 
-        if (CAS(&h->ptr, &prev_entry, new_entry)) {
+        if (n00b_cas(&h->ptr, &prev_entry, new_entry)) {
             break;
         }
         // Otherwise, we lost, and need to check again that there's
@@ -419,7 +406,6 @@ _n00b_heap_alloc(n00b_heap_t *h,
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
     hdr->alloc_file = file;
     hdr->alloc_line = line;
-#endif
 
     n00b_dlog_alloc1("heap #%lld @%p (%s:%d)alloc of length %u",
                      h->heap_id,
@@ -427,6 +413,7 @@ _n00b_heap_alloc(n00b_heap_t *h,
                      file,
                      line,
                      alloc_len);
+#endif
 
     return hdr->data;
 }

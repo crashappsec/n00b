@@ -58,25 +58,22 @@ n00b_universe_forward(n00b_type_universe_t *u, n00b_type_t *t1, n00b_type_t *t2)
     n00b_dict_put(u->dict, t1->typeid, t2);
 }
 
-#if 0
 // Not migrated.
 n00b_table_t *
 n00b_format_global_type_environment(n00b_type_universe_t *u)
 {
-    uint64_t        len;
-    hatrack_view_t *view;
-    n00b_table_t   *tbl   = n00b_table(columns : 3, style : N00B_TABLE_ORNATE);
-    n00b_dict_t    *memos = n00b_dict(n00b_type_ref(), n00b_type_string());
-    int64_t         n     = 0;
-
-    view = crown_view(&u->dict->crown_instance, &len, true);
+    n00b_table_t *tbl   = n00b_table(columns : 3, style : N00B_TABLE_ORNATE);
+    n00b_dict_t  *memos = n00b_dict(n00b_type_ref(), n00b_type_string());
+    int64_t       n     = 0;
+    n00b_list_t  *view  = n00b_dict_keys(u->dict);
+    int           len   = n00b_list_len(view);
 
     n00b_table_add_cell(tbl, n00b_cstring("Id"));
     n00b_table_add_cell(tbl, n00b_cstring("Value"));
     n00b_table_add_cell(tbl, n00b_cstring("Base Type"));
 
-    for (uint64_t i = 0; i < len; i++) {
-        n00b_type_t *t = (n00b_type_t *)view[i].item;
+    for (int i = 0; i < len; i++) {
+        n00b_type_t *t = n00b_list_get(view, i, NULL);
 
         // Skip forwarded nodes.
         if (t->fw) {
@@ -133,4 +130,3 @@ n00b_format_global_type_environment(n00b_type_universe_t *u)
 
     return tbl;
 }
-#endif

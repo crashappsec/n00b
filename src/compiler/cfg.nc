@@ -379,7 +379,7 @@ cfg_merge_aux_entries_to_top(cfg_ctx *ctx, n00b_cfg_node_t *node)
 
     exit->sometimes_live = n00b_list(n00b_type_ref());
 
-    n00b_list_t *not_unique = n00b_set_to_list(sometimes);
+    n00b_list_t *not_unique = n00b_set_items(sometimes);
 
     for (int i = 0; i < n00b_list_len(not_unique); i++) {
         void *item = n00b_list_get(not_unique, i, NULL);
@@ -497,7 +497,7 @@ process_branch_exit(cfg_ctx *ctx, n00b_cfg_node_t *node)
     node->liveness_info  = merged;
     node->sometimes_live = n00b_list(n00b_type_ref());
 
-    n00b_list_t *not_unique = n00b_set_to_list(sometimes);
+    n00b_list_t *not_unique = n00b_set_items(sometimes);
 
     for (int i = 0; i < n00b_list_len(not_unique); i++) {
         void *item = n00b_list_get(not_unique, i, NULL);

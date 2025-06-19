@@ -213,10 +213,10 @@ n00b_clean_trees(n00b_parser_t *p, n00b_list_t *l)
         n00b_tree_node_t *t  = n00b_list_get(l, i, NULL);
         uint64_t          hv = n00b_parse_node_hash(t);
 
-        if (hatrack_set_contains(hashes, (void *)hv)) {
+        if (n00b_set_contains(hashes, (void *)hv)) {
             continue;
         }
-        hatrack_set_put(hashes, (void *)hv);
+        n00b_set_put(hashes, (void *)hv);
         n00b_list_append(result, t);
     }
 
@@ -641,13 +641,13 @@ scan_group_items(n00b_parser_t *p, nb_info_t *group_ni, n00b_earley_item_t *end)
     //
     // So follow each path back seprately.
 
-    uint64_t             n;
-    n00b_earley_item_t **clist  = hatrack_set_items_sort(end->completors, &n);
-    uint32_t             minp   = ~0;
-    uint32_t             nitems = ~0;
+    n00b_list_t *clist  = n00b_set_items(end->completors);
+    int32_t      n      = n00b_list_len(clist);
+    uint32_t     minp   = ~0;
+    uint32_t     nitems = ~0;
 
-    for (uint64_t i = 0; i < n; i++) {
-        n00b_earley_item_t *cur = clist[i];
+    for (int i = 0; i < n; i++) {
+        n00b_earley_item_t *cur = n00b_list_get(clist, i, NULL);
         if (cur->penalty < minp) {
             minp   = cur->penalty;
             nitems = cur->match_ct;
@@ -657,8 +657,8 @@ scan_group_items(n00b_parser_t *p, nb_info_t *group_ni, n00b_earley_item_t *end)
         }
     }
 
-    for (uint64_t i = 0; i < n; i++) {
-        n00b_earley_item_t *cur = clist[i];
+    for (int i = 0; i < n; i++) {
+        n00b_earley_item_t *cur = n00b_list_get(clist, i, NULL);
 
         if (cur->penalty != minp || (uint32_t)cur->match_ct != nitems) {
             continue;
@@ -733,11 +733,11 @@ scan_rule_items(n00b_parser_t *p, nb_info_t *parent_ni, n00b_earley_item_t *end)
 
         n00b_assert(prev->cursor == cur->cursor + 1);
 
-        n00b_pitem_t        *pi = n00b_list_get(start->rule->contents,
+        n00b_pitem_t *pi = n00b_list_get(start->rule->contents,
                                          cur->cursor,
                                          NULL);
-        uint64_t             n_bottoms;
-        n00b_earley_item_t **bottoms;
+        n00b_list_t  *bottoms;
+        int           n_bottoms;
 
         switch (pi->kind) {
         case N00B_P_NULL:
@@ -760,14 +760,15 @@ scan_rule_items(n00b_parser_t *p, nb_info_t *parent_ni, n00b_earley_item_t *end)
             // predicted by the LEFT-HAND item, then we are golden
             // (and I believe it always should be; I am checking to be
             // safe).
-            bottoms = hatrack_set_items(prev->completors, &n_bottoms);
+            bottoms   = n00b_set_items(prev->completors);
+            n_bottoms = n00b_list_len(bottoms);
 
-            for (uint64_t i = 0; i < n_bottoms; i++) {
-                n00b_earley_item_t *subtree_end = bottoms[i];
+            for (int i = 0; i < n_bottoms; i++) {
+                n00b_earley_item_t *send = n00b_list_get(bottoms, i, NULL);
 
                 // The tops of the subtrees should have been predicted
                 // by the LEFT ei.
-                nb_info_t *subnode = populate_subtree(p, subtree_end);
+                nb_info_t *subnode = populate_subtree(p, send);
 
                 // Add the option to *any* possible parent, not just the one
                 // that called us.

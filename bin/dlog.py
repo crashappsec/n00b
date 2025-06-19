@@ -33,7 +33,7 @@ def dlog_macro_name(topic, level):
 
 def gen_dlog_enabled_def(topic, level):
     return """#define %s(...)\\
-    n00b_dlog("%s", N00B_DLOG_%s_IX, %d, __FILE__, __LINE__, \\
+    n00b_dlog("%s", N00B_DLOG_%s_IX, %d N00B_ALLOC_CALLPARAM, \\
               n00b_dstrf(__VA_ARGS__))
 """ % (dlog_macro_name(topic, level), topic, topic.upper(), level)
 
@@ -48,7 +48,7 @@ def generate_toplevel_defines():
 
 #if defined(N00B_DEBUG)
 extern char   *_n00b_dstrf(char *fmt, int64_t num_params, ...);
-extern void    n00b_dlog(char *, int, int, char *,  int, char *);
+extern void    n00b_dlog(char *, int, int, char * N00B_ALLOC_XTRA);
 extern int64_t n00b_dlog_get_topic_policy(char *);
 extern bool n00b_dlog_set_topic_policy(char *, int64_t);
 

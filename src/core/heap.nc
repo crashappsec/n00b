@@ -355,11 +355,11 @@ _n00b_heap_register_root(n00b_heap_t *h, void *p, uint64_t l N00B_ALLOC_XTRA)
     h = n00b_current_heap(h);
 
     if (!h->roots) {
-        h->roots = hatrack_zarray_new(N00B_MAX_GC_ROOTS,
-                                      sizeof(n00b_gc_root_info_t));
+        h->roots = n00b_zarray_new(N00B_MAX_GC_ROOTS,
+                                   sizeof(n00b_gc_root_info_t));
     }
 
-    hatrack_zarray_new_cell(h->roots, (void *)&ri);
+    n00b_zarray_new_cell(h->roots, (void *)&ri);
     ri->num_items = l;
     ri->ptr       = p;
 #ifdef N00B_ADD_ALLOC_LOC_INFO
@@ -375,17 +375,17 @@ _n00b_heap_register_dynamic_root(n00b_heap_t *h,
                                      N00B_ALLOC_XTRA)
 {
     h                        = n00b_current_heap(h);
-    int                  max = h->roots ? hatrack_zarray_len(h->roots) : 0;
+    int                  max = h->roots ? n00b_zarray_len(h->roots) : 0;
     uint64_t             id  = (uint64_t)n00b_thread_self();
     n00b_gc_root_tinfo_t expect;
     n00b_gc_root_tinfo_t new = {.thread_id = id >> 1, .inactive = false};
 
     for (int i = 0; i < max; i++) {
-        n00b_gc_root_info_t *ri = hatrack_zarray_cell_address(h->roots, i);
+        n00b_gc_root_info_t *ri = n00b_zarray_cell_address(h->roots, i);
         expect.thread_id        = 0;
         expect.inactive         = true;
 
-        if (CAS(&ri->tinfo, &expect, new)) {
+        if (n00b_cas(&ri->tinfo, &expect, new)) {
             ri->num_items = l;
             ri->ptr       = p;
 #ifdef N00B_ADD_ALLOC_LOC_INFO
@@ -405,7 +405,7 @@ n00b_heap_remove_root(n00b_heap_t *h, void *ptr)
     int32_t max = atomic_load(&h->roots->length);
 
     for (int i = 0; i < max; i++) {
-        n00b_gc_root_info_t *ri = hatrack_zarray_cell_address(h->roots, i);
+        n00b_gc_root_info_t *ri = n00b_zarray_cell_address(h->roots, i);
         if (ri->ptr == ptr) {
             ri->num_items = 0;
             ri->ptr       = NULL;
@@ -472,14 +472,6 @@ n00b_gc_set_system_finalizer(n00b_system_finalizer_fn fn)
     system_finalizer = fn;
 }
 
-static hatrack_mem_manager_t hatrack_manager = {
-    .mallocfn  = n00b_malloc_wrap,
-    .zallocfn  = n00b_malloc_wrap,
-    .reallocfn = n00b_realloc_wrap,
-    .freefn    = n00b_free_wrap,
-    .arg       = NULL,
-};
-
 void
 n00b_initialize_gc(void)
 {
@@ -487,5 +479,4 @@ n00b_initialize_gc(void)
     n00b_discover_page_info();
     n00b_setup_heap_info();
     n00b_create_first_heaps();
-    hatrack_setmallocfns(&hatrack_manager);
 }

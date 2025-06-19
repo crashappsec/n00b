@@ -61,9 +61,9 @@ n00b_fd_cache_add(n00b_fd_stream_t *s)
     int64_t           key = fd_hash_key(s->evloop, s->fd);
     n00b_fd_stream_t *found_entry;
 
-    while (true) {
-        found_entry = n00b_dict_get(n00b_fd_cache, (void *)key, NULL);
+    found_entry = n00b_dict_get(n00b_fd_cache, (void *)key, NULL);
 
+    while (true) {
         // There's something there that appears to be open.
         if (found_entry && found_entry->fd >= 0) {
             return found_entry;
@@ -73,15 +73,12 @@ n00b_fd_cache_add(n00b_fd_stream_t *s)
         // we want to replace it.
 
         if (n00b_dict_cas(n00b_fd_cache,
-                          (void *)key,
-                          found_entry,
+                          key,
+                          (void **)&found_entry,
                           s,
                           true,
                           false)) {
             return s;
         }
-
-        // If we didn't win the CAS, the hatrack API doesn't give us
-        // the new value, so we need to re-load, so we loop.
     }
 }

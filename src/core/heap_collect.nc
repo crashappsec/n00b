@@ -600,10 +600,10 @@ trace_one_rootset(n00b_collection_ctx *ctx, n00b_heap_t *h)
 
     n00b_gc_root_info_t *ri;
 
-    uint32_t num_roots = hatrack_zarray_len(h->roots);
+    uint32_t num_roots = n00b_zarray_len(h->roots);
     for (uint32_t j = 0; j < num_roots; j++) {
-        ri = hatrack_zarray_cell_address(h->roots,
-                                         j);
+        ri = n00b_zarray_cell_address(h->roots,
+                                      j);
 
         struct n00b_gc_root_tinfo_t tinfo = atomic_read(&ri->tinfo);
 
@@ -611,11 +611,13 @@ trace_one_rootset(n00b_collection_ctx *ctx, n00b_heap_t *h)
             continue;
         }
 
+#if defined(N00B_ADD_ALLOC_LOC_INFO)
         n00b_dlog_gc1("Scanning %d items for root %p, added at %s:%d: ",
                       ri->num_items,
                       ri->ptr,
                       ri->file,
                       ri->line);
+#endif
 
 #if defined(N00B_DLOG_GC_ON)
         ctx->new_allocs_traced = 0;
@@ -662,9 +664,9 @@ trace_tsi_roots(n00b_collection_ctx *ctx)
 {
     int num_words;
     int n = atomic_read(&n00b_next_thread_slot);
-    n     = n00b_min(n, HATRACK_THREADS_MAX);
+    n     = n00b_min(n, N00B_THREADS_MAX);
 
-    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
+    for (int i = 0; i < N00B_THREADS_MAX; i++) {
         n00b_thread_t *t = atomic_read(&n00b_global_thread_list[i]);
         if (!t) {
             continue;
@@ -694,7 +696,7 @@ trace_stack(n00b_collection_ctx *ctx)
 
     n00b_thread_stack_region(n00b_thread_self());
 
-    for (int i = 0; i < HATRACK_THREADS_MAX; i++) {
+    for (int i = 0; i < N00B_THREADS_MAX; i++) {
         n00b_thread_t *t = atomic_read(&n00b_global_thread_list[i]);
         if (!t) {
             continue;
@@ -751,7 +753,7 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 
     atomic_fetch_add(&__n00b_collector_running, 1);
     N00B_DBG_CALL(n00b_stop_the_world);
-    
+
 #if defined(N00B_DEBUG) && defined(N00B_DLOG_GC_ON)
     n00b_duration_t  start;
     n00b_duration_t  end;

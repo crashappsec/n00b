@@ -487,8 +487,8 @@ register_prediction(n00b_earley_item_t *predictor, n00b_earley_item_t *predicted
     if (!predicted->parent_states) {
         predicted->parent_states = n00b_set(n00b_type_ref());
     }
-    hatrack_set_add(predictor->predictions, predicted);
-    hatrack_set_add(predicted->parent_states, predictor);
+    n00b_set_add(predictor->predictions, predicted);
+    n00b_set_add(predicted->parent_states, predictor);
 }
 
 static void
@@ -643,7 +643,7 @@ add_next_group_item(n00b_parser_t      *p,
         ei->completors = n00b_set(n00b_type_ref());
     }
 
-    hatrack_set_put(ei->completors, ei->group_top);
+    n00b_set_put(ei->completors, ei->group_top);
     register_prediction(ei->group_top, ei);
 }
 
@@ -699,7 +699,7 @@ add_one_completion(n00b_parser_t      *p,
     if (!ei->completors) {
         ei->completors = n00b_set(n00b_type_ref());
     }
-    hatrack_set_put(ei->completors, cur);
+    n00b_set_put(ei->completors, cur);
     parent_ei->no_reprocessing = true;
 }
 
@@ -728,7 +728,7 @@ add_group_completion(n00b_parser_t      *p,
 
     add_item(p, cur, &ei, false);
 
-    hatrack_set_put(ei->completors, cur);
+    n00b_set_put(ei->completors, cur);
     cur->no_reprocessing = true;
     return ei;
 }
@@ -891,12 +891,12 @@ complete_group_item(n00b_parser_t *parser, n00b_earley_item_t *ei)
 static void
 complete(n00b_parser_t *parser, n00b_earley_item_t *ei)
 {
-    uint64_t             n;
-    n00b_set_t          *start_set = ei->start_item->parent_states;
-    n00b_earley_item_t **parents   = hatrack_set_items_sort(start_set, &n);
+    n00b_set_t  *start_set = ei->start_item->parent_states;
+    n00b_list_t *parents   = n00b_set_items(start_set);
+    int          n         = n00b_list_len(parents);
 
-    for (uint64_t i = 0; i < n; i++) {
-        add_one_completion(parser, ei, parents[i]);
+    for (int i = 0; i < n; i++) {
+        add_one_completion(parser, ei, n00b_list_get(parents, i, NULL));
     }
 }
 

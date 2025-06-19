@@ -24,13 +24,8 @@
  *  Author:         John Viega, john@crashoverride.com
  *
  */
-
+#define N00B_USE_INTERNAL_API
 #include "n00b.h"
-
-#define HT_FLAG_MUTEX   1
-#define HT_FLAG_COPYING 2
-#define HT_FLAG_DELETED 4
-#define HT_FLAG_MOVING  8
 
 __int128_t
 n00b_cstring_hash(char *s)
@@ -131,7 +126,7 @@ bucket_reserved(n00b_dict_bucket_t *b)
 static inline int
 bucket_deleted(n00b_dict_bucket_t *b)
 {
-    return (atomic_read(&b->flags) & HT_FLAG_DELETED) != 0;
+    return (atomic_read(&b->flags) & N00B_HT_FLAG_DELETED) != 0;
 }
 
 static inline uint32_t
@@ -185,14 +180,14 @@ new_dict_store(n00b_dict_t *d, uint32_t alloc_items)
     return result;
 }
 
-static bool
-dict_lock(n00b_dict_t *d, bool try, uint32_t *count)
+bool
+n00b_dict_lock(n00b_dict_t *d, bool try, uint32_t *count)
 {
-    uint32_t flags    = HT_FLAG_COPYING;
+    uint32_t flags    = N00B_HT_FLAG_COPYING;
     uint32_t new_used = 0;
 
     if (try) {
-        flags |= HT_FLAG_MOVING;
+        flags |= N00B_HT_FLAG_MOVING;
     }
     else {
         atomic_fetch_add(&d->wait_ct, 1);
@@ -223,7 +218,7 @@ dict_lock(n00b_dict_t *d, bool try, uint32_t *count)
 
         new_used += bucket_reserved(b) & !bucket_deleted(b);
 
-        if (f & HT_FLAG_MUTEX) {
+        if (f & N00B_HT_FLAG_MUTEX) {
             last_active = i;
             if (first_active == -1) {
                 first_active = i;
@@ -235,7 +230,7 @@ dict_lock(n00b_dict_t *d, bool try, uint32_t *count)
     // store that contained threads, and busy-wait if needed.
     if (last_active != -1) {
         for (int i = first_active; i <= last_active; i++) {
-            while (atomic_read(&s->buckets[i].flags) & HT_FLAG_MUTEX) {
+            while (atomic_read(&s->buckets[i].flags) & N00B_HT_FLAG_MUTEX) {
             }
         }
     }
@@ -266,13 +261,13 @@ dict_unlock_post_migrate(n00b_dict_t *d, n00b_dict_store_t *s)
     }
 }
 
-static void
-dict_unlock_post_copy(n00b_dict_t *d)
+void
+n00b_dict_unlock_post_copy(n00b_dict_t *d)
 {
     n00b_dict_store_t *s = atomic_read(&d->store);
 
     for (uint32_t i = 0; i <= s->last_slot; i++) {
-        atomic_fetch_and(&s->buckets[i].flags, ~HT_FLAG_COPYING);
+        atomic_fetch_and(&s->buckets[i].flags, ~N00B_HT_FLAG_COPYING);
     }
 
     atomic_store(&d->futex, 0);
@@ -316,7 +311,7 @@ n00b_dict_migrate(n00b_dict_t *d)
         }
     }
     else {
-        if (!dict_lock(d, true, &nitems)) {
+        if (!n00b_dict_lock(d, true, &nitems)) {
             atomic_fetch_add(&d->wait_ct, 1);
             n00b_futex_wait_for_value(&d->futex, 0);
             return;
@@ -366,12 +361,12 @@ n00b_dict_raw_view(n00b_dict_t *d, uint32_t *n)
     int32_t               items;
     int32_t               ix = 0;
 
-    dict_lock(d, false, n);
+    n00b_dict_lock(d, false, n);
     s     = d->store;
     items = *n;
 
     if (!items) {
-        dict_unlock_post_copy(d);
+        n00b_dict_unlock_post_copy(d);
         return NULL;
     }
 
@@ -390,7 +385,7 @@ n00b_dict_raw_view(n00b_dict_t *d, uint32_t *n)
         };
     }
 
-    dict_unlock_post_copy(d);
+    n00b_dict_unlock_post_copy(d);
 
     return result;
 }
@@ -546,11 +541,11 @@ n00b_acquire_if_present(n00b_dict_t       *d,
             cur = &store->buckets[bix];
 
             do {
-                flags = atomic_fetch_or(&cur->flags, HT_FLAG_MUTEX);
-                if (flags & HT_FLAG_MOVING) {
+                flags = atomic_fetch_or(&cur->flags, N00B_HT_FLAG_MUTEX);
+                if (flags & N00B_HT_FLAG_MOVING) {
                     goto try_again;
                 }
-            } while (flags & HT_FLAG_MUTEX);
+            } while (flags & N00B_HT_FLAG_MUTEX);
 
             if (cur->hv == hv) {
                 // Keep it locked.
@@ -562,7 +557,7 @@ n00b_acquire_if_present(n00b_dict_t       *d,
             }
 
             bix   = (bix + 1) & last_slot;
-            flags = atomic_fetch_and(&cur->flags, ~HT_FLAG_MUTEX);
+            flags = atomic_fetch_and(&cur->flags, ~N00B_HT_FLAG_MUTEX);
 
             if (miss) {
                 return NULL;
@@ -593,11 +588,11 @@ n00b_acquire_or_add(n00b_dict_t *d, n00b_dict_store_t *store, __int128_t hv)
             cur = &store->buckets[bix];
 
             do {
-                flags = atomic_fetch_or(&cur->flags, HT_FLAG_MUTEX);
-                if (flags & (HT_FLAG_COPYING)) {
+                flags = atomic_fetch_or(&cur->flags, N00B_HT_FLAG_MUTEX);
+                if (flags & (N00B_HT_FLAG_COPYING)) {
                     goto try_again;
                 }
-            } while (flags & HT_FLAG_MUTEX);
+            } while (flags & N00B_HT_FLAG_MUTEX);
 
             if (cur->hv == hv || !bucket_reserved(cur)) {
                 // Keep it locked.
@@ -610,7 +605,7 @@ n00b_acquire_or_add(n00b_dict_t *d, n00b_dict_store_t *store, __int128_t hv)
             }
 
             bix   = (bix + 1) & last_slot;
-            flags = atomic_fetch_and(&cur->flags, ~HT_FLAG_MUTEX);
+            flags = atomic_fetch_and(&cur->flags, ~N00B_HT_FLAG_MUTEX);
         }
 
         return NULL;
@@ -624,7 +619,7 @@ try_again:
 static inline void
 unlock_bucket(n00b_dict_bucket_t *b)
 {
-    atomic_fetch_and(&b->flags, ~HT_FLAG_MUTEX);
+    atomic_fetch_and(&b->flags, ~N00B_HT_FLAG_MUTEX);
 }
 
 // Returns the old value if found, NULL otherwise.
@@ -651,7 +646,7 @@ try_again:
     else {
         if (bucket_deleted(bucket)) {
             reset_epoch = true;
-            bucket->flags &= ~HT_FLAG_DELETED;
+            bucket->flags &= ~N00B_HT_FLAG_DELETED;
         }
         else {
             result = bucket->value;
@@ -744,7 +739,7 @@ try_again:
     }
     else {
         if (bucket_deleted(bucket)) {
-            bucket->flags &= ~HT_FLAG_DELETED;
+            bucket->flags &= ~N00B_HT_FLAG_DELETED;
         }
         else {
             unlock_bucket(bucket);
@@ -780,7 +775,7 @@ _n00b_dict_remove(n00b_dict_t *d, void *key)
     }
 
     b->value = NULL;
-    b->flags |= HT_FLAG_DELETED;
+    b->flags |= N00B_HT_FLAG_DELETED;
     atomic_fetch_add(&d->length, -1);
     unlock_bucket(b);
 
@@ -790,13 +785,14 @@ _n00b_dict_remove(n00b_dict_t *d, void *key)
 bool
 _n00b_dict_cas(n00b_dict_t *d,
                void        *key,
-               void        *old_item,
+               void       **old_item_ptr,
                void        *new_item,
                bool         null_old_means_absence,
                bool         null_new_means_delete)
 {
     __int128_t          hv           = hash_object(d, key);
     n00b_dict_store_t  *store        = atomic_read(&d->store);
+    void               *old_item     = old_item_ptr ? *old_item_ptr : NULL;
     bool                expect_empty = !old_item && null_old_means_absence;
     bool                delete_it    = !new_item && null_new_means_delete;
     n00b_dict_bucket_t *b;
@@ -805,6 +801,9 @@ _n00b_dict_cas(n00b_dict_t *d,
 try_again:
         b = n00b_acquire_or_add(d, store, hv);
         if (bucket_reserved(b) && !bucket_deleted(b)) {
+            if (old_item_ptr) {
+                *old_item_ptr = b->value;
+            }
             unlock_bucket(b);
             return false;
         }
@@ -820,7 +819,7 @@ try_again:
         }
 
         b->hv = hv;
-        b->flags &= ~HT_FLAG_DELETED;
+        b->flags &= ~N00B_HT_FLAG_DELETED;
         b->value        = new_item;
         b->insert_order = (uint32_t)atomic_fetch_add(&store->used_count, 1);
         atomic_fetch_add(&d->length, 1);
@@ -835,13 +834,14 @@ try_again:
             return false;
         }
         if (b->value != old_item) {
+            *old_item_ptr = b->value;
             unlock_bucket(b);
             return false;
         }
 
         if (delete_it) {
             b->value = NULL;
-            b->flags |= HT_FLAG_DELETED;
+            b->flags |= N00B_HT_FLAG_DELETED;
             atomic_fetch_add(&d->length, -1);
         }
         else {
@@ -855,6 +855,7 @@ try_again:
 void
 n00b_dict_init(n00b_dict_t *dict, va_list args)
 {
+    // This is also the set initializer now.
     keywords
     {
         uint32_t num_entries  = N00B_DICT_MIN_SIZE;
