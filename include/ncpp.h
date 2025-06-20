@@ -24,6 +24,7 @@
 // That means, inside the constructs I add, while you may add
 // comments, you must not use the C preprocessor!
 
+#pragma once
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -33,6 +34,10 @@
 #include <ctype.h>
 #include <sys/mman.h>
 #include "n00b/config.h"
+
+#define MMAP_PROTS (PROT_READ | PROT_WRITE)
+#define MMAP_FLAGS (MAP_PRIVATE | MAP_ANON)
+
 
 // Define this to remove #line directives, for debugging.
 // #define SKIP_LINE_DIRECTIVES

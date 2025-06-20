@@ -1,4 +1,6 @@
+#include <sys/mman.h>
 #include "ncpp.h"
+#define GNU_SOURCE
 
 buf_t *
 concat(buf_t *b, char *start, int len)
@@ -63,12 +65,7 @@ alloc_tokens(buf_t *b)
         len       = pages * ps;
     }
 
-    return mmap(NULL,
-                len,
-                PROT_READ | PROT_WRITE,
-                MAP_PRIVATE | MAP_ANON,
-                -1,
-                0);
+    return mmap(NULL, len, MMAP_PROTS, MMAP_FLAGS, -1, 0);
 }
 
 int

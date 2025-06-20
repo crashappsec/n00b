@@ -23,7 +23,10 @@ typedef struct {
     n00b_one_karg_t     args[N00B_MAX_KEYWORD_SIZE];
 } n00b_static_karg_t;
 
-extern n00b_karg_info_t *n00b_kargs_obj(char *, int64_t val, ...);
+extern n00b_karg_info_t *_n00b_kargs_obj(char *, int64_t, ...);
+
+#define n00b_kargs_obj(kw, val, ...) \
+  _n00b_kargs_obj(kw, val, __VA_ARGS__ __VA_OPT__(,) 0ULL)
 
 // Everything below this point is part of the *old* keyword argument
 // system.  It's still here because there are two places where the

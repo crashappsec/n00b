@@ -59,7 +59,7 @@ n00b_get_kargs_and_count(va_list args, int *nargs)
 // types will cast to it, even though we then store as 'void *', since it is
 // more appropriate in C for a 'mixed' type.
 n00b_karg_info_t *
-n00b_kargs_obj(char *kw, int64_t val, ...)
+_n00b_kargs_obj(char *kw, int64_t val, ...)
 {
     int     i = 0;
     va_list args;

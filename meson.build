@@ -19,11 +19,16 @@ glibc_check = '''
 #error NO GLIBC
 #endif
 '''
-if cc.compiles(glibc_check)
-    using_glibc = true
-else
-    using_glibc = false
-endif
+
+gnu_source_check = '''
+#include <sys/mman.h>
+
+int
+test(void)
+{
+  return getpagesize() + MAP_ANON;
+}
+'''
 
 render_width = get_option('minimum_render_width').to_string()
 
@@ -35,7 +40,19 @@ c_args = [    '-Wextra',
     '-ffunction-sections',
     '-DN00B_MIN_RENDER_WIDTH=' + render_width,
     '-DN00B_BACKTRACE_SUPPORTED',
+    '-std=c2x',    
 ]
+
+if cc.compiles(glibc_check)
+    using_glibc = true
+else
+    using_glibc = false
+endif
+
+if not cc.compiles(gnu_source_check)
+  c_args = c_args + ['-D_GNU_SOURCE']
+endif  
+
 
 ncpp_exe = executable(
 'ncpp',
@@ -53,7 +70,7 @@ ncpp_exe = executable(
     '-Wno-unused-parameter',
     '-Wno-cast-function-type',
     '-fno-omit-frame-pointer',
-    '-ffunction-sections'],
+    '-ffunction-sections'] + c_args,
     include_directories: incdir)    
 
 ncpp = generator(ncpp_exe, output : '@BASENAME@.c',
@@ -108,7 +125,7 @@ int main(void) { forkpty(NULL, NULL, NULL, NULL); return 0; }
 '''
 
 if cc.links(fpty_code, name: 'forkpty_check')
-    add_project_arguments('-DHAVE_PTY_H', language: 'c')
+    c_args = c_args + ['-DHAVE_PTY_H']
 endif
 
 if get_option('buildtype') == 'release'
