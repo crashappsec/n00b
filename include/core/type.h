@@ -254,16 +254,6 @@ n00b_type_is_box_props(n00b_type_t *t)
 }
 
 static inline bool
-n00b_type_is_message(n00b_type_t *t)
-{
-    if (!n00b_ensure_type(t)) {
-        return false;
-    }
-
-    return n00b_type_resolve(t)->base_index == N00B_T_MESSAGE;
-}
-
-static inline bool
 n00b_type_is_keyword(n00b_type_t *t)
 {
     if (!n00b_ensure_type(t)) {
@@ -554,12 +544,6 @@ n00b_type_exception(void)
 }
 
 static inline n00b_type_t *
-n00b_type_logring(void)
-{
-    return n00b_bi_types[N00B_T_LOGRING];
-}
-
-static inline n00b_type_t *
 n00b_type_mixed(void)
 {
     return n00b_bi_types[N00B_T_GENERIC];
@@ -674,12 +658,6 @@ n00b_type_stream(void)
 }
 
 static inline n00b_type_t *
-n00b_type_message(void)
-{
-    return n00b_bi_types[N00B_T_MESSAGE];
-}
-
-static inline n00b_type_t *
 n00b_type_text_element(void)
 {
     return n00b_bi_types[N00B_T_TEXT_ELEMENT];
@@ -713,6 +691,12 @@ static inline n00b_type_t *
 n00b_type_regex(void)
 {
     return n00b_bi_types[N00B_T_REGEX];
+}
+
+static inline n00b_type_t *
+n00b_type_va_list(void)
+{
+    return n00b_bi_types[N00B_T_VA_LIST];
 }
 
 static inline n00b_type_t *
@@ -1007,6 +991,16 @@ n00b_type_is_regex(n00b_type_t *t)
     }
     t = n00b_type_resolve(t);
     return t->typeid == N00B_T_REGEX;
+}
+
+static inline bool
+n00b_type_is_va_list(n00b_type_t *t)
+{
+    if (!n00b_ensure_type(t)) {
+        return false;
+    }
+    t = n00b_type_resolve(t);
+    return t->typeid == N00B_T_VA_LIST;
 }
 
 static inline bool

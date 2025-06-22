@@ -35,13 +35,6 @@ option(
 )
 
 option(
-    'use_gc_ptr_hooks',
-    type: 'feature',
-    value: 'auto',
-    description: 'Turn off to scan all memory for pointers, not just likely pointer locations',
-)
-
-option(
     'show_preprocessor_config',
     type: 'feature',
     value: 'auto',

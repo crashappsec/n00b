@@ -3,6 +3,9 @@
 // #define _XOPEN_SOURCE 700
 // #define _POSIX_C_SOURCE 200809L
 #include "n00b/config.h"
+#include "n00b/base.h"
+#include "core/builtin_ctypes.h"
+
 // Useful options (mainly for dev) are commented out here.
 // The logic below (and into the relevent header files) sets up defaults.
 //
@@ -17,7 +20,6 @@
 #include "util/close.h"
 #include "core/exit.h"
 #include "adts/zarray.h"
-#include "n00b/base.h"
 
 // Stuff used widely enough that it's worth defining early.
 typedef uint64_t                       n00b_size_t;
@@ -95,10 +97,6 @@ typedef struct n00b_lock_log_t         n00b_lock_log_t;
 #include "mt/rwlock.h"
 #include "mt/tsi.h" // Thread-specific info.
 #include "mt/lock_api.h"
-
-// While the hatrack data structures are done in a way that's
-// independent of n00b, the memory management is core to everything
-// EXCEPT for the locking code, which memory management does use.
 #include "n00b/datatypes.h"
 
 #if BYTE_ORDER == LITTLE_ENDIAN
@@ -131,7 +129,6 @@ extern bool n00b_gc_inited;
 #include "util/macros.h"  // Helper macros
 #include "core/kargs.h"   // Keyword arguments.
 #include "util/random.h"
-#include "util/va_list.h" // Minor helper
 
 // Core object.
 #include "core/object.h"
@@ -146,6 +143,8 @@ extern bool n00b_gc_inited;
 #include "text/string.h"
 #include "adts/box.h"
 
+#include "util/va_list.h" // Minor helper
+#include "core/ty_new.h"
 // Extra data structure stuff.
 #include "adts/tree.h"
 #include "util/tree_pattern.h"

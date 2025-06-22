@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdalign.h>
 #include <limits.h>
 #include <signal.h>
 #include <termios.h>

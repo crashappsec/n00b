@@ -165,7 +165,9 @@ new_dict_store(n00b_dict_t *d, uint32_t alloc_items)
                       -1,
                       0);
         result->mmap_sz = sz;
-        n00b_heap_register_dynamic_root(NULL, result, sz / sizeof(void *));
+        if (!d->no_heap_data) {
+            n00b_heap_register_dynamic_root(NULL, result, sz / sizeof(void *));
+        }
     }
 
     else {
@@ -853,7 +855,7 @@ try_again:
 }
 
 void
-n00b_dict_init(n00b_dict_t *dict, va_list args)
+_n00b_dict_init(n00b_dict_t *dict, ...)
 {
     // This is also the set initializer now.
     keywords
@@ -861,6 +863,7 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
         uint32_t num_entries  = N00B_DICT_MIN_SIZE;
         bool     system_dict  = false;
         bool     cstring_keys = false;
+        bool     hide_from_gc = false;
     }
 
     if (num_entries < N00B_DICT_MIN_SIZE) {
@@ -874,14 +877,17 @@ n00b_dict_init(n00b_dict_t *dict, va_list args)
         }
     }
 
-    dict->use_mmap = system_dict;
-    dict->store    = new_dict_store(dict, num_entries);
+    dict->use_mmap     = system_dict;
+    dict->no_heap_data = hide_from_gc;
+    dict->store        = new_dict_store(dict, num_entries);
 
     if (cstring_keys) {
         dict->fn              = (void *)n00b_cstring_hash;
         dict->non_object_keys = true;
         return;
     }
+
+    assert(!hide_from_gc || system_dict);
 
     n00b_type_t *t = n00b_type_get_param(n00b_get_my_type(dict), 0);
 
@@ -895,8 +901,7 @@ n00b_dict_t *
 n00b_new_unmanaged_dict(void)
 {
     n00b_dict_t *result = n00b_gc_alloc_mapped(n00b_dict_t, N00B_GC_SCAN_ALL);
-    n00b_dict_init(result,
-                   n00b_build_va_list(num_entries : 16, system_dict : true));
+    n00b_dict_init(result, num_entries : 16, system_dict : true);
 
     return result;
 }
@@ -912,14 +917,51 @@ n00b_dict_to_string(n00b_dict_t *d)
 
     for (int i = 0; i < n; i++) {
         tup = n00b_list_get(view, i, NULL);
-        s   = n00b_cformat("«#» : «#»",
-                         n00b_tuple_get(tup, 0),
-                         n00b_tuple_get(tup, 1));
+        n00b_string_t *s1 = n00b_tuple_get(tup, 0);
+        n00b_string_t *s2 = n00b_tuple_get(tup, 1);
+        int            len = s1->u8_bytes + s2->u8_bytes + 3;
+        char           buf[len+1];
+        char          *p = &buf[0];
+
+        memcpy(p, s1->data, s1->u8_bytes);
+        p += s1->u8_bytes;
+        *p++ = ' ';
+        *p++ = ':';
+        *p++ = ' ';
+        memcpy(p, s2->data, s2->u8_bytes);
+        *p++ = 0;
+
+        s = n00b_cstring(buf);
         n00b_list_append(items, s);
     }
 
-    return n00b_cformat("{«#»}",
-                        n00b_string_join(items, n00b_cached_comma_padded()));
+    s = n00b_string_join(items, n00b_cached_comma_padded());
+    char  buf[s->u8_bytes + 3];
+    char *p = &buf[0];
+
+    *p++ = '{';
+    memcpy(p, s->data, s->u8_bytes);
+    *p++ = '}';
+    *p   = 0;
+
+    return n00b_cstring(buf);
+}
+
+void
+n00b_dict_init_valist(n00b_dict_t *dict, va_list args)
+{
+    n00b_va_t va_list = n00b_va_list_to_n00b_va(args, false);
+
+    if (!va_list) {
+        _n00b_dict_init(dict, NULL);
+    }
+
+    n00b_karg_info_t kinfo = {
+        .num_provided = n00b_list_len(va_list),
+        .args         = (void *)((n00b_list_t *)va_list)->data,
+    };
+
+    _n00b_dict_init(dict, &kinfo);
 }
 
 static bool
@@ -1028,7 +1070,7 @@ to_dict_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *lm)
 
 const n00b_vtable_t n00b_dict_vtable = {
     .methods = {
-        [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_dict_init,
+        [N00B_BI_CONSTRUCTOR]   = (n00b_vtable_entry)n00b_dict_init_valist,
         [N00B_BI_TO_STRING]     = (n00b_vtable_entry)n00b_dict_to_string,
         [N00B_BI_COERCIBLE]     = (n00b_vtable_entry)dict_can_coerce_to,
         [N00B_BI_COERCE]        = (n00b_vtable_entry)dict_coerce_to,

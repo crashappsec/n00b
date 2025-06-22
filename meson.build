@@ -32,15 +32,13 @@ test(void)
 
 render_width = get_option('minimum_render_width').to_string()
 
-c_args = [    '-Wextra',
+c_args = ['-Wextra',
     '-g',
     '-Wno-unused-parameter',
     '-Wno-cast-function-type',
     '-fno-omit-frame-pointer',
     '-ffunction-sections',
-    '-DN00B_MIN_RENDER_WIDTH=' + render_width,
-    '-DN00B_BACKTRACE_SUPPORTED',
-    '-std=c2x',    
+    '-fPIC',
 ]
 
 if cc.compiles(glibc_check)
@@ -53,6 +51,10 @@ if not cc.compiles(gnu_source_check)
   c_args = c_args + ['-D_GNU_SOURCE']
 endif  
 
+n00b_c_args =     [
+                   '-DN00B_MIN_RENDER_WIDTH=' + render_width,
+                   '-DN00B_BACKTRACE_SUPPORTED'
+                   ]
 
 ncpp_exe = executable(
 'ncpp',
@@ -63,14 +65,11 @@ ncpp_exe = executable(
     'src/ncpp/output.c',
     'src/ncpp/xforms.c',
     'src/ncpp/x_keyword.c',
-    'src/ncpp/x_once.c',    
+    'src/ncpp/x_once.c',
+    'src/ncpp/gen_bi_types.c',
+    'src/core/builtin_ctypes.c',
   ],
-  c_args: [     '-Wextra',
-    '-g',
-    '-Wno-unused-parameter',
-    '-Wno-cast-function-type',
-    '-fno-omit-frame-pointer',
-    '-ffunction-sections'] + c_args,
+  c_args: c_args + ['-DN00B_NCPP'],
     include_directories: incdir)    
 
 ncpp = generator(ncpp_exe, output : '@BASENAME@.c',
@@ -86,17 +85,18 @@ if (host_machine.system() == 'darwin')
     link_args = ['-target', 'arm64-apple-macos14', '-framework', 'Security']
 
     if not get_option('use_frame_intrinsic').disabled()
-        c_args = c_args + ['-DN00B_USE_FRAME_INTRINSIC']
+        n00b_c_args = n00b_c_args + ['-DN00B_USE_FRAME_INTRINSIC']
     endif
 
 else
     using_osx = false
+    # TODO: Make it so that we only provide this if requested, OR we
+    # are not using glibc. Right now, though, we only build static libraries.
     link_args = ['-static']
-    c_args = c_args + ['-D_GNU_SOURCE']
 
     # This doesn't seem to always work right on Linux so don't use it by default.
     if get_option('use_frame_intrinsic').enabled()
-        c_args = c_args + ['-DN00B_USE_FRAME_INTRINSIC']
+        n00b_c_args = n00b_c_args + ['-DN00B_USE_FRAME_INTRINSIC']
     endif
 endif
 
@@ -110,11 +110,11 @@ else
 endif
 
 if get_option('forkless_tests').enabled()
-    c_args = c_args + ['-DN00B_TEST_WITHOUT_FORK']
+    n00b_c_args = n00b_c_args + ['-DN00B_TEST_WITHOUT_FORK']
 endif
 
 if not get_option('static_ffi_binding').disabled()
-  c_args = c_args + ['-DN00B_STATIC_FFI_BINDING']
+    n00b_c_args = n00b_c_args + ['-DN00B_STATIC_FFI_BINDING']
 endif
 
 fpty_code = '''
@@ -125,7 +125,7 @@ int main(void) { forkpty(NULL, NULL, NULL, NULL); return 0; }
 '''
 
 if cc.links(fpty_code, name: 'forkpty_check')
-    c_args = c_args + ['-DHAVE_PTY_H']
+    n00b_c_args = n00b_c_args + ['-DHAVE_PTY_H']
 endif
 
 if get_option('buildtype') == 'release'
@@ -133,16 +133,12 @@ if get_option('buildtype') == 'release'
     link_args = link_args + ['-flto']
 endif
 
-if not get_option('use_gc_ptr_hooks').disabled()
-    c_args = c_args + ['-DN00B_USE_GC_HOOKS']
-endif
-
 
 if get_option('dev_mode') == true
-    c_args = c_args + ['-DN00B_DEV']
+    n00b_c_args = n00b_c_args + ['-DN00B_DEV']
 
     if not get_option('exception_traces').disabled()
-        c_args = c_args + ['-DN00B_DEBUG']
+        n00b_c_args = n00b_c_args + ['-DN00B_DEBUG']
     endif
 
     if get_option('use_asan').enabled()
@@ -168,24 +164,24 @@ if get_option('dev_mode') == true
 
     memcheck = get_option('use_memcheck')
     if not (memcheck == 'off')
-        c_args = c_args + [
+        n00b_c_args = n00b_c_args + [
             '-DN00B_FULL_MEMCHECK',
             '-DN00B_ALLOC_LOC_INFO',
         ]
 
         if memcheck == 'strict'
-            c_args = c_args + ['-DN00B_STRICT_MEMCHECK']
+            n00b_c_args = n00b_c_args + ['-DN00B_STRICT_MEMCHECK']
         endif
 
         show_count = get_option('memcheck_show_allocs')
         if show_count != 0
             as_str = show_count.to_string()
-            c_args = c_args + ['-DN00B_SHOW_NEXT_ALLOCS=' + as_str]
+            n00b_c_args = n00b_c_args + ['-DN00B_SHOW_NEXT_ALLOCS=' + as_str]
         endif
     endif
 
     if get_option('show_gc_stats').enabled()
-        c_args = c_args + [
+        n00b_c_args = n00b_c_args + [
              '-DN00B_GC_STATS',
              '-DN00B_ALLOC_LOC_INFO',             
         ]
@@ -194,26 +190,26 @@ if get_option('dev_mode') == true
     vm_debug = get_option('vm_debug')
 
     if vm_debug != 'always off'
-        c_args = c_args + ['-DN00B_VM_DEBUG']
+        n00b_c_args = c_args + ['-DN00B_VM_DEBUG']
     endif
 
     if vm_debug == 'default on'
-        c_args = c_args + ['-DN00B_VM_DEBUG_DEFAULT=true']
+        n00b_c_args = c_args + ['-DN00B_VM_DEBUG_DEFAULT=true']
     endif
 
     if get_option('warn_on_zero_allocs') == true
-        c_args = c_args + ['-DN00B_WARN_ON_ZERO_ALLOCS']
+        n00b_c_args = c_args + ['-DN00B_WARN_ON_ZERO_ALLOCS']
     endif
 
 
     gctrace = get_option('gc_tracing')
 
     if gctrace != 'off'
-        c_args = c_args + ['-DN00B_GC_FULL_TRACE']
+        n00b_c_args = c_args + ['-DN00B_GC_FULL_TRACE']
     endif
 
     if gctrace == 'full'
-        c_args = c_args + ['-DN00B_GC_FULL_TRACE', '-DN00B_GC_ALL_ON']
+        n00b_c_args = c_args + ['-DN00B_GC_FULL_TRACE', '-DN00B_GC_ALL_ON']
     endif
 
 endif
@@ -229,7 +225,7 @@ if using_osx
 endif
 
 exe_c_args = c_args + ['-flto']
-n00b_c_args = c_args
+n00b_c_args = c_args + n00b_c_args
 
 
 
@@ -257,10 +253,11 @@ n00b_core = [
     'src/core/types.nc',
     'src/core/typestore.nc',
     'src/core/literals.nc',
+    'src/core/builtin_ctypes.c',    
     'src/core/object.nc',
     'src/core/validation.nc',
     'src/core/signal.nc',
-    'src/core/type_hash.nc'      # New type implementation coming soon.
+    'src/core/ty_new.nc',      # New type implementation coming soon.
 ]
 
 n00b_mt = [
@@ -489,16 +486,6 @@ if get_option('build_n00b_dll').enabled()
     )
 endif
 
-# executable(
-#    'n00btest',
-#    test_src,
-#    include_directories: incdir,
-#    dependencies: deps,
-#    c_args: c_args,
-#    link_args: exe_link_args,
-#    link_with: link_with,
-#)
-
 executable(
    'io_demo',
    ['src/c-demos/iodemo.c'] + quark_files,
@@ -531,7 +518,7 @@ executable(
 )
 
 executable(
-'n00blog',
+     'n00blog',
      ncpp.process(['src/debug/server.nc'] + quark_files),
      include_directories: incdir,
      dependencies: deps,

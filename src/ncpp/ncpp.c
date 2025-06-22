@@ -1,5 +1,7 @@
 #include "ncpp.h"
 
+extern void gen_bi_types(void);
+
 int
 main(int argc, char *argv[], char *envp[])
 {
@@ -11,6 +13,11 @@ main(int argc, char *argv[], char *envp[])
             debug = true;
             base++;
         }
+    }
+
+    if (argc == 2 && !strcmp(argv[1], "gen")) {
+        gen_bi_types();
+        return 0;
     }
 
     if (argc != base + 2) {

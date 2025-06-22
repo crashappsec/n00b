@@ -395,7 +395,10 @@ keyword_xform(xform_t *ctx, tok_t *start)
                            "«em»«#»«/»\",\n        "
                            "             n00b_cstring(__ka->kw));\n"
                            "            N00B_RAISE(__err);\n"
-                           "        }\n    }\n");
+                           "        }\n"
+                           "        ");
+    result = concat_static(result, last_param_name);;
+    result = concat_static(result, "->used = false;\n    }\n");
 
     start->replacement = result;
     advance(ctx, false);

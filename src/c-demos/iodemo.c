@@ -109,16 +109,35 @@ print_eating_newline()
     return;
 }
 
+void
+test_new_type_system(void)
+{
+    n00b_ntype_t t_int = n00b_tprimitive(N00B_T_INT);
+    n00b_ntype_t t_str = n00b_tprimitive(N00B_T_STRING);    
+    n00b_ntype_t t_l1  = n00b_tlist(t_int);
+    n00b_ntype_t t_v1  = n00b_tlist(n00b_ttvar());
+    n00b_ntype_t t_d1  = n00b_tdict(t_str, n00b_ttvar());    
+    
+    n00b_eprintf("«em1»t_int«/»: «em2»«#»", n00b_ntype_get_name(t_int));
+    n00b_eprintf("«em1»t_li«/»: «em2»«#»", n00b_ntype_get_name(t_l1));
+    n00b_eprintf("«em1»t_v1«/»: «em2»«#»", n00b_ntype_get_name(t_v1));
+    n00b_eprintf("«em1»t_d1«/»: «em2»«#»", n00b_ntype_get_name(t_d1));    
+
+    n00b_ntype_t t_u1 = n00b_ntype_unify(t_v1, t_l1);
+    n00b_eprintf("«em1»t_u1«/»: «em2»«#»", n00b_ntype_get_name(t_u1));    
+    n00b_exit(0);
+}
+
 int
 main(void)
 {
-    n00b_futex_t futex = 100;
-    n00b_futex_init(&futex);
     n00b_terminal_app_setup();
 
     n00b_signal_register(SIGHUP, signal_demo, (void *)1ULL);
     n00b_signal_register(SIGHUP, signal_demo2, (void *)2ULL);
 
+    test_new_type_system();
+    
     // eprintf() and printf() use the stream API (n00b_printf() takes
     // an optional stream parameter.
     n00b_eprintf("«red»Welcome to the IO demo«/»");
@@ -126,7 +145,7 @@ main(void)
 
     // The process API uses the stream API extensively:
     // 1) For routing data between parent and child.
-    // 2) For handling data capture.
+    // 2) For handling data capture
     // 3) For dealing w/ subprocess exit.
 
     n00b_list_t   *args = n00b_list(n00b_type_string());

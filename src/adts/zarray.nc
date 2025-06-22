@@ -90,11 +90,30 @@ n00b_zarray_new_cell(n00b_zarray_t *arr, void **loc)
     return ret;
 }
 
+uint32_t
+n00b_zarray_new_cells(n00b_zarray_t *arr, void **loc, uint32_t num)
+{
+    assert(num > 0);
+
+    uint32_t ret = atomic_fetch_add(&arr->length, num);
+
+    if (loc) {
+        if (ret >= arr->last_item) {
+            *loc = NULL;
+        }
+        else {
+            *loc = n00b_zarray_cell_address(arr, ret);
+        }
+    }
+
+    return ret;
+}
+
 n00b_zarray_t *
 n00b_zarray_unsafe_copy(n00b_zarray_t *old)
 {
     // This works if the array is write-once. Otherwise, who knows
-    // what you will get.
+    // what you will get. Or, stop_the_world().
     uint32_t actual_len = atomic_load(&old->length);
     n00b_zarray_t *new  = n00b_zarray_new(old->alloc_len, old->cell_size);
 

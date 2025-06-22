@@ -404,6 +404,12 @@ n00b_heap_remove_root(n00b_heap_t *h, void *ptr)
     h           = n00b_current_heap(h);
     int32_t max = atomic_load(&h->roots->length);
 
+
+    if (!n00b_startup_complete) {
+        return;
+    }
+        
+    
     for (int i = 0; i < max; i++) {
         n00b_gc_root_info_t *ri = n00b_zarray_cell_address(h->roots, i);
         if (ri->ptr == ptr) {
@@ -414,6 +420,8 @@ n00b_heap_remove_root(n00b_heap_t *h, void *ptr)
             atomic_store(&ri->tinfo, ti);
         }
     }
+    // Programmer error if you didn't pass a valid root.
+    n00b_unreachable();
 }
 
 n00b_alloc_hdr *

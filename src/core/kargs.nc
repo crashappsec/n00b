@@ -22,9 +22,23 @@ n00b_kargs_acquire(void)
         ska->h.type             = n00b_type_kargs();
         ska->h.n00b_obj         = true;
         ska->ka.args            = ska->args;
+        tsi->init_kargs         = true;
     }
 
-    return &tsi->kcache.ka;
+    n00b_karg_info_t *tsi_ka = &tsi->kcache.ka;
+    
+    if (tsi_ka->used) {
+        n00b_karg_info_t *ki = n00b_gc_flex_alloc(n00b_karg_info_t,
+                                                  n00b_one_karg_t,
+                                                  N00B_MAX_KEYWORD_SIZE,
+                                                  N00B_GC_SCAN_ALL);
+
+        ki->args = (void *)(((char *)ki) + sizeof(n00b_one_karg_t));
+
+        return ki;
+    }
+
+    return tsi_ka;
 }
 
 // This is for varargs functions, so it def needs to copy the va_list.
@@ -66,6 +80,7 @@ _n00b_kargs_obj(char *kw, int64_t val, ...)
     va_start(args, val);
 
     n00b_karg_info_t *result = n00b_kargs_acquire();
+    result->used = true;
 
     while (true) {
         result->args[i++] = (n00b_one_karg_t){.kw = kw, .value = (void *)val};

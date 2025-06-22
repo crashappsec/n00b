@@ -89,6 +89,9 @@ extern void          *n00b_zarray_cell_address(n00b_zarray_t *,
                                                uint32_t);
 extern uint32_t       n00b_zarray_new_cell(n00b_zarray_t *,
                                            void **);
+extern uint32_t       n00b_zarray_new_cells(n00b_zarray_t *,
+                                            void **,
+                                            uint32_t);
 extern uint32_t       n00b_zarray_len(n00b_zarray_t *);
 extern void           n00b_zarray_delete(n00b_zarray_t *);
 extern n00b_zarray_t *n00b_zarray_unsafe_copy(n00b_zarray_t *);

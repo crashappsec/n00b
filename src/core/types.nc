@@ -448,13 +448,11 @@ type_hash_and_dedupe(n00b_type_t **nodeptr)
         node->typeid = 0;
         ctx.sha      = n00b_new(n00b_type_hash());
         ctx.tv_count = 0;
-        ctx.memos    = n00b_new_unmanaged_dict();
+        ctx.memos = n00b_new_unmanaged_dict();
 
         internal_type_hash(node, &ctx);
-
         buf    = n00b_sha_finish(ctx.sha);
         result = ((uint64_t *)buf->data)[0];
-
         little_64(result);
 
         if (ctx.tv_count == 0) {
@@ -1700,11 +1698,7 @@ _n00b_type_list(n00b_type_t *sub)
     return result;
 }
 
-DECLARE_ONE_PARAM_FN(flist, N00B_T_FLIST);
 DECLARE_ONE_PARAM_FN(tree, N00B_T_TREE);
-DECLARE_ONE_PARAM_FN(queue, N00B_T_QUEUE);
-DECLARE_ONE_PARAM_FN(ring, N00B_T_RING);
-DECLARE_ONE_PARAM_FN(stack, N00B_T_STACK);
 DECLARE_ONE_PARAM_FN(set, N00B_T_SET);
 
 n00b_type_t *

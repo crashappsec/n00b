@@ -34,6 +34,7 @@ typedef struct n00b_dict_t {
     _Atomic uint32_t             length;
     n00b_futex_t                 futex;
     uint32_t                     use_mmap        : 1;
+    uint32_t                     no_heap_data    : 1;    
     uint32_t                     non_object_keys : 1;
 } n00b_dict_t;
 
@@ -43,7 +44,8 @@ typedef struct {
     uint64_t order;
 } n00b_dict_raw_item_t;
 
-extern void  n00b_dict_init(n00b_dict_t *, va_list);
+extern void  _n00b_dict_init(n00b_dict_t *, ...);
+extern void  n00b_dict_init_valist(n00b_dict_t *, va_list);
 extern void *_n00b_dict_put(n00b_dict_t *d, void *key, void *value);
 extern void *_n00b_dict_get(n00b_dict_t *d, void *key, bool *found);
 extern bool  _n00b_dict_replace(n00b_dict_t *d, void *key, void *value);
@@ -56,6 +58,8 @@ extern bool  _n00b_dict_cas(n00b_dict_t *d,
                             bool         expect_empty,
                             bool         delete_existing);
 
+#define n00b_dict_init(x, ...) \
+    _n00b_dict_init(x, N00B_VA(__VA_ARGS__))
 #define n00b_dict_put(d, k, v) \
     _n00b_dict_put(d, ((void *)(int64_t)k), ((void *)(int64_t)v))
 
