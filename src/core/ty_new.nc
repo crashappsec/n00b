@@ -167,12 +167,22 @@ tnode_from_offset(n00b_type_ctx_t *ctx, n00b_ntype_t t)
 
     assert(offset < ctx->contents->last_item);
     
-    return first + offset;
+    n00b_tnode_t *result = first + offset;
+
+    while(result->forward) {
+        result = result->forward;
+    }
+
+    return result;
 }
 
-static inline n00b_tnode_t *
-get_tnode(n00b_type_ctx_t *ctx, n00b_ntype_t t)
+n00b_tnode_t *
+_n00b_get_tnode(n00b_ntype_t t, ...)
 {
+    keywords {
+        n00b_type_ctx_t *ctx = get_runtime_universe();
+    }
+    
     if (!(t & N00B_THASH_OFFSET_BIT)) {
         if (t > N00B_T_NUM_PRIMITIVE_BUILTINS) {
             return reverse_lookup(ctx, t);
@@ -185,7 +195,7 @@ get_tnode(n00b_type_ctx_t *ctx, n00b_ntype_t t)
     return tnode_from_offset(ctx, t);
 }
 
-static n00b_ntype_t
+static inline n00b_ntype_t
 n00b_tnode_to_type(n00b_type_ctx_t *ctx, n00b_tnode_t *tn)
 {
     n00b_ntype_t result;
@@ -207,6 +217,16 @@ n00b_tnode_to_type(n00b_type_ctx_t *ctx, n00b_tnode_t *tn)
     n00b_dict_put(&ctx->reverse_map, result, tn);
     
     return result;
+}
+
+n00b_ntype_t
+_n00b_get_type(n00b_tnode_t *tn, ...)
+{
+    keywords {
+        n00b_type_ctx_t *ctx = get_runtime_universe();
+    }
+
+    return n00b_tnode_to_type(ctx, tn);
 }
 
 static n00b_tnunify_result_kind
@@ -361,8 +381,8 @@ n00b_ntypes_can_unify(n00b_type_ctx_t *ctx, n00b_ntype_t n1, n00b_ntype_t n2)
 
     // If we don't have the type node locally, then the types aren't
     // compatable; they were both concrete typpes.
-    n00b_tnode_t *t1 = get_tnode(ctx, n1);
-    n00b_tnode_t *t2 = get_tnode(ctx, n2);
+    n00b_tnode_t *t1 = n00b_get_tnode(n1, ctx : ctx);
+    n00b_tnode_t *t2 = n00b_get_tnode(n2, ctx : ctx);
 
     if (!t1 || !t2) {
         return n00b_types_incompatable;
@@ -443,8 +463,8 @@ _n00b_ntype_unify(n00b_ntype_t n1, n00b_ntype_t n2, ...)
         return n1;
     }
 
-    n00b_tnode_t *t1 = get_tnode(ctx, n1);
-    n00b_tnode_t *t2 = get_tnode(ctx, n2);
+    n00b_tnode_t *t1 = n00b_get_tnode(n1, ctx: ctx);
+    n00b_tnode_t *t2 = n00b_get_tnode(n2, ctx: ctx);
 
     // If we don't have the type node locally, then the types aren't
     // compatable; they were both concrete typpes.
@@ -756,10 +776,92 @@ _n00b_has_base_container_type(n00b_ntype_t t, n00b_builtin_t base, ...)
         n00b_type_ctx_t *ctx = get_runtime_universe();
     }
 
-    n00b_tnode_t *tn = get_tnode(ctx, t);
+    n00b_tnode_t *tn = n00b_get_tnode(t, ctx: ctx);
     if (!tn) {
         return false;
     }
 
     return tn->info.base_typeid == base;
 }
+
+n00b_ntype_t
+_n00b_t_promote(n00b_ntype_t t1, n00b_ntype_t t2, ...)
+{
+    keywords {
+        bool *warning = NULL;
+    }
+    
+    if (warning) {
+        *warning  = false;
+    }
+        
+    t1 = n00b_t_unbox(t1);
+    t2 = n00b_t_unbox(t2);
+
+    if (t1 == t2) {
+        return t1;
+    }
+
+    if (t1 >= N00B_T_NUM_PRIMITIVE_BUILTINS
+        || t2 >= N00B_T_NUM_PRIMITIVE_BUILTINS) {
+        return N00B_T_ERROR;
+    }
+
+    n00b_dt_info_t *info1 = (void *)&n00b_base_type_info[t1];
+    n00b_dt_info_t *info2 = (void *)&n00b_base_type_info[t2];    
+
+    if (!info1->int_bits || !info2->int_bits) {
+        return N00B_T_ERROR;
+    }
+
+    if (info1->sign == info2->sign) {
+        if (info1->int_bits > info2->int_bits) {
+            return t2;
+        }
+        return t1;
+    }
+
+    n00b_ntype_t   *signed_input;
+    n00b_dt_info_t *signed_info;
+    n00b_dt_info_t *unsigned_info;    
+    
+    if (info1->sign) {
+        signed_input  = &t1;
+        signed_info   = info1;
+        unsigned_info = info2;
+    }
+    else {
+        signed_input  = &t2;
+        signed_info   = info2;
+        unsigned_info = info1;
+    }
+
+    // If we have a signed + unsigned, we want to always auto-promote
+    // to signed. If the unsigned value is the same size or larger
+    // than the unsigned value, we'll want to go up a size, to make
+    // sure there's no loss of information.
+    //
+    // The only issue is when we reach our max size, and can no
+    // longer promote up. There, if we have a sign mismatch, we
+    // will go w/ 'unsigned', but that merits a warning because
+    // our value might truncate.
+    
+    if (signed_info->int_bits > unsigned_info->int_bits) {
+        return *signed_input;
+    }
+
+    while (signed_info->int_bits <= unsigned_info->int_bits) {
+        if (!signed_info->promote_to) {
+            if (warning) {
+                *warning = true;
+            }
+            return *signed_input;
+        }
+        *signed_input = signed_info->promote_to;
+        signed_info   = (void *)&n00b_base_type_info[*signed_input];
+    }
+
+    return *signed_input;
+}
+
+        

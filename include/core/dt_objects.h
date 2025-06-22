@@ -98,13 +98,17 @@ typedef struct {
     // in a fixed array. But once we add user-defined types, they'll
     // get their IDs from a hash function, and that won't work for
     // everything.
-    const char         *name;
-    const uint64_t      typeid;
+    const char          *name;
+    const uint64_t       typeid;
     const n00b_vtable_t *vtable;
-    const uint32_t      alloc_len; // How much space to allocate.
+    const uint32_t       alloc_len; // How much space to allocate.
     const n00b_dt_kind_t dt_kind;
-    const bool          by_value : 1;
-    const bool          mutable : 1;
+    const uint8_t        int_bits; // Bits, not including sign.
+    const uint8_t        box_id;   // # of builtin we box.
+    const uint8_t        promote_to;
+    const uint32_t       by_value : 1;
+    const uint32_t       mutable  : 1;
+    const uint32_t       sign     : 1;
     // clang-format on
 } n00b_dt_info_t;
 
