@@ -116,3 +116,9 @@ extern void n00b_list_add_if_unique(n00b_list_t *list,
                                     bool (*fn)(void *, void *));
 extern void n00b_list_init(n00b_list_t *, va_list);
 #endif
+
+extern n00b_list_t *_n00b_list_tmp(n00b_karg_info_t *ka);
+
+#define n00b_list_tmp(...) _n00b_list_tmp(__VA_ARGS__)
+#undef n00b_list
+#define n00b_list(x) _n00b_list_tmp(NULL)

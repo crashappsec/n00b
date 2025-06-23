@@ -26,8 +26,6 @@ n00b_list_init(n00b_list_t *list, va_list args)
 
     n00b_rw_lock_init(&list->lock);
 
-    n00b_type_t *t = n00b_get_my_type(list);
-
     list->data = n00b_gc_array_alloc(uint64_t *, list->length);
 
     // if (n00b_type_requires_gc_scan(n00b_type_get_param(t, 0))) {
@@ -36,6 +34,36 @@ n00b_list_init(n00b_list_t *list, va_list args)
     // else {
     //     list->data = n00b_gc_array_value_alloc(uint64_t *, list->length);
     // }
+}
+
+static once n00b_type_t *
+get_tmp_type(void)
+{
+    return n00b_type_list(n00b_type_ref());
+}
+
+n00b_list_t *
+_n00b_list_tmp(n00b_karg_info_t *ka)
+{
+    n00b_list_t *result;
+
+    keywords
+    {
+        uint64_t length = 16;
+    }
+
+    result            = n00b_gc_alloc_mapped(n00b_list_t, N00B_GC_SCAN_ALL);
+    result->noscan    = N00B_NOSCAN;
+    result->append_ix = 0;
+    result->length    = n00b_max(length, 16);
+    result->data      = n00b_gc_array_alloc(uint64_t *, result->length);
+
+    n00b_rw_lock_init(&result->lock);
+
+    n00b_alloc_hdr *hdr = (void *)result;
+    hdr[-1].type        = get_tmp_type();
+
+    return result;
 }
 
 void
