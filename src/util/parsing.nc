@@ -804,6 +804,9 @@ char_in_class(n00b_codepoint_t cp, n00b_bi_class_t class)
     case N00B_P_BIC_LOWER_ASCII:
         return n00b_codepoint_is_ascii_lower(cp);
         break;
+    case N00B_P_BIC_ALPHA_ASCII:
+        return n00b_codepoint_is_ascii_alpha(cp);
+        break;
     case N00B_P_BIC_SPACE:
         return n00b_codepoint_is_space(cp);
         break;

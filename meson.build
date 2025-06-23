@@ -110,7 +110,7 @@ int main(void) { forkpty(NULL, NULL, NULL, NULL); return 0; }
 '''
 
 if cc.links(fpty_code, name: 'forkpty_check')
-    add_project_arguments('-DHAVE_PTY_H', language: 'c')
+    c_args = c_args + ['-DHAVE_PTY_H']
 endif
 
 if get_option('buildtype') == 'release'
@@ -439,6 +439,7 @@ n00b_util = [
     'src/util/getopt_parse.nc',
     'src/util/getopt_docs.nc',
     'src/util/json.nc',
+    'src/util/bnf.nc',
     'src/util/assert.nc',
     'src/util/memcheck.nc',
     'src/util/deep_copy.nc',
@@ -576,6 +577,15 @@ executable(
      link_args: exe_link_args,
      link_with: link_with,
 )
+executable(
+   'bnf',
+   ['tests/c-tests/bnf_parser.c'],
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)   
 
 if get_option('build_hatrack').enabled()
     executable(

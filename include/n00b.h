@@ -229,6 +229,8 @@ extern bool n00b_gc_inited;
 #include "util/cbacktrace.h"
 #include "util/json.h"
 
+#include "util/bnf.h"
+
 // The compiler.
 #include "compiler/ast_utils.h"
 #include "compiler/rtmodule.h"

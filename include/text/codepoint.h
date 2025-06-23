@@ -149,6 +149,12 @@ n00b_codepoint_is_ascii_lower(n00b_codepoint_t cp)
 }
 
 static inline bool
+n00b_codepoint_is_ascii_alpha(n00b_codepoint_t cp)
+{
+    return n00b_codepoint_is_ascii_upper(cp) || n00b_codepoint_is_ascii_lower(cp);
+}
+
+static inline bool
 n00b_codepoint_is_unicode_lower(n00b_codepoint_t cp)
 {
     return utf8proc_category(cp) == UTF8PROC_CATEGORY_LL;

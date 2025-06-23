@@ -28,12 +28,14 @@ n00b_list_init(n00b_list_t *list, va_list args)
 
     n00b_type_t *t = n00b_get_my_type(list);
 
-    if (n00b_type_requires_gc_scan(n00b_type_get_param(t, 0))) {
-        list->data = n00b_gc_array_alloc(uint64_t *, list->length);
-    }
-    else {
-        list->data = n00b_gc_array_value_alloc(uint64_t *, list->length);
-    }
+    list->data = n00b_gc_array_alloc(uint64_t *, list->length);
+
+    // if (n00b_type_requires_gc_scan(n00b_type_get_param(t, 0))) {
+    //     list->data = n00b_gc_array_alloc(uint64_t *, list->length);
+    // }
+    // else {
+    //     list->data = n00b_gc_array_value_alloc(uint64_t *, list->length);
+    // }
 }
 
 void
