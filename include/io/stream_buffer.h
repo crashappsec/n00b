@@ -8,9 +8,9 @@ typedef struct {
 } n00b_buffer_cookie_t;
 
 extern n00b_stream_t *n00b_stream_from_buffer(n00b_buf_t *,
-                                                int64_t,
-                                                n00b_list_t *,
-                                                bool);
+                                              int64_t,
+                                              n00b_list_t *,
+                                              bool);
 extern n00b_stream_t *_n00b_in_buf_stream(n00b_buf_t *, ...);
 extern n00b_stream_t *_n00b_out_buf_stream(n00b_buf_t *, bool, ...);
 extern n00b_stream_t *_n00b_io_buf_stream(n00b_buf_t *, bool, ...);
@@ -21,15 +21,3 @@ extern n00b_stream_t *_n00b_io_buf_stream(n00b_buf_t *, bool, ...);
     _n00b_out_buf_stream(buffer, __VA_ARGS__ __VA_OPT__(, ) 0ULL, 0ULL)
 #define n00b_iostream_buffer(buffer, ...) \
     _n00b_io_buf_stream(buffer, __VA_ARGS__ __VA_OPT__(, ) 0ULL, 0ULL)
-
-static inline n00b_buf_t *
-n00b_stream_extract_buffer(n00b_stream_t *s)
-{
-    n00b_buffer_cookie_t *c = (void *)s->cookie;
-
-    if (!n00b_type_is_buffer(n00b_get_my_type(c->buffer))) {
-        return NULL;
-    }
-
-    return c->buffer;
-}

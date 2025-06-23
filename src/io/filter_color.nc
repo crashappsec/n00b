@@ -20,7 +20,7 @@ color_setup(colorterm_ctx *ctx, void *width)
 static n00b_list_t *
 n00b_filter_add_color(colorterm_ctx *ctx, void *msg)
 {
-    n00b_type_t   *t            = n00b_get_my_type(msg);
+    n00b_ntype_t   t            = n00b_get_my_type(msg);
     n00b_list_t   *l            = n00b_list(n00b_type_ref());
     bool           partial_line = false;
     n00b_string_t *s            = NULL;
@@ -53,7 +53,7 @@ n00b_filter_add_color(colorterm_ctx *ctx, void *msg)
     }
 
     if (ctx->s) {
-        assert(n00b_get_my_type(s)->base_index == N00B_T_STRING);
+        assert(n00b_type_is_string(n00b_get_my_type(s)));
         s      = n00b_string_concat(ctx->s, s);
         ctx->s = NULL;
     }

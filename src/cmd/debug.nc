@@ -2,17 +2,17 @@
 #include "n00b.h"
 #include "n00b/cmd.h"
 
-#define decl_parse_option_func(option_base_name)                       \
-    static inline bool                                                 \
-        n00b_cmd_##option_base_name(n00b_cmdline_ctx *ctx)             \
-    {                                                                  \
-        bool    found;                                                 \
-        int64_t r;                                                     \
+#define decl_parse_option_func(option_base_name)                    \
+    static inline bool                                              \
+        n00b_cmd_##option_base_name(n00b_cmdline_ctx *ctx)          \
+    {                                                               \
+        bool    found;                                              \
+        int64_t r;                                                  \
         r = n00b_dict_get(ctx->opts,                                \
-                             n00b_cstring(n00b_fl_##option_base_name), \
-                             &found)                                   \
-         || (n00b_cmd_show_all(ctx) && !found);                        \
-        return (bool)r;                                                \
+                          n00b_cstring(n00b_fl_##option_base_name), \
+                          &found)                                   \
+         || (n00b_cmd_show_all(ctx) && !found);                     \
+        return (bool)r;                                             \
     }
 
 decl_parse_option_func(show_source);
@@ -86,7 +86,7 @@ n00b_show_module_debug_info(n00b_cmdline_ctx *ctx, n00b_module_t *m, bool entry)
             n00b_fn_decl_t *decl = sym->value;
 
             n00b_debug("function", sym->name);
-            n00b_debug("function type", sym->type);
+            n00b_debug("function type", n00b_ntype_get_name(sym->type));
 
             if (n00b_cmd_show_cfg(ctx)) {
                 n00b_debug("function cfg", n00b_cfg_repr(decl->cfg));

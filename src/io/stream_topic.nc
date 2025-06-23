@@ -70,7 +70,7 @@ _n00b_create_topic_stream(n00b_string_t *name,
     n00b_list_t   *filters;
     n00b_stream_t *result;
 
-    n00b_build_filter_list(filters, param);
+    n00b_build_filter_list(filters, (n00b_ntype_t)param);
 
     if (!ns) {
         ns = get_default_namespace();

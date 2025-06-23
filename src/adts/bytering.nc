@@ -462,8 +462,8 @@ n00b_bytering_copy(n00b_bytering_t *r)
     return result;
 }
 
-static n00b_type_t *
-n00b_bytering_item_type(n00b_obj_t x)
+static n00b_ntype_t
+n00b_bytering_item_type(void *x)
 {
     return n00b_type_byte();
 }
@@ -541,16 +541,16 @@ n00b_bytering_truncate_front(n00b_bytering_t *r, int64_t len)
 }
 
 static bool
-n00b_bytering_can_coerce_to(n00b_type_t *ignore, n00b_type_t *t)
+n00b_bytering_can_coerce_to(n00b_ntype_t ignore, n00b_ntype_t t)
 {
     return (n00b_type_is_string(t) || n00b_type_is_buffer(t)
             || n00b_type_is_bool(t) || n00b_type_is_bytering(t));
 }
 
-static n00b_obj_t
-n00b_bytering_coerce_to(n00b_bytering_t *r, n00b_type_t *t)
+static void *
+n00b_bytering_coerce_to(n00b_bytering_t *r, n00b_ntype_t t)
 {
-    n00b_obj_t result = NULL;
+    void *result = NULL;
 
     defer_on();
     n00b_lock_acquire(&r->internal_lock);
@@ -567,10 +567,10 @@ n00b_bytering_coerce_to(n00b_bytering_t *r, n00b_type_t *t)
     }
     if (n00b_type_is_bool(t)) {
         if (!r || !n00b_bytering_len_raw(r)) {
-            result = (n00b_obj_t) false;
+            result = (void *)false;
         }
         else {
-            result = (n00b_obj_t) true;
+            result = (void *)true;
         }
     }
 
@@ -644,7 +644,7 @@ n00b_bytering_write_bytering(n00b_bytering_t *dst, n00b_bytering_t *src)
 void
 n00b_bytering_write(n00b_bytering_t *r, void *obj)
 {
-    n00b_type_t *t = n00b_get_my_type(obj);
+    n00b_ntype_t t = n00b_get_my_type(obj);
 
     if (n00b_type_is_string(t)) {
         n00b_bytering_write_string(r, obj);
@@ -663,7 +663,7 @@ n00b_bytering_write(n00b_bytering_t *r, void *obj)
         "into a bytering.");
 }
 
-static n00b_obj_t
+static void *
 n00b_bytering_literal(n00b_string_t        *su8,
                       n00b_lit_syntax_t     st,
                       n00b_string_t        *lu8,

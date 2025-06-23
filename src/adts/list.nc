@@ -1,5 +1,6 @@
 #define N00B_USE_INTERNAL_API
 #include "n00b.h"
+#define N00B_DEFAULT_LIST_LEN 16
 
 #define write_start(x) n00b_lock_list(x)
 #define write_end(x)   n00b_unlock_list(x)
@@ -17,14 +18,14 @@ n00b_list_init(n00b_list_t *list, va_list args)
 {
     keywords
     {
-        int64_t length   = 16;
+        int64_t length   = N00B_DEFAULT_LIST_LEN;
         void   *contents = NULL;
         bool    copy     = true;
     }
 
     list->noscan    = N00B_NOSCAN;
     list->append_ix = 0;
-    list->length    = n00b_max(length, 16);
+    list->length    = n00b_max(length, N00B_DEFAULT_LIST_LEN);
 
     n00b_rw_lock_init(&list->lock);
 
@@ -39,6 +40,21 @@ n00b_list_init(n00b_list_t *list, va_list args)
     else {
         list->data = n00b_gc_array_alloc(uint64_t *, list->length);
     }
+}
+
+n00b_list_t *
+n00b_internal_list(void)
+{
+    n00b_list_t *result = n00b_gc_alloc_mapped(n00b_list_t, N00B_GC_SCAN_ALL);
+    result->noscan      = N00B_NOSCAN;
+    result->append_ix   = 0;
+    result->length      = N00B_DEFAULT_LIST_LEN;
+
+    n00b_rw_lock_init(&result->lock);
+
+    result->data = n00b_gc_array_alloc(uint64_t *, N00B_DEFAULT_LIST_LEN);
+
+    return result;
 }
 
 void
@@ -299,7 +315,7 @@ n00b_private_list_plus(n00b_list_t *l1, n00b_list_t *l2)
         return result;
     }
 
-    n00b_type_t *t      = n00b_get_my_type(l1);
+    n00b_ntype_t t      = n00b_get_my_type(l1);
     size_t       needed = l1->append_ix + l2->append_ix;
     result              = n00b_new(t, length : needed);
 
@@ -337,7 +353,7 @@ n00b_list_plus(n00b_list_t *l1, n00b_list_t *l2)
 
     read_start(l1);
     read_start(l2);
-    n00b_type_t *t      = n00b_get_my_type(l1);
+    n00b_ntype_t t      = n00b_get_my_type(l1);
     size_t       needed = l1->append_ix + l2->append_ix;
     result              = n00b_new(t, length : needed);
 
@@ -403,7 +419,7 @@ n00b_list_to_literal(n00b_list_t *list)
 }
 
 static bool
-n00b_list_can_coerce_to(n00b_type_t *my_type, n00b_type_t *dst_type)
+n00b_list_can_coerce_to(n00b_ntype_t my_type, n00b_ntype_t dst_type)
 {
     n00b_dt_kind_t base = n00b_type_get_kind(dst_type);
 
@@ -412,8 +428,8 @@ n00b_list_can_coerce_to(n00b_type_t *my_type, n00b_type_t *dst_type)
     }
 
     if (base == (n00b_dt_kind_t)N00B_T_LIST) {
-        n00b_type_t *my_item  = n00b_type_get_param(my_type, 0);
-        n00b_type_t *dst_item = n00b_type_get_param(dst_type, 0);
+        n00b_ntype_t my_item  = n00b_type_get_param(my_type, 0);
+        n00b_ntype_t dst_item = n00b_type_get_param(dst_type, 0);
 
         return n00b_can_coerce(my_item, dst_item);
     }
@@ -421,20 +437,20 @@ n00b_list_can_coerce_to(n00b_type_t *my_type, n00b_type_t *dst_type)
     return false;
 }
 
-static n00b_obj_t
-n00b_list_coerce_to(n00b_list_t *list, n00b_type_t *dst_type)
+static void *
+n00b_list_coerce_to(n00b_list_t *list, n00b_ntype_t dst_type)
 {
     read_start(list);
 
-    n00b_obj_t     result;
+    void          *result;
     n00b_dt_kind_t base          = n00b_type_get_kind(dst_type);
-    n00b_type_t   *src_item_type = n00b_type_get_param(n00b_get_my_type(list),
+    n00b_ntype_t   src_item_type = n00b_type_get_param(n00b_get_my_type(list),
                                                      0);
-    n00b_type_t   *dst_item_type = n00b_type_get_param(dst_type, 0);
+    n00b_ntype_t   dst_item_type = n00b_type_get_param(dst_type, 0);
     int64_t        len           = n00b_list_len(list);
 
     if (base == (n00b_dt_kind_t)N00B_T_BOOL) {
-        result = (n00b_obj_t)(int64_t)(n00b_list_len(list) != 0);
+        result = (void *)(int64_t)(n00b_list_len(list) != 0);
 
         read_end(list);
 
@@ -452,7 +468,7 @@ n00b_list_coerce_to(n00b_list_t *list, n00b_type_t *dst_type)
         }
 
         read_end(list);
-        return (n00b_obj_t)res;
+        return (void *)res;
     }
 
     n00b_unreachable();
@@ -462,11 +478,11 @@ n00b_list_t *
 n00b_private_list_copy(n00b_list_t *list)
 {
     int64_t      len     = n00b_list_len(list);
-    n00b_type_t *my_type = n00b_get_my_type((n00b_obj_t)list);
+    n00b_ntype_t my_type = n00b_get_my_type((void *)list);
     n00b_list_t *res     = n00b_new(my_type, length : len);
 
     for (int i = 0; i < len; i++) {
-        n00b_obj_t item = n00b_list_get_base(list, i, NULL);
+        void *item = n00b_list_get_base(list, i, NULL);
         n00b_private_list_set(res, i, n00b_copy(item));
     }
 
@@ -486,7 +502,7 @@ n00b_list_t *
 n00b_private_list_shallow_copy(n00b_list_t *list)
 {
     int64_t      len     = n00b_list_len(list);
-    n00b_type_t *my_type = n00b_get_my_type((n00b_obj_t)list);
+    n00b_ntype_t my_type = n00b_get_my_type((void *)list);
     n00b_list_t *res     = n00b_new(my_type, length : len);
 
     for (int i = 0; i < len; i++) {
@@ -505,14 +521,14 @@ n00b_list_shallow_copy(n00b_list_t *list)
     return result;
 }
 
-static n00b_obj_t
+static void *
 n00b_list_safe_get(n00b_list_t *list, int64_t ix)
 {
     bool err = false;
 
     read_start(list);
 
-    n00b_obj_t result = n00b_list_get_base(list, ix, &err);
+    void *result = n00b_list_get_base(list, ix, &err);
 
     if (err) {
         n00b_string_t *msg = n00b_cformat(
@@ -877,19 +893,18 @@ n00b_list_reverse(n00b_list_t *l)
 }
 
 static n00b_list_t *
-n00b_list_create(n00b_type_t   *objtype,
+n00b_list_create(n00b_ntype_t   objtype,
                  n00b_list_t   *items,
                  n00b_string_t *litmod)
 {
-    n00b_mem_ptr p = {.v = items};
-    p.alloc -= 1;
+    n00b_alloc_hdr *h = (void *)items;
+    h[-1].type        = objtype;
 
-    p.alloc->type = objtype;
     return items;
 }
 
 n00b_list_t *
-_n00b_to_list(n00b_type_t *t, int nargs, ...)
+_n00b_to_list(n00b_ntype_t t, int nargs, ...)
 {
     n00b_list_t *result = n00b_list(t);
 

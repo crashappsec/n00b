@@ -79,7 +79,7 @@ n00b_stream_t *
 _n00b_new_string_stream(void *seed, ...)
 {
     n00b_list_t *fl;
-    n00b_build_filter_list(fl, seed);
+    n00b_build_filter_list(fl, (uint64_t)seed);
 
     return n00b_new(n00b_type_stream(), &n00b_string_stream_impl, seed, fl);
 }

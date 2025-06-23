@@ -2,16 +2,15 @@
 #include "n00b.h"
 
 static uint64_t
-store_static_item(n00b_compile_ctx *ctx, void *value)
+store_static_item(n00b_compile_ctx *ctx, void *item)
 {
-    n00b_static_memory *mem  = ctx->memory_layout;
-    n00b_mem_ptr        item = (n00b_mem_ptr){.v = value};
+    n00b_static_memory *mem = ctx->memory_layout;
     uint64_t            result;
 
     if (mem->num_items == mem->alloc_len) {
-        n00b_mem_ptr *items;
+        void **items;
 
-        items = n00b_gc_array_alloc_mapped(n00b_mem_ptr,
+        items = n00b_gc_array_alloc_mapped(void *,
                                            mem->num_items + getpagesize() / 8,
                                            N00B_GC_SCAN_ALL);
         if (mem->num_items) {
@@ -19,11 +18,11 @@ store_static_item(n00b_compile_ctx *ctx, void *value)
         }
 
         mem->alloc_len += getpagesize();
-        mem->items = items;
+        mem->items = (void *)items;
     }
 
     result             = mem->num_items++;
-    mem->items[result] = item;
+    mem->items[result] = (void *)item;
 
     return result;
 }
@@ -43,7 +42,7 @@ store_static_item(n00b_compile_ctx *ctx, void *value)
 uint64_t
 n00b_add_static_object(void *obj, n00b_compile_ctx *ctx)
 {
-    n00b_type_t *t = n00b_get_my_type(obj);
+    n00b_ntype_t t = n00b_get_my_type(obj);
 
     if (n00b_type_is_string(t)) {
         return n00b_add_static_string(obj, ctx);
@@ -130,7 +129,7 @@ n00b_layout_static_obj(n00b_module_t *ctx, int bytes, int alignment)
 }
 
 uint32_t
-_n00b_layout_const_obj(n00b_compile_ctx *cctx, n00b_obj_t obj, ...)
+_n00b_layout_const_obj(n00b_compile_ctx *cctx, void *obj, ...)
 {
     va_list args;
 
@@ -155,7 +154,7 @@ _n00b_layout_const_obj(n00b_compile_ctx *cctx, n00b_obj_t obj, ...)
         return 0;
     }
 
-    n00b_type_t *objtype = n00b_get_my_type(obj);
+    n00b_ntype_t objtype = n00b_get_my_type(obj);
 
     if (n00b_type_is_box(objtype)) {
         return n00b_add_value_const(n00b_unbox(obj), cctx);

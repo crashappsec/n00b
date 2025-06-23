@@ -1,31 +1,13 @@
 #pragma once
+
 #include "n00b.h"
 
-extern void n00b_mixed_set_value(n00b_mixed_t *, n00b_type_t *, void **);
-extern void n00b_unbox_mixed(n00b_mixed_t *, n00b_type_t *, void **);
+typedef struct {
+    // Actually, since objects already contain the full type, this really
+    // only needs to hold the base type ID. Should def fix.
+    n00b_ntype_t held_type;
+    void        *held_value;
+} n00b_mixed_t;
 
-static inline void *
-n00b_double_to_ptr(double d)
-{
-    union {
-        double  d;
-        int64_t i;
-    } u;
-
-    u.d = d;
-
-    return (void *)(u.i);
-}
-
-static inline double
-n00b_ptr_to_double(void *p)
-{
-    union {
-        double  d;
-        int64_t i;
-    } u;
-
-    u.i = (int64_t)p;
-
-    return u.d;
-}
+extern void n00b_mixed_set_value(n00b_mixed_t *, n00b_ntype_t, void **);
+extern void n00b_unbox_mixed(n00b_mixed_t *, n00b_ntype_t, void **);

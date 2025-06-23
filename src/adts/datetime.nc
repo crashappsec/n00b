@@ -709,7 +709,7 @@ datetime_init(n00b_date_time_t *self, va_list args)
 
     if (timestamp != -1) {
         localtime_r((time_t *)&timestamp, &self->dt);
-        n00b_type_t *t = n00b_get_my_type(self);
+        n00b_ntype_t t = n00b_get_my_type(self);
 
         if (n00b_type_is_datetime(t)) {
             self->have_time   = true;
@@ -868,9 +868,9 @@ datetime_lit(n00b_string_t        *s,
 }
 
 static bool
-datetime_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
+datetime_can_coerce_to(n00b_ntype_t my_type, n00b_ntype_t target_type)
 {
-    switch (target_type->base_index) {
+    switch (target_type) {
     case N00B_T_DATETIME:
     case N00B_T_DATE:
     case N00B_T_TIME:

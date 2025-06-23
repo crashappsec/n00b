@@ -6,7 +6,7 @@
 #ifdef N00B_DEBUG_PATTERNS
 
 static inline void
-n00b_print_type(n00b_obj_t o)
+n00b_print_type(void *o)
 {
     if (o == NULL) {
         printf("<null>\n");
@@ -46,10 +46,10 @@ _show_pattern(n00b_tpat_node_t *pat)
 
 extern bool         n00b_tcmp(int64_t, n00b_tree_node_t *);
 extern void         n00b_setup_treematch_patterns();
-extern n00b_type_t *n00b_node_to_type(n00b_module_t *,
+extern n00b_ntype_t n00b_node_to_type(n00b_module_t *,
                                       n00b_tree_node_t *,
                                       n00b_dict_t *);
-extern n00b_obj_t   n00b_node_to_callback(n00b_module_t *,
+extern void        *n00b_node_to_callback(n00b_module_t *,
                                           n00b_tree_node_t *);
 
 static inline bool

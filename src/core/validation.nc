@@ -336,7 +336,7 @@ validate_field_contents(validation_ctx      *ctx,
         spec_node_t          *fnode  = n00b_tuple_get(tup, 1);
         n00b_spec_field_t    *fspec  = fnode->info.field.field_spec;
         n00b_attr_contents_t *record = fnode->info.field.record;
-        n00b_type_t          *t;
+        n00b_ntype_t          t;
 
         if (!record->is_set) {
             continue;
@@ -402,7 +402,7 @@ validate_field_contents(validation_ctx      *ctx,
             else {
                 n00b_attr_contents_t *bud_rec = bud->info.field.record;
 
-                t = n00b_merge_types(bud_rec->type, n00b_type_typespec(), NULL);
+                t = n00b_unify(bud_rec->type, n00b_type_typespec(), NULL);
                 if (n00b_type_is_error(t)) {
                     n00b_validation_error(ctx,
                                           n00b_spec_invalid_type_ptr,
@@ -414,8 +414,8 @@ validate_field_contents(validation_ctx      *ctx,
                                           loc_from_attr(ctx, bud_rec));
                 }
                 else {
-                    t = n00b_type_copy((n00b_type_t *)bud_rec->contents);
-                    t = n00b_merge_types(t, record->type, NULL);
+                    t = n00b_type_copy((n00b_ntype_t)bud_rec->contents);
+                    t = n00b_unify(t, record->type, NULL);
                     if (n00b_type_is_error(t)) {
                         n00b_validation_error(ctx,
                                               n00b_spec_ptr_typecheck,
@@ -431,9 +431,9 @@ validate_field_contents(validation_ctx      *ctx,
             }
         }
         else {
-            t = n00b_merge_types(n00b_type_copy(fspec->tinfo.type),
-                                 record->type,
-                                 NULL);
+            t = n00b_unify(n00b_type_copy(fspec->tinfo.type),
+                           record->type,
+                           NULL);
             if (n00b_type_is_error(t)) {
                 n00b_validation_error(ctx,
                                       n00b_spec_field_typecheck,

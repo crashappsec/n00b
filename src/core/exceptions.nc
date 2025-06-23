@@ -9,7 +9,7 @@ exception_init(n00b_exception_t *exception, va_list args)
     keywords
     {
         n00b_string_t *message    = NULL;
-        n00b_obj_t     context    = NULL;
+        void          *context    = NULL;
         int64_t        error_code = -1;
     }
 

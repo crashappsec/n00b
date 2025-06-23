@@ -397,18 +397,19 @@ n00b_init(int argc, char **argv, char **envp)
         n00b_stashed_argv = argv;
 
         set_fd_limit();
+        n00b_threading_setup(); // mt/thread_tsi.c
+        n00b_initialize_gc();
+        // This instantiates the type system.
+        n00b_get_runtime_universe();
         // We need some basic thread data before starting the GC, but
         // the thread setup for thread initialization that uses the heap
         // has to come after the GC is initialized. Therefore, sandwich
         // the GC startup with thread stuff.
-        n00b_threading_setup(); // mt/thread_tsi.c
-        n00b_initialize_gc();
         n00b_gc_register_root(&n00b_root, 1);
         n00b_gc_register_root(&n00b_path, 1);
         n00b_gc_register_root(&n00b_extensions, 1);
         n00b_gc_register_root(&cached_environment_vars, 1);
         n00b_gc_register_root(&exit_handlers, 1);
-        n00b_initialize_global_types();
         n00b_init_common_string_cache();
         n00b_backtrace_init(n00b_stashed_argv[0]);
         n00b_gc_set_system_finalizer((void *)n00b_finalize_allocation);

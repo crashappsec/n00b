@@ -167,7 +167,7 @@ check_for_fn_exit_errors(n00b_module_t *file, n00b_fn_decl_t *fn_decl)
         n00b_gc_register_root(&result_text, 1);
     }
 
-    if (fn_decl->signature_info->return_info.type->typeid == N00B_T_VOID) {
+    if (fn_decl->signature_info->return_info.type == N00B_T_VOID) {
         return;
     }
 

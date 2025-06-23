@@ -260,13 +260,14 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                      n00b_symbol_t *new_sym,
                      n00b_symbol_t *old_sym)
 {
-    n00b_type_t *t1 = new_sym->type;
-    n00b_type_t *t2 = old_sym->type;
+    n00b_ntype_t t1 = new_sym->type;
+    n00b_ntype_t t2 = old_sym->type;
 
     switch (n00b_type_cmp_exact(t1, t2)) {
     case n00b_type_match_exact:
+    case n00b_type_match_promoted:
         // Link any type variables together now.
-        old_sym->type = n00b_merge_types(t1, t2, NULL);
+        old_sym->type = n00b_unify(t1, t2);
         return;
     case n00b_type_match_left_more_specific:
         // Even if the authoritative symbol did not have a declared
@@ -278,8 +279,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a less generic / more concrete"),
-                       n00b_to_string(t2),
-                       n00b_to_string(t1),
+                       n00b_ntype_get_name(t2),
+                       n00b_ntype_get_name(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_match_right_more_specific:
@@ -288,8 +289,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a more generic / less concrete"),
-                       n00b_to_string(t2),
-                       n00b_to_string(t1),
+                       n00b_ntype_get_name(t2),
+                       n00b_ntype_get_name(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_match_both_have_more_generic_bits:
@@ -298,8 +299,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a type with different generic parts"),
-                       n00b_to_string(t2),
-                       n00b_to_string(t1),
+                       n00b_ntype_get_name(t2),
+                       n00b_ntype_get_name(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     case n00b_type_cant_match:
@@ -308,8 +309,8 @@ type_cmp_exact_match(n00b_module_t *new_ctx,
                        new_sym->ct->declaration_node,
                        new_sym->name,
                        n00b_cstring("a completely incompatible"),
-                       n00b_to_string(t2),
-                       n00b_to_string(t1),
+                       n00b_ntype_get_name(t2),
+                       n00b_ntype_get_name(t1),
                        n00b_node_get_loc_str(old_sym->ct->declaration_node));
         return;
     }
@@ -433,7 +434,7 @@ n00b_format_scope(n00b_scope_t *scope)
         n00b_string_t    *kind;
         char             *cs;
         n00b_tree_node_t *t;
-        n00b_type_t      *symtype;
+        n00b_ntype_t      symtype;
         n00b_string_t    *def_text;
         n00b_string_t    *use_text;
 
@@ -473,9 +474,12 @@ n00b_format_scope(n00b_scope_t *scope)
 
         n00b_table_add_cell(tbl,
                             n00b_cformat("«#»(«#»)",
+                                         n00b_ntype_get_name(symtype),
+                                         /*
                                          n00b_internal_type_repr(symtype,
                                                                  memos,
                                                                  &nexttid),
+                                         */
                                          kind));
         n00b_table_add_cell(tbl,
                             n00b_cformat("«#:x»",

@@ -59,7 +59,7 @@ static n00b_string_t *str_to_type_tmp_path = NULL;
 
 // This lives in this module because we invoke the parser; things that
 // invoke the compiler live here.
-n00b_type_t *
+n00b_ntype_t
 n00b_string_to_type(n00b_string_t *str)
 {
     if (str_to_type_tmp_path == NULL) {
@@ -67,7 +67,7 @@ n00b_string_to_type(n00b_string_t *str)
         n00b_gc_register_root(&str_to_type_tmp_path, 1);
     }
 
-    n00b_type_t   *result = NULL;
+    n00b_ntype_t   result = N00B_T_ERROR;
     n00b_stream_t *stream = n00b_string_stream(str);
     n00b_module_t  ctx    = {
             .modref = 0xffffffff,

@@ -175,7 +175,7 @@ record_new_alloc(n00b_collection_ctx *ctx, bool in_heap)
 static inline char *
 get_alloc_type(n00b_alloc_hdr *hdr)
 {
-    n00b_type_t *t = hdr->type;
+    n00b_ntype_t t = hdr->type;
 
     if (!t || t->base_index < 0 || t->base_index > N00B_NUM_BUILTIN_DTS) {
         return "untyped allocation";
@@ -412,20 +412,6 @@ run_all_scans(n00b_collection_ctx *ctx)
     n00b_alloc_hdr *item = dequeue_work(&ctx->scan_work);
 
     while (item) {
-        n00b_type_t *t = item->type;
-
-        if (t) {
-            n00b_alloc_hdr *titem = check_one_word(ctx, t);
-
-            if (titem) {
-                item->type = (void *)rewrite_pointer(titem, (int64_t)t);
-            }
-            else {
-                titem = ((n00b_alloc_hdr *)item->type) - 1;
-            }
-            scan_one_alloc(ctx, titem);
-        }
-
         scan_one_alloc(ctx, item);
         item = dequeue_work(&ctx->scan_work);
     }
@@ -578,17 +564,6 @@ make_to_space_our_space(n00b_collection_ctx *ctx, n00b_heap_t *h)
     n00b_to_space->newest_arena = NULL;
 
     reset_next_alloc_ptr(h, ctx->next_alloc);
-}
-
-static inline void
-trace_key_startup_items(n00b_collection_ctx *ctx)
-{
-    // These key bits of the type system need to be done before
-    // anything else if we're collecting the heap they come out of.
-    scan_root_set(ctx, &n00b_bi_types[2], 1);
-    run_all_scans(ctx);
-    scan_root_set(ctx, &n00b_bi_types[0], N00B_NUM_BUILTIN_DTS);
-    run_all_scans(ctx);
 }
 
 static inline void
@@ -765,7 +740,7 @@ n00b_heap_collect(n00b_heap_t *h, int64_t alloc_request)
 #endif
 
     setup_collection(&ctx, h, alloc_request);
-    trace_key_startup_items(&ctx);
+
     if (h->local_collects) {
         trace_one_rootset(&ctx, h);
     }

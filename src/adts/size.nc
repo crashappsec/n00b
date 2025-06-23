@@ -407,9 +407,9 @@ size_diff(n00b_size_t *s1, n00b_size_t *s2)
 }
 
 static bool
-size_can_coerce_to(n00b_type_t *me, n00b_type_t *them)
+size_can_coerce_to(n00b_ntype_t me, n00b_ntype_t them)
 {
-    switch (n00b_type_get_data_type_info(them)->typeid) {
+    switch (n00b_get_data_type_info(them)->typeid) {
     case N00B_T_INT:
     case N00B_T_UINT:
     case N00B_T_SIZE:
@@ -420,9 +420,9 @@ size_can_coerce_to(n00b_type_t *me, n00b_type_t *them)
 }
 
 static void *
-size_coerce_to(n00b_size_t *self, n00b_type_t *target_type)
+size_coerce_to(n00b_size_t *self, n00b_ntype_t target_type)
 {
-    switch (n00b_type_get_data_type_info(target_type)->typeid) {
+    switch (n00b_get_data_type_info(target_type)->typeid) {
     case N00B_T_INT:
     case N00B_T_UINT:
         return (void *)*self;

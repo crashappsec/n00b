@@ -3,7 +3,7 @@
 static n00b_list_t *
 n00b_apply_line_buffering(n00b_buf_t **state, void *msg)
 {
-    n00b_type_t *t      = n00b_get_my_type(msg);
+    n00b_ntype_t t      = n00b_get_my_type(msg);
     n00b_list_t *result = n00b_list(n00b_type_ref());
     n00b_buf_t  *input;
     n00b_buf_t  *tmp;

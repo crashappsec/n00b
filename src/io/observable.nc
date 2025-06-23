@@ -193,6 +193,10 @@ n00b_observable_add_subscribers(n00b_observable_t *target,
 void
 n00b_observable_unsubscribe(n00b_observer_t *sub)
 {
+    if (!sub) {
+        return;
+    }
+
     n00b_observable_t *target     = sub->target;
     n00b_list_t       *topic_subs = get_topic_subs(target, sub->topic_ix);
 

@@ -325,7 +325,7 @@ n00b_buf_to_utf8_string(n00b_buf_t *buffer)
 }
 
 static bool
-buffer_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
+buffer_can_coerce_to(n00b_ntype_t my_type, n00b_ntype_t target_type)
 {
     // clang-format off
     if (n00b_types_are_compat(target_type, n00b_type_string(), NULL) ||
@@ -339,19 +339,19 @@ buffer_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
     return false;
 }
 
-static n00b_obj_t
-buffer_coerce_to(n00b_buf_t *b, n00b_type_t *target_type)
+static void *
+buffer_coerce_to(n00b_buf_t *b, n00b_ntype_t target_type)
 {
     if (n00b_types_are_compat(target_type, n00b_type_buffer(), NULL)) {
-        return (n00b_obj_t)b;
+        return (void *)b;
     }
 
     if (n00b_types_are_compat(target_type, n00b_type_bool(), NULL)) {
         if (!b || b->byte_len == 0) {
-            return (n00b_obj_t) false;
+            return (void *)false;
         }
         else {
-            return (n00b_obj_t) true;
+            return (void *)true;
         }
     }
 
@@ -547,7 +547,7 @@ buffer_set_slice(n00b_buf_t *b, int64_t start, int64_t end, n00b_buf_t *val)
     defer_func_end();
 }
 
-static n00b_obj_t
+static void *
 buffer_lit(n00b_string_t        *su8,
            n00b_lit_syntax_t     st,
            n00b_string_t        *lu8,
@@ -585,8 +585,8 @@ buffer_copy(n00b_buf_t *inbuf)
     defer_func_end();
 }
 
-static n00b_type_t *
-buffer_item_type(n00b_obj_t x)
+static n00b_ntype_t
+buffer_item_type(void *x)
 {
     return n00b_type_byte();
 }

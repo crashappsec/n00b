@@ -9,14 +9,14 @@ static const char *err2 =
     "extracting the value from a mixed-type object";
 
 void
-n00b_mixed_set_value(n00b_mixed_t *m, n00b_type_t *type, void **ptr)
+n00b_mixed_set_value(n00b_mixed_t *m, n00b_ntype_t type, void **ptr)
 {
-    if (type == NULL) {
+    if (type == N00B_T_ERROR) {
         if (ptr != NULL) {
             N00B_CRAISE((char *)err1);
         }
 
-        m->held_type  = NULL;
+        m->held_type  = N00B_T_ERROR;
         m->held_value = NULL;
         return;
     }
@@ -27,7 +27,7 @@ n00b_mixed_set_value(n00b_mixed_t *m, n00b_type_t *type, void **ptr)
 
     m->held_type = type;
 
-    switch (n00b_type_get_data_type_info(type)->typeid) {
+    switch (n00b_get_data_type_info(type)->typeid) {
     case N00B_T_BOOL: {
         bool   *p = (bool *)ptr;
         bool    b = *p;
@@ -97,7 +97,7 @@ mixed_init(n00b_mixed_t *m, va_list args)
 {
     keywords
     {
-        n00b_type_t *type       = NULL;
+        n00b_ntype_t type       = N00B_T_ERROR;
         void        *ptr(value) = NULL;
     }
 
@@ -105,13 +105,13 @@ mixed_init(n00b_mixed_t *m, va_list args)
 }
 
 void
-n00b_unbox_mixed(n00b_mixed_t *m, n00b_type_t *expected_type, void **ptr)
+n00b_unbox_mixed(n00b_mixed_t *m, n00b_ntype_t expected_type, void **ptr)
 {
     if (!n00b_types_are_compat(m->held_type, expected_type, NULL)) {
         N00B_CRAISE((char *)err2);
     }
 
-    switch (n00b_type_get_data_type_info(m->held_type)->typeid) {
+    switch (n00b_get_data_type_info(m->held_type)->typeid) {
     case N00B_T_BOOL: {
         if (m->held_value) {
             *(bool *)ptr = true;
@@ -171,7 +171,7 @@ n00b_unbox_mixed(n00b_mixed_t *m, n00b_type_t *expected_type, void **ptr)
 static int64_t
 mixed_as_word(n00b_mixed_t *m)
 {
-    switch (n00b_type_get_data_type_info(m->held_type)->typeid) {
+    switch (n00b_get_data_type_info(m->held_type)->typeid) {
     case N00B_T_BOOL:
         if (m->held_value == NULL) {
             return 0;
@@ -230,14 +230,14 @@ mixed_to_literal(n00b_mixed_t *mixed)
 static n00b_mixed_t *
 mixed_copy(n00b_mixed_t *m)
 {
-    n00b_mixed_t *result = n00b_new(n00b_type_mixed());
+    n00b_mixed_t *result = n00b_new(N00B_T_GENERIC);
 
     // Types are concrete whenever there is a value, so we don't need to
     // call copy, but we do it anyway.
 
     result->held_type = n00b_type_copy(m->held_type);
 
-    if (n00b_type_get_data_type_info(m->held_type)->by_value) {
+    if (n00b_get_data_type_info(m->held_type)->by_value) {
         result->held_value = m->held_value;
     }
     else {

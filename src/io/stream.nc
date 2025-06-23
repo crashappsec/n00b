@@ -566,7 +566,7 @@ n00b_read_all(n00b_stream_t *stream, int ms_timeout)
     }
 
     item           = n00b_private_list_get(l, 0, NULL);
-    n00b_type_t *t = n00b_get_my_type(item);
+    n00b_ntype_t t = n00b_get_my_type(item);
 
     if (n00b_type_is_buffer(t)) {
         return possible_buffer_list(l);

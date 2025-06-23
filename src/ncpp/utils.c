@@ -1,6 +1,6 @@
 #include <sys/mman.h>
 #include "ncpp.h"
-#define GNU_SOURCE
+#define _GNU_SOURCE
 
 buf_t *
 concat(buf_t *b, char *start, int len)

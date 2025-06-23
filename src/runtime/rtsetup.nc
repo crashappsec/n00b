@@ -84,9 +84,9 @@ n00b_setup_new_module_allocations(n00b_compile_ctx *cctx, n00b_vm_t *vm)
 {
     // This only needs to be called to add space for new modules.
 
-    int          old_modules = 0;
-    int          new_modules = n00b_list_len(vm->obj->module_contents);
-    n00b_obj_t **new_allocs;
+    int     old_modules = 0;
+    int     new_modules = n00b_list_len(vm->obj->module_contents);
+    void ***new_allocs;
 
     if (vm->module_allocations) {
         while (vm->module_allocations[old_modules++])
@@ -98,7 +98,7 @@ n00b_setup_new_module_allocations(n00b_compile_ctx *cctx, n00b_vm_t *vm)
     }
 
     // New modules generally come with new static data.
-    new_allocs = n00b_gc_array_alloc(n00b_obj_t, new_modules + 1);
+    new_allocs = n00b_gc_array_alloc(void *, new_modules + 1);
 
     for (int i = 0; i < old_modules; i++) {
         new_allocs[i] = vm->module_allocations[i];
@@ -109,7 +109,7 @@ n00b_setup_new_module_allocations(n00b_compile_ctx *cctx, n00b_vm_t *vm)
                                          i,
                                          NULL);
 
-        new_allocs[i] = n00b_gc_array_alloc(n00b_obj_t,
+        new_allocs[i] = n00b_gc_array_alloc(void *,
                                             (m->static_size + 1) * 8);
     }
 
@@ -222,15 +222,6 @@ n00b_vm_reset(n00b_vm_t *vm)
     vm->entry_point                = vm->obj->default_entry;
 }
 
-void
-n00b_vmthread_gc_bits(uint64_t *bitmap, n00b_vmthread_t *t)
-{
-    uint64_t diff = n00b_ptr_diff(t, &t->r3);
-    for (unsigned int i = 0; i < diff; i++) {
-        n00b_set_bit(bitmap, i);
-    }
-}
-
 n00b_vmthread_t *
 n00b_vmthread_new(n00b_vm_t *vm)
 {
@@ -240,7 +231,7 @@ n00b_vmthread_new(n00b_vm_t *vm)
     }
 
     n00b_vmthread_t *tstate = n00b_gc_alloc_mapped(n00b_vmthread_t,
-                                                   (void *)n00b_vmthread_gc_bits);
+                                                   N00B_GC_SCAN_ALL);
     tstate->vm              = vm;
 
     n00b_vmthread_reset(tstate);
@@ -315,7 +306,5 @@ n00b_vm_remove_compile_time_data(n00b_vm_t *vm)
 }
 
 const n00b_vtable_t n00b_vm_vtable = {
-    .methods = {
-        [N00B_BI_GC_MAP] = (n00b_vtable_entry)n00b_vm_gc_bits,
-    },
+    .methods = {},
 };

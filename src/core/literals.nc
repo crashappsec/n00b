@@ -128,7 +128,7 @@ n00b_base_type_from_litmod(n00b_lit_syntax_t st, n00b_string_t *mod)
 }
 
 void
-n00b_init_literal_handling()
+n00b_init_literal_handling(void)
 {
     if (mod_map[0] == NULL) {
         for (int i = 0; i < ST_MAX; i++) {
@@ -292,8 +292,8 @@ n00b_fix_litmod(n00b_token_t *tok, n00b_pnode_t *pnode)
     // the type.
 
     n00b_dict_t   *d         = mod_map[tok->syntax];
-    n00b_type_t   *t         = n00b_type_resolve(pnode->type);
-    n00b_builtin_t base_type = t->base_index;
+    n00b_ntype_t   t         = n00b_type_resolve(pnode->type);
+    n00b_builtin_t base_type = n00b_get_base_type(t);
     n00b_list_t   *items     = n00b_dict_items(d);
     int            n         = n00b_list_len(items);
 
@@ -331,9 +331,9 @@ n00b_fix_litmod(n00b_token_t *tok, n00b_pnode_t *pnode)
 }
 
 bool
-n00b_type_has_list_syntax(n00b_type_t *t)
+n00b_type_has_list_syntax(n00b_ntype_t t)
 {
-    uint64_t bi      = t->base_index;
+    uint64_t bi      = n00b_get_base_type(t);
     int      word    = ((int)bi) / 64;
     int      bit     = ((int)bi) % 64;
     uint64_t to_test = 1UL << bit;
@@ -342,9 +342,9 @@ n00b_type_has_list_syntax(n00b_type_t *t)
 }
 
 bool
-n00b_type_has_dict_syntax(n00b_type_t *t)
+n00b_type_has_dict_syntax(n00b_ntype_t t)
 {
-    uint64_t bi      = t->base_index;
+    uint64_t bi      = n00b_get_base_type(t);
     int      word    = ((int)bi) / 64;
     int      bit     = ((int)bi) % 64;
     uint64_t to_test = 1UL << bit;
@@ -353,9 +353,9 @@ n00b_type_has_dict_syntax(n00b_type_t *t)
 }
 
 bool
-n00b_type_has_set_syntax(n00b_type_t *t)
+n00b_type_has_set_syntax(n00b_ntype_t t)
 {
-    uint64_t bi      = t->base_index;
+    uint64_t bi      = n00b_get_base_type(t);
     int      word    = ((int)bi) / 64;
     int      bit     = ((int)bi) % 64;
     uint64_t to_test = 1UL << bit;
@@ -364,9 +364,9 @@ n00b_type_has_set_syntax(n00b_type_t *t)
 }
 
 bool
-n00b_type_has_tuple_syntax(n00b_type_t *t)
+n00b_type_has_tuple_syntax(n00b_ntype_t t)
 {
-    uint64_t bi      = t->base_index;
+    uint64_t bi      = n00b_get_base_type(t);
     int      word    = ((int)bi) / 64;
     int      bit     = ((int)bi) % 64;
     uint64_t to_test = 1UL << bit;
@@ -374,13 +374,13 @@ n00b_type_has_tuple_syntax(n00b_type_t *t)
     return tuple_types[word] & to_test;
 }
 int
-n00b_get_num_bitfield_words()
+n00b_get_num_bitfield_words(void)
 {
     return container_bitfield_words;
 }
 
 uint64_t *
-n00b_get_list_bitfield()
+n00b_get_list_bitfield(void)
 {
     n00b_init_literal_handling();
 
@@ -394,7 +394,7 @@ n00b_get_list_bitfield()
 }
 
 uint64_t *
-n00b_get_dict_bitfield()
+n00b_get_dict_bitfield(void)
 {
     n00b_init_literal_handling();
 
@@ -408,7 +408,7 @@ n00b_get_dict_bitfield()
 }
 
 uint64_t *
-n00b_get_set_bitfield()
+n00b_get_set_bitfield(void)
 {
     n00b_init_literal_handling();
 
@@ -422,7 +422,7 @@ n00b_get_set_bitfield()
 }
 
 uint64_t *
-n00b_get_tuple_bitfield()
+n00b_get_tuple_bitfield(void)
 {
     n00b_init_literal_handling();
 
@@ -436,7 +436,7 @@ n00b_get_tuple_bitfield()
 }
 
 uint64_t *
-n00b_get_all_containers_bitfield()
+n00b_get_all_containers_bitfield(void)
 {
     n00b_init_literal_handling();
 
@@ -450,8 +450,9 @@ n00b_get_all_containers_bitfield()
 }
 
 bool
-n00b_partial_inference(n00b_type_t *t)
+n00b_partial_inference(n00b_ntype_t t)
 {
+    /*
     tv_options_t *tsi = &t->options;
 
     for (int i = 0; i < container_bitfield_words; i++) {
@@ -459,12 +460,12 @@ n00b_partial_inference(n00b_type_t *t)
             return true;
         }
     }
-
+    */
     return false;
 }
 
 uint64_t *
-n00b_get_no_containers_bitfield()
+n00b_get_no_containers_bitfield(void)
 {
     n00b_init_literal_handling();
 
@@ -472,8 +473,9 @@ n00b_get_no_containers_bitfield()
 }
 
 bool
-n00b_list_syntax_possible(n00b_type_t *t)
+n00b_list_syntax_possible(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
 
     for (int i = 0; i < container_bitfield_words; i++) {
@@ -481,13 +483,15 @@ n00b_list_syntax_possible(n00b_type_t *t)
             return true;
         }
     }
+#endif
 
     return false;
 }
 
 bool
-n00b_dict_syntax_possible(n00b_type_t *t)
+n00b_dict_syntax_possible(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
 
     for (int i = 0; i < container_bitfield_words; i++) {
@@ -495,13 +499,14 @@ n00b_dict_syntax_possible(n00b_type_t *t)
             return true;
         }
     }
-
+#endif
     return false;
 }
 
 bool
-n00b_set_syntax_possible(n00b_type_t *t)
+n00b_set_syntax_possible(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
 
     for (int i = 0; i < container_bitfield_words; i++) {
@@ -509,13 +514,14 @@ n00b_set_syntax_possible(n00b_type_t *t)
             return true;
         }
     }
-
+#endif
     return false;
 }
 
 bool
-n00b_tuple_syntax_possible(n00b_type_t *t)
+n00b_tuple_syntax_possible(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
 
     for (int i = 0; i < container_bitfield_words; i++) {
@@ -523,42 +529,53 @@ n00b_tuple_syntax_possible(n00b_type_t *t)
             return true;
         }
     }
-
+#endif
     return false;
 }
 
 void
-n00b_remove_list_options(n00b_type_t *t)
+n00b_remove_list_options(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
     for (int i = 0; i < container_bitfield_words; i++) {
         tsi->container_options[i] &= ~(list_types[i]);
     }
+#endif
 }
 
 void
-n00b_remove_set_options(n00b_type_t *t)
+n00b_remove_set_options(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
     for (int i = 0; i < container_bitfield_words; i++) {
         tsi->container_options[i] &= ~(set_types[i]);
     }
+
+#endif
 }
 
 void
-n00b_remove_dict_options(n00b_type_t *t)
+n00b_remove_dict_options(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
     for (int i = 0; i < container_bitfield_words; i++) {
         tsi->container_options[i] &= ~(dict_types[i]);
     }
+
+#endif
 }
 
 void
-n00b_remove_tuple_options(n00b_type_t *t)
+n00b_remove_tuple_options(n00b_ntype_t t)
 {
+#if 0
     tv_options_t *tsi = &t->options;
     for (int i = 0; i < container_bitfield_words; i++) {
         tsi->container_options[i] &= ~(tuple_types[i]);
     }
+
+#endif
 }

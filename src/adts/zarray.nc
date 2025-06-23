@@ -1,140 +1,177 @@
-/*
- * copyright © 2024 Crash Override
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License atn
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- *  Name:           zarray.c
- *  Description:    Intended initially for n00b GC root management.
- *
- *  Author:         John Viega, john@crashoverride.com
- */
-
 #include "n00b.h"
 
-n00b_zarray_t *
-n00b_zarray_new(uint32_t max_items, uint32_t item_size)
+static inline void *
+new_segment(n00b_zarray_t *arr)
 {
-    // Make sure alignment is good.
-    if (item_size & 0x7) {
-        return NULL;
-    }
+    return mmap(NULL,
+                arr->segment_len,
+                PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANON,
+                0,
+                0);
+}
 
-    int      page_size = getpagesize();
-    uint32_t len       = item_size * max_items + sizeof(n00b_zarray_t);
+n00b_zarray_t *
+n00b_zarray_new(uint32_t items_per_segment, uint32_t item_size)
+{
+    int s = getpagesize();
 
-    // Add in space for two guard pages, and then (page_size - 1)
-    // bytes extra in case the allocation puts us one byte over a
-    // page. The page size is always a power of two, so we then can
-    // truncate by subtracting 1 from page size, taking the
-    // complement, and anding the two values together.
+    n00b_zarray_t *result = mmap(NULL,
+                                 s,
+                                 PROT_READ | PROT_WRITE,
+                                 MAP_PRIVATE | MAP_ANON,
+                                 0,
+                                 0);
 
-    len += (3 * page_size) - 1;
+    item_size         = n00b_round_up_to_given_power_of_2(16, item_size);
+    int alloc_len     = item_size * items_per_segment;
+    alloc_len         = n00b_round_up_to_given_power_of_2(s, alloc_len);
+    items_per_segment = alloc_len / item_size;
 
-    len &= ~(page_size - 1);
+    result->items_per_segment = items_per_segment;
+    result->segment_len       = alloc_len;
+    result->item_size         = item_size;
+    result->max_segments      = (s - sizeof(n00b_zarray_t)) / sizeof(void *);
 
-    char *full_alloc = mmap(NULL,
-                            len,
-                            PROT_READ | PROT_WRITE,
-                            MAP_PRIVATE | MAP_ANON,
-                            0,
-                            0);
+    result->segment_pointers[0] = new_segment(result);
 
-    char *ret_point = full_alloc + page_size;
-    char *guard     = full_alloc + len - page_size;
-
-    mprotect(full_alloc, page_size, PROT_NONE);
-    mprotect(guard, page_size, PROT_NONE);
-
-    n00b_zarray_t *ret = (n00b_zarray_t *)ret_point;
-    ret->last_item     = max_items;
-    ret->cell_size     = item_size;
-    ret->alloc_len     = len;
-
-    return ret;
+    return result;
 }
 
 void *
-n00b_zarray_cell_address(n00b_zarray_t *arr, uint32_t n)
+n00b_zarray_cell_address(n00b_zarray_t *arr, uint32_t ix)
 {
-    if (n > arr->last_item) {
+    uint32_t next = atomic_read(&arr->next_item);
+
+    if (ix >= next) {
         return NULL;
     }
 
-    return (void *)(&arr->data[arr->cell_size * n]);
+    uint32_t seg_ix  = ix / arr->items_per_segment;
+    uint32_t item_no = ix % arr->items_per_segment;
+
+    uint64_t **segment = atomic_read(&arr->segment_pointers[seg_ix]);
+
+    return (void *)&((char *)segment)[item_no * arr->item_size];
 }
 
 uint32_t
-n00b_zarray_new_cell(n00b_zarray_t *arr, void **loc)
+_n00b_zarray_new_cell(n00b_zarray_t *arr, void **loc, ...)
 {
-    uint32_t ret = atomic_fetch_add(&arr->length, 1);
+    keywords
+    {
+        uint32_t num_slots = 1;
+    }
 
-    if (loc) {
-        if (ret >= arr->last_item) {
-            *loc = NULL;
-        }
-        else {
-            *loc = n00b_zarray_cell_address(arr, ret);
+    uint32_t start_segment;
+    uint32_t end_segment;
+    uint32_t start_ix;
+
+    if (num_slots > arr->items_per_segment) {
+        abort();
+    }
+
+    // Burn through slots to keep items consecutive if multiple
+    // slots were asked for at the same time. We do this in the type
+    // system, and count on the locality, directly indexing.
+    do {
+        start_ix      = atomic_fetch_add(&arr->next_item, num_slots);
+        start_segment = start_ix / arr->items_per_segment;
+        end_segment   = (start_ix + num_slots - 1) / arr->items_per_segment;
+    } while (end_segment != start_segment);
+
+    if (start_segment >= arr->max_segments) {
+        fprintf(stderr, "Array is too large.\n");
+        abort();
+    }
+
+    char *ptr = (void *)atomic_read(&arr->segment_pointers[start_segment]);
+
+    if (!ptr) {
+        char      *try      = new_segment(arr);
+        uint64_t **expected = NULL;
+
+        if (!n00b_cas(&arr->segment_pointers[start_segment],
+                      &expected,
+                      (void *)try)) {
+            munmap(try, arr->segment_len);
         }
     }
 
-    return ret;
+    *loc = n00b_zarray_cell_address(arr, start_ix);
+
+    return start_ix;
 }
 
 uint32_t
 n00b_zarray_new_cells(n00b_zarray_t *arr, void **loc, uint32_t num)
 {
-    assert(num > 0);
-
-    uint32_t ret = atomic_fetch_add(&arr->length, num);
-
-    if (loc) {
-        if (ret >= arr->last_item) {
-            *loc = NULL;
-        }
-        else {
-            *loc = n00b_zarray_cell_address(arr, ret);
-        }
-    }
-
-    return ret;
-}
-
-n00b_zarray_t *
-n00b_zarray_unsafe_copy(n00b_zarray_t *old)
-{
-    // This works if the array is write-once. Otherwise, who knows
-    // what you will get. Or, stop_the_world().
-    uint32_t actual_len = atomic_load(&old->length);
-    n00b_zarray_t *new  = n00b_zarray_new(old->alloc_len, old->cell_size);
-
-    atomic_store(&new->length, actual_len);
-    uint32_t total_copy_len = actual_len * new->cell_size;
-    memcpy(new->data, old->data, total_copy_len);
-
-    return new;
+    return n00b_zarray_new_cell(arr, loc, num_slots : num);
 }
 
 uint32_t
 n00b_zarray_len(n00b_zarray_t *arr)
 {
-    return atomic_load(&arr->length);
+    return atomic_load(&arr->next_item);
 }
 
 void
 n00b_zarray_delete(n00b_zarray_t *arr)
 {
-    char *p = (char *)arr;
+    int num_segments = atomic_read(&arr->next_item) / arr->items_per_segment;
 
-    p -= getpagesize();
-    munmap(p, arr->alloc_len);
+    for (int i = 0; i < num_segments; i++) {
+        uint64_t **p = arr->segment_pointers[i];
+        if (i) {
+            munmap(p, arr->segment_len);
+        }
+    }
+
+    munmap(arr, getpagesize());
+}
+
+int32_t
+n00b_zarray_get_index(n00b_zarray_t *arr, void *addr)
+{
+    char    *test     = (char *)addr;
+    uint32_t len      = atomic_read(&arr->next_item);
+    uint32_t segs     = len / arr->items_per_segment;
+    uint32_t leftover = len % arr->items_per_segment;
+    char    *sstart;
+    char    *send;
+
+    for (uint32_t i = 0; i < segs; i++) {
+        sstart = (char *)arr->segment_pointers[i];
+        send   = sstart + arr->segment_len;
+
+        if (!sstart) {
+            continue;
+        }
+        if (test < sstart || test > send) {
+            continue;
+        }
+
+        uint32_t diff = test - sstart;
+        assert(!(diff % arr->item_size));
+        return i * arr->items_per_segment + (diff / arr->item_size);
+    }
+
+    if (!leftover) {
+        return -1;
+    }
+
+    sstart = (char *)arr->segment_pointers[segs];
+    if (!sstart) {
+        return -1;
+    }
+
+    send = sstart + (leftover * arr->item_size);
+
+    if (test < sstart || test > send) {
+        return -1;
+    }
+    uint32_t diff = test - sstart;
+    assert(!(diff % arr->item_size));
+
+    return segs * arr->items_per_segment + (diff / arr->item_size);
 }

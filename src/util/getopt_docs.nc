@@ -71,15 +71,15 @@ n00b_getopt_raw_usage_info(n00b_gopt_ctx *ctx, n00b_string_t *path)
     }
 
     n00b_tuple_t *result = n00b_new(
-        n00b_type_tuple(7,
-                        n00b_type_string(),
-                        n00b_type_string(),
-                        n00b_type_string(),
-                        n00b_type_list(n00b_type_string()),
-                        n00b_type_list(n00b_type_string()),
-                        n00b_type_list(n00b_type_string()),
-                        n00b_type_list(n00b_type_string()),
-                        n00b_type_list(n00b_type_ref())));
+        n00b_type_tuple(n00b_to_list(7,
+                                     n00b_type_string(),
+                                     n00b_type_string(),
+                                     n00b_type_string(),
+                                     n00b_type_list(n00b_type_string()),
+                                     n00b_type_list(n00b_type_string()),
+                                     n00b_type_list(n00b_type_string()),
+                                     n00b_type_list(n00b_type_string()),
+                                     n00b_type_list(n00b_type_ref()))));
 
     n00b_tuple_set(result, 0, spec->name);
     n00b_tuple_set(result,

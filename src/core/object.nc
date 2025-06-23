@@ -13,22 +13,23 @@ const n00b_vtable_t n00b_type_nil_vtable = {
     },
 
 };
+
+typedef uint64_t (*n00b_obj_size_helper)(void *);
+
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
-n00b_obj_t
-_n00b_new(n00b_heap_t *heap, char *file, int line, n00b_type_t *type, ...)
+void *
+_n00b_new(n00b_heap_t *heap, char *file, int line, n00b_ntype_t type, ...)
 #else
-n00b_obj_t
-_n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
+void *
+_n00b_new(n00b_heap_t *heap, n00b_ntype_t type, ...)
 #endif
 {
     va_list args;
     va_start(args, type);
 
-    type = n00b_type_resolve(type);
+    void *obj;
 
-    n00b_obj_t obj;
-
-    n00b_dt_info_t *tinfo     = n00b_type_get_data_type_info(type);
+    n00b_dt_info_t *tinfo     = n00b_get_data_type_info(type);
     uint64_t        alloc_len = tinfo->alloc_len;
 
     if (alloc_len == N00B_VARIABLE_ALLOC_SZ) {
@@ -112,15 +113,16 @@ _n00b_new(n00b_heap_t *heap, n00b_type_t *type, ...)
     return obj;
 }
 
-n00b_obj_t
-n00b_copy(n00b_obj_t obj)
+void *
+n00b_copy(void *obj)
 {
     if (!n00b_in_heap(obj)) {
         return obj;
     }
-    n00b_obj_t   result;
-    n00b_mem_ptr ptr = {.v = obj};
-    ptr.alloc -= 1;
+    void           *result;
+    n00b_alloc_hdr *hdr = (void *)obj;
+
+    hdr--;
 
     // If it's a n00b obj, it looks for a copy constructor,
     // or else returns null.
@@ -128,7 +130,7 @@ n00b_copy(n00b_obj_t obj)
     // If it's in-heap, it makes a deep copy via
     // automarshal.
 
-    if (ptr.alloc->guard == n00b_gc_guard) {
+    if (hdr->guard == n00b_gc_guard) {
         n00b_copy_fn fn = (n00b_copy_fn)n00b_vtable(obj)->methods[N00B_BI_COPY];
         if (fn != NULL) {
             result = (*fn)(obj);
@@ -145,8 +147,8 @@ n00b_copy(n00b_obj_t obj)
     return n00b_autounmarshal(n00b_automarshal(obj));
 }
 
-n00b_obj_t
-n00b_shallow(n00b_obj_t obj)
+void *
+n00b_shallow(void *obj)
 {
     if (!n00b_in_heap(obj)) {
         return obj;
@@ -160,8 +162,8 @@ n00b_shallow(n00b_obj_t obj)
     return (*fn)(obj);
 }
 
-n00b_obj_t
-n00b_copy_object_of_type(n00b_obj_t obj, n00b_type_t *t)
+void *
+n00b_copy_object_of_type(void *obj, n00b_ntype_t t)
 {
     if (n00b_type_is_value_type(t)) {
         return obj;
@@ -176,8 +178,8 @@ n00b_copy_object_of_type(n00b_obj_t obj, n00b_type_t *t)
     return (*ptr)(obj);
 }
 
-n00b_obj_t
-n00b_add(n00b_obj_t lhs, n00b_obj_t rhs)
+void *
+n00b_add(void *lhs, void *rhs)
 {
     n00b_binop_fn ptr = (n00b_binop_fn)n00b_vtable(lhs)->methods[N00B_BI_ADD];
 
@@ -188,8 +190,8 @@ n00b_add(n00b_obj_t lhs, n00b_obj_t rhs)
     return (*ptr)(lhs, rhs);
 }
 
-n00b_obj_t
-n00b_sub(n00b_obj_t lhs, n00b_obj_t rhs)
+void *
+n00b_sub(void *lhs, void *rhs)
 {
     n00b_binop_fn ptr = (n00b_binop_fn)n00b_vtable(lhs)->methods[N00B_BI_SUB];
 
@@ -200,8 +202,8 @@ n00b_sub(n00b_obj_t lhs, n00b_obj_t rhs)
     return (*ptr)(lhs, rhs);
 }
 
-n00b_obj_t
-n00b_mul(n00b_obj_t lhs, n00b_obj_t rhs)
+void *
+n00b_mul(void *lhs, void *rhs)
 {
     n00b_binop_fn ptr = (n00b_binop_fn)n00b_vtable(lhs)->methods[N00B_BI_MUL];
 
@@ -212,8 +214,8 @@ n00b_mul(n00b_obj_t lhs, n00b_obj_t rhs)
     return (*ptr)(lhs, rhs);
 }
 
-n00b_obj_t
-n00b_div(n00b_obj_t lhs, n00b_obj_t rhs)
+void *
+n00b_div(void *lhs, void *rhs)
 {
     n00b_binop_fn ptr = (n00b_binop_fn)n00b_vtable(lhs)->methods[N00B_BI_DIV];
 
@@ -224,8 +226,8 @@ n00b_div(n00b_obj_t lhs, n00b_obj_t rhs)
     return (*ptr)(lhs, rhs);
 }
 
-n00b_obj_t
-n00b_mod(n00b_obj_t lhs, n00b_obj_t rhs)
+void *
+n00b_mod(void *lhs, void *rhs)
 {
     n00b_binop_fn ptr = (n00b_binop_fn)n00b_vtable(lhs)->methods[N00B_BI_MOD];
 
@@ -237,7 +239,7 @@ n00b_mod(n00b_obj_t lhs, n00b_obj_t rhs)
 }
 
 int64_t
-n00b_len(n00b_obj_t container)
+n00b_len(void *container)
 {
     if (!container) {
         return 0;
@@ -252,8 +254,8 @@ n00b_len(n00b_obj_t container)
     return (*ptr)(container);
 }
 
-n00b_obj_t
-n00b_index_get(n00b_obj_t container, n00b_obj_t index)
+void *
+n00b_index_get(void *container, void *index)
 {
     n00b_index_get_fn ptr;
 
@@ -267,7 +269,7 @@ n00b_index_get(n00b_obj_t container, n00b_obj_t index)
 }
 
 void
-n00b_index_set(n00b_obj_t container, n00b_obj_t index, n00b_obj_t value)
+n00b_index_set(void *container, void *index, void *value)
 {
     n00b_index_set_fn ptr;
 
@@ -280,8 +282,8 @@ n00b_index_set(n00b_obj_t container, n00b_obj_t index, n00b_obj_t value)
     (*ptr)(container, index, value);
 }
 
-n00b_obj_t
-n00b_slice_get(n00b_obj_t container, int64_t start, int64_t end)
+void *
+n00b_slice_get(void *container, int64_t start, int64_t end)
 {
     n00b_slice_get_fn ptr;
 
@@ -295,7 +297,7 @@ n00b_slice_get(n00b_obj_t container, int64_t start, int64_t end)
 }
 
 void
-n00b_slice_set(n00b_obj_t container, int64_t start, int64_t end, n00b_obj_t o)
+n00b_slice_set(void *container, int64_t start, int64_t end, void *o)
 {
     n00b_slice_set_fn ptr;
 
@@ -309,13 +311,13 @@ n00b_slice_set(n00b_obj_t container, int64_t start, int64_t end, n00b_obj_t o)
 }
 
 bool
-n00b_can_coerce(n00b_type_t *t1, n00b_type_t *t2)
+n00b_can_coerce(n00b_ntype_t t1, n00b_ntype_t t2)
 {
     if (n00b_types_are_compat(t1, t2, NULL)) {
         return true;
     }
 
-    n00b_dt_info_t    *info = n00b_type_get_data_type_info(t1);
+    n00b_dt_info_t    *info = n00b_get_data_type_info(t1);
     n00b_vtable_t     *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_can_coerce_fn ptr  = (n00b_can_coerce_fn)vtbl->methods[N00B_BI_COERCIBLE];
 
@@ -326,13 +328,13 @@ n00b_can_coerce(n00b_type_t *t1, n00b_type_t *t2)
     return (*ptr)(t1, t2);
 }
 
-n00b_obj_t
-n00b_coerce(void *data, n00b_type_t *t1, n00b_type_t *t2)
+void *
+n00b_coerce(void *data, n00b_ntype_t t1, n00b_ntype_t t2)
 {
-    t1 = n00b_resolve_and_unbox(t1);
-    t2 = n00b_resolve_and_unbox(t2);
+    t1 = n00b_type_unbox(t1);
+    t2 = n00b_type_unbox(t2);
 
-    n00b_dt_info_t *info = n00b_type_get_data_type_info(t1);
+    n00b_dt_info_t *info = n00b_get_data_type_info(t1);
     n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
 
     n00b_coerce_fn ptr = (n00b_coerce_fn)vtbl->methods[N00B_BI_COERCE];
@@ -344,15 +346,15 @@ n00b_coerce(void *data, n00b_type_t *t1, n00b_type_t *t2)
     return (*ptr)(data, t2);
 }
 
-n00b_obj_t
-n00b_coerce_object(const n00b_obj_t obj, n00b_type_t *to_type)
+void *
+n00b_coerce_object(const void *obj, n00b_ntype_t to_type)
 {
-    n00b_type_t    *from_type = n00b_get_my_type(obj);
-    n00b_dt_info_t *info      = n00b_type_get_data_type_info(from_type);
+    n00b_ntype_t    from_type = n00b_get_my_type((void *)obj);
+    n00b_dt_info_t *info      = n00b_get_data_type_info(from_type);
     uint64_t        value;
 
     if (!info->by_value) {
-        return n00b_coerce(obj, from_type, to_type);
+        return n00b_coerce((void *)obj, from_type, to_type);
     }
 
     switch (info->alloc_len) {
@@ -367,7 +369,7 @@ n00b_coerce_object(const n00b_obj_t obj, n00b_type_t *to_type)
     }
 
     value        = (uint64_t)n00b_coerce((void *)value, from_type, to_type);
-    info         = n00b_type_get_data_type_info(to_type);
+    info         = n00b_get_data_type_info(to_type);
     void *result = n00b_new(to_type);
 
     if (info->alloc_len == 8) {
@@ -386,9 +388,9 @@ n00b_coerce_object(const n00b_obj_t obj, n00b_type_t *to_type)
 }
 
 bool
-n00b_eq(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
+n00b_eq(n00b_ntype_t t, void *o1, void *o2)
 {
-    n00b_dt_info_t *info = n00b_type_get_data_type_info(t);
+    n00b_dt_info_t *info = n00b_get_data_type_info(t);
     n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_EQ];
 
@@ -403,10 +405,10 @@ n00b_eq(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
 bool
 n00b_equals(void *o1, void *o2)
 {
-    n00b_type_t *t1 = n00b_get_my_type(o1);
-    n00b_type_t *t2 = n00b_get_my_type(o2);
+    n00b_ntype_t t1 = n00b_get_my_type(o1);
+    n00b_ntype_t t2 = n00b_get_my_type(o2);
     int          warn;
-    n00b_type_t *m = n00b_merge_types(t1, t2, &warn);
+    n00b_ntype_t m = n00b_unify(t1, t2, &warn);
 
     if (n00b_type_is_error(m)) {
         return false;
@@ -415,7 +417,7 @@ n00b_equals(void *o1, void *o2)
         return o1 == o2;
     }
 
-    n00b_dt_info_t *info = n00b_type_get_data_type_info(m);
+    n00b_dt_info_t *info = n00b_get_data_type_info(m);
     n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_EQ];
 
@@ -427,9 +429,9 @@ n00b_equals(void *o1, void *o2)
 }
 
 bool
-n00b_lt(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
+n00b_lt(n00b_ntype_t t, void *o1, void *o2)
 {
-    n00b_dt_info_t *info = n00b_type_get_data_type_info(t);
+    n00b_dt_info_t *info = n00b_get_data_type_info(t);
     n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_LT];
 
@@ -441,9 +443,9 @@ n00b_lt(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
 }
 
 bool
-n00b_gt(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
+n00b_gt(n00b_ntype_t t, void *o1, void *o2)
 {
-    n00b_dt_info_t *info = n00b_type_get_data_type_info(t);
+    n00b_dt_info_t *info = n00b_get_data_type_info(t);
     n00b_vtable_t  *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_cmp_fn     ptr  = (n00b_cmp_fn)vtbl->methods[N00B_BI_GT];
 
@@ -454,11 +456,11 @@ n00b_gt(n00b_type_t *t, n00b_obj_t o1, n00b_obj_t o2)
     return (*ptr)(o1, o2);
 }
 
-n00b_type_t *
-n00b_get_item_type(n00b_obj_t obj)
+n00b_ntype_t
+n00b_get_item_type(void *obj)
 {
-    n00b_type_t       *t    = n00b_get_my_type(obj);
-    n00b_dt_info_t    *info = n00b_type_get_data_type_info(t);
+    n00b_ntype_t       t    = n00b_get_my_type(obj);
+    n00b_dt_info_t    *info = n00b_get_data_type_info(t);
     n00b_vtable_t     *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_ix_item_ty_fn ptr  = (n00b_ix_item_ty_fn)vtbl->methods[N00B_BI_ITEM_TYPE];
 
@@ -473,14 +475,14 @@ n00b_get_item_type(n00b_obj_t obj)
         N00B_RAISE(err);
     }
 
-    return (*ptr)(n00b_get_my_type(t));
+    return (*ptr)(t);
 }
 
 void *
-n00b_get_view(n00b_obj_t obj, int64_t *n_items)
+n00b_get_view(void *obj, int64_t *n_items)
 {
-    n00b_type_t    *t         = n00b_get_my_type(obj);
-    n00b_dt_info_t *info      = n00b_type_get_data_type_info(t);
+    n00b_ntype_t    t         = n00b_get_my_type(obj);
+    n00b_dt_info_t *info      = n00b_get_data_type_info(t);
     n00b_vtable_t  *vtbl      = (n00b_vtable_t *)info->vtable;
     void           *itf       = vtbl->methods[N00B_BI_ITEM_TYPE];
     n00b_view_fn    ptr       = (n00b_view_fn)vtbl->methods[N00B_BI_VIEW];
@@ -494,8 +496,8 @@ n00b_get_view(n00b_obj_t obj, int64_t *n_items)
     // type).
 
     if (itf) {
-        n00b_type_t    *item_type = n00b_get_item_type(obj);
-        n00b_dt_info_t *base      = n00b_type_get_data_type_info(item_type);
+        n00b_ntype_t    item_type = n00b_get_item_type(obj);
+        n00b_dt_info_t *base      = n00b_get_data_type_info(item_type);
 
         if (base->typeid == N00B_T_BIT) {
             size_bits = 0x7;
@@ -511,10 +513,10 @@ n00b_get_view(n00b_obj_t obj, int64_t *n_items)
     return (void *)ret_as_int;
 }
 
-n00b_obj_t
-n00b_container_literal(n00b_type_t *t, n00b_list_t *items, n00b_string_t *mod)
+void *
+n00b_container_literal(n00b_ntype_t t, n00b_list_t *items, n00b_string_t *mod)
 {
-    n00b_dt_info_t       *info = n00b_type_get_data_type_info(t);
+    n00b_dt_info_t       *info = n00b_get_data_type_info(t);
     n00b_vtable_t        *vtbl = (n00b_vtable_t *)info->vtable;
     n00b_container_lit_fn ptr;
 
@@ -528,7 +530,7 @@ n00b_container_literal(n00b_type_t *t, n00b_list_t *items, n00b_string_t *mod)
         N00B_RAISE(err);
     }
 
-    n00b_obj_t result = (*ptr)(t, items, mod);
+    void *result = (*ptr)(t, items, mod);
 
     if (result == NULL) {
         n00b_string_t *err = n00b_cformat(
@@ -543,7 +545,7 @@ n00b_container_literal(n00b_type_t *t, n00b_list_t *items, n00b_string_t *mod)
 }
 
 void
-n00b_finalize_allocation(n00b_obj_t object)
+n00b_finalize_allocation(void *object)
 {
     n00b_system_finalizer_fn fn;
     return;
@@ -553,12 +555,6 @@ n00b_finalize_allocation(n00b_obj_t object)
     }
     n00b_assert(fn != NULL);
     (*fn)(object);
-}
-
-void
-n00b_scan_header_only(uint64_t *bitfield, int n)
-{
-    *bitfield = N00B_HEADER_SCAN_CONST;
 }
 
 void *
@@ -587,14 +583,14 @@ n00b_autobox(void *ptr)
     }
 }
 
-n00b_type_t *
-n00b_get_my_type(n00b_obj_t user_object)
+n00b_ntype_t
+n00b_get_my_type(void *user_object)
 {
     if (n00b_in_heap(user_object)) {
-        n00b_mem_ptr p = (n00b_mem_ptr){.v = user_object};
-        p.alloc -= 1;
-        if (p.alloc->guard == n00b_gc_guard) {
-            return p.alloc->type;
+        n00b_alloc_hdr *h = (void *)user_object;
+        h -= 1;
+        if (h->guard == n00b_gc_guard) {
+            return h->type;
         }
         else {
             return n00b_type_internal();
@@ -607,7 +603,7 @@ n00b_get_my_type(n00b_obj_t user_object)
 }
 
 n00b_list_t *
-n00b_render(n00b_obj_t object, int64_t width, int64_t height)
+n00b_render(void *object, int64_t width, int64_t height)
 {
     if (!n00b_is_renderable(object)) {
         N00B_CRAISE("Object cannot be rendered directly.");

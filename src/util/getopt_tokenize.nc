@@ -62,8 +62,8 @@ n00b_gopt_tok_command_name(n00b_gopt_lex_state *state)
 
     n00b_string_t *s     = state->command_name;
     int64_t        tokid = (int64_t)n00b_dict_get(state->gctx->sub_names,
-                                              s,
-                                              NULL);
+                                           s,
+                                           NULL);
 
     if (!tokid) {
         tokid = N00B_GOTT_OTHER_COMMAND_NAME;
@@ -196,8 +196,8 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
         // for generic word.
 
         tokid = (int64_t)n00b_dict_get(state->gctx->sub_names,
-                                          raw_contents,
-                                          NULL);
+                                       raw_contents,
+                                       NULL);
 
         if (!tokid) {
             tokid = N00B_GOTT_WORD;
@@ -215,8 +215,8 @@ n00b_gopt_tok_word_or_bool(n00b_gopt_lex_state *state)
     raw_contents = n00b_string_slice(raw_contents, 0, ix);
 
     tokid = (int64_t)n00b_dict_get(state->gctx->sub_names,
-                                      raw_contents,
-                                      NULL);
+                                   raw_contents,
+                                   NULL);
 
     if (!tokid) {
         tokid = N00B_GOTT_WORD;
@@ -334,7 +334,7 @@ n00b_gopt_comma(n00b_gopt_lex_state *state)
     }
 }
 
-void
+static void
 n00b_peek_and_disallow_assign(n00b_gopt_lex_state *state)
 {
     // Here, we know the start of the next word cannot be an
@@ -406,8 +406,8 @@ n00b_emit_proper_flag(n00b_gopt_lex_state *state, int end_ix)
     int64_t        tok_id;
 
     n00b_goption_t *info = n00b_dict_get(state->gctx->all_options,
-                                            s,
-                                            NULL);
+                                         s,
+                                         NULL);
     if (!info) {
         tok_id = N00B_GOTT_UNKNOWN_OPT;
     }

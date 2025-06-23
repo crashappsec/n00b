@@ -92,16 +92,6 @@ static const n00b_ffi_type *ffi_type_map[] = {
 void *
 n00b_ref_via_ffi_type(n00b_box_t *box, n00b_ffi_type *t)
 {
-    if (t == &ffi_type_uint8 || t == &ffi_type_sint8) {
-        return &box->u8;
-    }
-    if (t == &ffi_type_uint16 || t == &ffi_type_sint16) {
-        return &box->u16;
-    }
-    if (t == &ffi_type_uint32 || t == &ffi_type_sint32) {
-        return &box->u32;
-    }
-
     return box;
 }
 

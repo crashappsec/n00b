@@ -138,12 +138,13 @@ process_children(n00b_pass1_ctx *ctx)
 }
 
 static bool
-obj_type_check(n00b_pass1_ctx *ctx, const n00b_obj_t *obj, n00b_type_t *t2)
+obj_type_check(n00b_pass1_ctx *ctx, void **obj, n00b_ntype_t t2)
 {
-    int  warn;
-    bool res = n00b_obj_type_check(obj, t2, &warn);
+    n00b_tnunify_result_kind k;
 
-    return res;
+    k = n00b_types_can_unify(t2, n00b_get_my_type(obj));
+
+    return (bool)k;
 }
 
 static inline n00b_symbol_t *
@@ -196,7 +197,7 @@ validate_string_enum_vals(n00b_pass1_ctx *ctx, n00b_list_t *items)
     }
 }
 
-static n00b_type_t *
+static n00b_ntype_t
 validate_int_enum_vals(n00b_pass1_ctx *ctx, n00b_list_t *items)
 {
     n00b_set_t  *set           = n00b_new(n00b_type_set(n00b_type_u64()));
@@ -204,7 +205,7 @@ validate_int_enum_vals(n00b_pass1_ctx *ctx, n00b_list_t *items)
     int          bits          = 0;
     bool         neg           = false;
     uint64_t     next_implicit = 0;
-    n00b_type_t *result;
+    n00b_ntype_t result;
 
     // First, extract numbers from set values.
     for (int i = 0; i < n; i++) {
@@ -214,9 +215,9 @@ validate_int_enum_vals(n00b_pass1_ctx *ctx, n00b_list_t *items)
         }
 
         n00b_pnode_t   *pnode  = n00b_get_pnode(tnode);
-        n00b_obj_t     *ref    = pnode->value;
-        n00b_type_t    *ty     = n00b_get_my_type(ref);
-        n00b_dt_info_t *dtinfo = n00b_type_get_data_type_info(ty);
+        void          **ref    = pnode->value;
+        n00b_ntype_t    ty     = n00b_get_my_type(ref);
+        n00b_dt_info_t *dtinfo = n00b_get_data_type_info(ty);
         int             sz;
         uint64_t        val;
 
@@ -354,7 +355,7 @@ handle_enum_decl(n00b_pass1_ctx *ctx)
     bool              is_str = false;
     n00b_scope_t     *scope;
     n00b_string_t    *varname;
-    n00b_type_t      *inferred_type;
+    n00b_ntype_t      inferred_type;
 
     if (n00b_cur_node_type(ctx) == n00b_nt_global_enum) {
         scope = ctx->module_ctx->ct->global_scope;
@@ -445,13 +446,12 @@ handle_enum_decl(n00b_pass1_ctx *ctx)
 
     if (is_str) {
         validate_string_enum_vals(ctx, items);
-        n00b_merge_types(inferred_type, n00b_type_string(), NULL);
+        n00b_unify(inferred_type, n00b_type_string());
     }
     else {
-        n00b_type_t *ty = validate_int_enum_vals(ctx, items);
-        int          warn;
+        n00b_ntype_t ty = validate_int_enum_vals(ctx, items);
 
-        if (n00b_type_is_error(n00b_merge_types(inferred_type, ty, &warn))) {
+        if (n00b_type_is_error(n00b_unify(inferred_type, ty))) {
             n00b_add_error(ctx->module_ctx,
                            n00b_err_inconsistent_type,
                            n00b_cur_node(ctx),
@@ -504,7 +504,7 @@ handle_var_decl(n00b_pass1_ctx *ctx)
                                                             n00b_sym_names);
         n00b_tree_node_t *type_node = n00b_get_match_on_node(one_set, n00b_sym_type);
         n00b_tree_node_t *init      = n00b_get_match_on_node(one_set, n00b_sym_init);
-        n00b_type_t      *type      = NULL;
+        n00b_ntype_t      type      = N00B_T_ERROR;
 
         if (type_node != NULL) {
             type = n00b_node_to_type(ctx->module_ctx, type_node, NULL);
@@ -554,7 +554,7 @@ handle_var_decl(n00b_pass1_ctx *ctx)
                         return;
                     }
 
-                    n00b_type_t *inf_type = n00b_get_my_type(initpn->value);
+                    n00b_ntype_t inf_type = n00b_get_my_type(initpn->value);
 
                     sym->value = initpn->value;
 
@@ -622,7 +622,7 @@ handle_param_block(n00b_pass1_ctx *ctx)
     for (int i = 1; i < nkids; i++) {
         n00b_tree_node_t *prop_node = n00b_tree_get_child(root, i);
         n00b_string_t    *prop_name = n00b_node_text(prop_node);
-        n00b_obj_t        lit       = n00b_tree_get_child(prop_node, 0);
+        void             *lit       = n00b_tree_get_child(prop_node, 0);
 
         switch (prop_name->data[0]) {
         case 'v':
@@ -708,14 +708,14 @@ one_section_prop(n00b_pass1_ctx      *ctx,
                  n00b_tree_node_t    *n)
 {
     bool          *value;
-    n00b_obj_t     callback;
+    void          *callback;
     n00b_string_t *prop = n00b_node_text(n);
 
     switch (prop->data[0]) {
     case 'u': // user_def_ok
         value = n00b_node_simp_literal(n00b_tree_get_child(n, 0));
 
-        if (!value || !obj_type_check(ctx, (n00b_obj_t)value, n00b_type_bool())) {
+        if (!value || !obj_type_check(ctx, (void *)value, n00b_type_bool())) {
             n00b_add_error(ctx->module_ctx,
                            n00b_err_spec_bool_required,
                            n00b_tree_get_child(n, 0));
@@ -728,7 +728,7 @@ one_section_prop(n00b_pass1_ctx      *ctx,
         break;
     case 'h': // hidden
         value = n00b_node_simp_literal(n00b_tree_get_child(n, 0));
-        if (!value || !obj_type_check(ctx, (n00b_obj_t)value, n00b_type_bool())) {
+        if (!value || !obj_type_check(ctx, (void *)value, n00b_type_bool())) {
             n00b_add_error(ctx->module_ctx,
                            n00b_err_spec_bool_required,
                            n00b_tree_get_child(n, 0));
@@ -795,7 +795,7 @@ one_field(n00b_pass1_ctx      *ctx,
     n00b_pnode_t      *pnode    = n00b_get_pnode(tnode);
     int                num_kids = n00b_tree_get_number_children(tnode);
     bool              *value;
-    n00b_obj_t         callback;
+    void              *callback;
 
     f->exclusions       = n00b_new(n00b_type_set(n00b_type_string()));
     f->name             = name;
@@ -833,7 +833,7 @@ one_field(n00b_pass1_ctx      *ctx,
             value = n00b_node_simp_literal(n00b_tree_get_child(kid, 0));
             // clang-format off
             if (!value ||
-		!obj_type_check(ctx, (n00b_obj_t)value, n00b_type_bool())) {
+		!obj_type_check(ctx, (void *)value, n00b_type_bool())) {
                 n00b_add_error(ctx->module_ctx,
                               n00b_err_spec_bool_required,
                               n00b_tree_get_child(kid, 0));
@@ -850,7 +850,7 @@ one_field(n00b_pass1_ctx      *ctx,
             value = n00b_node_simp_literal(n00b_tree_get_child(kid, 0));
             // clang-format off
             if (!value ||
-		!obj_type_check(ctx, (n00b_obj_t)value, n00b_type_bool())) {
+		!obj_type_check(ctx, (void *)value, n00b_type_bool())) {
                 // clang-format on
                 n00b_add_error(ctx->module_ctx,
                                n00b_err_spec_bool_required,
@@ -910,7 +910,7 @@ one_field(n00b_pass1_ctx      *ctx,
                 value = n00b_node_simp_literal(n00b_tree_get_child(kid, 0));
                 // clang-format off
                 if (!value ||
-		    !obj_type_check(ctx, (n00b_obj_t)value, n00b_type_bool())) {
+		    !obj_type_check(ctx, (void *)value, n00b_type_bool())) {
                     n00b_add_error(ctx->module_ctx,
                                   n00b_err_spec_bool_required,
                                   n00b_tree_get_child(kid, 0));
@@ -1083,7 +1083,7 @@ extract_fn_sig_info(n00b_pass1_ctx   *ctx,
     for (int i = 0; i < ndecls; i++) {
         n00b_tree_node_t *node     = n00b_list_get(decls, i, NULL);
         int               kidct    = n00b_tree_get_number_children(node);
-        n00b_type_t      *type     = NULL;
+        n00b_ntype_t      type     = N00B_T_ERROR;
         bool              got_type = false;
 
         if (kidct > 1) {
@@ -1125,7 +1125,7 @@ extract_fn_sig_info(n00b_pass1_ctx   *ctx,
                         NULL,
                         true);
 
-            n00b_list_append(ptypes, pi->type);
+            n00b_list_append(ptypes, (void *)pi->type);
         }
 
         // last item.
@@ -1159,7 +1159,8 @@ extract_fn_sig_info(n00b_pass1_ctx   *ctx,
                     NULL,
                     true);
 
-        n00b_list_append(ptypes, pi->type ? pi->type : n00b_new_typevar());
+        n00b_list_append(ptypes,
+                         (void *)(pi->type ? pi->type : n00b_new_typevar()));
     }
 
     n00b_tree_node_t *retnode = n00b_get_match_on_node(tree, n00b_return_extract);
@@ -1197,7 +1198,7 @@ extract_fn_sig_info(n00b_pass1_ctx   *ctx,
     //
     // Note that this will get replaced once we do some checking.
 
-    n00b_type_t *ret_for_sig = info->return_info.type;
+    n00b_ntype_t ret_for_sig = info->return_info.type;
 
     if (!ret_for_sig) {
         ret_for_sig = n00b_new_typevar();
@@ -1259,7 +1260,7 @@ handle_func_decl(n00b_pass1_ctx *ctx)
     ctx->static_scope = decl->signature_info->fn_scope;
 
     n00b_pnode_t *pnode = n00b_get_pnode(tnode);
-    pnode->value        = (n00b_obj_t)sym;
+    pnode->value        = (void *)sym;
 
     ctx->in_func = true;
     n00b_node_down(ctx, tnode->num_kids - 1);
@@ -1613,7 +1614,7 @@ find_dependencies(n00b_compile_ctx *cctx, n00b_module_t *module_ctx)
         n00b_tree_node_t *n   = sym->ct->declaration_node;
         n00b_pnode_t     *pn  = n00b_get_pnode(n);
 
-        pn->value = (n00b_obj_t)mi;
+        pn->value = (void *)mi;
 
         if (n00b_set_contains(cctx->processed, mi)) {
             continue;

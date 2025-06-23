@@ -99,7 +99,7 @@ empty_object:
     pair  = n00b_list_get(pairs, 0, NULL);
     value = n00b_list_get(pair, 1, NULL);
 
-    n00b_type_t *t = n00b_get_my_type(value);
+    n00b_ntype_t t = n00b_get_my_type(value);
 
     for (int i = 1; i < n; i++) {
         pair  = n00b_list_get(pairs, 0, NULL);
@@ -119,8 +119,8 @@ fill_dict:
     for (int i = 0; i < n; i++) {
         pair = n00b_list_get(pairs, i, NULL);
         n00b_dict_add(result,
-                         n00b_list_get(pair, 0, NULL),
-                         n00b_list_get(pair, 1, NULL));
+                      n00b_list_get(pair, 0, NULL),
+                      n00b_list_get(pair, 1, NULL));
     }
 
     return result;
@@ -533,7 +533,7 @@ n00b_json_parse(n00b_string_t *s, n00b_list_t **err_out)
 }
 
 static inline bool
-validate_one_level(n00b_type_t *t)
+validate_one_level(n00b_ntype_t t)
 {
     if (n00b_type_is_string(t)
         || n00b_type_is_box(t)
@@ -546,9 +546,9 @@ validate_one_level(n00b_type_t *t)
 }
 
 static bool
-validate_types_for_json(n00b_obj_t obj)
+validate_types_for_json(void *obj)
 {
-    n00b_type_t *t;
+    n00b_ntype_t t;
 
     // Items inside dicts
     if (!n00b_in_heap(obj)) {
@@ -561,7 +561,7 @@ validate_types_for_json(n00b_obj_t obj)
     }
 
     if (n00b_type_is_list(t)) {
-        t = n00b_type_get_list_param(t);
+        t = n00b_type_get_param(t, 0);
         if (n00b_type_is_int_type(t)
             || n00b_type_is_float_type(t)
             || n00b_type_is_string(t)) {
@@ -586,7 +586,7 @@ validate_types_for_json(n00b_obj_t obj)
     }
 
     if (n00b_type_is_dict(t)) {
-        n00b_type_t *sub = n00b_type_get_param(t, 0);
+        n00b_ntype_t sub = n00b_type_get_param(t, 0);
 
         if (!n00b_type_is_string(sub)) {
             return false;
@@ -606,7 +606,7 @@ validate_types_for_json(n00b_obj_t obj)
 }
 
 n00b_string_t *
-n00b_to_json(n00b_obj_t obj)
+n00b_to_json(void *obj)
 {
     if (!validate_types_for_json(obj)) {
         return NULL;

@@ -64,7 +64,7 @@ apply_hex(hex_state_t *state, void *msg)
 {
     n00b_buf_t  *b      = NULL;
     n00b_list_t *result = n00b_list(n00b_type_buffer());
-    n00b_type_t *t      = n00b_get_my_type(msg);
+    n00b_ntype_t t      = n00b_get_my_type(msg);
 
     if (n00b_type_is_string(t)) {
         b = n00b_string_to_buffer(msg);

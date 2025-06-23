@@ -235,7 +235,7 @@ get_debug_server_addr(void)
         }
     }
 
-    return n00b_new(n00b_type_net_addr(), address : hoststr, port : port);
+    return n00b_new(n00b_type_address(), address : hoststr, port : port);
 }
 
 static void
@@ -357,8 +357,8 @@ n00b_apply_debug_workflow(n00b_debug_msg_t *msg)
 {
     init_db_workflow();
     n00b_db_rule_t *workflow = n00b_dict_get(topic_workflows,
-                                                msg->topic,
-                                                NULL);
+                                             msg->topic,
+                                             NULL);
 
     if (!msg->remote_address) {
         msg->remote_address = n00b_cstring("[local]");

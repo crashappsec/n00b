@@ -26,7 +26,7 @@ n00b_kargs_acquire(void)
     }
 
     n00b_karg_info_t *tsi_ka = &tsi->kcache.ka;
-    
+
     if (tsi_ka->used) {
         n00b_karg_info_t *ki = n00b_gc_flex_alloc(n00b_karg_info_t,
                                                   n00b_one_karg_t,
@@ -45,13 +45,13 @@ n00b_kargs_acquire(void)
 n00b_karg_info_t *
 n00b_get_kargs_and_count(va_list args, int *nargs)
 {
-    va_list    arg_copy;
-    n00b_obj_t cur;
-    int        count = 0;
+    va_list arg_copy;
+    void   *cur;
+    int     count = 0;
 
     va_copy(arg_copy, args);
 
-    cur = va_arg(arg_copy, n00b_obj_t);
+    cur = va_arg(arg_copy, void *);
 
     while (cur != NULL) {
         if (n00b_get_my_type(cur) == n00b_type_kargs()) {
@@ -61,7 +61,7 @@ n00b_get_kargs_and_count(va_list args, int *nargs)
         }
 
         count++;
-        cur = va_arg(arg_copy, n00b_obj_t);
+        cur = va_arg(arg_copy, void *);
     }
 
     *nargs = count;
@@ -80,7 +80,7 @@ _n00b_kargs_obj(char *kw, int64_t val, ...)
     va_start(args, val);
 
     n00b_karg_info_t *result = n00b_kargs_acquire();
-    result->used = true;
+    result->used             = true;
 
     while (true) {
         result->args[i++] = (n00b_one_karg_t){.kw = kw, .value = (void *)val};

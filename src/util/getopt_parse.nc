@@ -41,8 +41,8 @@ handle_subcommand(n00b_gopt_extraction_ctx *ctx)
 
     cmd_key      = cmd_node->info.token->tid;
     ctx->cur_cmd = n00b_dict_get(cmd->sub_commands,
-                                    (void *)cmd_key,
-                                    NULL);
+                                 (void *)cmd_key,
+                                 NULL);
 
     if (!ctx->cur_cmd) {
         return;
@@ -139,7 +139,7 @@ extract_value_from_node(n00b_gopt_extraction_ctx *ctx,
     n00b_list_t        *items;
     int64_t             intval;
     double              dval;
-    n00b_obj_t          val;
+    void               *val;
 
     if (ok) {
         *ok = true;
@@ -284,8 +284,8 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
     }
 
     n00b_goption_t *cur_option = n00b_dict_get(ctx->gctx->all_options,
-                                                  name,
-                                                  NULL);
+                                               name,
+                                               NULL);
     if (!cur_option) {
         printf("Death 2.\n");
         return;
@@ -324,7 +324,7 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
     }
 
     if (target->max_args == 1) {
-        n00b_obj_t val;
+        void *val;
 
         switch (cur_option->type) {
         case N00B_GOAT_BOOL_T_DEFAULT:
@@ -366,11 +366,11 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
         if (existing->n) {
             n00b_list_t *cur = (n00b_list_t *)existing->value;
             len              = n00b_list_len(cur);
-            n00b_obj_t   us  = n00b_list_get(extracted_values, 0, NULL);
-            n00b_type_t *t   = n00b_get_my_type(us);
+            void        *us  = n00b_list_get(extracted_values, 0, NULL);
+            n00b_ntype_t t   = n00b_get_my_type(us);
 
             for (int i = 0; i < len; i++) {
-                n00b_obj_t one = n00b_list_get(cur, i, NULL);
+                void *one = n00b_list_get(cur, i, NULL);
                 if (n00b_eq(t, us, one)) {
                     // Nothing to do.
                     return;
@@ -384,12 +384,12 @@ handle_option_rule(n00b_gopt_extraction_ctx *ctx, n00b_tree_node_t *n)
         }
         n00b_list_t *cur = (n00b_list_t *)existing->value;
         len              = n00b_list_len(cur);
-        n00b_obj_t   us  = n00b_list_get(extracted_values, 0, NULL);
-        n00b_type_t *t   = n00b_get_my_type(us);
+        void        *us  = n00b_list_get(extracted_values, 0, NULL);
+        n00b_ntype_t t   = n00b_get_my_type(us);
         n00b_list_t *new = n00b_list(t);
 
         for (int i = 0; i < len; i++) {
-            n00b_obj_t one = n00b_list_get(cur, i, NULL);
+            void *one = n00b_list_get(cur, i, NULL);
             if (!n00b_eq(t, us, one)) {
                 n00b_list_append(new, one);
             }
@@ -456,7 +456,7 @@ extract_args(n00b_gopt_extraction_ctx *ctx)
     }
     else {
         n00b_list_t *arg_info = n00b_dict_get(ctx->args, ctx->path, NULL);
-        n00b_obj_t   obj      = extract_value_from_node(ctx, n, NULL);
+        void        *obj      = extract_value_from_node(ctx, n, NULL);
         n00b_list_append(arg_info, obj);
     }
 }
@@ -515,8 +515,8 @@ gopt_extract_top_spec(n00b_gopt_extraction_ctx *ctx)
     int                len = n->num_kids;
 
     ctx->cur_cmd = n00b_dict_get(ctx->gctx->top_specs,
-                                    (void *)cur->id,
-                                    NULL);
+                                 (void *)cur->id,
+                                 NULL);
 
     n00b_list_t *args = n00b_list(n00b_type_ref());
 
@@ -646,8 +646,8 @@ populate_penalty_errors(n00b_gopt_extraction_ctx *ctx)
         n00b_gopt_cspec *cmd     = ctx->cur_cmd;
         int64_t          cmd_key = pn->info.token->tid;
         ctx->cur_cmd             = n00b_dict_get(cmd->sub_commands,
-                                        (void *)cmd_key,
-                                        NULL);
+                                     (void *)cmd_key,
+                                     NULL);
         if (!ctx->cur_cmd) {
             break;
         }
@@ -680,8 +680,8 @@ gopt_structural_error_check(n00b_gopt_extraction_ctx *ctx)
     n00b_parse_node_t *top = n00b_tree_get_contents(ctx->intree);
 
     ctx->cur_cmd = n00b_dict_get(ctx->gctx->top_specs,
-                                    (void *)top->id,
-                                    NULL);
+                                 (void *)top->id,
+                                 NULL);
 
     if (top->penalty) {
         n00b_list_append(ctx->errors, n00b_cstring("Parse error."));

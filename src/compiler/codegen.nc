@@ -46,58 +46,35 @@ typedef struct {
 
 static void gen_one_node(gen_ctx *);
 
-void
-n00b_zinstr_gc_bits(uint64_t *bitmap, n00b_zinstruction_t *instr)
-{
-    n00b_set_bit(bitmap, n00b_ptr_diff(instr, &instr->type_info));
-}
-
 n00b_zinstruction_t *
 n00b_new_instruction()
 {
     // TODO: fixme
     n00b_zinstruction_t *result;
 
-    result         = n00b_gc_alloc_mapped(n00b_zinstruction_t, N00B_GC_SCAN_ALL);
+    result         = n00b_gc_alloc_mapped(n00b_zinstruction_t,
+                                  N00B_GC_SCAN_ALL);
     result->noscan = N00B_NOSCAN;
 
     return result;
 }
 
-void
-n00b_zfn_gc_bits(uint64_t *bitmap, n00b_zfn_info_t *fn)
-{
-    n00b_mark_raw_to_addr(bitmap, fn, &fn->longdoc);
-}
-
 n00b_zfn_info_t *
 n00b_new_zfn()
 {
-    return n00b_gc_alloc_mapped(n00b_zfn_info_t, n00b_zfn_gc_bits);
-}
-
-void
-n00b_jump_info_gc_bits(uint64_t *bitmap, n00b_jump_info_t *ji)
-{
-    n00b_mark_raw_to_addr(bitmap, ji, &ji->to_patch);
+    return n00b_gc_alloc_mapped(n00b_zfn_info_t, N00B_GC_SCAN_ALL);
 }
 
 n00b_jump_info_t *
 n00b_new_jump_info()
 {
-    return n00b_gc_alloc_mapped(n00b_jump_info_t, n00b_jump_info_gc_bits);
-}
-
-void
-n00b_backpatch_gc_bits(uint64_t *bitmap, n00b_call_backpatch_info_t *bp)
-{
-    n00b_mark_raw_to_addr(bitmap, bp, &bp->i);
+    return n00b_gc_alloc_mapped(n00b_jump_info_t, N00B_GC_SCAN_ALL);
 }
 
 static n00b_call_backpatch_info_t *
 new_backpatch()
 {
-    return n00b_gc_alloc_mapped(n00b_call_backpatch_info_t, n00b_backpatch_gc_bits);
+    return n00b_gc_alloc_mapped(n00b_call_backpatch_info_t, N00B_GC_SCAN_ALL);
 }
 
 static void
@@ -105,7 +82,7 @@ _emit(gen_ctx *ctx, int32_t op32, ...)
 {
     keywords
     {
-        n00b_type_t          *type      = NULL;
+        n00b_ntype_t          type      = N00B_T_ERROR;
         n00b_zinstruction_t **instrptr  = NULL;
         n00b_zop_t            op        = (n00b_zop_t)(op32);
         int64_t               arg       = 0;
@@ -119,7 +96,7 @@ _emit(gen_ctx *ctx, int32_t op32, ...)
     instr->line_no             = n00b_node_get_line_number(ctx->cur_node);
     instr->arg                 = (int64_t)arg;
     instr->immediate           = immediate;
-    instr->type_info           = type ? n00b_type_resolve(type) : NULL;
+    instr->type_info           = type ? n00b_type_resolve(type) : N00B_T_ERROR;
 
     if (instrptr != NULL) {
         *instrptr = instr;
@@ -223,9 +200,13 @@ gen_apply_waiting_patches(gen_ctx *ctx, n00b_control_info_t *ci)
 }
 
 static inline void
-gen_tcall(gen_ctx *ctx, n00b_builtin_type_fn fn, n00b_type_t *t)
+_gen_tcall(gen_ctx *ctx, n00b_builtin_type_fn fn, ...)
 {
-    if (t != NULL) {
+    keywords
+    {
+        n00b_ntype_t t = N00B_T_ERROR;
+    }
+    if (t != N00B_T_ERROR) {
         t = n00b_type_resolve(t);
         if (n00b_type_is_box(t)) {
             t = n00b_type_unbox(t);
@@ -235,18 +216,20 @@ gen_tcall(gen_ctx *ctx, n00b_builtin_type_fn fn, n00b_type_t *t)
     emit(ctx, N00B_ZTCall, arg : fn, type : t);
 }
 
+#define gen_tcall(ctx, fn, ...) _gen_tcall(ctx, fn, N00B_VA(__VA_ARGS__))
+
 // Two operands have been pushed onto the stack. But if it's a primitive
 // type, we want to generate a raw ZCmp; otherwise, we want to generate
 // a polymorphic tcall.
 
 static inline void
-gen_equality_test(gen_ctx *ctx, n00b_type_t *operand_type)
+gen_equality_test(gen_ctx *ctx, n00b_ntype_t operand_type)
 {
     if (n00b_type_is_value_type(operand_type)) {
         emit(ctx, N00B_ZCmp);
     }
     else {
-        gen_tcall(ctx, N00B_BI_EQ, operand_type);
+        gen_tcall(ctx, N00B_BI_EQ, t : operand_type);
     }
 }
 
@@ -288,7 +271,7 @@ gen_load_immediate(gen_ctx *ctx, int64_t value)
 // For now, they just indicate tspec_ref().
 
 static inline bool
-unbox_const_value(gen_ctx *ctx, n00b_obj_t obj, n00b_type_t *type)
+unbox_const_value(gen_ctx *ctx, void *obj, n00b_ntype_t type)
 {
     if (n00b_type_is_box(type) || n00b_type_is_value_type(type)) {
         gen_load_immediate(ctx, n00b_unbox(obj));
@@ -299,9 +282,9 @@ unbox_const_value(gen_ctx *ctx, n00b_obj_t obj, n00b_type_t *type)
 }
 
 static inline void
-gen_load_const_obj(gen_ctx *ctx, n00b_obj_t obj)
+gen_load_const_obj(gen_ctx *ctx, void *obj)
 {
-    n00b_type_t *type = n00b_get_my_type(obj);
+    n00b_ntype_t type = n00b_get_my_type(obj);
 
     if (unbox_const_value(ctx, obj, type)) {
         return;
@@ -314,7 +297,7 @@ gen_load_const_obj(gen_ctx *ctx, n00b_obj_t obj)
 }
 
 static void
-gen_load_const_by_offset(gen_ctx *ctx, uint32_t offset, n00b_type_t *type)
+gen_load_const_by_offset(gen_ctx *ctx, uint32_t offset, n00b_ntype_t type)
 {
     emit(ctx, N00B_ZPushConstObj, arg : offset, type : type);
 }
@@ -322,7 +305,7 @@ gen_load_const_by_offset(gen_ctx *ctx, uint32_t offset, n00b_type_t *type)
 static inline void
 gen_sym_load_const(gen_ctx *ctx, n00b_symbol_t *sym, bool addressof)
 {
-    n00b_type_t *type = sym->type;
+    n00b_ntype_t type = sym->type;
 
     if (unbox_const_value(ctx, sym->value, type)) {
         return;
@@ -574,10 +557,10 @@ gen_param_via_default_ref_type(gen_ctx                  *ctx,
                                n00b_symbol_t            *sym)
 {
     uint32_t     offset = n00b_layout_const_obj(ctx->cctx, param->default_value);
-    n00b_type_t *t      = n00b_get_my_type(param->default_value);
+    n00b_ntype_t t      = n00b_get_my_type(param->default_value);
 
     GEN_JNZ(gen_load_const_by_offset(ctx, offset, t);
-            gen_tcall(ctx, N00B_BI_COPY, t);
+            gen_tcall(ctx, N00B_BI_COPY, t : t);
             gen_sym_store(ctx, sym, true));
 }
 
@@ -586,9 +569,9 @@ gen_run_internal_callback(gen_ctx *ctx, n00b_callback_info_t *cb)
 {
     // This might go away soon.
     uint32_t     offset   = n00b_layout_const_obj(ctx->cctx, cb);
-    n00b_type_t *t        = cb->target_type;
+    n00b_ntype_t t        = cb->target_type;
     int          nargs    = n00b_type_get_num_params(t) - 1;
-    n00b_type_t *ret_type = n00b_type_get_param(t, nargs);
+    n00b_ntype_t ret_type = n00b_type_get_param(t, nargs);
     bool         useret   = !(n00b_types_are_compat(ret_type,
                                           n00b_type_void(),
                                           NULL));
@@ -612,8 +595,8 @@ gen_box_if_needed(gen_ctx          *ctx,
                   int               ix)
 {
     n00b_pnode_t *pn          = n00b_get_pnode(n);
-    n00b_type_t  *actual_type = n00b_type_resolve(pn->type);
-    n00b_type_t  *param_type  = n00b_type_get_param(sym->type, ix);
+    n00b_ntype_t  actual_type = n00b_type_resolve(pn->type);
+    n00b_ntype_t  param_type  = n00b_type_get_param(sym->type, ix);
 
     if (n00b_type_is_box(actual_type)) {
         actual_type = n00b_type_unbox(actual_type);
@@ -636,9 +619,9 @@ gen_unbox_if_needed(gen_ctx          *ctx,
                     n00b_symbol_t    *sym)
 {
     n00b_pnode_t *pn          = n00b_get_pnode(n);
-    n00b_type_t  *actual_type = n00b_type_resolve(pn->type);
+    n00b_ntype_t  actual_type = n00b_type_resolve(pn->type);
     int           ix          = n00b_type_get_num_params(sym->type) - 1;
-    n00b_type_t  *param_type  = n00b_type_get_param(sym->type, ix);
+    n00b_ntype_t  param_type  = n00b_type_get_param(sym->type, ix);
 
     if (n00b_type_is_box(actual_type)) {
         actual_type = n00b_type_unbox(actual_type);
@@ -752,7 +735,7 @@ gen_run_callback(gen_ctx *ctx, n00b_call_resolution_info_t *info)
 
     n00b_tree_node_t *call_node = ctx->cur_node;
     n00b_pnode_t     *pnode     = n00b_get_pnode(call_node);
-    n00b_type_t      *rettype   = pnode->type;
+    n00b_ntype_t      rettype   = pnode->type;
     int               n         = call_node->num_kids;
     bool              use_ret   = (!n00b_types_are_compat(rettype,
                                            n00b_type_void(),
@@ -761,11 +744,11 @@ gen_run_callback(gen_ctx *ctx, n00b_call_resolution_info_t *info)
 
     for (int i = 1; i < n; i++) {
         pnode = n00b_get_pnode(call_node->children[i]);
-        n00b_list_append(params, pnode->type);
+        n00b_list_append(params, (void *)pnode->type);
         gen_one_kid(ctx, i);
     }
 
-    n00b_type_t *sig = n00b_type_fn(rettype, params, false);
+    n00b_ntype_t sig = n00b_type_fn(rettype, params, false);
 
     emit(ctx, N00B_ZPushFromR3);
     emit(ctx, N00B_ZRunCallback, arg : n - 1, immediate : use_ret, type : sig);
@@ -1017,7 +1000,7 @@ gen_typeof(gen_ctx *ctx)
 }
 
 static inline void
-gen_range_test(gen_ctx *ctx, n00b_type_t *type)
+gen_range_test(gen_ctx *ctx, n00b_ntype_t type)
 {
     // The range is already on the stack. The top will be the high,
     // the low second, and the value to test first.
@@ -1043,7 +1026,7 @@ gen_range_test(gen_ctx *ctx, n00b_type_t *type)
 }
 
 static inline void
-gen_one_case(gen_ctx *ctx, n00b_control_info_t *switch_exit, n00b_type_t *type)
+gen_one_case(gen_ctx *ctx, n00b_control_info_t *switch_exit, n00b_ntype_t type)
 {
     n00b_tree_node_t *n              = ctx->cur_node;
     int               num_conditions = n->num_kids - 1;
@@ -1094,7 +1077,7 @@ gen_switch(gen_ctx *ctx)
     n00b_pnode_t        *pnode       = n00b_get_pnode(n);
     n00b_loop_info_t    *ci          = pnode->extra_info;
     n00b_control_info_t *switch_exit = &ci->branch_info;
-    n00b_type_t         *expr_type;
+    n00b_ntype_t         expr_type;
 
     if (gen_label(ctx, ci->branch_info.label)) {
         expr_ix++;
@@ -1362,7 +1345,8 @@ gen_container_for(gen_ctx *ctx, n00b_loop_info_t *li)
     // 2. The ZLoadFromView instruction assumes the item size is at the
     //    top slot, and the view in the second slot. It fetches the
     //    next item and pushes it automatically.
-    //    If the view object is a bitfield, the iteration count is//    required to be in register 1 (necessary for calculating
+    //    If the view object is a bitfield, the iteration count is
+    //    required to be in register 1 (necessary for calculating
     //    which bit to push and when to shift the view pointer).
     //
     // Also, note that the VIEW builtin doesn't need to copy objects,
@@ -1387,7 +1371,7 @@ gen_container_for(gen_ctx *ctx, n00b_loop_info_t *li)
     // of first implementation, it will just always happen, even
     // though in most cases it should be no problem to bind to the
     // right approach statically.
-    gen_tcall(ctx, N00B_BI_VIEW, NULL);
+    gen_tcall(ctx, N00B_BI_VIEW);
 
     // The length of the container is on top right now; the view is
     // underneath.  We want to store a copy to $len if appropriate,
@@ -1591,46 +1575,46 @@ gen_int_binary_op(gen_ctx *ctx, n00b_operator_t op, bool sign)
 }
 
 static inline void
-gen_polymorphic_binary_op(gen_ctx *ctx, n00b_operator_t op, n00b_type_t *t)
+gen_polymorphic_binary_op(gen_ctx *ctx, n00b_operator_t op, n00b_ntype_t t)
 {
     // Todo: type check and restrict down to the set of posssible
     // types statically.
 
     switch (op) {
     case n00b_op_plus:
-        gen_tcall(ctx, N00B_BI_ADD, t);
+        gen_tcall(ctx, N00B_BI_ADD, t : t);
         break;
     case n00b_op_minus:
-        gen_tcall(ctx, N00B_BI_SUB, t);
+        gen_tcall(ctx, N00B_BI_SUB, t : t);
         break;
     case n00b_op_mul:
-        gen_tcall(ctx, N00B_BI_MUL, t);
+        gen_tcall(ctx, N00B_BI_MUL, t : t);
         break;
     case n00b_op_div:
-        gen_tcall(ctx, N00B_BI_DIV, t);
+        gen_tcall(ctx, N00B_BI_DIV, t : t);
         break;
     case n00b_op_mod:
-        gen_tcall(ctx, N00B_BI_MOD, t);
+        gen_tcall(ctx, N00B_BI_MOD, t : t);
         break;
     case n00b_op_lt:
-        gen_tcall(ctx, N00B_BI_LT, t);
+        gen_tcall(ctx, N00B_BI_LT, t : t);
         break;
     case n00b_op_gt:
-        gen_tcall(ctx, N00B_BI_GT, t);
+        gen_tcall(ctx, N00B_BI_GT, t : t);
         break;
     case n00b_op_eq:
-        gen_tcall(ctx, N00B_BI_EQ, t);
+        gen_tcall(ctx, N00B_BI_EQ, t : t);
         break;
     case n00b_op_neq:
-        gen_tcall(ctx, N00B_BI_EQ, t);
+        gen_tcall(ctx, N00B_BI_EQ, t : t);
         emit(ctx, N00B_ZNot);
         break;
     case n00b_op_lte:
-        gen_tcall(ctx, N00B_BI_GT, t);
+        gen_tcall(ctx, N00B_BI_GT, t : t);
         emit(ctx, N00B_ZNot);
         break;
     case n00b_op_gte:
-        gen_tcall(ctx, N00B_BI_LT, t);
+        gen_tcall(ctx, N00B_BI_LT, t : t);
         emit(ctx, N00B_ZNot);
         break;
     case n00b_op_fdiv:
@@ -1670,7 +1654,7 @@ gen_float_binary_op(gen_ctx *ctx, n00b_operator_t op)
 }
 
 static inline bool
-skip_poly_call(n00b_type_t *t)
+skip_poly_call(n00b_ntype_t t)
 {
     if (n00b_type_is_box(t)) {
         return true;
@@ -1688,7 +1672,7 @@ skip_poly_call(n00b_type_t *t)
 }
 
 static inline void
-gen_binary_op(gen_ctx *ctx, n00b_type_t *t)
+gen_binary_op(gen_ctx *ctx, n00b_ntype_t t)
 {
     n00b_operator_t op = (n00b_operator_t)ctx->cur_pnode->extra_info;
 
@@ -1713,7 +1697,7 @@ gen_binary_op(gen_ctx *ctx, n00b_type_t *t)
         return;
     }
 
-    if (t->typeid == N00B_T_F64) {
+    if (t == N00B_T_F64) {
         gen_float_binary_op(ctx, op);
         return;
     }
@@ -1730,7 +1714,7 @@ static inline void
 gen_box_if_value_type(gen_ctx *ctx, int pos)
 {
     n00b_pnode_t *pnode = n00b_get_pnode(ctx->cur_node->children[pos]);
-    n00b_type_t  *t     = pnode->type;
+    n00b_ntype_t  t     = pnode->type;
 
     if (n00b_type_is_box(t)) {
         t = n00b_type_unbox(t);
@@ -1806,12 +1790,12 @@ gen_callback_literal(gen_ctx *ctx)
 static inline void
 gen_literal(gen_ctx *ctx)
 {
-    n00b_obj_t        lit = ctx->cur_pnode->value;
+    void             *lit = ctx->cur_pnode->value;
     n00b_lit_info_t  *li  = (n00b_lit_info_t *)ctx->cur_pnode->extra_info;
     n00b_tree_node_t *n   = ctx->cur_node;
 
     if (lit != NULL) {
-        n00b_type_t *t = n00b_type_resolve(n00b_get_my_type(lit));
+        n00b_ntype_t t = n00b_type_resolve(n00b_get_my_type(lit));
 
         if (n00b_type_is_box(t)) {
             gen_load_immediate(ctx, n00b_unbox(lit));
@@ -1822,7 +1806,7 @@ gen_literal(gen_ctx *ctx)
             // copied since they are mutable, but the const version
             // is... const.
             if (n00b_type_is_mutable(t)) {
-                gen_tcall(ctx, N00B_BI_COPY, t);
+                gen_tcall(ctx, N00B_BI_COPY, t : t);
             }
         }
 
@@ -1832,12 +1816,18 @@ gen_literal(gen_ctx *ctx)
     if (li->num_items == 1) {
         gen_kids(ctx);
         gen_load_immediate(ctx, n->num_kids);
-        gen_tcall(ctx, N00B_BI_CONTAINER_LIT, li->type);
+        gen_tcall(ctx, N00B_BI_CONTAINER_LIT, t : li->type);
         return;
     }
 
     // We need to convert each set of items into a tuple object.
-    n00b_type_t *ttype = n00b_type_tuple_from_list(li->type->items);
+    n00b_list_t *l = n00b_list(n00b_type_ref());
+    for (int i = 0; i < n->num_kids; i++) {
+        n00b_tnode_t *tn = n00b_get_tnode(li->type);
+        n00b_list_append(l, (void *)n00b_get_type(&tn->params[i]));
+    }
+
+    n00b_ntype_t ttype = n00b_type_tuple(l);
 
     for (int i = 0; i < n->num_kids;) {
         for (int j = 0; j < li->num_items; j++) {
@@ -1847,13 +1837,13 @@ gen_literal(gen_ctx *ctx)
 
         if (!ctx->lvalue) {
             gen_load_immediate(ctx, li->num_items);
-            gen_tcall(ctx, N00B_BI_CONTAINER_LIT, ttype);
+            gen_tcall(ctx, N00B_BI_CONTAINER_LIT, t : ttype);
         }
     }
 
     if (!n00b_type_is_tuple(li->type)) {
         gen_load_immediate(ctx, n->num_kids / li->num_items);
-        gen_tcall(ctx, N00B_BI_CONTAINER_LIT, li->type);
+        gen_tcall(ctx, N00B_BI_CONTAINER_LIT, t : li->type);
     }
 
     ctx->cur_node = n;
@@ -1874,7 +1864,7 @@ is_tuple_assignment(gen_ctx *ctx)
 static inline void
 gen_assign(gen_ctx *ctx)
 {
-    n00b_type_t *t        = n00b_type_resolve(ctx->cur_pnode->type);
+    n00b_ntype_t t        = n00b_type_resolve(ctx->cur_pnode->type);
     bool         lhs_attr = false;
     ctx->assign_method    = assign_to_mem_slot;
     ctx->lvalue           = true;
@@ -1901,7 +1891,7 @@ gen_assign(gen_ctx *ctx)
         }
         break;
     case assign_via_slice_set_call:
-        gen_tcall(ctx, N00B_BI_SLICE_SET, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_SLICE_SET, t : ctx->cur_pnode->type);
         break;
     case assign_to_attribute:
 handle_attribute:
@@ -1919,7 +1909,7 @@ handle_attribute:
         // Dupe the container.
         emit(ctx, N00B_ZDupTop);
         // Call len on the non-popped version.
-        gen_tcall(ctx, N00B_BI_LEN, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_LEN, t : ctx->cur_pnode->type);
         // Push the index back.
         emit(ctx, N00B_ZPushFromR1);
         // Swap the two indices to be in the proper order.
@@ -1927,11 +1917,11 @@ handle_attribute:
         // Push the value back.
         emit(ctx, N00B_ZPushFromR0);
         // Slice!
-        gen_tcall(ctx, N00B_BI_SLICE_SET, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_SLICE_SET, t : ctx->cur_pnode->type);
         break;
     case assign_via_index_set_call:
         emit(ctx, N00B_ZSwap);
-        gen_tcall(ctx, N00B_BI_INDEX_SET, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_INDEX_SET, t : ctx->cur_pnode->type);
         break;
     }
 }
@@ -1947,7 +1937,7 @@ handle_attribute:
                 gen_int_binary_op(ctx, op, false);              \
             }                                                   \
             else {                                              \
-                if (t->typeid == N00B_T_F64) {                  \
+                if (t == N00B_T_F64) {                          \
                     gen_float_binary_op(ctx, op);               \
                 }                                               \
                 else {                                          \
@@ -1961,7 +1951,7 @@ static inline void
 gen_binary_assign(gen_ctx *ctx)
 {
     n00b_operator_t op = (n00b_operator_t)ctx->cur_pnode->extra_info;
-    n00b_type_t    *t  = n00b_type_resolve(ctx->cur_pnode->type);
+    n00b_ntype_t    t  = n00b_type_resolve(ctx->cur_pnode->type);
 
     ctx->assign_method = assign_to_mem_slot;
     ctx->lvalue        = true;
@@ -1989,12 +1979,12 @@ gen_binary_assign(gen_ctx *ctx)
         emit(ctx, N00B_ZPushFromR2);
         emit(ctx, N00B_ZPushFromR1);
 
-        gen_tcall(ctx, N00B_BI_INDEX_GET, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_INDEX_GET, t : ctx->cur_pnode->type);
         gen_one_kid(ctx, 1);
 
         BINOP_ASSIGN_GEN(ctx, op, t);
 
-        gen_tcall(ctx, N00B_BI_INDEX_SET, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_INDEX_SET, t : ctx->cur_pnode->type);
         break;
     default:
         // TODO: disallow slice assignments and tuple assignments here.
@@ -2042,16 +2032,16 @@ gen_index_or_slice(gen_ctx *ctx)
             // Dupe the copy.
             emit(ctx, N00B_ZDupTop);
             // Call len on the dupe.
-            gen_tcall(ctx, N00B_BI_LEN, ctx->cur_pnode->type);
+            gen_tcall(ctx, N00B_BI_LEN, t : ctx->cur_pnode->type);
             // Push the index back.
             emit(ctx, N00B_ZPushFromR0);
             // Swap positions.
             emit(ctx, N00B_ZSwap);
         }
-        gen_tcall(ctx, N00B_BI_SLICE_GET, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_SLICE_GET, t : ctx->cur_pnode->type);
     }
     else {
-        gen_tcall(ctx, N00B_BI_INDEX_GET, ctx->cur_pnode->type);
+        gen_tcall(ctx, N00B_BI_INDEX_GET, t : ctx->cur_pnode->type);
     }
 }
 

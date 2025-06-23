@@ -833,7 +833,7 @@ add_help_commands(n00b_gopt_ctx *gctx, n00b_gopt_cspec *spec)
     }
 
     if (!n00b_dict_contains(spec->sub_commands, helpstr)) {
-        n00b_new(n00b_type_gopt_command(),
+        n00b_new(n00b_type_getopt_command(),
                  context : gctx, name : helpstr, parent : spec);
         n00b_gopt_add_subcommand(gctx, spec, n00b_cstring("(STR)* help"));
     }
@@ -844,7 +844,7 @@ add_gopt_auto_help(n00b_gopt_ctx *gctx)
 {
     if (!n00b_dict_contains(gctx->all_options, n00b_cstring("help"))) {
         // clang-format off
-        n00b_new(n00b_type_gopt_option(),
+        n00b_new(n00b_type_getopt_option(),
 		 name:      n00b_cstring("help"),
 		 opt_type:  N00B_GOAT_BOOL_T_ALWAYS,
 		 short_doc: n00b_cstring("Output detailed help."));

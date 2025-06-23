@@ -27,9 +27,3 @@ extern n00b_string_t *n00b_fmt_pointer(void *, bool);
 #if defined(N00B_USE_INTERNAL_API)
 extern int n00b_internal_fptostr(double, char[24]);
 #endif
-
-static inline n00b_string_t *
-n00b_stringify(void *value)
-{
-    return n00b_cformat("«#»", value);
-}

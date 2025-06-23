@@ -44,54 +44,22 @@ extern n00b_module_t *n00b_new_module_compile_ctx();
 extern n00b_table_t  *n00b_get_module_summary_info(n00b_compile_ctx *);
 extern bool           n00b_add_module_to_worklist(n00b_compile_ctx *,
                                                   n00b_module_t *);
-extern n00b_string_t   *n00b_package_from_path_prefix(n00b_string_t *,
+extern n00b_string_t *n00b_package_from_path_prefix(n00b_string_t *,
                                                     n00b_string_t **);
-extern n00b_string_t   *n00b_format_module_location(n00b_module_t *ctx,
+extern n00b_string_t *n00b_format_module_location(n00b_module_t *ctx,
                                                   n00b_token_t *);
-
-static inline void
-n00b_module_set_status(n00b_module_t *ctx, n00b_module_compile_status status)
-{
-    if (ctx->ct->status < status) {
-        ctx->ct->status = status;
-    }
-}
 
 #define n00b_set_package_search_path(x, ...) \
     _n00b_set_package_search_path(x, N00B_VA(__VA_ARGS__))
 
 extern n00b_module_t *
 n00b_find_module(n00b_compile_ctx *ctx,
-                 n00b_string_t       *path,
-                 n00b_string_t       *module,
-                 n00b_string_t       *package,
-                 n00b_string_t       *relative_package,
-                 n00b_string_t       *relative_path,
+                 n00b_string_t    *path,
+                 n00b_string_t    *module,
+                 n00b_string_t    *package,
+                 n00b_string_t    *relative_package,
+                 n00b_string_t    *relative_path,
                  n00b_list_t      *fext);
-
-static inline n00b_string_t *
-n00b_module_fully_qualified(n00b_module_t *f)
-{
-    if (f->package) {
-        return n00b_cformat("«#».«#»", f->package, f->name);
-    }
-
-    return f->name;
-}
-
-static inline bool
-n00b_path_is_url(n00b_string_t *path)
-{
-    if (n00b_string_starts_with(path, n00b_cstring("https:"))) {
-        return true;
-    }
-
-    if (n00b_string_starts_with(path, n00b_cstring("http:"))) {
-        return true;
-    }
-
-    return false;
-}
 
 #define N00B_INDEX_FN  "$index"
 #define N00B_SLICE_FN  "$slice"
@@ -113,11 +81,3 @@ n00b_path_is_url(n00b_string_t *path)
 void n00b_vm_remove_compile_time_data(n00b_vm_t *);
 
 n00b_string_t *n00b_repr_one_n00b_node(n00b_pnode_t *);
-static inline n00b_table_t *
-n00b_repr_module_parse_tree(n00b_module_t *m)
-{
-    return n00b_tree_format(m->ct->parse_tree,
-                            n00b_repr_one_n00b_node,
-                            NULL,
-                            false);
-}

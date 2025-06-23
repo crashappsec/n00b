@@ -228,7 +228,7 @@ raw_hex_parse(n00b_string_t *u8, n00b_compile_error_t *err)
     }                                            \
     return n00b_box_##magic_type(val)
 
-static n00b_obj_t
+static void *
 i8_parse(n00b_string_t        *s,
          n00b_lit_syntax_t     st,
          n00b_string_t        *litmod,
@@ -237,7 +237,7 @@ i8_parse(n00b_string_t        *s,
     SIGNED_PARSE(0x80, 0x7f, i8);
 }
 
-static n00b_obj_t
+static void *
 u8_parse(n00b_string_t        *s,
          n00b_lit_syntax_t     st,
          n00b_string_t        *litmod,
@@ -246,7 +246,7 @@ u8_parse(n00b_string_t        *s,
     UNSIGNED_PARSE(0xff, u8);
 }
 
-static n00b_obj_t
+static void *
 i32_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
           n00b_string_t        *litmod,
@@ -255,7 +255,7 @@ i32_parse(n00b_string_t        *s,
     SIGNED_PARSE(0x80000000, 0x7fffffff, i32);
 }
 
-static n00b_obj_t
+static void *
 u32_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
           n00b_string_t        *litmod,
@@ -264,7 +264,7 @@ u32_parse(n00b_string_t        *s,
     UNSIGNED_PARSE(0xffffffff, u32);
 }
 
-static n00b_obj_t
+static void *
 i64_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
           n00b_string_t        *litmod,
@@ -288,7 +288,7 @@ n00b_parse_int64(n00b_string_t *s, int64_t *out)
     return true;
 }
 
-static n00b_obj_t
+static void *
 u64_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
           n00b_string_t        *litmod,
@@ -297,10 +297,10 @@ u64_parse(n00b_string_t        *s,
     UNSIGNED_PARSE(0xffffffffffffffff, u64);
 }
 
-static n00b_obj_t false_lit = NULL;
-static n00b_obj_t true_lit  = NULL;
+static void *false_lit = NULL;
+static void *true_lit  = NULL;
 
-static n00b_obj_t
+static void *
 bool_parse(n00b_string_t        *u8,
            n00b_lit_syntax_t     st,
            n00b_string_t        *litmod,
@@ -339,7 +339,7 @@ bool_parse(n00b_string_t        *u8,
     return NULL;
 }
 
-n00b_obj_t
+void *
 f64_parse(n00b_string_t        *s,
           n00b_lit_syntax_t     st,
           n00b_string_t        *litmod,
@@ -401,9 +401,9 @@ bool_repr(bool b)
 }
 
 static bool
-any_number_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
+any_number_can_coerce_to(n00b_ntype_t my_type, n00b_ntype_t target_type)
 {
-    switch (n00b_type_get_data_type_info(target_type)->typeid) {
+    switch (n00b_get_data_type_info(target_type)->typeid) {
     case N00B_T_BOOL:
     case N00B_T_I8:
     case N00B_T_BYTE:
@@ -416,7 +416,7 @@ any_number_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
     case N00B_T_F64:
         return true;
     case N00B_T_SIZE:
-        switch (n00b_type_get_data_type_info(my_type)->typeid) {
+        switch (n00b_get_data_type_info(my_type)->typeid) {
         case N00B_T_I8:
         case N00B_T_BYTE:
         case N00B_T_I32:
@@ -434,11 +434,11 @@ any_number_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
 }
 
 static void *
-any_int_coerce_to(const int64_t data, n00b_type_t *target_type)
+any_int_coerce_to(const int64_t data, n00b_ntype_t target_type)
 {
     double d;
 
-    switch (n00b_type_get_data_type_info(target_type)->typeid) {
+    switch (n00b_get_data_type_info(target_type)->typeid) {
     case N00B_T_BOOL:
     case N00B_T_I8:
     case N00B_T_BYTE:
@@ -460,9 +460,9 @@ any_int_coerce_to(const int64_t data, n00b_type_t *target_type)
 }
 
 static void *
-bool_coerce_to(const int64_t data, n00b_type_t *target_type)
+bool_coerce_to(const int64_t data, n00b_ntype_t target_type)
 {
-    switch (n00b_type_get_data_type_info(target_type)->typeid) {
+    switch (n00b_get_data_type_info(target_type)->typeid) {
     case N00B_T_BOOL:
     case N00B_T_I8:
     case N00B_T_BYTE:
@@ -497,17 +497,24 @@ float_repr(void *d)
         0,
     };
 
+    union {
+        double d;
+        void  *p;
+    } u;
+
+    u.p = d;
+
     // snprintf includes null terminator in its count.
-    snprintf(buf, 20, "%g", ((n00b_box_t)d).dbl);
+    snprintf(buf, 20, "%g", u.d);
     return n00b_cstring(buf);
 }
 
 static void *
-float_coerce_to(const double d, n00b_type_t *target_type)
+float_coerce_to(const double d, n00b_ntype_t target_type)
 {
     int64_t i;
 
-    switch (n00b_type_get_data_type_info(target_type)->typeid) {
+    switch (n00b_get_data_type_info(target_type)->typeid) {
     case N00B_T_BOOL:
     case N00B_T_I8:
     case N00B_T_BYTE:

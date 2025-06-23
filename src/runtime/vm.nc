@@ -134,14 +134,14 @@ n00b_vm_exception(n00b_vmthread_t *tstate, n00b_exception_t *exc)
         tstate->sp->uint = !!((int64_t)(v2 op v1)); \
     } while (0)
 
-static n00b_obj_t
+static void *
 n00b_vm_variable(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 {
     return &tstate->vm->module_allocations[i->module_id][i->arg];
 }
 
 static inline bool
-n00b_value_iszero(n00b_obj_t value)
+n00b_value_iszero(void *value)
 {
     return 0 == value;
 }
@@ -154,7 +154,7 @@ get_param_name(n00b_zparam_info_t *p, n00b_module_t *)
     if (p->attr != NULL && n00b_len(p->attr) > 0) {
         return p->attr;
     }
-    return n00b_index_get(m->datasyms, (n00b_obj_t)p->offset);
+    return n00b_index_get(m->datasyms, (void *)p->offset);
 }
 
 static n00b_value_t *
@@ -202,7 +202,7 @@ n00b_vm_module_enter(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
             bool found;
             n00b_dict_get(tstate->vm->attrs, p->attr, &found);
             if (!found) {
-                n00b_obj_t value = get_param_value(tstate, p);
+                void * value = get_param_value(tstate, p);
                 n00b_vm_attr_set(tstate,
 				p->attr,
 				value,
@@ -249,8 +249,8 @@ static void
 n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 {
     bool         b;
-    n00b_obj_t   obj;
-    n00b_type_t *t;
+    void        *obj;
+    n00b_ntype_t t;
 
     switch ((n00b_builtin_type_fn)i->arg) {
     case N00B_BI_TO_STRING:
@@ -305,7 +305,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 
         // clang-format off
 #define BINOP_OBJ(_op, _t) \
-    obj = (n00b_obj_t)(uintptr_t)((_t)(uintptr_t)tstate->sp[1].rvalue \
+    obj = (void *)(uintptr_t)((_t)(uintptr_t)tstate->sp[1].rvalue \
      _op (_t)(uintptr_t) tstate->sp[0].rvalue)
         // clang-format on
 
@@ -344,7 +344,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
         STACK_REQUIRE_VALUES(2);
 
         t = n00b_get_my_type(tstate->sp->rvalue);
-        switch (t->typeid) {
+        switch (t) {
             BINOP_INTEGERS(+);
             BINOP_FLOATS(+);
         default:
@@ -356,7 +356,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     case N00B_BI_SUB:
         STACK_REQUIRE_VALUES(2);
         t = n00b_get_my_type(tstate->sp->rvalue);
-        switch (t->typeid) {
+        switch (t) {
             BINOP_INTEGERS(-);
             BINOP_FLOATS(-);
         default:
@@ -368,7 +368,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     case N00B_BI_MUL:
         STACK_REQUIRE_VALUES(2);
         t = n00b_get_my_type(tstate->sp->rvalue);
-        switch (t->typeid) {
+        switch (t) {
             BINOP_INTEGERS(*);
             BINOP_FLOATS(*);
         default:
@@ -380,7 +380,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     case N00B_BI_DIV:
         STACK_REQUIRE_VALUES(2);
         t = n00b_get_my_type(tstate->sp->rvalue);
-        switch (t->typeid) {
+        switch (t) {
             BINOP_INTEGERS(/);
             BINOP_FLOATS(/);
         default:
@@ -392,7 +392,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     case N00B_BI_MOD:
         STACK_REQUIRE_VALUES(2);
         t = n00b_get_my_type(tstate->sp->rvalue);
-        switch (t->typeid) {
+        switch (t) {
             BINOP_INTEGERS(%);
         default:
             obj = n00b_mod(tstate->sp[1].rvalue, tstate->sp[0].rvalue);
@@ -408,7 +408,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
                     tstate->sp[0].rvalue);
 
         ++tstate->sp;
-        tstate->sp->rvalue = (n00b_obj_t)b;
+        tstate->sp->rvalue = (void *)b;
         return;
     case N00B_BI_LT:
         STACK_REQUIRE_VALUES(2);
@@ -418,7 +418,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
                     tstate->sp[0].rvalue);
 
         ++tstate->sp;
-        tstate->sp->rvalue = (n00b_obj_t)b;
+        tstate->sp->rvalue = (void *)b;
         return;
     case N00B_BI_GT:
         STACK_REQUIRE_VALUES(2);
@@ -428,11 +428,11 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
                     tstate->sp[0].rvalue);
 
         ++tstate->sp;
-        tstate->sp->rvalue = (n00b_obj_t)b;
+        tstate->sp->rvalue = (void *)b;
         return;
     case N00B_BI_LEN:
         STACK_REQUIRE_VALUES(1);
-        tstate->sp->rvalue = (n00b_obj_t)n00b_len(tstate->sp->rvalue);
+        tstate->sp->rvalue = (void *)n00b_len(tstate->sp->rvalue);
         return;
     case N00B_BI_INDEX_GET:
         STACK_REQUIRE_VALUES(2);
@@ -487,7 +487,7 @@ n00b_vm_tcall(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
     case N00B_BI_CONTAINER_LIT:
         do {
             uint64_t     n  = tstate->sp[0].uint;
-            n00b_type_t *ct = i->type_info;
+            n00b_ntype_t ct = i->type_info;
             n00b_list_t *xl;
 
             ++tstate->sp;
@@ -605,51 +605,49 @@ n00b_vm_call_module(n00b_vmthread_t *tstate, n00b_zinstruction_t *i)
 static inline uint64_t
 ffi_possibly_box(n00b_vmthread_t     *tstate,
                  n00b_zinstruction_t *i,
-                 n00b_type_t         *dynamic_type,
+                 n00b_ntype_t         dynamic_type,
                  int                  local_param)
 {
     // TODO: Handle varargs.
-    if (dynamic_type == NULL) {
+    if (dynamic_type == N00B_T_ERROR) {
         return tstate->sp[local_param].uint;
     }
 
-    n00b_type_t *param = n00b_type_get_param(dynamic_type, local_param);
-    param              = n00b_resolve_and_unbox(param);
+    n00b_ntype_t param = n00b_type_get_param(dynamic_type, local_param);
+    param              = n00b_type_unbox(param);
 
     if (n00b_type_is_concrete(param)) {
         return tstate->sp[local_param].uint;
     }
 
-    n00b_type_t *actual = n00b_type_get_param(i->type_info, local_param);
+    n00b_ntype_t actual = n00b_type_get_param(i->type_info, local_param);
 
-    actual = n00b_resolve_and_unbox(actual);
+    if (n00b_type_is_box(actual)) {
+        actual = n00b_type_unbox(actual);
+    }
 
     if (n00b_type_is_value_type(actual)) {
-        n00b_box_t box = {
-            .u64 = tstate->sp[local_param].uint,
-        };
-
-        return (uint64_t)n00b_box_obj(box, actual);
+        return (uint64_t)n00b_box_obj(tstate->sp[local_param].uint, actual);
     }
 
     return tstate->sp[local_param].uint;
 }
 
 static inline void
-ffi_possible_ret_munge(n00b_vmthread_t *tstate, n00b_type_t *at, n00b_type_t *ft)
+ffi_possible_ret_munge(n00b_vmthread_t *tstate, n00b_ntype_t at, n00b_ntype_t ft)
 {
     // at == actual type; ft == formal type.
-    at = n00b_resolve_and_unbox(at);
-    ft = n00b_resolve_and_unbox(ft);
+    at = n00b_type_unbox(at);
+    ft = n00b_type_unbox(ft);
 
     if (!n00b_type_is_concrete(at)) {
         if (n00b_type_is_concrete(ft) && n00b_type_is_value_type(ft)) {
-            tstate->r0 = n00b_box_obj((n00b_box_t){.v = tstate->r0}, ft);
+            tstate->r0 = n00b_box_obj((int64_t)tstate->r0, ft);
         }
     }
     else {
         if (n00b_type_is_value_type(at) && !n00b_type_is_concrete(ft)) {
-            tstate->r0 = n00b_unbox_obj(tstate->r0).v;
+            tstate->r0 = (void *)n00b_unbox(tstate->r0);
         }
     }
 
@@ -660,7 +658,7 @@ static void
 n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
                  n00b_zinstruction_t *instr,
                  int64_t              ix,
-                 n00b_type_t         *dynamic_type)
+                 n00b_ntype_t         dynamic_type)
 {
     n00b_ffi_decl_t *decl = n00b_list_get(tstate->vm->obj->ffi_info,
                                           instr->arg,
@@ -700,10 +698,8 @@ n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
                                        dynamic_type,
                                        i);
 
-                n00b_box_t value = {.u64 = raw};
-
                 n00b_box_t *box = n00b_new(n00b_type_box(n00b_type_i64()),
-                                           value);
+                                           raw);
                 args[n]         = n00b_ref_via_ffi_type(box,
                                                 ffiinfo->cif.arg_types[n]);
             }
@@ -722,7 +718,7 @@ n00b_vm_ffi_call(n00b_vmthread_t     *tstate,
         tstate->r0 = n00b_cstring(s);
     }
 
-    if (dynamic_type != NULL) {
+    if (dynamic_type != N00B_T_ERROR) {
         ffi_possible_ret_munge(tstate,
                                n00b_type_get_param(dynamic_type, local_param),
                                n00b_type_get_param(instr->type_info,
@@ -802,7 +798,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
     // after the try block ends.
     n00b_vmthread_t *volatile const tstate = tstate_arg;
     n00b_zcallback_t *cb;
-    n00b_mem_ptr     *static_mem = tstate->vm->obj->static_contents->items;
+    void            **static_mem = (void *)tstate->vm->obj->static_contents->items;
 
     // This temporary is used to hold popped operands during binary
     // operations.
@@ -883,7 +879,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 STACK_REQUIRE_SLOTS(1);
                 --tstate->sp;
                 *tstate->sp = (n00b_value_t){
-                    .uint = static_mem[i->arg].nonpointer,
+                    .uint = (uint64_t)static_mem[i->arg],
                 };
                 break;
             case N00B_ZPushConstRef:
@@ -901,7 +897,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 STACK_REQUIRE_SLOTS(1);
                 --tstate->sp;
                 *tstate->sp = (n00b_value_t){
-                    .rvalue = (n00b_obj_t)i->immediate,
+                    .rvalue = (void *)i->immediate,
                 };
                 break;
             case N00B_ZPushLocalObj:
@@ -920,7 +916,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 STACK_REQUIRE_SLOTS(1);
                 --tstate->sp;
                 *tstate->sp = (n00b_value_t){
-                    .rvalue = *(n00b_obj_t *)n00b_vm_variable(tstate, i),
+                    .rvalue = *(void **)n00b_vm_variable(tstate, i),
                 };
                 break;
             case N00B_ZPushStaticRef:
@@ -1138,7 +1134,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 do {
                     bool           found = true;
                     n00b_string_t *key   = tstate->sp->vptr;
-                    n00b_obj_t     val;
+                    void          *val;
                     uint64_t       flag = i->immediate;
 
                     if (flag) {
@@ -1153,8 +1149,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                     // attr doesn't exist, which is why `found` is
                     // true by default.
                     if (found && n00b_type_is_value_type(i->type_info)) {
-                        n00b_box_t box     = n00b_unbox_obj((n00b_box_t *)val);
-                        tstate->sp[0].vptr = box.v;
+                        tstate->sp[0].uint = n00b_unbox(val);
                     }
                     else {
                         *tstate->sp = (n00b_value_t){
@@ -1176,11 +1171,7 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                     void *val = tstate->sp[0].vptr;
 
                     if (n00b_type_is_value_type(i->type_info)) {
-                        n00b_box_t item = {
-                            .v = val,
-                        };
-
-                        val = n00b_box_obj(item, i->type_info);
+                        val = n00b_box_obj((int64_t)val, i->type_info);
                     }
 
                     n00b_vm_attr_set(tstate,
@@ -1213,27 +1204,26 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
 
                     switch (obj_len) {
                     case 1:
-                        tstate->sp->uint = box->u8;
+                        tstate->sp->uint = *(uint64_t *)box;
                         *view_slot       = (void *)(p + 1);
                         break;
                     case 2:
-                        tstate->sp->uint = box->u16;
+                        tstate->sp->uint = *(uint64_t *)box;
                         *view_slot       = (void *)(p + 2);
                         break;
                     case 4:
-                        tstate->sp->uint = box->u32;
+                        tstate->sp->uint = *(uint64_t *)box;
                         *view_slot       = (void *)(p + 4);
                         break;
                     case 8:
-                        tstate->sp->uint = box->u64;
+                        tstate->sp->uint = *(uint64_t *)box;
                         *view_slot       = (void *)(p + 8);
                         // This is the only size that can be a dict.
                         // Push the value on first.
                         if (i->arg) {
                             --tstate->sp;
                             p += 8;
-                            box              = (n00b_box_t *)p;
-                            tstate->sp->uint = box->u64;
+                            tstate->sp->uint = *(uint64_t *)p;
                             *view_slot       = (p + 8);
                         }
                         break;
@@ -1253,25 +1243,25 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 } while (0);
                 break;
             case N00B_ZStoreImm:
-                *(n00b_obj_t *)n00b_vm_variable(tstate, i) = (n00b_obj_t)i->immediate;
+                *(void **)n00b_vm_variable(tstate, i) = (void *)i->immediate;
                 break;
             case N00B_ZPushObjType:
                 // Name is a a bit of a mis-name because it also pops
                 // the object. Should be ZReplaceObjWType
                 STACK_REQUIRE_SLOTS(1);
                 do {
-                    n00b_type_t *type = n00b_get_my_type(tstate->sp->rvalue);
+                    n00b_ntype_t type = n00b_get_my_type(tstate->sp->rvalue);
 
                     *tstate->sp = (n00b_value_t){
-                        .rvalue = type,
+                        .rvalue = (void *)type,
                     };
                 } while (0);
                 break;
             case N00B_ZTypeCmp:
                 STACK_REQUIRE_VALUES(2);
                 do {
-                    n00b_type_t *t1 = tstate->sp[0].rvalue;
-                    n00b_type_t *t2 = tstate->sp[1].rvalue;
+                    n00b_ntype_t t1 = (n00b_ntype_t)tstate->sp[0].rvalue;
+                    n00b_ntype_t t2 = (n00b_ntype_t)tstate->sp[1].rvalue;
 
                     ++tstate->sp;
 
@@ -1402,12 +1392,12 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 n00b_vm_return(tstate, i);
                 break;
             case N00B_ZFFICall:
-                n00b_vm_ffi_call(tstate, i, i->arg, NULL);
+                n00b_vm_ffi_call(tstate, i, i->arg, N00B_T_ERROR);
                 break;
             case N00B_ZSObjNew:
                 STACK_REQUIRE_SLOTS(1);
                 do {
-                    n00b_obj_t obj = static_mem[i->immediate].v;
+                    void *obj = (void *)static_mem[i->immediate];
 
                     if (NULL == obj) {
                         N00B_CRAISE("could not unmarshal");
@@ -1498,14 +1488,12 @@ n00b_vm_runloop(n00b_vmthread_t *tstate_arg)
                 break;
             case N00B_ZBox:;
                 STACK_REQUIRE_VALUES(1);
-                n00b_box_t item = {
-                    .u64 = tstate->sp->uint,
-                };
-                tstate->sp->rvalue = n00b_box_obj(item, i->type_info);
+                tstate->sp->rvalue = n00b_box_obj(tstate->sp->uint,
+                                                  i->type_info);
                 break;
             case N00B_ZUnbox:
                 STACK_REQUIRE_VALUES(1);
-                tstate->sp->uint = n00b_unbox_obj(tstate->sp->rvalue).u64;
+                tstate->sp->uint = n00b_unbox(tstate->sp->rvalue);
                 break;
             case N00B_ZUnpack:
                 for (int32_t x = 1; x <= i->arg; ++x) {

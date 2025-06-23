@@ -5,7 +5,7 @@ tree_node_init(n00b_tree_node_t *t, va_list args)
 {
     keywords
     {
-        n00b_obj_t contents = NULL;
+        void *contents = NULL;
     }
 
     t->children     = n00b_gc_array_alloc(n00b_tree_node_t **, 4);
@@ -38,9 +38,11 @@ n00b_tree_adopt_node(n00b_tree_node_t *t, n00b_tree_node_t *kid)
 n00b_tree_node_t *
 n00b_tree_add_node(n00b_tree_node_t *t, void *item)
 {
-    n00b_type_t      *tree_type   = n00b_get_my_type(t);
+    n00b_ntype_t      tree_type   = n00b_get_my_type(t);
     n00b_list_t      *type_params = n00b_type_get_params(tree_type);
-    n00b_type_t      *item_type   = n00b_list_get(type_params, 0, NULL);
+    n00b_ntype_t      item_type   = (n00b_ntype_t)n00b_list_get(type_params,
+                                                         0,
+                                                         NULL);
     n00b_tree_node_t *kid         = n00b_new(n00b_type_tree(item_type),
                                      contents : item);
 
@@ -79,9 +81,11 @@ n00b_tree_adopt_and_prepend(n00b_tree_node_t *t, n00b_tree_node_t *kid)
 n00b_tree_node_t *
 n00b_tree_prepend_node(n00b_tree_node_t *t, void *item)
 {
-    n00b_type_t      *tree_type   = n00b_get_my_type(t);
+    n00b_ntype_t      tree_type   = n00b_get_my_type(t);
     n00b_list_t      *type_params = n00b_type_get_params(tree_type);
-    n00b_type_t      *item_type   = n00b_list_get(type_params, 0, NULL);
+    n00b_ntype_t      item_type   = (n00b_ntype_t)n00b_list_get(type_params,
+                                                         0,
+                                                         NULL);
     n00b_tree_node_t *kid         = n00b_new(n00b_type_tree(item_type),
                                      contents : item);
 
@@ -103,9 +107,11 @@ n00b_tree_get_child(n00b_tree_node_t *t, int64_t i)
 n00b_list_t *
 n00b_tree_children(n00b_tree_node_t *t)
 {
-    n00b_type_t *tree_type   = n00b_get_my_type(t);
+    n00b_ntype_t tree_type   = n00b_get_my_type(t);
     n00b_list_t *type_params = n00b_type_get_params(tree_type);
-    n00b_type_t *item_type   = n00b_list_get(type_params, 0, NULL);
+    n00b_ntype_t item_type   = (n00b_ntype_t)n00b_list_get(type_params,
+                                                         0,
+                                                         NULL);
     n00b_list_t *result;
 
     result = n00b_new(n00b_type_list(item_type), length : t->num_kids);

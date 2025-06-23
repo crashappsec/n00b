@@ -102,7 +102,7 @@ n00b_list_t *
 n00b_set_items(n00b_set_t *s)
 {
     int32_t      n;
-    n00b_type_t *t     = n00b_type_get_param(n00b_get_my_type(s), 0);
+    n00b_ntype_t t     = n00b_type_get_param(n00b_get_my_type(s), 0);
     int64_t     *items = set_to_array(s, (uint32_t *)&n);
 
     return n00b_list(t, length : n, contents : items, copy : false);

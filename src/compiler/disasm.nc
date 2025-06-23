@@ -453,7 +453,7 @@ fmt_arg_or_imm_no_syms(n00b_vm_t *vm, n00b_zinstruction_t *instr, int i, bool im
         return n00b_cached_space();
     case fmt_const_obj:
         return n00b_cformat("«#» (const obj #«#:i»)",
-                            vm->obj->static_contents->items[value].v,
+                            (void *)vm->obj->static_contents->items[value],
                             (int64_t)value);
     case fmt_const_ptr:
         return n00b_cformat("offset to ptr: «#:x»", (int64_t)value);
@@ -473,10 +473,10 @@ fmt_arg_or_imm_no_syms(n00b_vm_t *vm, n00b_zinstruction_t *instr, int i, bool im
         return n00b_cformat("static offset: «#:x»", value);
     case fmt_load_from_attr:
         return n00b_cformat("attr «em2»«#»",
-                            vm->obj->static_contents->items[value].v);
+                            (void *)vm->obj->static_contents->items[value]);
     case fmt_label:
         return n00b_cformat("«em2»«#»",
-                            vm->obj->static_contents->items[value].v);
+                            (void *)(vm->obj->static_contents->items[value]));
     case fmt_tcall:
         return n00b_cformat("builtin call of «em2»«#»",
                             fmt_builtin_fn(value));

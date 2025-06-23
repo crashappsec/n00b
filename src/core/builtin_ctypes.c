@@ -10,14 +10,13 @@
 // Same deal with the type size.
 #if defined(N00B_NCPP)
 #include "core/builtin_ctypes.h"
-#define vref(x) NULL
+#define vref(x)  NULL
 #define tsize(x) 0
 #else
 #include "n00b.h"
-#define vref(x) (&x)
+#define vref(x)  (&x)
 #define tsize(x) sizeof(x)
 #endif
-
 
 const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
     [N00B_T_ERROR] = {
@@ -42,8 +41,8 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
     [N00B_T_TYPESPEC] = {
         .name      = "typespec",
         .typeid    = N00B_T_TYPESPEC,
-        .alloc_len = tsize(n00b_type_t),
-        .vtable    = vref(n00b_type_spec_vtable),
+        .alloc_len = tsize(n00b_ntype_t),
+        .vtable    = vref(n00b_typespec_vtable),
         .dt_kind   = N00B_DT_KIND_primitive,
     },
     [N00B_T_INTERNAL_TLIST] = {
@@ -66,6 +65,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .by_value   = true,
         .int_bits   = 1,
         .promote_to = N00B_T_I8,
+        .box_id     = N00B_T_BOX_BOOL,
     },
     [N00B_T_I8] = {
         .name       = "i8",
@@ -77,6 +77,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .int_bits   = 8,
         .sign       = true,
         .promote_to = N00B_T_I32,
+        .box_id     = N00B_T_BOX_I8,
     },
     [N00B_T_BYTE] = {
         .name       = "byte",
@@ -87,6 +88,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .by_value   = true,
         .int_bits   = 8,
         .promote_to = N00B_T_U32,
+        .box_id     = N00B_T_BOX_BYTE,
     },
     [N00B_T_I32] = {
         .name       = "i32",
@@ -98,6 +100,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .sign       = true,
         .int_bits   = 32,
         .promote_to = N00B_T_INT,
+        .box_id     = N00B_T_BOX_I32,
     },
     [N00B_T_CHAR] = {
         .name       = "char",
@@ -108,6 +111,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .by_value   = true,
         .int_bits   = 24,
         .promote_to = N00B_T_U32,
+        .box_id     = N00B_T_BOX_CHAR,
     },
     [N00B_T_U32] = {
         .name       = "u32",
@@ -118,6 +122,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .by_value   = true,
         .int_bits   = 32,
         .promote_to = N00B_T_UINT,
+        .box_id     = N00B_T_BOX_U32,
     },
     [N00B_T_INT] = {
         .name      = "int",
@@ -128,6 +133,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .by_value  = true,
         .sign      = true,
         .int_bits  = 64,
+        .box_id    = N00B_T_BOX_INT,
     },
     [N00B_T_UINT] = {
         .name      = "uint",
@@ -137,6 +143,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .dt_kind   = N00B_DT_KIND_primitive,
         .by_value  = true,
         .int_bits  = 64,
+        .box_id    = N00B_T_BOX_UINT,
     },
     [N00B_T_F32] = {
         .name      = "f32",
@@ -145,6 +152,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = vref(n00b_float_type),
         .dt_kind   = N00B_DT_KIND_primitive,
         .by_value  = true,
+        .box_id    = N00B_T_BOX_F32,
     },
     [N00B_T_F64] = {
         .name      = "float",
@@ -153,6 +161,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .vtable    = vref(n00b_float_type),
         .dt_kind   = N00B_DT_KIND_primitive,
         .by_value  = true,
+        .box_id    = N00B_T_BOX_F64,
     },
     [N00B_T_STRING] = {
         .name      = "string",
@@ -383,7 +392,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_BOOL,
+        .unbox_id  = N00B_T_BOOL,
     },
     [N00B_T_BOX_I8] = {
         .name      = "i8_box",
@@ -391,7 +400,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_I8,
+        .unbox_id  = N00B_T_I8,
     },
     [N00B_T_BOX_BYTE] = {
         .name      = "u8_box",
@@ -399,7 +408,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_BYTE,
+        .unbox_id  = N00B_T_BYTE,
     },
     [N00B_T_BOX_I32] = {
         .name      = "i32_box",
@@ -407,7 +416,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_I32,
+        .unbox_id  = N00B_T_I32,
     },
     [N00B_T_BOX_CHAR] = {
         .name      = "char_box",
@@ -415,7 +424,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_CHAR,
+        .unbox_id  = N00B_T_CHAR,
     },
     [N00B_T_BOX_U32] = {
         .name      = "u32_box",
@@ -423,7 +432,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_U32,
+        .unbox_id  = N00B_T_U32,
     },
     [N00B_T_BOX_INT] = {
         .name      = "int_box",
@@ -431,7 +440,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_INT,
+        .unbox_id  = N00B_T_INT,
     },
     [N00B_T_BOX_UINT] = {
         .name      = "uint_box",
@@ -439,7 +448,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_UINT,
+        .unbox_id  = N00B_T_UINT,
     },
     [N00B_T_BOX_F32] = {
         .name      = "f32_box",
@@ -447,7 +456,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_F32,
+        .unbox_id  = N00B_T_F32,
     },
     [N00B_T_BOX_F64] = {
         .name      = "f64_box",
@@ -455,7 +464,7 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .alloc_len = tsize(n00b_box_t),
         .dt_kind   = N00B_DT_KIND_box,
         .vtable    = vref(n00b_box_vtable),
-        .box_id    = N00B_T_F64,
+        .unbox_id  = N00B_T_F64,
     },
     [N00B_T_HTTP] = {
         .name      = "Http",
@@ -629,4 +638,3 @@ const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS] = {
         .mutable   = false,
     },
 };
-

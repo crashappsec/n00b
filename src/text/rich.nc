@@ -466,7 +466,7 @@ object_generic_repr(rich_ctrl_t *info, void *obj, n00b_alloc_hdr *h, bool caps)
         return;
     }
 
-    n00b_string_t *s = n00b_to_string(h->type);
+    n00b_string_t *s = n00b_ntype_get_name(h->type);
     info->tsi.repr   = n00b_string_concat(s, info->tsi.repr);
     return;
 }
@@ -517,7 +517,7 @@ object_self_repr(rich_ctrl_t *info,
         return;
     }
 
-    int ti = h->type->base_index;
+    n00b_ntype_t ti = h->type;
 
     if (ti == N00B_T_TYPESPEC) {
         info->type     = RICH_PAYLOAD;

@@ -106,7 +106,7 @@ n00b_handle_one_read(n00b_fd_stream_t *s)
             return false;
         }
 
-        n00b_net_addr_t  *saddr = n00b_new(n00b_type_net_addr(),
+        n00b_net_addr_t  *saddr = n00b_new(n00b_type_address(),
                                           sockaddr : &addr);
         n00b_fd_stream_t *fd    = n00b_fd_stream_from_fd(sock, NULL, NULL);
         n00b_stream_t    *strm  = n00b_new_fd_stream(fd, saddr);

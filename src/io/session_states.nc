@@ -632,7 +632,7 @@ n00b_get_action_type(void *action)
         return N00B_T_CALLBACK;
     }
 
-    return n00b_get_my_type(action)->base_index;
+    return n00b_get_my_type(action);
 }
 
 // We provide a bunch of helpers for instantiating triggers.
@@ -657,7 +657,7 @@ __n00b_trigger(n00b_session_t *session,
     n00b_builtin_t action_type = n00b_get_action_type(action);
     char          *atkw        = "next_state";
     char          *mkkw        = "substring";
-    n00b_type_t   *t           = n00b_get_my_type(match);
+    n00b_ntype_t   t           = n00b_get_my_type(match);
 
     if (match) {
         if (n00b_type_is_string(t)) {
@@ -675,7 +675,7 @@ __n00b_trigger(n00b_session_t *session,
         assert(action_type == N00B_T_STRING);
     }
 
-    n00b_trigger_t *result = n00b_new(n00b_type_session_trigger(),
+    n00b_trigger_t *result = n00b_new(n00b_type_trigger(),
                                       n00b_kargs_obj("state",
                                                      (int64_t)cur,
                                                      atkw,

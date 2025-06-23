@@ -1291,9 +1291,9 @@ n00b_string_to_str(n00b_string_t *str)
 }
 
 static bool
-n00b_string_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
+n00b_string_can_coerce_to(n00b_ntype_t my_type, n00b_ntype_t target_type)
 {
-    switch (target_type->base_index) {
+    switch (my_type) {
     case N00B_T_STRING:
     case N00B_T_BOOL:
     case N00B_T_BUFFER:
@@ -1303,14 +1303,14 @@ n00b_string_can_coerce_to(n00b_type_t *my_type, n00b_type_t *target_type)
         return false;
     }
 }
-static n00b_obj_t
-n00b_string_coerce_to(n00b_string_t *s, n00b_type_t *t)
+static void *
+n00b_string_coerce_to(n00b_string_t *s, n00b_ntype_t t)
 {
-    switch (t->base_index) {
+    switch (t) {
     case N00B_T_STRING:
         return s;
     case N00B_T_BOOL:
-        return (n00b_obj_t)(int64_t)(s && s->codepoints);
+        return (void *)(int64_t)(s && s->codepoints);
     case N00B_T_BUFFER:
         return n00b_new(t, length : s->u8_bytes, raw : s->data);
     case N00B_T_BYTERING:
@@ -1320,7 +1320,7 @@ n00b_string_coerce_to(n00b_string_t *s, n00b_type_t *t)
     }
 }
 
-static n00b_obj_t
+static void *
 n00b_string_lit(n00b_string_t        *s,
                 n00b_lit_syntax_t     st,
                 n00b_string_t        *litmod,
@@ -1737,7 +1737,7 @@ n00b_copy_buffer_contents(n00b_buf_t *b)
 char *
 n00b_to_cstr(void *v)
 {
-    n00b_type_t *t = n00b_get_my_type(v);
+    n00b_ntype_t t = n00b_get_my_type(v);
 
     if (n00b_type_is_buffer(t)) {
         return n00b_copy_buffer_contents(v);
@@ -1777,12 +1777,11 @@ n00b_make_cstr_array(n00b_list_t *l, int *lenp)
 }
 
 n00b_string_t *
-n00b_to_literal_provided_type(void *item, n00b_type_t *t)
+n00b_to_literal_provided_type(void *item, n00b_ntype_t t)
 {
-    uint64_t                x = t->base_index;
     n00b_string_convertor_t p;
 
-    p = (void *)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_LITERAL];
+    p = (void *)n00b_base_type_info[t].vtable->methods[N00B_BI_TO_LITERAL];
 
     if (!p) {
         return NULL;
@@ -1792,17 +1791,16 @@ n00b_to_literal_provided_type(void *item, n00b_type_t *t)
 }
 
 n00b_string_t *
-n00b_to_string_provided_type(void *item, n00b_type_t *t)
+n00b_to_string_provided_type(void *item, n00b_ntype_t t)
 {
-    uint64_t                x = t->base_index;
     n00b_string_convertor_t p;
 
     // TODO: Remove this after adding the method.
-    if (x == N00B_T_STRING) {
+    if (t == N00B_T_STRING) {
         return item;
     }
 
-    p = (void *)n00b_base_type_info[x].vtable->methods[N00B_BI_TO_STRING];
+    p = (void *)n00b_base_type_info[t].vtable->methods[N00B_BI_TO_STRING];
 
     if (!p) {
         return n00b_to_literal_provided_type(item, t);
@@ -1818,7 +1816,7 @@ n00b_to_string(void *item)
         return n00b_to_string_provided_type(item, n00b_type_i64());
     }
 
-    n00b_type_t *t = n00b_get_my_type(item);
+    n00b_ntype_t t = n00b_get_my_type(item);
 
     if (!t) {
         return n00b_to_string_provided_type(item, n00b_type_i64());
@@ -1834,7 +1832,7 @@ n00b_to_literal(void *item)
         return NULL;
     }
 
-    n00b_type_t *t = n00b_get_my_type(item);
+    n00b_ntype_t t = n00b_get_my_type(item);
 
     if (!t) {
         return NULL;
@@ -1843,8 +1841,8 @@ n00b_to_literal(void *item)
     return n00b_to_literal_provided_type(item, t);
 }
 
-static inline n00b_type_t *
-n00b_string_item_type(n00b_obj_t ignore)
+static inline n00b_ntype_t
+n00b_string_item_type(void *ignore)
 {
     return n00b_type_char();
 }

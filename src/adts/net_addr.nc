@@ -236,7 +236,7 @@ unix_lit(n00b_string_t *in)
 {
     n00b_string_t *s = n00b_string_slice(in, 5, -1);
 
-    return n00b_new(n00b_type_ip(), unix : true, address : s);
+    return n00b_new(n00b_type_address(), unix : true, address : s);
 }
 
 static n00b_net_addr_t *
@@ -249,7 +249,7 @@ ipaddr_lit(n00b_string_t        *s_u8,
         return unix_lit(s_u8);
     }
 
-    n00b_net_addr_t *result = n00b_new(n00b_type_ip());
+    n00b_net_addr_t *result = n00b_new(n00b_type_address());
 
     if (inet_pton(AF_INET, s_u8->data, result) == 1) {
         return result;

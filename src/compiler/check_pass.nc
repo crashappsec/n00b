@@ -67,24 +67,22 @@ next_branch(pass2_ctx *ctx, n00b_cfg_node_t *branch_node)
 {
     ctx->cfg = branch_node;
 }
-static inline n00b_type_t *
+static inline n00b_ntype_t
 get_pnode_type(n00b_tree_node_t *node)
 {
     n00b_pnode_t *pnode = n00b_get_pnode(node);
     return n00b_type_resolve(pnode->type);
 }
 
-static inline n00b_type_t *
-merge_or_err(pass2_ctx *ctx, n00b_type_t *new_t, n00b_type_t *old_t)
+static inline n00b_ntype_t
+merge_or_err(pass2_ctx *ctx, n00b_ntype_t new_t, n00b_ntype_t old_t)
 {
-    int warn;
-
     if (!new_t || !old_t) {
         n00b_add_error(ctx->module_ctx, n00b_internal_type_error, ctx->node);
         return n00b_type_error();
     }
 
-    n00b_type_t *result = n00b_merge_types(new_t, old_t, &warn);
+    n00b_ntype_t result = n00b_unify(new_t, old_t);
 
     if (n00b_type_is_error(result)) {
         if (!n00b_type_is_error(new_t) && !n00b_type_is_error(old_t)) {
@@ -98,34 +96,33 @@ merge_or_err(pass2_ctx *ctx, n00b_type_t *new_t, n00b_type_t *old_t)
     return result;
 }
 
-static inline n00b_type_t *
-merge_ignore_err(n00b_type_t *new_t, n00b_type_t *old_t)
+static inline n00b_ntype_t
+merge_ignore_err(n00b_ntype_t new_t, n00b_ntype_t old_t)
 {
-    return n00b_merge_types(new_t, old_t, NULL);
+    return n00b_unify(new_t, old_t);
 }
 
 static inline bool
-merge_or_ret_ignore_err(n00b_type_t *new_t, n00b_type_t *old_t)
+merge_or_ret_ignore_err(n00b_ntype_t new_t, n00b_ntype_t old_t)
 {
-    return n00b_type_is_error(n00b_merge_types(new_t, old_t, NULL));
+    return n00b_type_is_error(n00b_unify(new_t, old_t));
 }
 
 static inline bool
-base_node_tcheck(pass2_ctx *ctx, n00b_pnode_t *pnode, n00b_type_t *type)
+base_node_tcheck(pass2_ctx *ctx, n00b_pnode_t *pnode, n00b_ntype_t type)
 {
-    int          warn;
-    n00b_type_t *merged;
+    n00b_ntype_t merged;
 
-    merged = n00b_merge_types(pnode->type, type, &warn);
+    merged = n00b_unify(pnode->type, type);
 
     return (!n00b_type_is_error(merged));
 }
 
 static inline void
-set_node_type(pass2_ctx *ctx, n00b_tree_node_t *node, n00b_type_t *type)
+set_node_type(pass2_ctx *ctx, n00b_tree_node_t *node, n00b_ntype_t type)
 {
     n00b_pnode_t *pnode = n00b_get_pnode(node);
-    if (pnode->type == NULL) {
+    if (pnode->type == N00B_T_ERROR) {
         pnode->type = type;
     }
     else {
@@ -183,7 +180,7 @@ type_check_node_against_sym(pass2_ctx     *ctx,
                             n00b_pnode_t  *pnode,
                             n00b_symbol_t *sym)
 {
-    if (pnode->type == NULL) {
+    if (pnode->type == N00B_T_ERROR) {
         pnode->type = n00b_new_typevar();
     }
 
@@ -221,7 +218,7 @@ type_check_node_against_sym(pass2_ctx     *ctx,
     }
 }
 
-static inline n00b_type_t *
+static inline n00b_ntype_t
 type_check_nodes_no_err(n00b_tree_node_t *n1, n00b_tree_node_t *n2)
 {
     n00b_pnode_t *pnode1 = n00b_get_pnode(n1);
@@ -230,8 +227,8 @@ type_check_nodes_no_err(n00b_tree_node_t *n1, n00b_tree_node_t *n2)
     return merge_ignore_err(pnode1->type, pnode2->type);
 }
 
-static inline n00b_type_t *
-type_check_node_vs_type_no_err(n00b_tree_node_t *n, n00b_type_t *t)
+static inline n00b_ntype_t
+type_check_node_vs_type_no_err(n00b_tree_node_t *n, n00b_ntype_t t)
 {
     n00b_pnode_t *pnode = n00b_get_pnode(n);
 
@@ -254,37 +251,40 @@ n00b_fold_container(n00b_tree_node_t *n,
     }
     n00b_list_t *items = n00b_new(n00b_type_list(n00b_type_ref()));
     n00b_list_t *tlist = item_types;
-    n00b_obj_t   obj;
+    void        *obj;
 
     if (li->num_items <= 1) {
-        bool val_type = n00b_type_is_value_type(n00b_list_get(tlist, 0, NULL));
+        n00b_ntype_t t        = (n00b_ntype_t)n00b_list_get(tlist, 0, NULL);
+        bool         val_type = n00b_type_is_value_type(t);
 
         for (int i = 0; i < n->num_kids; i++) {
             n00b_pnode_t *kid_pnode = n00b_get_pnode(n->children[i]);
             obj                     = kid_pnode->value;
 
             if (val_type) {
-                obj = n00b_unbox_obj(obj).v;
+                obj = (void *)n00b_unbox(obj);
             }
             n00b_list_append(items, obj);
         }
     }
     else {
-        n00b_tuple_t *t = n00b_new(n00b_type_tuple_from_list(item_types));
+        n00b_tuple_t *tup = n00b_new(n00b_type_tuple(item_types));
         for (int i = 0; i < n->num_kids; i++) {
             n00b_pnode_t *kid_pnode = n00b_get_pnode(n->children[i]);
             int           ix        = i % li->num_items;
             obj                     = kid_pnode->value;
 
-            if (n00b_type_is_value_type(n00b_list_get(tlist, ix, NULL))) {
-                obj = n00b_unbox_obj(obj).v;
+            n00b_ntype_t t = (n00b_ntype_t)n00b_list_get(tlist, ix, NULL);
+
+            if (n00b_type_is_value_type(t)) {
+                obj = (void *)n00b_unbox(obj);
             }
 
-            n00b_tuple_set(t, i % li->num_items, obj);
+            n00b_tuple_set(tup, i % li->num_items, obj);
 
             if (!((i + 1) % li->num_items)) {
-                n00b_list_append(items, t);
-                t = n00b_new(n00b_type_tuple_from_list(item_types));
+                n00b_list_append(items, (void *)t);
+                tup = n00b_new(n00b_type_tuple(item_types));
             }
         }
     }
@@ -326,12 +326,11 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
     }
 
     if (n00b_base_type_info[li->base_type].dt_kind == N00B_DT_KIND_primitive) {
-        li->type = n00b_bi_types[li->base_type];
+        li->type = li->base_type;
         concrete = true;
     }
     else {
-        li->type = n00b_new(n00b_type_typespec(),
-                            li->base_type);
+        li->type = (uint64_t)n00b_new(n00b_type_typespec(), li->base_type);
     }
     pn->type = li->type;
 
@@ -346,11 +345,12 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
 
     if (concrete) {
         items = n00b_list(n00b_type_typespec());
-        n00b_list_append(items, n00b_new_typevar());
+        n00b_list_append(items, (void *)n00b_new_typevar());
         li->num_items = 1;
     }
     else {
-        items = li->type->items;
+        items = n00b_type_get_params(li->type);
+
         switch (li->st) {
         case ST_List:
             li->num_items = 1;
@@ -371,15 +371,17 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
         default:
             n00b_unreachable();
         }
-
-        for (int i = 0; i < li->num_items; i++) {
-            n00b_list_append(items, n00b_new_typevar());
-        }
+        // This doesn't look right
+        // for (int i = 0; i < li->num_items; i++) {
+        // n00b_list_append(items, (void *)n00b_new_typevar());
+        // }
     }
 
     for (int i = 0; i < n->num_kids; i++) {
         n00b_pnode_t *kid_pnode = n00b_get_pnode(n->children[i]);
-        n00b_type_t  *t         = n00b_list_get(items, i % li->num_items, NULL);
+        n00b_ntype_t  t         = (uint64_t)n00b_list_get(items,
+                                                 i % li->num_items,
+                                                 NULL);
 
         ctx->node = n->children[i];
         base_check_pass_dispatch(ctx);
@@ -406,15 +408,10 @@ calculate_container_type(pass2_ctx *ctx, n00b_tree_node_t *n)
                                    s,
                                    t,
                                    kid_pnode->type);
-                    n00b_calculate_type_hash(li->type);
                     return;
                 }
             }
         }
-    }
-
-    if (!concrete) {
-        n00b_calculate_type_hash(li->type);
     }
 
     n00b_fold_container(n, li, items);
@@ -458,34 +455,20 @@ setup_polymorphic_fns()
 // the params we copy from the context.
 
 static void
-add_callback_params(n00b_type_t *callback, n00b_type_t *func_type)
+add_callback_params(n00b_ntype_t callback, n00b_ntype_t func_type)
 {
-    n00b_list_t *fnlist = func_type->items;
-    n00b_list_t *cblist = n00b_list(n00b_type_typespec());
-    int          n      = n00b_list_len(fnlist) - 1;
+    // We're simply going to forward the callback to the function.
+    n00b_tnode_t *cb_node = n00b_get_tnode(callback);
+    n00b_tnode_t *f_node  = n00b_get_tnode(func_type);
 
-    for (int i = 0; i < n; i++) {
-        n00b_type_t *param = n00b_type_copy(n00b_list_get(fnlist, i, NULL));
-        n00b_list_append(cblist, param);
-    }
-
-    if (n00b_list_len(callback->items)) {
-        n00b_type_t *ret = n00b_list_get(callback->items, 0, NULL);
-        n00b_list_append(cblist, ret);
-    }
-    else {
-        n00b_list_append(cblist, n00b_new_typevar());
-    }
-
-    callback->flags &= ~N00B_FN_MISSING_PARAMS;
-    callback->items = cblist;
+    cb_node->forward = f_node;
 }
 
 static n00b_call_resolution_info_t *
 initial_function_resolution(pass2_ctx        *ctx,
                             n00b_string_t    *call_name,
                             n00b_tree_node_t *sym_node,
-                            n00b_type_t      *called_type,
+                            n00b_ntype_t      called_type,
                             n00b_tree_node_t *call_loc)
 {
     // For now, (maybe will change when we add in objects), the only
@@ -606,9 +589,9 @@ initial_function_resolution(pass2_ctx        *ctx,
         // so we need to be careful, we just can't just merge types
         // without checking.
 
-        n00b_type_t *t = n00b_type_resolve(sym->type);
+        n00b_ntype_t t = n00b_type_resolve(sym->type);
 
-        if (t->base_index != N00B_T_FUNCDEF) {
+        if (n00b_get_base_type(t) != N00B_T_FUNCDEF) {
             n00b_add_error(ctx->module_ctx,
                            n00b_err_calling_non_fn,
                            call_loc,
@@ -618,8 +601,9 @@ initial_function_resolution(pass2_ctx        *ctx,
             return NULL;
         }
 
-        if (t->flags & N00B_FN_MISSING_PARAMS) {
+        if (n00b_get_tnode(t)->missing_params) {
             add_callback_params(t, called_type);
+            t = called_type;
         }
 
         merge_or_err(ctx, sym->type, called_type);
@@ -874,10 +858,10 @@ handle_index(pass2_ctx *ctx)
 {
     n00b_pnode_t *pnode     = n00b_get_pnode(ctx->node);
     n00b_pnode_t *kid_pnode = n00b_get_pnode(ctx->node->children[1]);
-    n00b_type_t  *node_type = n00b_new_typevar();
+    n00b_ntype_t  node_type = n00b_new_typevar();
     bool          is_slice  = kid_pnode->kind == n00b_nt_range;
-    n00b_type_t  *container_type;
-    n00b_type_t  *ix1_type;
+    n00b_ntype_t  container_type;
+    n00b_ntype_t  ix1_type;
 
     process_child(ctx, 0);
     container_type = get_pnode_type(ctx->node->children[0]);
@@ -901,7 +885,7 @@ handle_index(pass2_ctx *ctx)
                 return;
             }
 
-            n00b_type_t *tmp = n00b_type_any_dict(ix1_type, NULL);
+            n00b_ntype_t tmp = n00b_type_any_dict(ix1_type, n00b_new_typevar());
             container_type   = merge_or_err(ctx, container_type, tmp);
         }
     }
@@ -925,11 +909,11 @@ handle_index(pass2_ctx *ctx)
             ctx,
             n00b_cstring(N00B_SLICE_FN),
             NULL,
-            n00b_type_varargs_fn(node_type,
-                                 3,
-                                 container_type,
-                                 n00b_type_int(),
-                                 n00b_type_int()),
+            n00b_type_fn(node_type,
+                         n00b_to_list(container_type,
+                                      n00b_type_int(),
+                                      n00b_type_int()),
+                         true),
             ctx->node);
 
         pnode->type = container_type;
@@ -939,14 +923,14 @@ handle_index(pass2_ctx *ctx)
             ctx,
             n00b_cstring(N00B_INDEX_FN),
             NULL,
-            n00b_type_varargs_fn(node_type,
-                                 2,
-                                 container_type,
-                                 ix1_type),
+            n00b_type_fn(node_type,
+                         n00b_to_list(container_type, ix1_type),
+                         true),
             ctx->node);
     }
 
     if (n00b_type_is_tvar(container_type)) {
+#if 0
         tv_options_t *tsi = &container_type->options;
 
         if (tsi->value_type == NULL) {
@@ -956,11 +940,12 @@ handle_index(pass2_ctx *ctx)
         if (!is_slice) {
             merge_or_err(ctx, node_type, tsi->value_type);
         }
+#endif
     }
 
     else {
         int          nparams = n00b_type_get_num_params(container_type);
-        n00b_type_t *tmp;
+        n00b_ntype_t tmp;
 
         if (!is_slice) {
             if (n00b_type_is_tuple(container_type)) {
@@ -1013,10 +998,10 @@ handle_call(pass2_ctx *ctx)
         ctx->node = saved->children[i];
         pnode     = n00b_get_pnode(ctx->node);
         base_check_pass_dispatch(ctx);
-        n00b_list_append(argtypes, pnode->type);
+        n00b_list_append(argtypes, (void *)pnode->type);
     }
 
-    n00b_type_t *fn_type;
+    n00b_ntype_t fn_type;
 
     pnode                 = n00b_get_pnode(saved);
     pnode->type           = n00b_new_typevar();
@@ -1326,8 +1311,8 @@ range_runs_check(pass2_ctx *ctx, n00b_tree_node_t *n)
         return false;
     }
 
-    uint64_t v1 = n00b_unbox_obj((n00b_obj_t)pnode1->value).u64;
-    uint64_t v2 = n00b_unbox_obj((n00b_obj_t)pnode2->value).u64;
+    uint64_t v1 = n00b_unbox(pnode1->value);
+    uint64_t v2 = n00b_unbox(pnode2->value);
 
     return v1 != v2;
 }
@@ -1614,20 +1599,24 @@ handle_for(pass2_ctx *ctx)
         //
         // We never allow loops over tuples.
 
-        n00b_type_t *cinfo = n00b_new_typevar();
+        n00b_ntype_t cinfo = n00b_new_typevar();
 
         if (li->lvar_2 != NULL) {
             n00b_remove_list_options(cinfo);
             n00b_remove_set_options(cinfo);
             n00b_remove_tuple_options(cinfo);
 
-            n00b_list_append(cinfo->items, li->lvar_1->type);
-            n00b_list_append(cinfo->items, li->lvar_2->type);
+            n00b_ntype_t new    = n00b_type_dict(li->lvar_1->type,
+                                              li->lvar_2->type);
+            n00b_tnode_t *cnode = n00b_get_tnode(cinfo);
+            cnode->forward      = n00b_get_tnode(new);
         }
         else {
+            /* TODO: fix this.
             n00b_remove_tuple_options(cinfo);
             n00b_remove_dict_options(cinfo);
             n00b_list_append(cinfo->items, li->lvar_1->type);
+            */
         }
 
         merge_or_err(ctx, cinfo, container_pnode->type);
@@ -1747,7 +1736,7 @@ handle_typeof_statement(pass2_ctx *ctx)
     base_check_pass_dispatch(ctx);
 
     n00b_pnode_t    *variant_p    = n00b_get_pnode(variant);
-    n00b_type_t     *type_to_test = (n00b_type_t *)variant_p->type;
+    n00b_ntype_t     type_to_test = (n00b_ntype_t)variant_p->type;
     n00b_symbol_t   *sym          = variant_p->extra_info;
     n00b_cfg_node_t *entrance     = n00b_cfg_enter_block(ctx->cfg, saved);
     n00b_symbol_t   *saved_sym;
@@ -1781,16 +1770,18 @@ handle_typeof_statement(pass2_ctx *ctx)
                                                         n00b_type_ref()));
 
         for (int j = 0; j < branch->num_kids - 1; j++) {
-            n00b_type_t *casetype = n00b_node_to_type(ctx->module_ctx,
+            n00b_ntype_t casetype = n00b_node_to_type(ctx->module_ctx,
                                                       branch->children[j],
                                                       type_ctx);
 
             n00b_pnode_t *branch_pnode = n00b_get_pnode(branch->children[j]);
-            branch_pnode->value        = (n00b_obj_t)casetype;
+            branch_pnode->value        = (void *)casetype;
             branch_pnode->type         = casetype;
 
             for (int k = 0; k < n00b_list_len(prev_types); k++) {
-                n00b_type_t *oldcase = n00b_list_get(prev_types, k, NULL);
+                n00b_ntype_t oldcase = (n00b_ntype_t)n00b_list_get(prev_types,
+                                                                   k,
+                                                                   NULL);
 
                 if (n00b_types_are_compat(oldcase, casetype, NULL)) {
                     n00b_add_warning(ctx->module_ctx,
@@ -1809,7 +1800,7 @@ handle_typeof_statement(pass2_ctx *ctx)
                 }
             }
 
-            n00b_list_append(prev_types, n00b_type_copy(casetype));
+            n00b_list_append(prev_types, (void *)n00b_type_copy(casetype));
 
             // Alias absolutely everything except the
             // type. It's the only thing that should change.
@@ -2027,8 +2018,8 @@ builtin_bincall(pass2_ctx *ctx)
     // Once we add objects, we probably should add the call in for objects
     // (TODO).
 
-    n00b_type_t    *tleft  = get_pnode_type(ctx->node->children[0]);
-    n00b_type_t    *tright = get_pnode_type(ctx->node->children[1]);
+    n00b_ntype_t    tleft  = get_pnode_type(ctx->node->children[0]);
+    n00b_ntype_t    tright = get_pnode_type(ctx->node->children[1]);
     n00b_pnode_t   *pn     = n00b_get_pnode(ctx->node);
     n00b_operator_t op     = (n00b_operator_t)pn->extra_info;
 
@@ -2233,7 +2224,8 @@ check_literal(pass2_ctx *ctx)
             cb->target_type = n00b_type_fn(n00b_new_typevar(),
                                            n00b_list(n00b_type_typespec()),
                                            false);
-            cb->target_type->flags |= N00B_FN_MISSING_PARAMS;
+
+            n00b_get_tnode(cb->target_type)->missing_params = true;
         }
         n00b_list_append(ctx->module_ctx->ct->callback_lits, pnode->value);
         pnode->type = cb->target_type;
@@ -2241,14 +2233,14 @@ check_literal(pass2_ctx *ctx)
         break;
     case n00b_nt_lit_tspec:
         do {
-            n00b_type_t *t;
+            n00b_ntype_t t;
 
             t = n00b_node_to_type(ctx->module_ctx,
                                   ctx->node,
                                   n00b_new(n00b_type_dict(n00b_type_string(),
                                                           n00b_type_ref())));
 
-            pnode->value = (n00b_obj_t *)t;
+            pnode->value = (void **)t;
         } while (0);
         break;
     default:
@@ -2282,7 +2274,7 @@ handle_member(pass2_ctx *ctx)
 static void
 handle_binary_logical_op(pass2_ctx *ctx)
 {
-    n00b_type_t  *btype = n00b_type_bool();
+    n00b_ntype_t  btype = n00b_type_bool();
     n00b_pnode_t *kid1  = n00b_get_pnode(ctx->node->children[0]);
     n00b_pnode_t *kid2  = n00b_get_pnode(ctx->node->children[1]);
     n00b_pnode_t *pn    = n00b_get_pnode(ctx->node);
@@ -2386,7 +2378,6 @@ static void
 process_field(pass2_ctx *ctx, n00b_spec_field_t *field)
 {
     n00b_tree_node_t *default_node = field->default_value;
-    int               warn;
 
     if (default_node != NULL) {
         n00b_pnode_t *default_payload = n00b_get_pnode(default_node);
@@ -2404,12 +2395,10 @@ process_field(pass2_ctx *ctx, n00b_spec_field_t *field)
 
     if (field->validate_choice) {
         n00b_tree_node_t *node = (n00b_tree_node_t *)field->stashed_options;
-        n00b_type_t      *type = get_pnode_type(node);
-        n00b_type_t      *merge;
+        n00b_ntype_t      type = get_pnode_type(node);
+        n00b_ntype_t      merge;
 
-        merge = n00b_merge_types(n00b_type_list(field->tinfo.type),
-                                 type,
-                                 &warn);
+        merge = n00b_unify(n00b_type_list(field->tinfo.type), type);
 
         if (n00b_type_is_error(merge)) {
             n00b_add_error(ctx->module_ctx,
@@ -2419,9 +2408,7 @@ process_field(pass2_ctx *ctx, n00b_spec_field_t *field)
     }
 
     if (field->validate_range) {
-        n00b_type_t *merge = n00b_merge_types(n00b_type_int(),
-                                              field->tinfo.type,
-                                              &warn);
+        n00b_ntype_t merge = n00b_unify(n00b_type_int(), field->tinfo.type);
 
         if (n00b_type_is_error(merge)) {
             n00b_add_error(ctx->module_ctx,
@@ -2433,20 +2420,20 @@ process_field(pass2_ctx *ctx, n00b_spec_field_t *field)
 
     if (field->validator) {
         n00b_callback_info_t *cb     = (n00b_callback_info_t *)field->validator;
-        n00b_type_t          *cbtype = cb->target_type;
+        n00b_ntype_t          cbtype = cb->target_type;
         n00b_list_t          *params = n00b_list(n00b_type_typespec());
 
-        n00b_list_append(params, n00b_type_string());
-        n00b_list_append(params, field->tinfo.type);
+        n00b_list_append(params, (void *)n00b_type_string());
+        n00b_list_append(params, (void *)field->tinfo.type);
 
-        n00b_type_t *target = n00b_type_fn(n00b_type_string(), params, false);
+        n00b_ntype_t target = n00b_type_fn(n00b_type_string(), params, false);
 
-        if (cbtype == NULL) {
+        if (cbtype == N00B_T_ERROR) {
             cb->target_type = target;
         }
         else {
-            if (!(cbtype->flags & N00B_FN_MISSING_PARAMS)) {
-                if (n00b_type_is_error(n00b_merge_types(target, cbtype, &warn))) {
+            if (!(n00b_get_tnode(cbtype)->missing_params)) {
+                if (n00b_type_is_error(n00b_unify(target, cbtype))) {
                     n00b_add_error(ctx->module_ctx,
                                    n00b_err_validator_inconsistent_field,
                                    cb->decl_loc,
@@ -2503,7 +2490,7 @@ check_module_parameter(pass2_ctx *ctx)
     n00b_symbol_t            *sym   = param->linked_symbol;
 
     add_def(ctx, sym, true);
-    if (param->default_value != NULL) {
+    if (param->default_value != N00B_T_ERROR) {
         ctx->node               = param->default_value;
         n00b_pnode_t *val_pnode = n00b_get_pnode(ctx->node);
         check_literal(ctx);
@@ -2710,15 +2697,15 @@ typedef struct {
 static void
 check_return_type(fn_check_ctx *ctx)
 {
-    n00b_type_t *decl_type;
-    n00b_type_t *cmp_type;
+    n00b_ntype_t decl_type;
+    n00b_ntype_t cmp_type;
 
     if (ctx->num_defs <= 1) {
         if (ctx->num_uses == 0) {
             ctx->delete_result_var = true;
             ctx->si->void_return   = 1;
 
-            if (ctx->si->return_info.type != NULL) {
+            if (ctx->si->return_info.type != N00B_T_ERROR) {
                 n00b_add_error(ctx->pass_ctx->module_ctx,
                                n00b_err_no_ret,
                                ctx->node,
@@ -2741,7 +2728,7 @@ check_return_type(fn_check_ctx *ctx)
         }
     }
 
-    if (ctx->si->return_info.type != NULL) {
+    if (ctx->si->return_info.type != N00B_T_ERROR) {
         decl_type = n00b_type_copy(ctx->si->return_info.type);
         cmp_type  = merge_ignore_err(decl_type, ctx->sym->type);
 
@@ -2778,8 +2765,8 @@ check_formal_param(fn_check_ctx *ctx)
 {
     n00b_fn_param_info_t *param   = ctx->si->param_info;
     n00b_string_t        *symname = ctx->sym->name;
-    n00b_type_t          *decl_type;
-    n00b_type_t          *cmp_type;
+    n00b_ntype_t          decl_type;
+    n00b_ntype_t          cmp_type;
 
     if (ctx->num_uses == 0) {
         n00b_add_warning(ctx->pass_ctx->module_ctx,
@@ -2795,7 +2782,7 @@ check_formal_param(fn_check_ctx *ctx)
         param++;
     }
 
-    if (param->type != NULL) {
+    if (param->type != N00B_T_ERROR) {
         decl_type = n00b_type_copy(param->type);
         cmp_type  = merge_ignore_err(decl_type, ctx->sym->type);
         if (n00b_type_is_error(cmp_type)) {
@@ -2963,10 +2950,10 @@ check_function(pass2_ctx *ctx, n00b_symbol_t *fn_sym)
 
     for (int i = 0; i < check_ctx.si->num_params; i++) {
         n00b_assert(check_ctx.si->param_info[i].type);
-        n00b_list_append(param_types, check_ctx.si->param_info[i].type);
+        n00b_list_append(param_types, (void *)check_ctx.si->param_info[i].type);
     }
 
-    n00b_type_t *ret_type = check_ctx.si->return_info.type;
+    n00b_ntype_t ret_type = check_ctx.si->return_info.type;
 
     check_ctx.si->full_type = n00b_type_fn(ret_type, param_types, false);
 
@@ -3224,8 +3211,8 @@ perform_index_rechecks(pass2_ctx *ctx)
 
     for (int i = 0; i < n; i++) {
         n00b_tree_node_t *node  = n00b_list_get(ctx->index_rechecks, i, NULL);
-        n00b_type_t      *ctype = get_pnode_type(node->children[0]);
-        n00b_type_t      *t     = get_pnode_type(node->children[1]);
+        n00b_ntype_t      ctype = get_pnode_type(node->children[0]);
+        n00b_ntype_t      t     = get_pnode_type(node->children[1]);
 
         if (n00b_type_is_box(t)) {
             t = n00b_type_unbox(t);
@@ -3268,9 +3255,9 @@ process_deferred_lits(pass2_ctx *ctx)
     for (int i = 0; i < n; i++) {
         n00b_tree_node_t *t    = n00b_list_get(ctx->simple_lits_wo_mod, i, NULL);
         n00b_pnode_t     *p    = n00b_get_pnode(t);
-        n00b_obj_t        lit  = p->value;
+        void             *lit  = p->value;
         n00b_token_t     *tok  = p->token;
-        n00b_type_t      *type = merge_ignore_err(p->type,
+        n00b_ntype_t      type = merge_ignore_err(p->type,
                                              n00b_get_my_type(lit));
 
         if (!n00b_type_is_error(type)) {
@@ -3335,7 +3322,7 @@ scan_for_void_symbols(n00b_module_t *f, n00b_scope_t *scope)
         n00b_symbol_t *sym = n00b_list_get(view, i, NULL);
 
         if (sym->kind == N00B_SK_VARIABLE || sym->kind == N00B_SK_ATTR) {
-            if (n00b_type_resolve(sym->type)->typeid == N00B_T_VOID) {
+            if (n00b_type_resolve(sym->type) == N00B_T_VOID) {
                 n00b_tree_node_t *def = n00b_list_get(sym->ct->sym_defs, 0, NULL);
                 n00b_add_error(f, n00b_err_assigned_void, def);
             }
@@ -3360,14 +3347,14 @@ process_deferred_calls(n00b_compile_ctx *cctx,
                 continue;
             }
 
-            n00b_type_t  *sym_type   = n00b_type_copy(info->resolution->type);
+            n00b_ntype_t  sym_type   = n00b_type_copy(info->resolution->type);
             n00b_pnode_t *pnode      = n00b_get_pnode(info->loc);
-            n00b_type_t  *node_type  = pnode->type;
-            n00b_type_t  *call_type  = info->sig;
+            n00b_ntype_t  node_type  = pnode->type;
+            n00b_ntype_t  call_type  = info->sig;
             int           np         = n00b_type_get_num_params(call_type);
-            n00b_type_t  *param_type = n00b_type_get_param(call_type, np - 1);
+            n00b_ntype_t  param_type = n00b_type_get_param(call_type, np - 1);
 
-            n00b_type_t *merged = merge_ignore_err(node_type,
+            n00b_ntype_t merged = merge_ignore_err(node_type,
                                                    param_type);
             bool         err    = n00b_type_is_error(merged);
 
@@ -3487,19 +3474,20 @@ process_deferred_callbacks(n00b_compile_ctx *cctx)
                 return;
             }
 
-            n00b_type_t *sym_type = n00b_type_copy(n00b_type_resolve(sym->type));
-            n00b_type_t *lit_type = cb->target_type;
+            n00b_ntype_t sym_type = n00b_type_copy(n00b_type_resolve(sym->type));
+            n00b_ntype_t lit_type = cb->target_type;
 
             if (!lit_type) {
                 cb->target_type = sym_type;
                 continue;
             }
 
-            if (lit_type->flags & N00B_FN_MISSING_PARAMS) {
+            if (n00b_get_tnode(lit_type)->missing_params) {
                 add_callback_params(lit_type, sym_type);
+                lit_type = sym_type;
             }
 
-            n00b_type_t *merged = merge_ignore_err(sym_type, lit_type);
+            n00b_ntype_t merged = merge_ignore_err(sym_type, lit_type);
 
             if (n00b_type_is_error(merged)) {
                 s = n00b_node_get_loc_str(sym->ct->declaration_node);

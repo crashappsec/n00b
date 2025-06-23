@@ -30,11 +30,11 @@ typedef struct {
     n00b_heap_t *src_heap;
 } n00b_deep_copy_ctx;
 
-static inline n00b_type_t *
-dc_type(n00b_type_t *t)
+static inline n00b_ntype_t
+dc_type(n00b_ntype_t t)
 {
     n00b_push_heap(n00b_default_heap);
-    n00b_type_t *r = n00b_type_copy(t);
+    n00b_ntype_t r = n00b_type_copy(t);
     n00b_pop_heap();
     return r;
 }

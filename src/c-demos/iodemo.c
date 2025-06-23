@@ -113,19 +113,19 @@ void
 test_new_type_system(void)
 {
     n00b_ntype_t t_int = n00b_tprimitive(N00B_T_INT);
-    n00b_ntype_t t_str = n00b_tprimitive(N00B_T_STRING);    
-    n00b_ntype_t t_l1  = n00b_tlist(t_int);
-    n00b_ntype_t t_v1  = n00b_tlist(n00b_ttvar());
-    n00b_ntype_t t_d1  = n00b_tdict(t_str, n00b_ttvar());    
-    
+    n00b_ntype_t t_str = n00b_tprimitive(N00B_T_STRING);
+    n00b_ntype_t t_l1  = n00b_type_list(t_int);
+    n00b_ntype_t t_v1  = n00b_type_list(n00b_new_typevar());
+    n00b_ntype_t t_d1  = n00b_type_dict(t_str, n00b_new_typevar());
+
     n00b_eprintf("«em1»t_int«/»: «em2»«#»", n00b_ntype_get_name(t_int));
     n00b_eprintf("«em1»t_li«/»: «em2»«#»", n00b_ntype_get_name(t_l1));
     n00b_eprintf("«em1»t_v1«/»: «em2»«#»", n00b_ntype_get_name(t_v1));
-    n00b_eprintf("«em1»t_d1«/»: «em2»«#»", n00b_ntype_get_name(t_d1));    
+    n00b_eprintf("«em1»t_d1«/»: «em2»«#»", n00b_ntype_get_name(t_d1));
 
-    n00b_ntype_t t_u1 = n00b_ntype_unify(t_v1, t_l1);
-    n00b_eprintf("«em1»t_u1«/»: «em2»«#»", n00b_ntype_get_name(t_u1));    
-    n00b_exit(0);
+    n00b_ntype_t t_u1 = n00b_unify(t_v1, t_l1);
+    n00b_eprintf("«em1»t_u1«/»: «em2»«#»", n00b_ntype_get_name(t_u1));
+    // n00b_exit(0);
 }
 
 int
@@ -137,7 +137,7 @@ main(void)
     n00b_signal_register(SIGHUP, signal_demo2, (void *)2ULL);
 
     test_new_type_system();
-    
+
     // eprintf() and printf() use the stream API (n00b_printf() takes
     // an optional stream parameter.
     n00b_eprintf("«red»Welcome to the IO demo«/»");
@@ -165,7 +165,7 @@ main(void)
     do {
         N00B_TRY
         {
-            addr = n00b_new(n00b_type_net_addr(),
+            addr = n00b_new(n00b_type_address(),
                             n00b_kargs_obj(
                                 "address",
                                 (int64_t)n00b_cstring("127.0.0.1"),

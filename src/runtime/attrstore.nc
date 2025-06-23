@@ -173,7 +173,7 @@ void
 n00b_vm_attr_set(n00b_vmthread_t *tstate,
                  n00b_string_t   *key,
                  void            *value,
-                 n00b_type_t     *type,
+                 n00b_ntype_t     type,
                  bool             lock,
                  bool             override,
                  bool             internal)

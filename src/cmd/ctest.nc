@@ -14,7 +14,7 @@ iotest(n00b_stream_t *p1, void *s)
     // If we add the ANSI filter, it will line buffer. There's no
     // flush implementation yet.
 
-    n00b_type_t *t = n00b_get_my_type(s);
+    n00b_ntype_t t = n00b_get_my_type(s);
     if (n00b_type_is_buffer(t)) {
         s = n00b_buf_to_utf8_string(s);
     }

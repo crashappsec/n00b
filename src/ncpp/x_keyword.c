@@ -397,7 +397,8 @@ keyword_xform(xform_t *ctx, tok_t *start)
                            "            N00B_RAISE(__err);\n"
                            "        }\n"
                            "        ");
-    result = concat_static(result, last_param_name);;
+    result = concat_static(result, last_param_name);
+    ;
     result = concat_static(result, "->used = false;\n    }\n");
 
     start->replacement = result;
@@ -458,8 +459,8 @@ reset_tracking(xform_t *ctx)
 
     while (cur) {
         kw_use_ctx_t *next = cur->next;
-        free(cur);
-        cur = next;
+        // free(cur);
+        cur                = next;
     }
 }
 

@@ -4,23 +4,23 @@
 static void
 box_init(n00b_box_t *box, va_list args)
 {
-    n00b_box_t b = va_arg(args, n00b_box_t);
-    box->u64     = b.u64;
+    uint64_t b       = va_arg(args, uint64_t);
+    *(uint64_t *)box = b;
     return;
 }
 
 static n00b_string_t *
 box_to_string(n00b_box_t *box)
 {
-    return n00b_to_string_provided_type(box->v,
+    return n00b_to_string_provided_type(box,
                                         n00b_type_unbox(n00b_get_my_type(box)));
 }
 
 static n00b_string_t *
 box_format(n00b_box_t *box, n00b_string_t *spec)
 {
-    n00b_type_t    *t      = n00b_type_unbox(n00b_get_my_type(box));
-    n00b_dt_info_t *info   = n00b_type_get_data_type_info(t);
+    n00b_ntype_t    t      = n00b_type_unbox(n00b_get_my_type(box));
+    n00b_dt_info_t *info   = n00b_get_data_type_info(t);
     n00b_vtable_t  *vtable = (n00b_vtable_t *)info->vtable;
     n00b_format_fn  fn     = (n00b_format_fn)vtable->methods[N00B_BI_FORMAT];
 
@@ -30,7 +30,7 @@ box_format(n00b_box_t *box, n00b_string_t *spec)
 static n00b_box_t
 box_from_lit(n00b_box_t *b, void *i1, void *i2, void *i3)
 {
-    return n00b_unbox_obj(b);
+    return (n00b_box_t)n00b_unbox(b);
 }
 
 const n00b_vtable_t n00b_box_vtable = {

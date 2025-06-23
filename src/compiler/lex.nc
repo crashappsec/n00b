@@ -387,8 +387,13 @@ scan_int_or_float_literal(lex_state_t *state)
     n00b_string_t *u8 = n00b_utf32(start, ix);
 
     if (float_ix) {
-        char  *endp  = NULL;
-        double value = strtod((char *)u8->data, &endp);
+        char *endp = NULL;
+        union {
+            void  *obj;
+            double value;
+        } u;
+
+        u.value = strtod((char *)u8->data, &endp);
 
         if (endp == (char *)u8->data || !endp) {
             // I don't think this one should ever happen here.
@@ -396,7 +401,7 @@ scan_int_or_float_literal(lex_state_t *state)
         }
 
         if (errno == ERANGE) {
-            if (value == HUGE_VAL) {
+            if (u.value == HUGE_VAL) {
                 LEX_ERROR(n00b_err_lex_float_oflow);
             }
             LEX_ERROR(n00b_err_lex_float_uflow);
@@ -406,7 +411,7 @@ scan_int_or_float_literal(lex_state_t *state)
         if (float_strlen > float_ix) {
             state->pos = state->start + float_strlen;
             LITERAL_TOK(n00b_tt_float_lit, 0, ST_Float);
-            state->last_token->literal_value = ((n00b_box_t)value).v;
+            state->last_token->literal_value = u.obj;
             return;
         }
     }
@@ -749,12 +754,17 @@ scan_id_or_keyword(lex_state_t *state)
         LITERAL_TOK(r, 0, ST_Bool);
         return;
     case n00b_tt_float_lit: {
-        n00b_string_t *s     = n00b_utf32(state->start,
+        n00b_string_t *s = n00b_utf32(state->start,
                                       (state->pos - state->start));
-        double         value = strtod((char *)s->data, NULL);
+        union {
+            void  *obj;
+            double value;
+        } u;
+
+        u.value = strtod((char *)s->data, NULL);
 
         LITERAL_TOK(r, 0, ST_Float);
-        state->last_token->literal_value = ((n00b_box_t)value).v;
+        state->last_token->literal_value = u.obj;
         return;
     }
     default:
@@ -1085,7 +1095,7 @@ n00b_lex(n00b_module_t *ctx, n00b_stream_t *stream)
         return ctx->ct->fatal_errors;
     }
 
-    n00b_obj_t raw;
+    void *raw;
 
     if (!ctx->source) {
         ctx->source = n00b_read_all(stream, 0);

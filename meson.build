@@ -250,14 +250,12 @@ n00b_core = [
     'src/core/heap_collect.nc',
     'src/core/kargs.nc',
     'src/core/exceptions.nc',
-    'src/core/types.nc',
-    'src/core/typestore.nc',
     'src/core/literals.nc',
     'src/core/builtin_ctypes.c',    
     'src/core/object.nc',
     'src/core/validation.nc',
     'src/core/signal.nc',
-    'src/core/ty_new.nc',      # New type implementation coming soon.
+    'src/core/types.nc',      # New type implementation coming soon.
 ]
 
 n00b_mt = [
@@ -405,9 +403,8 @@ n00b_util = [
     'src/util/deep_copy.nc',
     'src/util/testgen.nc',
     'src/util/limits.nc',
+    'src/util/sha.nc',    
 ]
-
-n00b_crypto = ['src/crypto/sha.nc']
 
 n00b_cmd = [
     'src/cmd/main.nc',
@@ -422,7 +419,7 @@ n00b_cmd = [
 
 
 n00b_base = n00b_core + n00b_mt + n00b_text + n00b_runtime + n00b_adts 
-n00b_base = n00b_base + n00b_compiler + n00b_util + n00b_crypto
+n00b_base = n00b_base + n00b_compiler + n00b_util
 n00b_base = n00b_base + n00b_io + n00b_debug
 n00b_src  = ncpp.process(n00b_base)
 

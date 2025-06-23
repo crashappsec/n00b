@@ -33,7 +33,7 @@ typedef struct {
     n00b_stream_filter_fn write_fn;
     n00b_stream_filter_fn flush_fn;
     n00b_string_t        *name;
-    n00b_type_t          *output_type;
+    n00b_ntype_t          output_type;
     // If `polymorphic_w` is true, it indicates that filter WRITES to
     // a stream may accept multiple types. They must always go to the
     // underlying stream implementation as a buffer. And, any
@@ -53,7 +53,7 @@ typedef struct {
 
     /* Type checking to be done.
         union {
-            n00b_type_t      *type;
+            n00b_ntype_t type;
             n00b_stream_type_fn validator;
         } input_type;
     */

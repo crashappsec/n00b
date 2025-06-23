@@ -1,6 +1,8 @@
 #pragma once
 
-#include "core/dt_objects.h"
+#include "n00b/base.h"
+#include "core/vtable.h"
+#include "core/ctype_info.h"
 
 #define N00B_VARIABLE_ALLOC_SZ (~0U)
 
@@ -35,8 +37,8 @@ typedef enum : int64_t {
     N00B_T_SHA,
     N00B_T_EXCEPTION,
     N00B_T_CALLBACK,
-    N00B_T_REF,      // A managed pointer to a non-typed mem object.
-    N00B_T_KEYWORD,  // Keyword arg object for internal use.
+    N00B_T_REF,     // A managed pointer to a non-typed mem object.
+    N00B_T_KEYWORD, // Keyword arg object for internal use.
     N00B_T_VM,
     N00B_T_PARSE_NODE,
     N00B_T_BIT,
@@ -72,6 +74,7 @@ typedef enum : int64_t {
     N00B_T_SESSION_TRIGGER,
     N00B_T_INTERNAL, // Some internal datastructure we don't intend to expose.
     N00B_T_VA_LIST,
+    N00B_T_TRUE_REF, // A managed pointer; not really considered generic.
     N00B_T_NUM_PRIMITIVE_BUILTINS,
     N00B_T_LIST,
     N00B_T_TUPLE,
@@ -79,8 +82,7 @@ typedef enum : int64_t {
     N00B_T_SET,
     N00B_T_TREE,
     N00B_T_FUNCDEF,
-    N00B_T_TRUE_REF, // A managed pointer.
-    N00B_T_GENERIC,  // If instantiated, instantiates a 'mixed' object.
+    N00B_T_GENERIC, // If instantiated, instantiates a 'mixed' object.
     N00B_NUM_BUILTIN_DTS,
 } n00b_builtin_t;
 
@@ -101,7 +103,7 @@ extern const n00b_vtable_t n00b_set_vtable;
 extern const n00b_vtable_t n00b_list_vtable;
 extern const n00b_vtable_t n00b_sha_vtable;
 extern const n00b_vtable_t n00b_exception_vtable;
-extern const n00b_vtable_t n00b_type_spec_vtable;
+extern const n00b_vtable_t n00b_typespec_vtable;
 extern const n00b_vtable_t n00b_tree_vtable;
 extern const n00b_vtable_t n00b_tuple_vtable;
 extern const n00b_vtable_t n00b_mixed_vtable;
@@ -142,3 +144,5 @@ extern const n00b_vtable_t n00b_session_vtable;
 extern const n00b_vtable_t n00b_session_state_vtable;
 extern const n00b_vtable_t n00b_session_trigger_vtable;
 #endif
+
+extern const n00b_dt_info_t n00b_base_type_info[N00B_NUM_BUILTIN_DTS];

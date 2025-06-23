@@ -211,7 +211,7 @@ setup_new_header(n00b_pickle_ctx *ctx, n00b_marshaled_hdr *h, n00b_alloc_hdr *s)
     h->alloc_line = 0xeeee; // s->alloc_line;
 #endif
 
-    h->type           = (void *)translate_pointer(ctx, s->type);
+    h->type           = s->type;
     h->n00b_obj       = s->n00b_obj;
     h->cached_hash[0] = ((n00b_marshaled_hdr *)s)->cached_hash[0];
     h->cached_hash[1] = ((n00b_marshaled_hdr *)s)->cached_hash[1];
@@ -726,7 +726,6 @@ n00b_unmarshal_records(n00b_unpickle_ctx *ctx, n00b_alloc_hdr *end_record)
     while (hdr->alloc_len && hdr < end_record) {
         n00b_assert(hdr->guard == N00B_MARSHAL_RECORD_GUARD);
         hdr->guard = n00b_gc_guard;
-        hdr->type  = n00b_safe_unmunge_pointer(ctx, hdr->type);
 #if defined(N00B_ADD_ALLOC_LOC_INFO)
         hdr->alloc_file = n00b_safe_unmunge_pointer(ctx, hdr->alloc_file);
 #endif

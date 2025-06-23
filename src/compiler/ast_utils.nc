@@ -268,7 +268,7 @@ n00b_setup_treematch_patterns()
     n00b_gc_register_root(&n00b_tuple_assign, 1);
 }
 
-n00b_obj_t
+void *
 n00b_node_to_callback(n00b_module_t    *ctx,
                       n00b_tree_node_t *n)
 {
@@ -277,7 +277,7 @@ n00b_node_to_callback(n00b_module_t    *ctx,
     }
 
     n00b_string_t *name = n00b_node_text(n00b_tree_get_child(n, 0));
-    n00b_type_t   *type = NULL;
+    n00b_ntype_t   type = N00B_T_ERROR;
 
     if (n->num_kids > 1) {
         type = n00b_node_to_type(ctx, n00b_tree_get_child(n, 1), NULL);
@@ -296,18 +296,19 @@ n00b_node_to_callback(n00b_module_t    *ctx,
     return result;
 }
 
-n00b_type_t *
+n00b_ntype_t
 n00b_node_to_type(n00b_module_t    *ctx,
                   n00b_tree_node_t *n,
                   n00b_dict_t      *type_ctx)
 {
     if (type_ctx == NULL) {
-        type_ctx = n00b_new(n00b_type_dict(n00b_type_string(), n00b_type_ref()));
+        type_ctx = n00b_new(n00b_type_dict(n00b_type_string(),
+                                           n00b_type_ref()));
     }
 
     n00b_pnode_t  *pnode = n00b_get_pnode(n);
     n00b_string_t *varname;
-    n00b_type_t   *t;
+    n00b_ntype_t   t;
     bool           found;
     int            numkids;
 
@@ -316,10 +317,9 @@ n00b_node_to_type(n00b_module_t    *ctx,
         return n00b_node_to_type(ctx, n00b_tree_get_child(n, 0), type_ctx);
     case n00b_nt_lit_tspec_tvar:
         varname = n00b_node_text(n00b_tree_get_child(n, 0));
-        t       = n00b_dict_get(type_ctx, varname, &found);
+        t       = (n00b_ntype_t)n00b_dict_get(type_ctx, varname, &found);
         if (!found) {
-            t       = n00b_new_typevar();
-            t->name = varname;
+            t = n00b_new_named_typevar(varname->data);
             n00b_dict_put(type_ctx, varname, t);
         }
         return t;
@@ -327,7 +327,7 @@ n00b_node_to_type(n00b_module_t    *ctx,
         varname = n00b_node_text(n);
         for (int i = 0; i < N00B_NUM_BUILTIN_DTS; i++) {
             if (!strcmp(varname->data, n00b_base_type_info[i].name)) {
-                return n00b_bi_types[i];
+                return (n00b_ntype_t)i;
             }
         }
 
@@ -337,11 +337,6 @@ n00b_node_to_type(n00b_module_t    *ctx,
     case n00b_nt_lit_tspec_parameterized_type:
         varname = n00b_node_text(n);
         // Need to do this more generically, but OK for now.
-        if (!strcmp(varname->data, "list")) {
-            return n00b_type_list(n00b_node_to_type(ctx,
-                                                    n00b_tree_get_child(n, 0),
-                                                    type_ctx));
-        }
         if (!strcmp(varname->data, "list")) {
             return n00b_type_list(n00b_node_to_type(ctx,
                                                     n00b_tree_get_child(n, 0),
@@ -372,19 +367,20 @@ n00b_node_to_type(n00b_module_t    *ctx,
 
             for (int i = 0; i < n00b_tree_get_number_children(n); i++) {
                 n00b_list_append(subitems,
-                                 n00b_node_to_type(ctx,
-                                                   n00b_tree_get_child(n, i),
-                                                   type_ctx));
+                                 (void *)n00b_node_to_type(ctx,
+                                                           n00b_tree_get_child(n,
+                                                                               i),
+                                                           type_ctx));
             }
 
-            return n00b_type_tuple_from_list(subitems);
+            return n00b_type_tuple(subitems);
         }
         n00b_add_error(ctx, n00b_err_unk_param_type, n);
         return n00b_new_typevar();
     case n00b_nt_lit_tspec_func:
         numkids = n00b_tree_get_number_children(n);
         if (numkids == 0) {
-            return n00b_type_varargs_fn(n00b_new_typevar(), 0);
+            return n00b_type_fn(n00b_new_typevar(), NULL, true);
         }
 
         n00b_list_t      *args = n00b_new(n00b_type_list(n00b_type_typespec()));
@@ -413,7 +409,8 @@ n00b_node_to_type(n00b_module_t    *ctx,
                 }
             }
 
-            n00b_list_append(args, n00b_node_to_type(ctx, kid, type_ctx));
+            n00b_list_append(args,
+                             (void *)n00b_node_to_type(ctx, kid, type_ctx));
         }
 
         return n00b_type_fn(t, args, va);

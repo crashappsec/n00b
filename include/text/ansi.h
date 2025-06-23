@@ -45,13 +45,4 @@ extern n00b_list_t   *n00b_ansi_parser_results(n00b_ansi_ctx *);
 extern n00b_string_t *n00b_ansi_node_repr(n00b_ansi_node_t *);
 extern n00b_string_t *n00b_ansi_nodes_to_string(n00b_list_t *, bool);
 
-static inline n00b_list_t *
-n00b_string_to_ansi_node_list(n00b_string_t *s)
-{
-    n00b_ansi_ctx *ctx = n00b_ansi_parser_create();
-    n00b_ansi_parse(ctx, n00b_string_to_buffer(s));
-
-    return n00b_ansi_parser_results(ctx);
-}
-
 #define N00B_ANSI_ENABLE_WINDOW_MARGINS "\e[?69h"

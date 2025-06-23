@@ -233,7 +233,7 @@ _n00b_table_add_cell(n00b_table_t *table, void *contents, ...)
     int64_t           span;
     va_list           args;
     n00b_box_props_t *custom_props = NULL;
-    n00b_type_t      *t;
+    n00b_ntype_t      t;
 
     va_start(args, contents);
     span = va_arg(args, int64_t);
@@ -369,7 +369,7 @@ n00b_table_add_contents(n00b_table_t *table, n00b_list_t *l)
 
     for (int i = 0; i < n; i++) {
         n00b_list_t *row = n00b_private_list_get(l, i, NULL);
-        n00b_type_t *t   = n00b_get_my_type(row);
+        n00b_ntype_t t   = n00b_get_my_type(row);
 
         if (!n00b_type_is_list(t)) {
             exception_cleanup(table);

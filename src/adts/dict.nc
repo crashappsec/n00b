@@ -428,10 +428,8 @@ _n00b_dict_keys(n00b_dict_t *d, ...)
 
     uint32_t              n;
     n00b_dict_raw_item_t *arr       = n00b_dict_raw_view(d, &n);
-    n00b_type_t          *dict_type = n00b_get_my_type(d);
-    n00b_type_t          *key_type  = n00b_private_list_get(dict_type->items,
-                                                  0,
-                                                  NULL);
+    n00b_ntype_t          dict_type = n00b_get_my_type(d);
+    n00b_ntype_t          key_type  = n00b_type_get_param(dict_type, 0);
     n00b_list_t          *result    = n00b_new(n00b_type_list(key_type),
                                    length : n);
 
@@ -460,10 +458,8 @@ _n00b_dict_values(n00b_dict_t *d, ...)
 
     uint32_t              n;
     n00b_dict_raw_item_t *arr       = n00b_dict_raw_view(d, &n);
-    n00b_type_t          *dict_type = n00b_get_my_type(d);
-    n00b_type_t          *val_type  = n00b_private_list_get(dict_type->items,
-                                                  1,
-                                                  NULL);
+    n00b_ntype_t          dict_type = n00b_get_my_type(d);
+    n00b_ntype_t          val_type  = n00b_type_get_param(dict_type, 1);
     n00b_list_t          *result    = n00b_new(n00b_type_list(val_type),
                                    length : n);
 
@@ -492,14 +488,9 @@ _n00b_dict_items(n00b_dict_t *d, ...)
 
     uint32_t              n;
     n00b_dict_raw_item_t *arr       = n00b_dict_raw_view(d, &n);
-    n00b_type_t          *dict_type = n00b_get_my_type(d);
-    n00b_type_t          *key_type  = n00b_private_list_get(dict_type->items,
-                                                  0,
-                                                  NULL);
-    n00b_type_t          *val_type  = n00b_private_list_get(dict_type->items,
-                                                  1,
-                                                  NULL);
-    n00b_type_t          *tt        = n00b_type_tuple(2, key_type, val_type);
+    n00b_ntype_t          dict_type = n00b_get_my_type(d);
+    n00b_list_t          *params    = n00b_type_all_params(dict_type);
+    n00b_ntype_t          tt        = n00b_type_tuple(params);
     n00b_list_t          *result    = n00b_new(n00b_type_list(tt), length : n);
 
     if (!arr) {
@@ -889,7 +880,7 @@ _n00b_dict_init(n00b_dict_t *dict, ...)
 
     assert(!hide_from_gc || system_dict);
 
-    n00b_type_t *t = n00b_type_get_param(n00b_get_my_type(dict), 0);
+    n00b_ntype_t t = n00b_type_get_param(n00b_get_my_type(dict), 0);
 
     if (n00b_type_is_value_type(t)) {
         dict->non_object_keys = true;
@@ -916,11 +907,11 @@ n00b_dict_to_string(n00b_dict_t *d)
     n00b_string_t *s;
 
     for (int i = 0; i < n; i++) {
-        tup = n00b_list_get(view, i, NULL);
-        n00b_string_t *s1 = n00b_tuple_get(tup, 0);
-        n00b_string_t *s2 = n00b_tuple_get(tup, 1);
+        tup                = n00b_list_get(view, i, NULL);
+        n00b_string_t *s1  = n00b_tuple_get(tup, 0);
+        n00b_string_t *s2  = n00b_tuple_get(tup, 1);
         int            len = s1->u8_bytes + s2->u8_bytes + 3;
-        char           buf[len+1];
+        char           buf[len + 1];
         char          *p = &buf[0];
 
         memcpy(p, s1->data, s1->u8_bytes);
@@ -965,13 +956,13 @@ n00b_dict_init_valist(n00b_dict_t *dict, va_list args)
 }
 
 static bool
-dict_can_coerce_to(n00b_type_t *my_type, n00b_type_t *dst_type)
+dict_can_coerce_to(n00b_ntype_t my_type, n00b_ntype_t dst_type)
 {
     return n00b_types_are_compat(my_type, dst_type, NULL);
 }
 
 static n00b_dict_t *
-dict_coerce_to(n00b_dict_t *d, n00b_type_t *dst_type)
+dict_coerce_to(n00b_dict_t *d, n00b_ntype_t dst_type)
 {
     n00b_list_t *view   = n00b_dict_items(d);
     int          n      = n00b_list_len(view);
@@ -1053,7 +1044,7 @@ dict_get(n00b_dict_t *d, void *k)
 }
 
 static n00b_dict_t *
-to_dict_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *lm)
+to_dict_lit(n00b_ntype_t objtype, n00b_list_t *items, n00b_string_t *lm)
 {
     uint64_t     n      = n00b_list_len(items);
     n00b_dict_t *result = n00b_new(objtype);

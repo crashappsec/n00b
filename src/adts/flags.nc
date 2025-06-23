@@ -373,8 +373,8 @@ n00b_flags_slice(n00b_flags_t *self, int64_t start, int64_t end)
 }
 #endif
 
-static inline n00b_type_t *
-flags_item_type(n00b_obj_t ignore)
+static inline n00b_ntype_t
+flags_item_type(void *ignore)
 {
     return n00b_type_bit();
 }

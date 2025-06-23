@@ -32,7 +32,7 @@ _n00b_print(void *first, ...)
         return;
     }
 
-    n00b_type_t *t = n00b_get_my_type(first);
+    n00b_ntype_t t = n00b_get_my_type(first);
 
     if (n00b_type_is_stream(t)) {
         stream = first;
@@ -109,7 +109,7 @@ __n00b_c_value(void *item)
     if (!n00b_in_heap(item)) {
         return item;
     }
-    n00b_type_t *t = n00b_get_my_type(item);
+    n00b_ntype_t t = n00b_get_my_type(item);
 
     if (!t) {
         return item;

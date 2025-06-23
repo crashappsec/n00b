@@ -745,8 +745,8 @@ temporary_tree(parse_ctx *ctx, n00b_node_kind_t nt)
     parse_stack_push(ctx, ctx->cur);
     n00b_pnode_t *tmproot = n00b_new(n00b_type_parse_node(), ctx, nt);
 
-    n00b_type_t      *pn     = n00b_type_parse_node();
-    n00b_type_t      *tt     = n00b_type_tree(pn);
+    n00b_ntype_t      pn     = n00b_type_parse_node();
+    n00b_ntype_t      tt     = n00b_type_tree(pn);
     n00b_tree_node_t *result = n00b_new(tt, contents : tmproot);
     ctx->cur                 = result;
 
@@ -4508,8 +4508,8 @@ n00b_repr_one_n00b_node(n00b_pnode_t *one)
 
     n00b_string_t *result = n00b_cformat(fmt, name, xtra, doc);
 
-    if (one->type != NULL) {
-        n00b_type_t *t = n00b_type_resolve(one->type);
+    if (one->type != N00B_T_ERROR) {
+        n00b_ntype_t t = n00b_type_resolve(one->type);
 
         if (n00b_type_is_box(t)) {
             t = n00b_type_unbox(t);

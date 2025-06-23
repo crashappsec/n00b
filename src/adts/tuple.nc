@@ -65,13 +65,13 @@ tuple_repr(n00b_tuple_t *tup)
 }
 
 static bool
-tuple_can_coerce(n00b_type_t *src, n00b_type_t *dst)
+tuple_can_coerce(n00b_ntype_t src, n00b_ntype_t dst)
 {
     return n00b_types_are_compat(src, dst, NULL);
 }
 
 static n00b_tuple_t *
-tuple_coerce(n00b_tuple_t *tup, n00b_type_t *dst)
+tuple_coerce(n00b_tuple_t *tup, n00b_ntype_t dst)
 {
     n00b_list_t  *srcparams = n00b_type_get_params(n00b_get_my_type(tup));
     n00b_list_t  *dstparams = n00b_type_get_params(dst);
@@ -79,8 +79,8 @@ tuple_coerce(n00b_tuple_t *tup, n00b_type_t *dst)
     n00b_tuple_t *res       = n00b_new(dst);
 
     for (int i = 0; i < len; i++) {
-        n00b_type_t *src_type = n00b_list_get(srcparams, i, NULL);
-        n00b_type_t *dst_type = n00b_list_get(dstparams, i, NULL);
+        n00b_ntype_t src_type = (uint64_t)n00b_list_get(srcparams, i, NULL);
+        n00b_ntype_t dst_type = (uint64_t)n00b_list_get(dstparams, i, NULL);
 
         res->items[i] = n00b_coerce(tup->items[i], src_type, dst_type);
     }
@@ -94,8 +94,8 @@ tuple_copy(n00b_tuple_t *tup)
     return tuple_coerce(tup, n00b_get_my_type(tup));
 }
 
-static n00b_obj_t
-tuple_from_lit(n00b_type_t *objtype, n00b_list_t *items, n00b_string_t *litmod)
+static void *
+tuple_from_lit(n00b_ntype_t objtype, n00b_list_t *items, n00b_string_t *litmod)
 {
     int l = n00b_list_len(items);
 
@@ -115,7 +115,7 @@ tuple_set_gc_bits(uint64_t       *bitfield,
                   n00b_base_obj_t *alloc)
 {
     n00b_tuple_t *tup  = (n00b_tuple_t *)alloc->data;
-    n00b_type_t  *t    = alloc->concrete_type;
+    n00b_ntype_t t    = alloc->concrete_type;
     int          len  = n00b_type_get_num_params(t);
     int          base = n00b_ptr_diff(alloc, &tup->items[0]);
 
@@ -159,27 +159,37 @@ n00b_clean_internal_list(n00b_list_t *l)
     }
 
     n00b_list_t *tup_types      = n00b_list(n00b_type_typespec());
-    n00b_type_t *li_type        = n00b_new_typevar();
+    n00b_ntype_t li_type        = n00b_new_typevar();
     bool         requires_tuple = false;
 
     for (int i = 0; i < len; i++) {
-        n00b_type_t *t = n00b_get_my_type(n00b_list_get(items, i, NULL));
+        n00b_ntype_t t = n00b_get_my_type(n00b_list_get(items, i, NULL));
         if (!requires_tuple) {
             if (n00b_type_is_error(n00b_unify(li_type, t))) {
                 requires_tuple = true;
             }
         }
-        n00b_list_append(tup_types, t);
+        n00b_list_append(tup_types, (void *)t);
     }
 
     if (!requires_tuple) {
-        n00b_type_t *res_type = n00b_type_resolve(n00b_get_my_type(items));
-        res_type->items       = n00b_type_resolve(li_type)->items;
+        n00b_ntype_t  res_type = n00b_type_resolve(n00b_get_my_type(items));
+        n00b_tnode_t *tn       = n00b_get_tnode(res_type);
+        n00b_list_t  *l        = n00b_type_get_params(res_type);
+
+        for (int i = 0; i < n00b_list_len(l); i++) {
+            n00b_ntype_t  t   = (n00b_ntype_t)n00b_list_get(l, i, NULL);
+            n00b_tnode_t *sub = n00b_get_tnode(t);
+
+            if (tn != sub && sub != &tn->params[i]) {
+                tn->params[i].forward = sub;
+            }
+        }
 
         return items;
     }
 
-    return n00b_new(n00b_type_tuple_from_list(tup_types), contents : items);
+    return n00b_new(n00b_type_tuple(tup_types), contents : items);
 }
 
 const n00b_vtable_t n00b_tuple_vtable = {

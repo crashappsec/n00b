@@ -341,7 +341,7 @@ _n00b_new_fd_stream(n00b_fd_stream_t *fd, ...)
 
     if (n00b_list_len(filters)) {
         void *item = n00b_list_get(filters, 0, NULL);
-        if (n00b_type_is_net_addr(n00b_get_my_type(item))) {
+        if (n00b_type_is_address(n00b_get_my_type(item))) {
             n00b_list_append(args, item); // Network address.
             n00b_list_append(args, (void *)(int64_t)FD_CONNECT);
             n00b_list_dequeue(filters);
