@@ -644,14 +644,14 @@ n00b_prep_first_parse(n00b_grammar_t *g)
 int64_t
 n00b_token_stream_codepoints(n00b_parser_t *parser, void **token_info)
 {
-    n00b_string_t    *str = (n00b_string_t *)parser->user_context;
-    n00b_codepoint_t *p   = (n00b_codepoint_t *)str->data;
+    n00b_string_t *str = (n00b_string_t *)parser->user_context;
+    n00b_string_require_u32(str);
 
     if (parser->position >= str->codepoints) {
         return N00B_TOK_EOF;
     }
 
-    return (int64_t)p[parser->position];
+    return (int64_t)str->u32_data[parser->position];
 }
 
 // In this variation, we have already done, say, a 'lex' pass, and
@@ -682,6 +682,7 @@ n00b_token_stream_strings(n00b_parser_t *parser, void **token_info)
     int64_t n = (int64_t)n00b_dict_get(parser->grammar->terminal_map,
                                        value,
                                        NULL);
+
 
     parser->token_cache = value;
 
