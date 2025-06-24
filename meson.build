@@ -585,7 +585,16 @@ executable(
     c_args: c_args,
     link_args: exe_link_args,
     link_with: link_with,
-)   
+)
+executable(
+   'json',
+   ['tests/c-tests/json_parser.c'],
+    include_directories: incdir,
+    dependencies: deps,
+    c_args: c_args,
+    link_args: exe_link_args,
+    link_with: link_with,
+)
 
 if get_option('build_hatrack').enabled()
     executable(
