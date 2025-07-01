@@ -177,10 +177,10 @@ n00b_repr_spec(n00b_spec_t *spec)
         return n00b_call_out(n00b_cstring("No specification provided."));
     }
 
-    n00b_table_t         *result = n00b_table(columns : 1,
+    n00b_table_t *result = n00b_table(columns : 1,
                                       style : N00B_TABLE_SIMPLE);
-    n00b_spec_section_t **secs;
-    uint64_t              n;
+    n00b_list_t  *secs;
+    uint64_t      n;
 
     if (spec->short_doc) {
         n00b_table_add_cell(result, spec->short_doc);
@@ -196,12 +196,18 @@ n00b_repr_spec(n00b_spec_t *spec)
                             n00b_crich("«i»Overview not provided"));
     }
 
-    secs = (void *)n00b_dict_values(spec->section_specs, &n);
+    secs = n00b_dict_values(spec->section_specs);
+    n    = n00b_list_len(secs);
+
+    n00b_private_list_sort(secs, section_sort);
 
     qsort(secs, (size_t)n, sizeof(n00b_spec_section_t *), (void *)section_sort);
 
     for (unsigned int i = 0; i < n; i++) {
-        n00b_table_add_cell(result, n00b_table_repr_section(secs[i]));
+        n00b_table_add_cell(result,
+                            n00b_table_repr_section(n00b_list_get(secs,
+                                                                  i,
+                                                                  NULL)));
     }
 
     if (spec->locked) {

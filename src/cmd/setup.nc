@@ -42,82 +42,95 @@ n00b_setup_cmd_line(void)
 			            short_doc: n00b_cstring("The n00b compiler"),
                                     long_doc:  n00b_cstring(n00b_cmd_doc));
     n00b_gopt_cspec *compile = n00b_new(n00b_type_getopt_command(),
+      parent:    top,
       context:   gopt,
       name:      n00b_cstring("compile"),
-      short_doc: n00b_cstring("Compiles to an object file without running it."),
-      parent:    top);
+      short_doc: n00b_cstring("Compiles to an object file without running it."));
     n00b_gopt_cspec *build = n00b_new(n00b_type_getopt_command(),
+      parent:    top,
       context:   gopt,
       name:      n00b_cstring("build"),
-      short_doc: n00b_cstring("Alias for compile."),
-      parent:    top);
+      short_doc: n00b_cstring("Alias for compile."));
     n00b_gopt_cspec *run = n00b_new(n00b_type_getopt_command(),
+      parent:    top,
       context:   gopt,
       name:      n00b_cstring("run"),
-      short_doc: n00b_cstring("Runs a file (compiling it first if needed)."),
-      parent:    top);
+      short_doc: n00b_cstring("Runs a file (compiling it first if needed)."));
     n00b_gopt_cspec *record = n00b_new(n00b_type_getopt_command(),
+      parent:    top,
       context:   gopt,
       name:      n00b_cstring("record"),
       short_doc: n00b_cstring("Records a command session, and generates a "
-				"starting test case file."),
-      parent:    top);
+				"starting test case file."));
     n00b_gopt_cspec *play = n00b_new(n00b_type_getopt_command(),
+      parent:    top,
       context:   gopt,
       name:      n00b_cstring("play"),
-      short_doc: n00b_cstring("Play back a terminal capture (.cap10) file"),
-      parent:    top);
+      short_doc: n00b_cstring("Play back a terminal capture (.cap10) file"));
     n00b_gopt_cspec *test = n00b_new(n00b_type_getopt_command(),
+      parent:    top,
       context:   gopt,
       name:      n00b_cstring("test"),
-      short_doc: n00b_cstring("Run existing test cases."),
-      parent:    top);
+      short_doc: n00b_cstring("Run existing test cases."));
 
     /*    n00b_gopt_cspec *test_show =*/n00b_new(n00b_type_getopt_command(),
+      parent:    test,
       context:   gopt,
       name:      n00b_cstring("show"),
-      short_doc: n00b_cstring("Show info about existing test cases."),
-      parent:    test);
+      short_doc: n00b_cstring("Show info about existing test cases."));
 
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_cmdline_parse),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:       N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_parse),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:       N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_tokens),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type: N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_cfg),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:       N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_scopes),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type: N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_deps),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type: N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_spec),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type: N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_disassembly),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:        N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_show_all),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:       N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_ansi),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:       N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_quiet),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:        N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_verbose),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type:        N00B_GOAT_BOOL_T_DEFAULT);
     n00b_new(n00b_type_getopt_option(),
       name:           n00b_cstring((char *)n00b_fl_bright),
-      linked_command: N00B_GOAT_BOOL_T_DEFAULT);
+      linked_command: top,
+      opt_type: N00B_GOAT_BOOL_T_DEFAULT);
 
     n00b_gopt_add_subcommand(gopt, compile, n00b_cstring("(str)+"));
     n00b_gopt_add_subcommand(gopt, build, n00b_cstring("(str)+"));

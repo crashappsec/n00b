@@ -5,7 +5,7 @@ get_all_specs(n00b_gopt_ctx *ctx, n00b_string_t *path)
 {
     n00b_list_t *result = n00b_list(n00b_type_ref());
 
-    if (!path) {
+    if (!path || !path->u8_bytes) {
         n00b_list_append(result, n00b_dict_get(ctx->top_specs, NULL, NULL));
         return result;
     }

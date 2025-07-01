@@ -218,7 +218,7 @@ n00b_dict_lock(n00b_dict_t *d, bool try, uint32_t *count)
 
         uint32_t f = atomic_fetch_or(&b->flags, flags);
 
-        new_used += bucket_reserved(b) & !bucket_deleted(b);
+        new_used += (bucket_reserved(b) & !bucket_deleted(b));
 
         if (f & N00B_HT_FLAG_MUTEX) {
             last_active = i;
@@ -385,6 +385,10 @@ n00b_dict_raw_view(n00b_dict_t *d, uint32_t *n)
             .value = b->value,
             .order = b->insert_order,
         };
+
+        if (ix == items) {
+            break;
+        }
     }
 
     n00b_dict_unlock_post_copy(d);
@@ -445,6 +449,8 @@ _n00b_dict_keys(n00b_dict_t *d, ...)
         result->data[i] = arr[i].key;
     }
 
+    result->append_ix = n;
+
     return result;
 }
 
@@ -474,6 +480,8 @@ _n00b_dict_values(n00b_dict_t *d, ...)
     for (uint32_t i = 0; i < n; i++) {
         result->data[i] = arr[i].value;
     }
+
+    result->append_ix = n;
 
     return result;
 }
@@ -507,6 +515,8 @@ _n00b_dict_items(n00b_dict_t *d, ...)
         t->items[1]     = arr[i].value;
         result->data[i] = (void *)t;
     }
+
+    result->append_ix = n;
 
     return result;
 }

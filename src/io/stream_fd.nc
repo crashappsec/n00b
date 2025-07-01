@@ -383,36 +383,36 @@ _n00b_stream_open_file(n00b_string_t *filename, ...)
 {
     keywords
     {
-        n00b_list_t *filters                     = NULL;
-        bool         read_only                   = false;
-        bool         write_only                  = false;
-        bool         allow_relative_paths        = true;
-        bool         allow_backtracking          = true;
-        bool         normalize_paths             = true;
-        bool         allow_file_creation         = false;
-        bool         error_if_exists             = false;
-        bool         truncate_on_open            = false;
-        bool         writes_always_append        = false;
-        bool         shared_lock                 = false;
-        bool         exclusive_lock              = false;
-        bool         keep_open_on_exec           = false;
-        bool         allow_tty_assumption        = false;
-        bool         open_symlink_not_target     = false;
-        bool         allow_symlinked_targets     = true;
-        bool         follow_symlinks_in_path     = true;
-        bool         target_must_be_regular_file = false;
-        bool         target_must_be_directory    = false;
-        bool         target_must_be_link         = false;
-        bool         target_must_be_special_file = false;
+        n00b_list_t    *filters                     = NULL;
+        bool            read_only                   = false;
+        bool            write_only                  = false;
+        bool            allow_relative_paths        = true;
+        bool            allow_backtracking          = true;
+        bool            normalize_paths             = true;
+        bool            allow_file_creation         = false;
+        bool            error_if_exists             = false;
+        bool            truncate_on_open            = false;
+        bool            writes_always_append        = false;
+        bool            shared_lock                 = false;
+        bool            exclusive_lock              = false;
+        bool            keep_open_on_exec           = false;
+        bool            allow_tty_assumption        = false;
+        bool            open_symlink_not_target     = false;
+        bool            allow_symlinked_targets     = true;
+        bool            follow_symlinks_in_path     = true;
+        bool            target_must_be_regular_file = false;
+        bool            target_must_be_directory    = false;
+        bool            target_must_be_link         = false;
+        bool            target_must_be_special_file = false;
+        n00b_string_t **error_ptr                   = NULL;
     }
 
     // o0744
-    int             permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-    n00b_string_t **error_ptr   = NULL;
-    n00b_string_t  *err;
-    int             relative_fd = 0;
-    int             flags;
-    int             mode;
+    int            permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+    n00b_string_t *err;
+    int            relative_fd = 0;
+    int            flags;
+    int            mode;
 
     if (!n00b_string_codepoint_len(filename)) {
         FERR("Must provide a filename.");

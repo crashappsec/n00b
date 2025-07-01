@@ -22,15 +22,12 @@ n00b_on_exit(void)
 void
 n00b_add_exit_handler(void (*handler)(void))
 {
-    n00b_push_heap(n00b_default_heap);
-
     if (!exit_handlers) {
         exit_handlers = n00b_list(n00b_type_ref());
         atexit(n00b_on_exit);
     }
 
     n00b_list_append(exit_handlers, handler);
-    n00b_pop_heap();
 }
 
 static void

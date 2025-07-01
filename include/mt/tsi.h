@@ -41,9 +41,6 @@ struct n00b_tsi_t {
     // Used by libbacktrace.
     char        *bt_utf8_result;
     void        *trace_table; // really n00b_table_t
-    // Threads are allowed to change their heap; we aren't currently
-    // ever taking advantage of this, but the allocator does respect it.
-    n00b_heap_t *thread_heap;
     int64_t      thread_id;
     int          kargs_next_entry;
     uint8_t      dlogging;

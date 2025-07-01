@@ -93,7 +93,9 @@ set_to_array(n00b_set_t *s, uint32_t *n)
         result[i] = (int64_t)info[i].item;
     }
 
-    result[count] = 0ULL;
+    if (count) {
+        result[count] = 0ULL;
+    }
 
     return result;
 }
@@ -447,9 +449,15 @@ n00b_set_disjunction(n00b_set_t *s1, n00b_set_t *s2)
     return result;
 }
 
+static void
+n00b_set_init_valist(n00b_set_t *s, va_list args)
+{
+    n00b_dict_init_valist((void *)s, args);
+}
+
 const n00b_vtable_t n00b_set_vtable = {
     .methods = {
-        [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)n00b_dict_init_valist,
+        [N00B_BI_CONSTRUCTOR]  = (n00b_vtable_entry)n00b_set_init_valist,
         //        [N00B_BI_TO_STRING]     = (n00b_vtable_entry)n00b_set_to_string,
         [N00B_BI_SHALLOW_COPY] = (n00b_vtable_entry)n00b_dict_shallow_copy,
         [N00B_BI_VIEW]         = (n00b_vtable_entry)set_to_array,

@@ -43,8 +43,6 @@ extern n00b_string_t *n00b_path_remove_extension(n00b_string_t *);
 extern void *n00b_tempfile(n00b_string_t *, n00b_string_t *);
 
 #ifdef N00B_USE_INTERNAL_API
-extern int            n00b_lexical_sort_fn(const n00b_string_t **,
-                                           const n00b_string_t **);
 // These two strip IN PLACE.
 extern void           n00b_path_strip_slashes_both_ends(n00b_string_t *);
 extern n00b_string_t *n00b_path_chop_extension(n00b_string_t *);

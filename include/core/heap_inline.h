@@ -1,5 +1,14 @@
 #include "n00b.h"
 
+static inline n00b_heap_t *
+n00b_current_heap(n00b_heap_t *h)
+{
+    if (h) {
+        return h;
+    }
+    return n00b_default_heap;
+}
+
 static inline bool
 n00b_in_heap(void *addr)
 {

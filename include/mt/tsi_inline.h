@@ -44,41 +44,6 @@ n00b_thread_id(void)
     return n00b_get_tsi_ptr()->thread_id;
 }
 
-static inline n00b_heap_t *
-n00b_thread_heap(void)
-{
-    n00b_tsi_t *tsi = n00b_get_tsi_ptr();
-
-    if (!tsi) {
-        return NULL;
-    }
-
-    return tsi->thread_heap;
-}
-
-static inline void
-n00b_set_thread_heap(n00b_heap_t *h)
-{
-    n00b_get_tsi_ptr()->thread_heap = h;
-}
-
-static inline n00b_heap_t *
-n00b_current_heap(n00b_heap_t *h)
-{
-    if (h) {
-        return h;
-    }
-    h = n00b_thread_heap();
-
-    if (h) {
-        return h;
-    }
-    return n00b_default_heap;
-}
-
-#define n00b_push_heap(heap)
-#define n00b_pop_heap()
-
 #ifdef N00B_MPROTECT_GUARD_ALLOCS
 static inline void
 n00b_alloc_guard_next_new(void)

@@ -7,12 +7,6 @@
 #define read_start(x)  n00b_lock_list_read(x)
 #define read_end(x)    n00b_unlock_list(x)
 
-int
-n00b_lexical_sort_fn(const n00b_string_t **s1, const n00b_string_t **s2)
-{
-    return strcmp((*s1)->data, (*s2)->data);
-}
-
 void
 n00b_list_init(n00b_list_t *list, va_list args)
 {
@@ -25,7 +19,13 @@ n00b_list_init(n00b_list_t *list, va_list args)
 
     list->noscan    = N00B_NOSCAN;
     list->append_ix = 0;
-    list->length    = n00b_max(length, N00B_DEFAULT_LIST_LEN);
+
+    if (contents) {
+        list->length = length + N00B_DEFAULT_LIST_LEN;
+    }
+    else {
+        list->length = n00b_max(length, N00B_DEFAULT_LIST_LEN);
+    }
 
     n00b_rw_lock_init(&list->lock);
 
@@ -36,6 +36,8 @@ n00b_list_init(n00b_list_t *list, va_list args)
         else {
             list->data = contents;
         }
+
+        list->append_ix = length;
     }
     else {
         list->data = n00b_gc_array_alloc(uint64_t *, list->length);

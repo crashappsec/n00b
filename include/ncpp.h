@@ -38,9 +38,8 @@
 #define MMAP_PROTS (PROT_READ | PROT_WRITE)
 #define MMAP_FLAGS (MAP_PRIVATE | MAP_ANON)
 
-
 // Define this to remove #line directives, for debugging.
-// #define SKIP_LINE_DIRECTIVES
+#define SKIP_LINE_DIRECTIVES
 
 typedef struct {
     int64_t len;

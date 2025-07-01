@@ -247,7 +247,7 @@ n00b_type_num_params(n00b_ntype_t t)
 static inline n00b_list_t *
 n00b_type_all_params(n00b_ntype_t t)
 {
-    n00b_list_t *result = n00b_new(n00b_type_typespec());
+    n00b_list_t *result = n00b_list(n00b_type_ref());
 
     if (t <= N00B_T_NUM_PRIMITIVE_BUILTINS) {
         return result;
@@ -261,7 +261,7 @@ n00b_type_all_params(n00b_ntype_t t)
             pnode = pnode->forward;
         }
 
-        n00b_list_append(result, pnode);
+        n00b_private_list_append(result, pnode);
     }
 
     return result;

@@ -578,6 +578,9 @@ n00b_type_instantiate(int32_t base, n00b_karg_info_t *kargs)
     case N00B_T_TREE:
         kind = n00b_thasht_list;
         break;
+    case N00B_T_TUPLE:
+        kind = n00b_thasht_tuple;
+        break;
     case N00B_T_DICT:
         kind = n00b_thasht_dict;
         break;

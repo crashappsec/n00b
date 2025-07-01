@@ -175,7 +175,7 @@ n00b_gopt_init(n00b_gopt_ctx *ctx, va_list args)
     ctx->options = va_arg(args, uint32_t);
 #if 1
     ctx->grammar = n00b_new(n00b_type_grammar(),
-                            detect_errors : true, max_penalty : 1);
+                            detect_errors : false, max_penalty : 0);
 #else
     ctx->grammar = n00b_new(n00b_type_grammar());
 #endif
@@ -873,18 +873,20 @@ n00b_gopt_finalize(n00b_gopt_ctx *gctx)
     // detect those cases and add rules at the 11th hour.
     //
     // This is breadth first.
-    n00b_list_t      *stack = n00b_list(n00b_type_ref());
-    uint64_t          n;
-    n00b_gopt_cspec **tops = (void *)n00b_dict_values(gctx->top_specs, &n);
+    n00b_list_t *stack = n00b_list(n00b_type_ref());
+    n00b_list_t *tops  = (void *)n00b_dict_values(gctx->top_specs);
+    uint64_t     n     = n00b_list_len(tops);
+
     if (!n) {
         N00B_CRAISE("No commands added to the getopt environment.");
     }
 
     for (uint64_t i = 0; i < n; i++) {
-        n00b_list_t *rule = n00b_list(n00b_type_ref());
-        n00b_list_append(rule, n00b_pitem_from_nt(tops[i]->rule_nt));
+        n00b_list_t     *rule     = n00b_list(n00b_type_ref());
+        n00b_gopt_cspec *top_item = n00b_list_get(tops, i, NULL);
+        n00b_list_append(rule, n00b_pitem_from_nt(top_item->rule_nt));
         n00b_ruleset_add_rule(gctx->grammar, gctx->nt_start, rule, 0);
-        n00b_list_append(stack, tops[i]);
+        n00b_list_append(stack, top_item);
     }
 
     while (n00b_len(stack) != 0) {
@@ -896,22 +898,26 @@ n00b_gopt_finalize(n00b_gopt_ctx *gctx)
             continue;
         }
 
-        tops = (void *)n00b_dict_values(one->sub_commands,
-                                        &n);
+        tops = (void *)n00b_dict_values(one->sub_commands);
+        n    = n00b_list_len(tops);
+
         if (!n) {
             continue;
         }
         for (uint64_t i = 0; i < n; i++) {
             n00b_parse_rule_t *pr;
+            n00b_gopt_cspec   *top_item = n00b_list_get(tops, i, NULL);
 
-            if (!tops[i]->explicit_parent_rule) {
+            if (!top_item->explicit_parent_rule) {
                 n00b_list_t *items = n00b_list(n00b_type_int());
-                n00b_list_append(items, (void *)tops[i]->token_id);
+
+                n00b_list_append(items, (void *)top_item->token_id);
+
                 pr        = n00b_gopt_command_add_rule(gctx, one, items);
                 pr->thunk = (void *)~0ULL;
             }
 
-            n00b_list_append(stack, tops[i]);
+            n00b_list_append(stack, top_item);
         }
     }
 
@@ -1042,7 +1048,6 @@ n00b_goption_init(n00b_goption_t *option, va_list args)
             "Must provide a getopt context in the 'context' field, "
             "or linked_command to a command that has an associated context.");
     }
-
     if (!name) {
         N00B_CRAISE("getopt options must have the 'name' field set.");
     }
@@ -1052,7 +1057,6 @@ n00b_goption_init(n00b_goption_t *option, va_list args)
         N00B_CRAISE("Options may not contain '=' or ',' in the name.");
     }
     // clang-format on
-
     n00b_goption_t *linked_option = NULL;
 
     switch (opt_type) {
@@ -1133,8 +1137,10 @@ check_link:
                                        NULL);
     }
 
+    bool compat = false;
+
     if (linked_option) {
-        bool compat = false;
+        compat = false;
 
         if (linked_option->linked_command != linked_command) {
             N00B_CRAISE("Linked options must be part of the same command.");
@@ -1191,12 +1197,14 @@ check_link:
         default:
             n00b_unreachable();
         }
+
         if (!compat) {
             N00B_CRAISE(
                 "Type of linked option is not compatible with "
                 "the declared type of the current option.");
         }
     }
+
     option->name           = name;
     option->short_doc      = short_doc;
     option->long_doc       = long_doc;

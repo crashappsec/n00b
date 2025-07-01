@@ -716,11 +716,11 @@ check_opt_against_commands(n00b_gopt_extraction_ctx *ctx, n00b_rt_option_t *opt)
 static inline void
 gopt_do_flag_validation(n00b_gopt_extraction_ctx *ctx)
 {
-    uint64_t           n;
-    n00b_rt_option_t **option_info = (void *)n00b_dict_values(ctx->flags, &n);
+    n00b_list_t *option_info = (void *)n00b_dict_values(ctx->flags);
+    uint64_t     n           = n00b_list_len(option_info);
 
     for (uint64_t i = 0; i < n; i++) {
-        check_opt_against_commands(ctx, option_info[i]);
+        check_opt_against_commands(ctx, n00b_list_get(option_info, i, NULL));
     }
 }
 

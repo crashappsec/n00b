@@ -453,6 +453,10 @@ new_earley_item(void)
     n00b_earley_item_t *result = n00b_gc_alloc_mapped(n00b_earley_item_t,
                                                       N00B_GC_SCAN_ALL);
     result->noscan             = N00B_NOSCAN;
+    result->parent_states      = n00b_set(n00b_type_ref());
+    result->predictions        = n00b_set(n00b_type_ref());
+    result->completors         = n00b_set(n00b_type_ref());
+
     return result;
 }
 

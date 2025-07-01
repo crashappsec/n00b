@@ -34,7 +34,7 @@ typedef struct n00b_dict_t {
     _Atomic uint32_t             length;
     n00b_futex_t                 futex;
     uint32_t                     use_mmap        : 1;
-    uint32_t                     no_heap_data    : 1;    
+    uint32_t                     no_heap_data    : 1;
     uint32_t                     non_object_keys : 1;
 } n00b_dict_t;
 
@@ -99,16 +99,16 @@ extern __int128_t            n00b_word_hash(uint64_t);
 extern __int128_t            n00b_string_hash(n00b_string_t *);
 
 #define n00b_dict_keys(x, ...) \
-    _n00b_dict_keys(x __VA_OPT__(, ) __VA_ARGS__, 0ULL)
+    _n00b_dict_keys(x, N00B_VA(__VA_ARGS__))
 
 #define n00b_dict_values(x, ...) \
-    _n00b_dict_values(x __VA_OPT__(, ) __VA_ARGS__, 0ULL)
+    _n00b_dict_values(x, N00B_VA(__VA_ARGS__))
 
 #define n00b_dict_items(x, ...) \
-    _n00b_dict_items(x __VA_OPT__(, ) __VA_ARGS__, 0ULL)
+    _n00b_dict_items(x, N00B_VA(__VA_ARGS__))
 
 #define n00b_dict(x, y, ...) \
-    n00b_new(n00b_type_dict(x, y) __VA_OPT__(, ) __VA_ARGS__, 0ULL)
+    n00b_new(n00b_type_dict(x, y), N00B_VA(__VA_ARGS__))
 
 static inline bool
 n00b_dict_contains(n00b_dict_t *d, void *v)

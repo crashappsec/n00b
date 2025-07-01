@@ -81,7 +81,6 @@ _n00b_addr_in_one_heap(n00b_heap_t *h, void *p)
 n00b_string_t *
 n00b_debug_repr_heap(n00b_heap_t *p)
 {
-    n00b_push_heap(n00b_default_heap);
     n00b_crit_t   crit = atomic_read(&p->ptr);
     char         *head = (char *)crit.next_alloc;
     int64_t       used = 0;
@@ -143,7 +142,6 @@ n00b_debug_repr_heap(n00b_heap_t *p)
                      propstr);
 
     if (p->released) {
-        n00b_pop_heap();
         return r;
     }
 
@@ -177,7 +175,6 @@ n00b_debug_repr_heap(n00b_heap_t *p)
         }
     }
 
-    n00b_pop_heap();
     return r;
 }
 
@@ -246,14 +243,12 @@ n00b_debug_log_heap(n00b_heap_t *p)
 n00b_string_t *
 n00b_debug_repr_all_heaps(void)
 {
-    n00b_push_heap(n00b_default_heap);
     n00b_string_t *r = n00b_debug_repr_heap(n00b_all_heaps);
 
     for (unsigned int i = 1; i < n00b_next_heap_index; i++) {
         r = n00b_string_concat(r, n00b_debug_repr_heap(n00b_all_heaps + i));
     }
 
-    n00b_pop_heap();
     return r;
 }
 

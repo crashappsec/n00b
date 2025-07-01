@@ -407,8 +407,7 @@ n00b_equals(void *o1, void *o2)
 {
     n00b_ntype_t t1 = n00b_get_my_type(o1);
     n00b_ntype_t t2 = n00b_get_my_type(o2);
-    int          warn;
-    n00b_ntype_t m = n00b_unify(t1, t2, &warn);
+    n00b_ntype_t m  = n00b_unify(t1, t2);
 
     if (n00b_type_is_error(m)) {
         return false;
