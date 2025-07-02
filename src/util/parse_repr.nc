@@ -60,7 +60,7 @@ n00b_repr_term(n00b_grammar_t *grammar, int64_t id)
             buf[l + 1] = '\'';
             return n00b_cstring(buf);
         }
-        return n00b_cformat("'U+«:x»'", id);
+        return n00b_cformat("'U+«#:x»'", id);
     }
 
     id -= N00B_START_TOK_ID;
