@@ -1,7 +1,14 @@
 #pragma once
 
-// #define _XOPEN_SOURCE 700
-// #define _POSIX_C_SOURCE 200809L
+#define _DEFAULT_SOURCE
+#ifndef TIMEVAL_TO_TIMESPEC
+# define TIMEVAL_TO_TIMESPEC(tv, ts)              \
+   do { (ts)->tv_sec  = (tv)->tv_sec;             \
+        (ts)->tv_nsec = (tv)->tv_usec * 1000;     \
+   } while (0)
+#endif
+#define _XOPEN_SOURCE 700
+#define _POSIX_C_SOURCE 200809L
 
 #include "n00b/config.h"
 #include "vendor.h"
